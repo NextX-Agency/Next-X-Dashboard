@@ -3,6 +3,7 @@
 
 [project]
 # Your Supabase project reference ID
+# Get this from your Supabase dashboard: https://app.supabase.com/project/_/settings/general
 project_id = "your-project-id"
 
 [api]
