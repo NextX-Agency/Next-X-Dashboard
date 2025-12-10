@@ -1,6 +1,8 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { 
   Package, 
   MapPin, 
@@ -18,21 +20,147 @@ import {
 } from 'lucide-react'
 import { StatCard, ChartCard, QuickActionCard, ActivityItem } from '@/components/Cards'
 
+type DashboardStats = {
+  totalSalesUSD: number
+  totalSalesSRD: number
+  activeOrders: number
+  stockItems: number
+  totalRevenue: number
+  todaysSales: number
+  salesTrend: number
+  recentActivity: Array<{
+    icon: any
+    title: string
+    time: string
+    color: 'orange' | 'blue' | 'green' | 'purple'
+  }>
+}
+
 export default function Home() {
   const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats>({
+    totalSalesUSD: 0,
+    totalSalesSRD: 0,
+    activeOrders: 0,
+    stockItems: 0,
+    totalRevenue: 0,
+    todaysSales: 0,
+    salesTrend: 0,
+    recentActivity: []
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const [monthlySales, setMonthlySales] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+  const loadDashboardData = async () => {
+    try {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+
+      const [salesRes, stockRes, reservationsRes, exchangeRes] = await Promise.all([
+        supabase.from('sales').select('*'),
+        supabase.from('stock').select('*'),
+        supabase.from('reservations').select('*').eq('status', 'pending'),
+        supabase.from('exchange_rates').select('*').eq('is_active', true).single()
+      ])
+
+      const sales = salesRes.data || []
+      const stock = stockRes.data || []
+      const reservations = reservationsRes.data || []
+      const currentRate = exchangeRes.data
+
+      // Calculate monthly sales for chart
+      const monthlyData = Array(12).fill(0)
+      sales.forEach(sale => {
+        const month = new Date(sale.created_at).getMonth()
+        monthlyData[month] += Number(sale.total_amount)
+      })
+      setMonthlySales(monthlyData)
+
+      // Calculate total sales
+      const totalUSD = sales.filter(s => s.currency === 'USD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const totalSRD = sales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+
+      // Today's sales
+      const todaySales = sales.filter(s => new Date(s.created_at) >= today)
+      const todaysTotal = todaySales.reduce((sum, s) => sum + Number(s.total_amount), 0)
+
+      // Yesterday's sales for trend
+      const yesterdaySales = sales.filter(s => {
+        const date = new Date(s.created_at)
+        return date >= yesterday && date < today
+      })
+      const yesterdaysTotal = yesterdaySales.reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const trend = yesterdaysTotal > 0 ? ((todaysTotal - yesterdaysTotal) / yesterdaysTotal) * 100 : 0
+
+      // Stock items with quantity > 0
+      const stockItemsCount = stock.filter(s => s.quantity > 0).length
+
+      // Total revenue (convert SRD to USD)
+      const srdToUSD = currentRate ? totalSRD / Number(currentRate.usd_to_srd) : totalSRD / 40
+      const totalRevenue = totalUSD + srdToUSD
+
+      // Recent activity - get last 4 sales
+      const recentSales = sales.slice(-4).reverse()
+      const activity = recentSales.map(sale => ({
+        icon: ShoppingCart,
+        title: `New sale - ${sale.currency} ${Number(sale.total_amount).toFixed(2)}`,
+        time: getTimeAgo(sale.created_at),
+        color: 'orange' as const
+      }))
+
+      // Add exchange rate update if available
+      if (currentRate) {
+        activity.push({
+          icon: DollarSign,
+          title: `Exchange rate: 1 USD = ${currentRate.usd_to_srd} SRD`,
+          time: getTimeAgo(currentRate.set_at),
+          color: 'green' as const
+        })
+      }
+
+      setStats({
+        totalSalesUSD: totalUSD,
+        totalSalesSRD: totalSRD,
+        activeOrders: reservations.length,
+        stockItems: stockItemsCount,
+        totalRevenue,
+        todaysSales: todaysTotal,
+        salesTrend: Math.abs(trend),
+        recentActivity: activity.slice(0, 4)
+      })
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  }
 
   const quickActions = [
     { name: 'New Sale', icon: ShoppingCart, path: '/sales', color: 'orange' as const },
     { name: 'Add Stock', icon: Package, path: '/stock', color: 'blue' as const },
     { name: 'Exchange Rate', icon: DollarSign, path: '/exchange', color: 'green' as const },
     { name: 'View Reports', icon: BarChart3, path: '/reports', color: 'purple' as const },
-  ]
-
-  const recentActivity = [
-    { icon: ShoppingCart, title: 'New sale completed - $450', time: '5 minutes ago', color: 'orange' as const },
-    { icon: Package, title: 'Stock updated for Item #1234', time: '15 minutes ago', color: 'blue' as const },
-    { icon: DollarSign, title: 'Exchange rate updated to 1:42', time: '1 hour ago', color: 'green' as const },
-    { icon: Users, title: 'Commission calculated for John', time: '2 hours ago', color: 'purple' as const },
   ]
 
   return (
@@ -66,15 +194,15 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
                 <div className="text-sm font-medium text-orange-100 mb-1">Today's Sales</div>
-                <div className="text-2xl font-bold">$2,430</div>
+                <div className="text-2xl font-bold">${stats.todaysSales.toFixed(2)}</div>
                 <div className="text-xs text-orange-200 mt-1 flex items-center gap-1">
                   <ArrowUpRight size={12} />
-                  +18% vs yesterday
+                  {stats.salesTrend > 0 ? '+' : ''}{stats.salesTrend.toFixed(1)}% vs yesterday
                 </div>
               </div>
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
                 <div className="text-sm font-medium text-orange-100 mb-1">Active Orders</div>
-                <div className="text-2xl font-bold">47</div>
+                <div className="text-2xl font-bold">{stats.activeOrders}</div>
                 <div className="text-xs text-orange-200 mt-1">Processing now</div>
               </div>
             </div>
@@ -86,31 +214,31 @@ export default function Home() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
           <StatCard 
-            title="Total Sales" 
-            value="$12,450" 
+            title="Total Sales (USD)" 
+            value={`$${stats.totalSalesUSD.toFixed(2)}`}
             icon={DollarSign}
-            trend={{ value: "12%", isPositive: true }}
+            trend={{ value: `${stats.salesTrend.toFixed(1)}%`, isPositive: stats.salesTrend >= 0 }}
             color="orange"
           />
           <StatCard 
-            title="Active Orders" 
-            value="47" 
+            title="Active Reservations" 
+            value={stats.activeOrders.toString()}
             icon={ShoppingCart}
-            trend={{ value: "8%", isPositive: true }}
+            trend={{ value: "Pending", isPositive: true }}
             color="blue"
           />
           <StatCard 
             title="Stock Items" 
-            value="1,234" 
+            value={stats.stockItems.toString()}
             icon={Package}
-            trend={{ value: "3%", isPositive: false }}
+            trend={{ value: "In Stock", isPositive: true }}
             color="green"
           />
           <StatCard 
             title="Total Revenue" 
             icon={TrendingUp}
-            value="$45.2K" 
-            trend={{ value: "15%", isPositive: true }}
+            value={`$${stats.totalRevenue.toFixed(2)}`}
+            trend={{ value: "All time", isPositive: true }}
             color="purple"
           />
         </div>
@@ -141,61 +269,75 @@ export default function Home() {
           {/* Chart Section */}
           <div className="lg:col-span-2 space-y-6">
             <ChartCard 
-              title="Monthly Profit" 
-              subtitle="Trends from all brands"
+              title="Monthly Sales" 
+              subtitle="Sales trends throughout the year"
               action={
-                <button className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium">
+                <button 
+                  onClick={() => router.push('/reports')}
+                  className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                >
                   View All <ArrowUpRight size={16} />
                 </button>
               }
             >
               <div className="h-64 lg:h-80 flex items-end justify-between gap-2 lg:gap-4">
-                {[40, 60, 45, 75, 55, 85, 70, 90, 65, 80, 75, 95].map((height, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div 
-                      className="w-full bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg hover:from-orange-600 hover:to-orange-500 transition-all cursor-pointer"
-                      style={{ height: `${height}%` }}
-                    ></div>
-                    <span className="text-xs text-gray-500 hidden lg:block">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</span>
-                  </div>
-                ))}
+                {monthlySales.map((amount, i) => {
+                  const maxSale = Math.max(...monthlySales, 1)
+                  const height = (amount / maxSale) * 100 || 5
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+                      <div className="relative">
+                        <div 
+                          className="w-full bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg hover:from-orange-600 hover:to-orange-500 transition-all cursor-pointer"
+                          style={{ height: `${Math.max(height, 5)}px`, minHeight: '5px' }}
+                          title={`${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}: $${amount.toFixed(2)}`}
+                        ></div>
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          ${amount.toFixed(0)}
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-500 hidden lg:block">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</span>
+                    </div>
+                  )
+                })}
               </div>
             </ChartCard>
 
-            {/* Brand Sales - Desktop Only */}
+            {/* Quick Stats - Desktop Only */}
             <div className="hidden lg:block">
-              <ChartCard title="Brand Sales" subtitle="Distribution by category">
-                <div className="flex items-center justify-center gap-8">
-                  <div className="relative w-48 h-48">
-                    <svg viewBox="0 0 100 100" className="transform -rotate-90">
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#E5E7EB" strokeWidth="12" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#F97316" strokeWidth="12" 
-                        strokeDasharray="75 25" strokeDashoffset="0" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#3B82F6" strokeWidth="12" 
-                        strokeDasharray="15 85" strokeDashoffset="-75" />
-                      <circle cx="50" cy="50" r="40" fill="none" stroke="#10B981" strokeWidth="12" 
-                        strokeDasharray="10 90" strokeDashoffset="-90" />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center flex-col">
-                      <span className="text-3xl font-bold text-gray-900">$3.2K</span>
-                      <span className="text-sm text-gray-500">Total</span>
+              <ChartCard title="Quick Stats" subtitle="Overview of key metrics">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-orange-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                        <DollarSign className="text-white" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Total Sales (USD)</p>
+                        <p className="text-xl font-bold text-gray-900">${stats.totalSalesUSD.toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-3">
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                      <span className="text-sm text-gray-700">Brand A</span>
-                      <span className="text-sm font-semibold text-gray-900 ml-auto">$2.4K</span>
+                      <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                        <Package className="text-white" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Stock Items</p>
+                        <p className="text-xl font-bold text-gray-900">{stats.stockItems}</p>
+                      </div>
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <span className="text-sm text-gray-700">Brand B</span>
-                      <span className="text-sm font-semibold text-gray-900 ml-auto">$480</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      <span className="text-sm text-gray-700">Brand C</span>
-                      <span className="text-sm font-semibold text-gray-900 ml-auto">$320</span>
+                      <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                        <ShoppingCart className="text-white" size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Pending Reservations</p>
+                        <p className="text-xl font-bold text-gray-900">{stats.activeOrders}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -207,9 +349,15 @@ export default function Home() {
           <div className="lg:col-span-1">
             <ChartCard title="Recent Activity" subtitle="Latest updates">
               <div className="space-y-2">
-                {recentActivity.map((activity, i) => (
-                  <ActivityItem key={i} {...activity} />
-                ))}
+                {loading ? (
+                  <div className="text-center py-8 text-gray-500">Loading...</div>
+                ) : stats.recentActivity.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No recent activity</div>
+                ) : (
+                  stats.recentActivity.map((activity, i) => (
+                    <ActivityItem key={i} {...activity} />
+                  ))
+                )}
               </div>
             </ChartCard>
           </div>

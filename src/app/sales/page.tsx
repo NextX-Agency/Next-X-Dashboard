@@ -26,6 +26,7 @@ export default function SalesPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank'>('cash')
   const [currentRate, setCurrentRate] = useState<ExchangeRate | null>(null)
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
+  const [reservationsMap, setReservationsMap] = useState<Map<string, number>>(new Map())
 
   useEffect(() => {
     loadData()
@@ -34,6 +35,7 @@ export default function SalesPage() {
   useEffect(() => {
     if (selectedLocation) {
       loadStock(selectedLocation)
+      loadReservations(selectedLocation)
     }
   }, [selectedLocation])
 
@@ -64,9 +66,27 @@ export default function SalesPage() {
     }
   }
 
+  const loadReservations = async (locationId: string) => {
+    const { data } = await supabase
+      .from('reservations')
+      .select('*')
+      .eq('location_id', locationId)
+      .eq('status', 'pending')
+    
+    if (data) {
+      const map = new Map<string, number>()
+      data.forEach((reservation: any) => {
+        const current = map.get(reservation.item_id) || 0
+        map.set(reservation.item_id, current + reservation.quantity)
+      })
+      setReservationsMap(map)
+    }
+  }
+
   const getAvailableStock = (itemId: string) => {
-    const reserved = 0 // TODO: Calculate reserved items
-    return (stockMap.get(itemId) || 0) - reserved
+    const totalStock = stockMap.get(itemId) || 0
+    const reserved = reservationsMap.get(itemId) || 0
+    return totalStock - reserved
   }
 
   const addToCart = (item: Item) => {
