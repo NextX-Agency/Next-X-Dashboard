@@ -47,19 +47,39 @@ export default function StockPage() {
   }
 
   const loadAllStock = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('stock')
-      .select('*, items(*), locations(*)')
+      .select(`
+        *,
+        items (*),
+        locations (*)
+      `)
       .order('quantity', { ascending: false })
+    
+    if (error) {
+      console.error('Error loading stock:', error)
+      return
+    }
+    
     if (data) setStocks(data as StockWithDetails[])
   }
 
   const loadStockByLocation = async (locationId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('stock')
-      .select('*, items(*), locations(*)')
+      .select(`
+        *,
+        items (*),
+        locations (*)
+      `)
       .eq('location_id', locationId)
       .order('quantity', { ascending: false })
+    
+    if (error) {
+      console.error('Error loading stock by location:', error)
+      return
+    }
+    
     if (data) setStocks(data as StockWithDetails[])
   }
 
@@ -102,7 +122,11 @@ export default function StockPage() {
 
     setAddForm({ item_id: '', location_id: '', quantity: '' })
     setShowAddForm(false)
-    loadAllStock()
+    if (selectedLocation) {
+      await loadStockByLocation(selectedLocation)
+    } else {
+      await loadAllStock()
+    }
   }
 
   const handleTransferStock = async (e: React.FormEvent) => {
@@ -161,7 +185,11 @@ export default function StockPage() {
 
     setTransferForm({ item_id: '', from_location_id: '', to_location_id: '', quantity: '' })
     setShowTransferForm(false)
-    loadAllStock()
+    if (selectedLocation) {
+      await loadStockByLocation(selectedLocation)
+    } else {
+      await loadAllStock()
+    }
   }
 
   const handleRemoveStock = async (stockId: string, currentQty: number) => {
@@ -180,7 +208,11 @@ export default function StockPage() {
     } else {
       await supabase.from('stock').update({ quantity: newQty }).eq('id', stockId)
     }
-    loadAllStock()
+    if (selectedLocation) {
+      await loadStockByLocation(selectedLocation)
+    } else {
+      await loadAllStock()
+    }
   }
 
   const filteredStocks = showLowStock 
