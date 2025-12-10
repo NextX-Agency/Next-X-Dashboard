@@ -1,0 +1,33 @@
+# Supabase configuration file
+# This file will be used to configure Supabase CLI and local development
+
+[project]
+# Your Supabase project reference ID
+# Get this from your Supabase dashboard: https://app.supabase.com/project/_/settings/general
+project_id = "your-project-id"
+
+[api]
+# Port to use for the API URL
+port = 54321
+# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API endpoints. public and storage are always included.
+schemas = ["public", "storage"]
+# Extra schemas to add to the search_path of every request. public is always included.
+extra_search_path = ["public", "extensions"]
+# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size for accidental or malicious requests.
+max_rows = 1000
+
+[db]
+# Port to use for the local database URL
+port = 54322
+# Schemas to expose in the database. tables in these schemas will be migrated.
+schemas = ["public", "storage", "graphql_public"]
+
+[studio]
+# Port to use for Supabase Studio
+port = 54323
+
+[auth]
+# Port to use for the Auth API
+port = 54324
+# The base URL of your website. Used as an allow-list for redirects and for constructing URLs used in emails.
+site_url = "http://localhost:3000"
