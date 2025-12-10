@@ -1,33 +1,55 @@
-# Next-X-Dashboard
+# Next-X Dashboard
 
-**Serverless** mobile-first dashboard application built with Next.js and Supabase.
+A **mobile-first** inventory and sales management system built with Next.js, Supabase, and Tailwind CSS.
 
-## 🌟 Architecture
+## ✨ Features
 
-This is a **fully serverless** stack:
-- ✅ **Frontend**: Next.js deployed on Vercel
-- ✅ **Backend**: Next.js API Routes (no separate backend needed!)
-- ✅ **Database**: Supabase (PostgreSQL + Auth + Storage)
-- ✅ **Zero server maintenance** - focus on features, not infrastructure
+✅ **Item & Category Management** - Create, edit, delete items and categories  
+✅ **Location Management** - Multi-location support with individual stock tracking  
+✅ **Stock Management** - Add, remove, and transfer stock between locations  
+✅ **Currency & Exchange Rate** - USD ↔ SRD conversion with locked rates per sale  
+✅ **Sales System** - Complete sales workflow with invoice generation  
+✅ **Reservation System** - Client records and item reservations  
+✅ **Cash & Wallet Tracking** - Track cash per person in SRD and USD (cash/bank)  
+✅ **Expenses** - Record expenses with categories and wallet deduction  
+✅ **Commission System** - Track sales commissions per seller  
+✅ **Budgeting & Goals** - Create budgets and track financial goals  
+✅ **Reports & Insights** - Sales reports, profit analysis, and stock valuation
+
+## 🛠 Tech Stack
+
+- **Frontend**: Next.js 16 + React 19
+- **Styling**: Tailwind CSS 4
+- **UI Components**: shadcn/ui + Lucide Icons
+- **Database**: Supabase (PostgreSQL)
+- **Language**: TypeScript
 
 ## 📁 Project Structure
 
 ```
 Next-X-Dashboard/
-├── src/                    # Next.js application
-│   ├── app/                # App Router
-│   │   ├── api/            # API Routes (serverless backend)
-│   │   │   ├── hello/      # Example endpoint
-│   │   │   └── users/      # CRUD API example
-│   │   ├── globals.css
-│   │   ├── page.tsx
-│   │   └── layout.tsx
-│   └── lib/                # Utilities & Supabase client
-│       ├── supabase.ts     # Supabase client configuration
-│       └── utils.ts
-│
-├── public/                 # Static assets
-├── supabase/              # Supabase configuration
+├── src/
+│   ├── app/
+│   │   ├── items/          # Item & Category Management
+│   │   ├── locations/      # Location Management
+│   │   ├── stock/          # Stock Management
+│   │   ├── exchange/       # Exchange Rate Management
+│   │   ├── sales/          # Sales System
+│   │   ├── reservations/   # Reservation System
+│   │   ├── wallets/        # Wallet Tracking
+│   │   ├── expenses/       # Expense Management
+│   │   ├── commissions/    # Commission Tracking
+│   │   ├── budgets/        # Budgets & Goals
+│   │   └── reports/        # Reports & Insights
+│   ├── components/
+│   │   └── BottomNav.tsx   # Mobile Bottom Navigation
+│   ├── lib/
+│   │   ├── supabase.ts     # Supabase Client
+│   │   └── utils.ts
+│   └── types/
+│       └── database.types.ts # Database Type Definitions
+├── supabase/
+│   └── migrations/         # Database Schema
 │   └── config.toml
 │
 ├── .env.local.example      # Environment variables template
