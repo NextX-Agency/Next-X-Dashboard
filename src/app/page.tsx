@@ -106,6 +106,3 @@ export function BottomNav() {
     </nav>
   )
 }
-    </div>
-  );
-}
