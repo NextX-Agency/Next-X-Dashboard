@@ -10,19 +10,19 @@ export function PageHeader({
   icon?: React.ReactNode 
 }) {
   return (
-    <div className="bg-card/95 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+    <div className="bg-card/95 border-b border-border lg:sticky lg:top-0 z-10 backdrop-blur-sm">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-6">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {icon && (
-              <div className="w-10 h-10 rounded-xl bg-[hsl(var(--primary-muted))] flex items-center justify-center flex-shrink-0">
+              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-[hsl(var(--primary-muted))] items-center justify-center flex-shrink-0">
                 <div className="text-primary">{icon}</div>
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
+              <h1 className="text-lg lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
               {subtitle && (
-                <p className="text-sm text-muted-foreground mt-0.5 truncate">{subtitle}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground mt-0.5 truncate hidden sm:block">{subtitle}</p>
               )}
             </div>
           </div>

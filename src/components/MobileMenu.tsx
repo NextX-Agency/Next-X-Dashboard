@@ -13,7 +13,8 @@ import {
   Calendar, 
   Target,
   BarChart3,
-  LayoutDashboard
+  LayoutDashboard,
+  Activity
 } from 'lucide-react'
 
 interface MobileMenuProps {
@@ -38,6 +39,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     { name: 'Commissions', icon: Users, path: '/commissions' },
     { name: 'Budgets', icon: Target, path: '/budgets' },
     { name: 'Reports', icon: BarChart3, path: '/reports' },
+    { name: 'Activity Log', icon: Activity, path: '/activity' },
   ]
 
   const handleNavigation = (path: string) => {

@@ -78,15 +78,23 @@ export default function ReportsPage() {
 
   const getTotalProfit = () => {
     let profit = 0
+    const conversionRate = 40 // 1 USD = 40 SRD
+    
     sales
       .filter(s => !selectedLocation || s.location_id === selectedLocation)
       .forEach(sale => {
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item) {
-            const cost = item.purchase_price_usd * saleItem.quantity
-            const revenue = saleItem.subtotal
-            profit += revenue - cost
+            const costInUSD = item.purchase_price_usd * saleItem.quantity
+            let revenueInUSD = saleItem.subtotal
+            
+            // Convert SRD revenue to USD using conversion rate
+            if (sale.currency === 'SRD') {
+              revenueInUSD = saleItem.subtotal / conversionRate
+            }
+            
+            profit += revenueInUSD - costInUSD
           }
         })
       })
@@ -135,6 +143,8 @@ export default function ReportsPage() {
   }
 
   const getProfitByLocation = () => {
+    const conversionRate = 40 // 1 USD = 40 SRD
+    
     return locations.map(location => {
       const locationSales = sales.filter(s => s.location_id === location.id)
       let profit = 0
@@ -143,8 +153,15 @@ export default function ReportsPage() {
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item) {
-            const cost = item.purchase_price_usd * saleItem.quantity
-            profit += saleItem.subtotal - cost
+            const costInUSD = item.purchase_price_usd * saleItem.quantity
+            let revenueInUSD = saleItem.subtotal
+            
+            // Convert SRD revenue to USD using conversion rate
+            if (sale.currency === 'SRD') {
+              revenueInUSD = saleItem.subtotal / conversionRate
+            }
+            
+            profit += revenueInUSD - costInUSD
           }
         })
       })
@@ -229,7 +246,7 @@ export default function ReportsPage() {
                 <span className="text-caption text-muted-foreground">Sales (USD)</span>
               </div>
               <div className="text-3xl font-bold tracking-tight">
-                ${getTotalSales('USD').toFixed(2)}
+                ${getTotalSales('USD').toFixed(2)} USD
               </div>
             </div>
           </div>
@@ -244,7 +261,7 @@ export default function ReportsPage() {
                 <span className="text-caption text-muted-foreground">Est. Profit</span>
               </div>
               <div className="text-3xl font-bold tracking-tight">
-                ${getTotalProfit().toFixed(2)}
+                ${getTotalProfit().toFixed(2)} USD
               </div>
             </div>
           </div>
@@ -309,13 +326,13 @@ export default function ReportsPage() {
                   <div className="bg-[hsl(var(--success-muted))] rounded-xl p-3.5 border border-[hsl(var(--success))]/20">
                     <div className="text-xs text-muted-foreground mb-1 font-medium">Profit</div>
                     <div className="text-2xl font-bold text-[hsl(var(--success))]">
-                      ${stat.profit.toFixed(2)}
+                      ${stat.profit.toFixed(2)} USD
                     </div>
                   </div>
                   <div className="bg-muted/50 rounded-xl p-3.5 border border-border/50">
                     <div className="text-xs text-muted-foreground mb-1 font-medium">Stock Value</div>
                     <div className="text-2xl font-bold text-foreground">
-                      ${stat.stockValue.toFixed(2)}
+                      ${stat.stockValue.toFixed(2)} USD
                     </div>
                   </div>
                 </div>

@@ -3,18 +3,23 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Wallet, Plus, DollarSign } from 'lucide-react'
+import { Wallet, Plus, DollarSign, Edit, Trash2, Search, Filter, X, ArrowUpDown } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
-import { WalletCard, Modal } from '@/components/PageCards'
+import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { logActivity } from '@/lib/activityLog'
 
 type WalletType = Database['public']['Tables']['wallets']['Row']
+
+type SortField = 'name' | 'balance' | 'type'
+type SortOrder = 'asc' | 'desc'
 
 export default function WalletsPage() {
   const [wallets, setWallets] = useState<WalletType[]>([])
   const [showForm, setShowForm] = useState(false)
   const [showTransactionForm, setShowTransactionForm] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
+  const [editingWallet, setEditingWallet] = useState<WalletType | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [walletForm, setWalletForm] = useState({
@@ -27,6 +32,13 @@ export default function WalletsPage() {
     type: 'add' as 'add' | 'remove',
     amount: ''
   })
+  
+  // Filter and sort states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterType, setFilterType] = useState<string>('')
+  const [filterCurrency, setFilterCurrency] = useState<string>('')
+  const [sortField, setSortField] = useState<SortField>('name')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
   const loadWallets = async () => {
     setLoading(true)
@@ -39,23 +51,73 @@ export default function WalletsPage() {
     loadWallets()
   }, [])
 
-  const handleCreateWallet = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setWalletForm({ person_name: '', type: 'cash', currency: 'SRD', balance: '' })
+    setEditingWallet(null)
+    setShowForm(false)
+  }
+
+  const handleSubmitWallet = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
     setSubmitting(true)
     try {
-      await supabase.from('wallets').insert({
+      const data = {
         person_name: walletForm.person_name,
         type: walletForm.type,
         currency: walletForm.currency,
         balance: parseFloat(walletForm.balance) || 0
-      })
-      setWalletForm({ person_name: '', type: 'cash', currency: 'SRD', balance: '' })
-      setShowForm(false)
+      }
+
+      if (editingWallet) {
+        await supabase.from('wallets').update(data).eq('id', editingWallet.id)
+        await logActivity({
+          action: 'update',
+          entityType: 'wallet',
+          entityId: editingWallet.id,
+          entityName: walletForm.person_name,
+          details: `Updated wallet: ${walletForm.type} ${walletForm.currency}`
+        })
+      } else {
+        const { data: newWallet } = await supabase.from('wallets').insert(data).select().single()
+        await logActivity({
+          action: 'create',
+          entityType: 'wallet',
+          entityId: newWallet?.id,
+          entityName: walletForm.person_name,
+          details: `Created ${walletForm.type} wallet in ${walletForm.currency} with initial balance ${formatCurrency(parseFloat(walletForm.balance) || 0, walletForm.currency)}`
+        })
+      }
+      resetForm()
       loadWallets()
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEditWallet = (wallet: WalletType) => {
+    setEditingWallet(wallet)
+    setWalletForm({
+      person_name: wallet.person_name,
+      type: wallet.type as 'cash' | 'bank',
+      currency: wallet.currency as Currency,
+      balance: wallet.balance.toString()
+    })
+    setShowForm(true)
+  }
+
+  const handleDeleteWallet = async (wallet: WalletType) => {
+    if (!confirm(`Delete wallet "${wallet.person_name}"? This cannot be undone.`)) return
+    
+    await supabase.from('wallets').delete().eq('id', wallet.id)
+    await logActivity({
+      action: 'delete',
+      entityType: 'wallet',
+      entityId: wallet.id,
+      entityName: wallet.person_name,
+      details: `Deleted ${wallet.type} wallet (${wallet.currency}) with balance ${formatCurrency(wallet.balance, wallet.currency as Currency)}`
+    })
+    loadWallets()
   }
 
   const handleTransaction = async (e: React.FormEvent) => {
@@ -74,6 +136,14 @@ export default function WalletsPage() {
         .update({ balance: newBalance })
         .eq('id', selectedWallet.id)
 
+      await logActivity({
+        action: 'update',
+        entityType: 'wallet',
+        entityId: selectedWallet.id,
+        entityName: selectedWallet.person_name,
+        details: `${transactionForm.type === 'add' ? 'Added' : 'Removed'} ${formatCurrency(amount, selectedWallet.currency as Currency)} - New balance: ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
+      })
+
       setTransactionForm({ type: 'add', amount: '' })
       setShowTransactionForm(false)
       setSelectedWallet(null)
@@ -88,6 +158,51 @@ export default function WalletsPage() {
       .filter(w => w.type === type && w.currency === currency)
       .reduce((sum, w) => sum + w.balance, 0)
   }
+  
+  // Filter and sort wallets
+  const filteredAndSortedWallets = wallets
+    .filter(wallet => {
+      const matchesSearch = !searchQuery || 
+        wallet.person_name.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesType = !filterType || wallet.type === filterType
+      const matchesCurrency = !filterCurrency || wallet.currency === filterCurrency
+      
+      return matchesSearch && matchesType && matchesCurrency
+    })
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case 'name':
+          comparison = a.person_name.localeCompare(b.person_name)
+          break
+        case 'balance':
+          comparison = a.balance - b.balance
+          break
+        case 'type':
+          comparison = a.type.localeCompare(b.type)
+          break
+      }
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setFilterType('')
+    setFilterCurrency('')
+    setSortField('name')
+    setSortOrder('asc')
+  }
+
+  const hasActiveFilters = searchQuery || filterType || filterCurrency
 
   if (loading) {
     return (
@@ -137,41 +252,164 @@ export default function WalletsPage() {
           />
         </div>
 
+        {/* Filters Section */}
+        <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-foreground flex items-center gap-2">
+              <Filter size={18} className="text-primary" />
+              Filters & Sort
+            </h2>
+            {hasActiveFilters && (
+              <Button onClick={clearFilters} variant="ghost" size="sm">
+                <X size={16} />
+                Clear
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <input
+                type="text"
+                placeholder="Search wallets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field pl-9 text-sm"
+              />
+            </div>
+            <Select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+            >
+              <option value="">All Types</option>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+            </Select>
+            <Select
+              value={filterCurrency}
+              onChange={(e) => setFilterCurrency(e.target.value)}
+            >
+              <option value="">All Currencies</option>
+              <option value="SRD">SRD</option>
+              <option value="USD">USD</option>
+            </Select>
+          </div>
+          {/* Sort Options */}
+          <div className="flex gap-2 mt-4 flex-wrap">
+            <span className="text-sm text-muted-foreground self-center">Sort by:</span>
+            <button
+              onClick={() => toggleSort('name')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'name' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Name
+              {sortField === 'name' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
+            <button
+              onClick={() => toggleSort('balance')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'balance' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Balance
+              {sortField === 'balance' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
+            <button
+              onClick={() => toggleSort('type')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'type' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Type
+              {sortField === 'type' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
+          </div>
+        </div>
+
         {/* Wallet List */}
         <div>
           <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
             <Wallet size={18} className="text-primary" />
-            All Wallets
+            All Wallets ({filteredAndSortedWallets.length})
           </h2>
-          {wallets.length === 0 ? (
+          {filteredAndSortedWallets.length === 0 ? (
             <EmptyState
               icon={Wallet}
-              title="No wallets yet"
-              description="Create your first wallet to get started!"
+              title={hasActiveFilters ? "No matching wallets" : "No wallets yet"}
+              description={hasActiveFilters ? "Try adjusting your filters." : "Create your first wallet to get started!"}
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {wallets.map((wallet) => (
-                <WalletCard
-                  key={wallet.id}
-                  personName={wallet.person_name}
-                  type={wallet.type as 'cash' | 'bank'}
-                  currency={wallet.currency as Currency}
-                  balance={wallet.balance}
-                  onClick={() => {
-                    setSelectedWallet(wallet)
-                    setShowTransactionForm(true)
-                  }}
-                />
+              {filteredAndSortedWallets.map((wallet) => (
+                <div 
+                  key={wallet.id} 
+                  className="bg-card p-4 lg:p-5 rounded-2xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
+                        wallet.type === 'cash' 
+                          ? 'bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]' 
+                          : 'bg-[hsl(var(--info-muted))] text-[hsl(var(--info))]'
+                      }`}>
+                        {wallet.type === 'cash' ? '💵' : '🏦'}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
+                          {wallet.person_name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {wallet.type === 'cash' ? 'Cash' : 'Bank'} • {wallet.currency}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handleEditWallet(wallet)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteWallet(wallet)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-2xl font-bold text-primary">
+                      {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setSelectedWallet(wallet)
+                        setShowTransactionForm(true)
+                      }}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Transaction
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
       </PageContainer>
 
-      {/* Create Wallet Modal */}
-      <Modal isOpen={showForm} onClose={() => setShowForm(false)} title="Create New Wallet">
-        <form onSubmit={handleCreateWallet} className="space-y-4">
+      {/* Create/Edit Wallet Modal */}
+      <Modal 
+        isOpen={showForm} 
+        onClose={resetForm} 
+        title={editingWallet ? 'Edit Wallet' : 'Create New Wallet'}
+      >
+        <form onSubmit={handleSubmitWallet} className="space-y-4">
           <Input
             label="Person Name"
             type="text"
@@ -197,7 +435,7 @@ export default function WalletsPage() {
             <option value="USD">USD (US Dollar)</option>
           </Select>
           <Input
-            label="Initial Balance"
+            label={editingWallet ? 'Balance' : 'Initial Balance'}
             type="number"
             step="0.01"
             value={walletForm.balance}
@@ -206,9 +444,9 @@ export default function WalletsPage() {
           />
           <div className="flex gap-3">
             <Button type="submit" variant="primary" fullWidth loading={submitting}>
-              Create Wallet
+              {editingWallet ? 'Update Wallet' : 'Create Wallet'}
             </Button>
-            <Button type="button" variant="secondary" fullWidth onClick={() => setShowForm(false)}>
+            <Button type="button" variant="secondary" fullWidth onClick={resetForm}>
               Cancel
             </Button>
           </div>
@@ -286,7 +524,6 @@ export default function WalletsPage() {
           </form>
         )}
       </Modal>
-
     </div>
   )
 }

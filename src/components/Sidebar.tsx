@@ -14,7 +14,8 @@ import {
   BarChart3,
   LayoutDashboard,
   Menu,
-  X
+  X,
+  Activity
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -36,6 +37,7 @@ export default function Sidebar() {
     { name: 'Commissions', icon: Users, path: '/commissions' },
     { name: 'Budgets', icon: Target, path: '/budgets' },
     { name: 'Reports', icon: BarChart3, path: '/reports' },
+    { name: 'Activity Log', icon: Activity, path: '/activity' },
   ]
 
   return (

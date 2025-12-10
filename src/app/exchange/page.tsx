@@ -6,6 +6,7 @@ import { Database } from '@/types/database.types'
 import { DollarSign, TrendingUp, ArrowRightLeft, History, RefreshCw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner, Badge } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
+import { logActivity } from '@/lib/activityLog'
 
 type ExchangeRate = Database['public']['Tables']['exchange_rates']['Row']
 
@@ -48,10 +49,22 @@ export default function ExchangeRatePage() {
         .update({ is_active: false })
         .eq('is_active', true)
 
-      await supabase.from('exchange_rates').insert({
+      const { data: newRateData } = await supabase.from('exchange_rates').insert({
         usd_to_srd: parseFloat(newRate),
         is_active: true
-      })
+      }).select().single()
+
+      // Log the rate change
+      if (newRateData) {
+        const oldRateText = currentRate ? `${currentRate.usd_to_srd} SRD` : 'none'
+        await logActivity({
+          action: 'update',
+          entityType: 'exchange_rate',
+          entityId: newRateData.id,
+          entityName: `Exchange Rate: 1 USD = ${newRate} SRD`,
+          details: JSON.stringify({ old_rate: currentRate?.usd_to_srd || null, new_rate: parseFloat(newRate), changed_from: oldRateText })
+        })
+      }
 
       setNewRate('')
       loadRates()

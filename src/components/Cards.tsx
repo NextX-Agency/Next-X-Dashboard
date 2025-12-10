@@ -37,7 +37,7 @@ export function StatCard({ title, value, icon: Icon, trend, color = 'orange' }: 
       <div className="relative flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-xs text-muted-foreground font-semibold mb-2 tracking-wide uppercase">{title}</p>
-          <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-2.5 tracking-tight truncate">{value}</h3>
+          <h3 className="text-2xl lg:text-3xl font-bold text-foreground mb-2.5 tracking-tight">{value}</h3>
           {trend && (
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${trend.isPositive ? 'bg-green-950/50 text-green-400 border border-green-800' : 'bg-red-950/50 text-red-400 border border-red-800'}`}>

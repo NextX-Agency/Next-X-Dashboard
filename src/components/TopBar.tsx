@@ -11,22 +11,22 @@ export default function TopBar() {
   return (
     <>
       <header className="bg-card/95 border-b border-border sticky top-0 z-40 backdrop-blur-md">
-        <div className="flex items-center justify-between px-4 lg:px-6 py-3">
-          {/* Left Section - Mobile Menu & Search */}
-          <div className="flex items-center gap-3 flex-1">
+        <div className="flex items-center justify-between px-3 lg:px-6 py-2 lg:py-3">
+          {/* Left Section - Mobile Menu & Logo */}
+          <div className="flex items-center gap-2 lg:gap-3 flex-1">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 hover:bg-muted rounded-xl transition-colors"
+              className="lg:hidden p-1.5 hover:bg-muted rounded-lg transition-colors"
             >
-              <Menu size={22} className="text-foreground" />
+              <Menu size={20} className="text-foreground" />
             </button>
           
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center font-bold text-sm text-white shadow-sm">
+          <div className="lg:hidden flex items-center gap-1.5">
+            <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-sm">
               NX
             </div>
-            <span className="font-bold text-foreground">NextX</span>
+            <span className="font-bold text-sm text-foreground">NextX</span>
           </div>
 
           {/* Search Bar - Desktop */}
@@ -43,25 +43,25 @@ export default function TopBar() {
         </div>
 
         {/* Right Section - Actions & Profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 lg:gap-2">
           {/* Search Icon - Mobile */}
-          <button className="lg:hidden p-2 hover:bg-muted rounded-xl transition-colors">
-            <Search size={20} className="text-muted-foreground" />
+          <button className="lg:hidden p-1.5 hover:bg-muted rounded-lg transition-colors">
+            <Search size={18} className="text-muted-foreground" />
           </button>
 
           {/* Notifications */}
-          <button className="relative p-2 hover:bg-muted rounded-xl transition-colors">
-            <Bell size={20} className="text-muted-foreground" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-card"></span>
+          <button className="relative p-1.5 lg:p-2 hover:bg-muted rounded-lg lg:rounded-xl transition-colors">
+            <Bell size={18} className="lg:w-5 lg:h-5 text-muted-foreground" />
+            <span className="absolute top-1 right-1 lg:top-1.5 lg:right-1.5 w-1.5 h-1.5 lg:w-2 lg:h-2 bg-orange-500 rounded-full ring-2 ring-card"></span>
           </button>
 
           {/* User Profile */}
-          <button className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-muted rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-1.5 lg:px-2 py-1 lg:py-1.5 hover:bg-muted rounded-lg lg:rounded-xl transition-colors">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-sm font-semibold text-foreground">Admin User</span>
               <span className="text-xs text-muted-foreground">Administrator</span>
             </div>
-            <div className="w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm shadow-sm">
+            <div className="w-7 h-7 lg:w-9 lg:h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg lg:rounded-xl flex items-center justify-center text-white font-semibold text-xs lg:text-sm shadow-sm">
               A
             </div>
           </button>

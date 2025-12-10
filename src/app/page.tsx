@@ -211,12 +211,19 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8 lg:py-12">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-6 lg:mb-8">
           <StatCard 
             title="Total Sales (USD)" 
-            value={`${stats.totalSalesUSD.toFixed(2)} SRD`}
+            value={`$${stats.totalSalesUSD.toFixed(2)} USD`}
             icon={DollarSign}
             trend={{ value: `${stats.salesTrend.toFixed(1)}%`, isPositive: stats.salesTrend >= 0 }}
+            color="orange"
+          />
+          <StatCard 
+            title="Total Sales (SRD)" 
+            value={`${stats.totalSalesSRD.toFixed(2)} SRD`}
+            icon={DollarSign}
+            trend={{ value: "Suriname", isPositive: true }}
             color="orange"
           />
           <StatCard 
@@ -234,9 +241,9 @@ export default function Home() {
             color="green"
           />
           <StatCard 
-            title="Total Revenue" 
+            title="Total Revenue (USD)" 
             icon={TrendingUp}
-            value={`${stats.totalRevenue.toFixed(2)} SRD`}
+            value={`$${stats.totalRevenue.toFixed(2)} USD`}
             trend={{ value: "All time", isPositive: true }}
             color="purple"
           />

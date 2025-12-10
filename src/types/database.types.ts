@@ -169,6 +169,7 @@ export interface Database {
           phone: string | null
           email: string | null
           notes: string | null
+          location_id: string | null
           created_at: string
           updated_at: string
         }
@@ -178,6 +179,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           notes?: string | null
+          location_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -187,6 +189,7 @@ export interface Database {
           phone?: string | null
           email?: string | null
           notes?: string | null
+          location_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -369,6 +372,7 @@ export interface Database {
         Row: {
           id: string
           name: string
+          location_id: string | null
           commission_rate: number
           created_at: string
           updated_at: string
@@ -376,6 +380,7 @@ export interface Database {
         Insert: {
           id?: string
           name: string
+          location_id?: string | null
           commission_rate?: number
           created_at?: string
           updated_at?: string
@@ -383,6 +388,7 @@ export interface Database {
         Update: {
           id?: string
           name?: string
+          location_id?: string | null
           commission_rate?: number
           created_at?: string
           updated_at?: string
@@ -411,6 +417,29 @@ export interface Database {
           sale_id?: string
           commission_amount?: number
           paid?: boolean
+          created_at?: string
+        }
+      }
+      seller_category_rates: {
+        Row: {
+          id: string
+          seller_id: string
+          category_id: string
+          commission_rate: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          seller_id: string
+          category_id: string
+          commission_rate: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          seller_id?: string
+          category_id?: string
+          commission_rate?: number
           created_at?: string
         }
       }
@@ -496,6 +525,35 @@ export interface Database {
           deadline?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      activity_logs: {
+        Row: {
+          id: string
+          action: string
+          entity_type: string
+          entity_id: string | null
+          entity_name: string | null
+          details: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          action: string
+          entity_type: string
+          entity_id?: string | null
+          entity_name?: string | null
+          details?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          action?: string
+          entity_type?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          details?: string | null
+          created_at?: string
         }
       }
     }

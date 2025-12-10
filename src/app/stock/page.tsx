@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter } from 'lucide-react'
+import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
 
@@ -15,6 +15,9 @@ interface StockWithDetails extends Stock {
   items?: Item | null
   locations?: Location | null
 }
+
+type SortField = 'item' | 'location' | 'quantity'
+type SortOrder = 'asc' | 'desc'
 
 export default function StockPage() {
   const [items, setItems] = useState<Item[]>([])
@@ -37,6 +40,11 @@ export default function StockPage() {
     to_location_id: '',
     quantity: ''
   })
+  
+  // Search and sort states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortField, setSortField] = useState<SortField>('quantity')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
   const loadData = async () => {
     setLoading(true)
@@ -234,10 +242,55 @@ export default function StockPage() {
   }
 
   const filteredStocks = showLowStock 
-    ? stocks.filter(s => s.quantity < 10)
+    ? stocks.filter(s => s.quantity < 2)
     : stocks
+    
+  // Search and sort filtered stocks
+  const searchedAndSortedStocks = filteredStocks
+    .filter(stock => {
+      if (!searchQuery) return true
+      const query = searchQuery.toLowerCase()
+      return (
+        stock.items?.name?.toLowerCase().includes(query) ||
+        stock.locations?.name?.toLowerCase().includes(query)
+      )
+    })
+    .sort((a, b) => {
+      let comparison = 0
+      switch (sortField) {
+        case 'item':
+          comparison = (a.items?.name || '').localeCompare(b.items?.name || '')
+          break
+        case 'location':
+          comparison = (a.locations?.name || '').localeCompare(b.locations?.name || '')
+          break
+        case 'quantity':
+          comparison = a.quantity - b.quantity
+          break
+      }
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
 
-  const lowStockCount = stocks.filter(s => s.quantity < 10).length
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('desc')
+    }
+  }
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedLocation('')
+    setShowLowStock(false)
+    setSortField('quantity')
+    setSortOrder('desc')
+  }
+
+  const hasActiveFilters = searchQuery || selectedLocation || showLowStock
+
+  const lowStockCount = stocks.filter(s => s.quantity < 2).length
   const totalItems = stocks.length
   const totalQuantity = stocks.reduce((sum, s) => sum + s.quantity, 0)
 
@@ -289,44 +342,92 @@ export default function StockPage() {
 
         {/* Filters */}
         <div className="bg-card p-4 lg:p-5 rounded-2xl border border-border mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Select
-                label="Filter by Location"
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-              >
-                <option value="">All Locations</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </Select>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold text-foreground flex items-center gap-2">
+              <Filter size={18} className="text-primary" />
+              Filters & Sort
+            </h2>
+            {hasActiveFilters && (
+              <Button onClick={clearFilters} variant="ghost" size="sm">
+                <X size={16} />
+                Clear
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <input
+                type="text"
+                placeholder="Search items or locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field pl-9 text-sm"
+              />
             </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => setShowLowStock(!showLowStock)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 active:scale-98 ${
-                  showLowStock
-                    ? 'bg-destructive text-white shadow-lg shadow-destructive/25'
-                    : 'bg-muted text-foreground hover:bg-muted/80'
-                }`}
-              >
-                {showLowStock ? '✓ Low Stock Only' : 'Show Low Stock'}
-              </button>
-            </div>
+            <Select
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+            >
+              <option value="">All Locations</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </Select>
+            <button
+              onClick={() => setShowLowStock(!showLowStock)}
+              className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 active:scale-98 ${
+                showLowStock
+                  ? 'bg-destructive text-white shadow-lg shadow-destructive/25'
+                  : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              {showLowStock ? '✓ Low Stock Only' : 'Show Low Stock'}
+            </button>
+          </div>
+          {/* Sort Options */}
+          <div className="flex gap-2 mt-4 flex-wrap">
+            <span className="text-sm text-muted-foreground self-center">Sort by:</span>
+            <button
+              onClick={() => toggleSort('quantity')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'quantity' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Quantity
+              {sortField === 'quantity' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
+            <button
+              onClick={() => toggleSort('item')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'item' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Item Name
+              {sortField === 'item' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
+            <button
+              onClick={() => toggleSort('location')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                sortField === 'location' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
+              }`}
+            >
+              Location
+              {sortField === 'location' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
+            </button>
           </div>
         </div>
 
         {/* Stock Grid */}
-        {filteredStocks.length === 0 ? (
+        {searchedAndSortedStocks.length === 0 ? (
           <EmptyState
             icon={Package}
-            title={showLowStock ? 'No low stock items' : 'No stock items yet'}
-            description={showLowStock ? 'All items have sufficient stock.' : 'Add stock to get started.'}
+            title={hasActiveFilters ? 'No matching stock items' : 'No stock items yet'}
+            description={hasActiveFilters ? 'Try adjusting your filters.' : 'Add stock to get started.'}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredStocks.map((stock) => (
+            {searchedAndSortedStocks.map((stock) => (
               <StockCard
                 key={stock.id}
                 itemName={stock.items?.name || 'Unknown Item'}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, CurrencyToggle, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -260,6 +260,53 @@ export default function SalesPage() {
             .from('stock')
             .update({ quantity: stock.quantity - cartItem.quantity })
             .eq('id', stock.id)
+        }
+      }
+
+      // Create commission for seller at this location
+      const { data: sellers } = await supabase
+        .from('sellers')
+        .select('*')
+        .eq('location_id', selectedLocation)
+
+      if (sellers && sellers.length > 0) {
+        // Create commission for each seller at this location
+        for (const seller of sellers) {
+          let totalCommission = 0
+
+          // Calculate commission per item based on category-specific rates
+          for (const cartItem of cart) {
+            const item = cartItem.item
+            const itemPrice = currency === 'SRD'
+              ? (item.selling_price_srd || 0)
+              : (item.selling_price_usd || 0)
+            const itemTotal = itemPrice * cartItem.quantity
+
+            // Check if there's a category-specific rate
+            let rateToUse = seller.commission_rate // Default rate
+
+            if (item.category_id) {
+              const { data: categoryRate } = await supabase
+                .from('seller_category_rates')
+                .select('commission_rate')
+                .eq('seller_id', seller.id)
+                .eq('category_id', item.category_id)
+                .single()
+
+              if (categoryRate) {
+                rateToUse = categoryRate.commission_rate
+              }
+            }
+
+            totalCommission += itemTotal * (rateToUse / 100)
+          }
+
+          await supabase.from('commissions').insert({
+            seller_id: seller.id,
+            sale_id: sale.id,
+            commission_amount: totalCommission,
+            paid: false
+          })
         }
       }
 
@@ -726,9 +773,16 @@ export default function SalesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={sale.payment_method === 'cash' ? 'default' : 'orange'}>
-                      {sale.payment_method === 'cash' ? '💵 Cash' : '🏦 Bank'}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 size={16} className="text-success" />
+                      <Badge variant={
+                        sale.payment_method === 'reservation' ? 'success' :
+                        sale.payment_method === 'cash' ? 'default' : 'orange'
+                      }>
+                        {sale.payment_method === 'reservation' ? '📋 Reservation' :
+                         sale.payment_method === 'cash' ? '💵 Cash' : '🏦 Bank'}
+                      </Badge>
+                    </div>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Clock size={12} />
                       {getTimeSince(sale.created_at)}

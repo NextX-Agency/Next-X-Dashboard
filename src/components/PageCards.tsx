@@ -171,7 +171,7 @@ interface StockCardProps {
 }
 
 export function StockCard({ itemName, locationName, quantity, imageUrl, onRemove }: StockCardProps) {
-  const isLowStock = quantity < 10
+  const isLowStock = quantity < 2
   
   return (
     <div className="bg-card rounded-2xl p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
