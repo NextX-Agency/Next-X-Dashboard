@@ -3,12 +3,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Edit2, Trash2, MapPin } from 'lucide-react'
+import { Plus, MapPin } from 'lucide-react'
+import { PageHeader, PageContainer, Button } from '@/components/UI'
+import { LocationCard, Modal } from '@/components/PageCards'
 
 type Location = Database['public']['Tables']['locations']['Row']
+type Stock = Database['public']['Tables']['stock']['Row']
 
 export default function LocationsPage() {
   const [locations, setLocations] = useState<Location[]>([])
+  const [stock, setStock] = useState<Stock[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [formData, setFormData] = useState({
@@ -18,11 +22,21 @@ export default function LocationsPage() {
 
   useEffect(() => {
     loadLocations()
+    loadStock()
   }, [])
 
   const loadLocations = async () => {
     const { data } = await supabase.from('locations').select('*').order('name')
     if (data) setLocations(data)
+  }
+
+  const loadStock = async () => {
+    const { data } = await supabase.from('stock').select('*')
+    if (data) setStock(data)
+  }
+
+  const getLocationItemCount = (locationId: string) => {
+    return stock.filter(s => s.location_id === locationId && s.quantity > 0).length
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,104 +75,83 @@ export default function LocationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 py-4">
-          <h1 className="text-2xl font-bold">Locations</h1>
-        </div>
-      </div>
-
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold">Manage Locations</h2>
-          <button
+    <div className="min-h-screen bg-gray-50">
+      <PageHeader 
+        title="Locations" 
+        subtitle="Manage warehouse and store locations"
+        action={
+          <Button 
             onClick={() => {
               setEditingLocation(null)
               setFormData({ name: '', address: '' })
               setShowForm(true)
-            }}
-            className="bg-blue-500 text-white p-3 rounded-full shadow-lg active:scale-95 transition"
+            }} 
+            variant="primary"
           >
-            <Plus size={24} />
-          </button>
-        </div>
+            <Plus size={20} />
+            <span className="hidden sm:inline">New Location</span>
+          </Button>
+        }
+      />
 
-        {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white p-4 rounded-lg shadow mb-4">
+      <PageContainer>
+        {locations.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <MapPin size={48} className="mx-auto mb-4 opacity-50" />
+            <p>No locations yet. Create your first location!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {locations.map((location) => (
+              <LocationCard
+                key={location.id}
+                name={location.name}
+                address={location.address}
+                itemCount={getLocationItemCount(location.id)}
+                onEdit={() => handleEdit(location)}
+                onDelete={() => handleDelete(location.id)}
+              />
+            ))}
+          </div>
+        )}
+      </PageContainer>
+
+      {/* Location Modal */}
+      <Modal 
+        isOpen={showForm} 
+        onClose={() => {
+          setShowForm(false)
+          setEditingLocation(null)
+        }} 
+        title={editingLocation ? 'Edit Location' : 'Create Location'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Location Name</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Location name"
-              className="w-full p-3 border rounded-lg mb-3 text-lg"
+              placeholder="Enter location name"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Address (Optional)</label>
             <textarea
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Address (optional)"
-              className="w-full p-3 border rounded-lg mb-3 text-lg"
+              placeholder="Enter full address"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
               rows={3}
             />
-            <div className="flex gap-2">
-              <button type="submit" className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-medium">
-                {editingLocation ? 'Update' : 'Create'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false)
-                  setEditingLocation(null)
-                }}
-                className="flex-1 bg-gray-200 py-3 rounded-lg font-medium"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="space-y-2">
-          {locations.map((location) => (
-            <div key={location.id} className="bg-white p-4 rounded-lg shadow">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MapPin size={20} className="text-blue-500" />
-                    <h3 className="text-lg font-semibold">{location.name}</h3>
-                  </div>
-                  {location.address && (
-                    <p className="text-sm text-gray-600 ml-7">{location.address}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(location)}
-                    className="text-blue-500 p-2 active:scale-95 transition"
-                  >
-                    <Edit2 size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(location.id)}
-                    className="text-red-500 p-2 active:scale-95 transition"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {locations.length === 0 && !showForm && (
-          <div className="text-center py-12 text-gray-500">
-            <MapPin size={48} className="mx-auto mb-2 opacity-50" />
-            <p>No locations yet</p>
-            <p className="text-sm">Tap the + button to add one</p>
           </div>
-        )}
-      </div>
+          <Button type="submit" variant="primary" fullWidth size="lg">
+            {editingLocation ? 'Update Location' : 'Create Location'}
+          </Button>
+        </form>
+      </Modal>
     </div>
   )
 }
