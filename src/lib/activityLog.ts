@@ -26,6 +26,7 @@ export type EntityType =
   | 'client'
   | 'commission'
   | 'exchange_rate'
+  | 'purchase_order'
 
 interface LogActivityParams {
   action: ActionType

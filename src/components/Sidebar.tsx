@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   Menu,
   X,
-  Activity
+  Activity,
+  ClipboardList
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -29,6 +30,7 @@ export default function Sidebar() {
     { name: 'Items', icon: Package, path: '/items' },
     { name: 'Locations', icon: MapPin, path: '/locations' },
     { name: 'Stock', icon: Package, path: '/stock' },
+    { name: 'Orders', icon: ClipboardList, path: '/orders' },
     { name: 'Exchange', icon: DollarSign, path: '/exchange' },
     { name: 'Sales', icon: ShoppingCart, path: '/sales' },
     { name: 'Reservations', icon: Calendar, path: '/reservations' },

@@ -3,16 +3,20 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Wallet, Plus, DollarSign, Edit, Trash2, Search, Filter, X, ArrowUpDown } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
+import { Wallet, Plus, DollarSign, Edit, Trash2, Search, User, X } from 'lucide-react'
+import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 
 type WalletType = Database['public']['Tables']['wallets']['Row']
 
-type SortField = 'name' | 'balance' | 'type'
-type SortOrder = 'asc' | 'desc'
+interface PersonWallets {
+  personName: string
+  wallets: WalletType[]
+  totalUSD: number
+  totalSRD: number
+}
 
 export default function WalletsPage() {
   const [wallets, setWallets] = useState<WalletType[]>([])
@@ -33,17 +37,16 @@ export default function WalletsPage() {
     amount: ''
   })
   
-  // Filter and sort states
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState<string>('')
-  const [filterCurrency, setFilterCurrency] = useState<string>('')
-  const [sortField, setSortField] = useState<SortField>('name')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
   const loadWallets = async () => {
     setLoading(true)
     const { data } = await supabase.from('wallets').select('*').order('person_name')
-    if (data) setWallets(data)
+    if (data) {
+      console.log('Loaded wallets:', data)
+      setWallets(data)
+    }
     setLoading(false)
   }
 
@@ -158,51 +161,45 @@ export default function WalletsPage() {
       .filter(w => w.type === type && w.currency === currency)
       .reduce((sum, w) => sum + w.balance, 0)
   }
-  
-  // Filter and sort wallets
-  const filteredAndSortedWallets = wallets
-    .filter(wallet => {
-      const matchesSearch = !searchQuery || 
-        wallet.person_name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesType = !filterType || wallet.type === filterType
-      const matchesCurrency = !filterCurrency || wallet.currency === filterCurrency
-      
-      return matchesSearch && matchesType && matchesCurrency
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'name':
-          comparison = a.person_name.localeCompare(b.person_name)
-          break
-        case 'balance':
-          comparison = a.balance - b.balance
-          break
-        case 'type':
-          comparison = a.type.localeCompare(b.type)
-          break
-      }
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortOrder('asc')
-    }
+  // Group wallets by person
+  const groupWalletsByPerson = (): PersonWallets[] => {
+    const grouped = wallets.reduce((acc, wallet) => {
+      // Normalize person name to handle case-insensitive grouping
+      const normalizedName = wallet.person_name.trim()
+      
+      if (!acc[normalizedName]) {
+        acc[normalizedName] = {
+          personName: normalizedName,
+          wallets: [],
+          totalUSD: 0,
+          totalSRD: 0
+        }
+      }
+      acc[normalizedName].wallets.push(wallet)
+      if (wallet.currency === 'USD') {
+        acc[normalizedName].totalUSD += Number(wallet.balance)
+      } else {
+        acc[normalizedName].totalSRD += Number(wallet.balance)
+      }
+      return acc
+    }, {} as Record<string, PersonWallets>)
+    
+    return Object.values(grouped).sort((a, b) => a.personName.localeCompare(b.personName))
   }
+  
+  // Filter people
+  const filteredPeople = groupWalletsByPerson().filter(person => 
+    !searchQuery || person.personName.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  console.log('Grouped people:', filteredPeople)
 
   const clearFilters = () => {
     setSearchQuery('')
-    setFilterType('')
-    setFilterCurrency('')
-    setSortField('name')
-    setSortOrder('asc')
   }
 
-  const hasActiveFilters = searchQuery || filterType || filterCurrency
+  const hasActiveFilters = searchQuery
 
   if (loading) {
     return (
@@ -256,8 +253,8 @@ export default function WalletsPage() {
         <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-foreground flex items-center gap-2">
-              <Filter size={18} className="text-primary" />
-              Filters & Sort
+              <Search size={18} className="text-primary" />
+              Search People
             </h2>
             {hasActiveFilters && (
               <Button onClick={clearFilters} variant="ghost" size="sm">
@@ -266,135 +263,123 @@ export default function WalletsPage() {
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <input
-                type="text"
-                placeholder="Search wallets..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-9 text-sm"
-              />
-            </div>
-            <Select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-            >
-              <option value="">All Types</option>
-              <option value="cash">Cash</option>
-              <option value="bank">Bank</option>
-            </Select>
-            <Select
-              value={filterCurrency}
-              onChange={(e) => setFilterCurrency(e.target.value)}
-            >
-              <option value="">All Currencies</option>
-              <option value="SRD">SRD</option>
-              <option value="USD">USD</option>
-            </Select>
-          </div>
-          {/* Sort Options */}
-          <div className="flex gap-2 mt-4 flex-wrap">
-            <span className="text-sm text-muted-foreground self-center">Sort by:</span>
-            <button
-              onClick={() => toggleSort('name')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
-                sortField === 'name' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-              }`}
-            >
-              Name
-              {sortField === 'name' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
-            </button>
-            <button
-              onClick={() => toggleSort('balance')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
-                sortField === 'balance' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-              }`}
-            >
-              Balance
-              {sortField === 'balance' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
-            </button>
-            <button
-              onClick={() => toggleSort('type')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
-                sortField === 'type' ? 'bg-primary text-white' : 'bg-muted text-foreground hover:bg-muted/80'
-              }`}
-            >
-              Type
-              {sortField === 'type' && <ArrowUpDown size={14} className={sortOrder === 'asc' ? 'rotate-180' : ''} />}
-            </button>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <input
+              type="text"
+              placeholder="Search by person name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
           </div>
         </div>
 
-        {/* Wallet List */}
+        {/* People & Their Wallets */}
         <div>
           <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-            <Wallet size={18} className="text-primary" />
-            All Wallets ({filteredAndSortedWallets.length})
+            <User size={18} className="text-primary" />
+            People ({filteredPeople.length})
           </h2>
-          {filteredAndSortedWallets.length === 0 ? (
+          {filteredPeople.length === 0 ? (
             <EmptyState
               icon={Wallet}
-              title={hasActiveFilters ? "No matching wallets" : "No wallets yet"}
-              description={hasActiveFilters ? "Try adjusting your filters." : "Create your first wallet to get started!"}
+              title={hasActiveFilters ? "No matching people" : "No wallets yet"}
+              description={hasActiveFilters ? "Try adjusting your search." : "Create your first wallet to get started!"}
             />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {filteredAndSortedWallets.map((wallet) => (
+            <div className="space-y-6">
+              {filteredPeople.map((person) => (
                 <div 
-                  key={wallet.id} 
-                  className="bg-card p-4 lg:p-5 rounded-2xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group"
+                  key={person.personName} 
+                  className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
-                        wallet.type === 'cash' 
-                          ? 'bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]' 
-                          : 'bg-[hsl(var(--info-muted))] text-[hsl(var(--info))]'
-                      }`}>
-                        {wallet.type === 'cash' ? '💵' : '🏦'}
+                  {/* Person Header */}
+                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-2xl">
+                          👤
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground">{person.personName}</h3>
+                          <p className="text-sm text-muted-foreground">{person.wallets.length} wallet{person.wallets.length !== 1 ? 's' : ''}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">
-                          {wallet.person_name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {wallet.type === 'cash' ? 'Cash' : 'Bank'} • {wallet.currency}
-                        </p>
+                      <div className="flex gap-3 text-right">
+                        {person.totalUSD > 0 && (
+                          <div>
+                            <div className="text-xs text-muted-foreground">USD Total</div>
+                            <div className="font-bold text-lg text-primary">{formatCurrency(person.totalUSD, 'USD')}</div>
+                          </div>
+                        )}
+                        {person.totalSRD > 0 && (
+                          <div>
+                            <div className="text-xs text-muted-foreground">SRD Total</div>
+                            <div className="font-bold text-lg text-primary">{formatCurrency(person.totalSRD, 'SRD')}</div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEditWallet(wallet)}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title="Edit"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWallet(wallet)}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-2xl font-bold text-primary">
-                      {formatCurrency(wallet.balance, wallet.currency as Currency)}
+
+                  {/* Wallets Grid */}
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {person.wallets.map((wallet) => (
+                        <div 
+                          key={wallet.id} 
+                          className="bg-muted/50 p-4 rounded-xl border border-border hover:bg-muted transition-colors group"
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${
+                                wallet.type === 'cash' 
+                                  ? 'bg-[hsl(var(--success-muted))] text-[hsl(var(--success))]' 
+                                  : 'bg-[hsl(var(--info-muted))] text-[hsl(var(--info))]'
+                              }`}>
+                                {wallet.type === 'cash' ? '💵' : '🏦'}
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{wallet.type === 'cash' ? 'Cash' : 'Bank'}</p>
+                                <Badge variant="default">{wallet.currency}</Badge>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleEditWallet(wallet)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                title="Edit"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteWallet(wallet)}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xl font-bold text-foreground">
+                              {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                            </div>
+                            <Button
+                              onClick={() => {
+                                setSelectedWallet(wallet)
+                                setShowTransactionForm(true)
+                              }}
+                              variant="secondary"
+                              size="sm"
+                            >
+                              +/−
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <Button
-                      onClick={() => {
-                        setSelectedWallet(wallet)
-                        setShowTransactionForm(true)
-                      }}
-                      variant="secondary"
-                      size="sm"
-                    >
-                      Transaction
-                    </Button>
                   </div>
                 </div>
               ))}

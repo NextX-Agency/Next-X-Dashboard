@@ -556,6 +556,82 @@ export interface Database {
           created_at?: string
         }
       }
+      purchase_orders: {
+        Row: {
+          id: string
+          wallet_id: string
+          location_id: string
+          supplier_id: string | null
+          total_amount: number
+          currency: string
+          exchange_rate: number | null
+          status: string
+          notes: string | null
+          expected_arrival: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wallet_id: string
+          location_id: string
+          supplier_id?: string | null
+          total_amount: number
+          currency: string
+          exchange_rate?: number | null
+          status?: string
+          notes?: string | null
+          expected_arrival?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wallet_id?: string
+          location_id?: string
+          supplier_id?: string | null
+          total_amount?: number
+          currency?: string
+          exchange_rate?: number | null
+          status?: string
+          notes?: string | null
+          expected_arrival?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      purchase_order_items: {
+        Row: {
+          id: string
+          order_id: string
+          item_id: string
+          quantity: number
+          unit_cost: number
+          subtotal: number
+          quantity_received: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          item_id: string
+          quantity: number
+          unit_cost: number
+          subtotal: number
+          quantity_received?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          item_id?: string
+          quantity?: number
+          unit_cost?: number
+          subtotal?: number
+          quantity_received?: number
+          created_at?: string
+        }
+      }
     }
   }
 }
