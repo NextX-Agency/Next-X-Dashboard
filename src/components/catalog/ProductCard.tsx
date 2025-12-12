@@ -32,13 +32,13 @@ export function ProductCard({
 }: ProductCardProps) {
   return (
     <article className="group relative flex flex-col">
-      {/* Image container with 4:5 ratio */}
+      {/* Image container with 1:1 ratio */}
       <div 
-        className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-neutral-900 cursor-pointer mb-4"
+        className="relative aspect-square rounded-2xl overflow-hidden bg-neutral-900 cursor-pointer mb-3.5"
         onClick={onViewDetail}
       >
         {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10" />
         
         {imageUrl ? (
           <Image
@@ -91,7 +91,7 @@ export function ProductCard({
       <div className="flex flex-col flex-1">
         {/* Title */}
         <h3 
-          className="text-[15px] font-medium text-white leading-snug mb-1.5 line-clamp-2 cursor-pointer transition-colors hover:text-orange-500"
+          className="text-sm font-medium text-white leading-tight mb-1 line-clamp-2 cursor-pointer transition-colors hover:text-orange-500"
           onClick={onViewDetail}
         >
           {name}
@@ -99,14 +99,14 @@ export function ProductCard({
         
         {/* Description - only show first line */}
         {description && (
-          <p className="text-xs text-neutral-500 line-clamp-1 mb-3">
+          <p className="text-xs text-neutral-500 line-clamp-1 mb-2.5">
             {description}
           </p>
         )}
         
         {/* Price and cart controls */}
-        <div className="mt-auto flex items-center justify-between gap-3">
-          <span className="text-base font-semibold text-white">
+        <div className="mt-auto flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-white">
             {formatCurrency(price, currency)}
           </span>
           

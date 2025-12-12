@@ -236,9 +236,9 @@ export default function CatalogPage() {
       <FeatureIconsRow />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-16">
+      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-10 lg:py-12">
         {/* Search Bar */}
-        <div className="mb-8">
+        <div className="mb-6">
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -246,7 +246,7 @@ export default function CatalogPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="mb-10">
+        <div className="mb-8">
           <FilterBar
             categories={categories}
             selectedCategory={selectedCategory}

@@ -25,9 +25,9 @@ export function Header({
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
 
   return (
-    <header className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur-xl border-b border-white/[0.04]">
+    <header className="sticky top-0 z-50 bg-neutral-950/90 backdrop-blur-xl border-b border-white/[0.06]">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="h-16 sm:h-20 flex items-center justify-between gap-4">
+        <div className="h-16 flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex-shrink-0">
             {logoUrl ? (

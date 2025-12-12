@@ -37,7 +37,7 @@ export function FilterBar({
         <select
           value={selectedCategory}
           onChange={(e) => onCategoryChange(e.target.value)}
-          className="appearance-none h-11 pl-4 pr-10 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white hover:bg-white/[0.05] hover:border-white/[0.1] focus:outline-none focus:border-orange-500/30 transition-all cursor-pointer"
+          className="appearance-none h-10 pl-4 pr-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white hover:bg-white/[0.06] hover:border-white/[0.12] focus:outline-none focus:border-orange-500/30 transition-all cursor-pointer"
         >
           <option value="" className="bg-neutral-900">Alle categorieën</option>
           {categories.map(cat => (
@@ -57,7 +57,7 @@ export function FilterBar({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value)}
-          className="appearance-none h-11 pl-4 pr-10 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white hover:bg-white/[0.05] hover:border-white/[0.1] focus:outline-none focus:border-orange-500/30 transition-all cursor-pointer"
+          className="appearance-none h-10 pl-4 pr-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white hover:bg-white/[0.06] hover:border-white/[0.12] focus:outline-none focus:border-orange-500/30 transition-all cursor-pointer"
         >
           <option value="name" className="bg-neutral-900">Naam A-Z</option>
           <option value="price-asc" className="bg-neutral-900">Prijs: Laag → Hoog</option>
@@ -74,7 +74,7 @@ export function FilterBar({
       <div className="flex-1" />
 
       {/* Grid view toggle - desktop only */}
-      <div className="hidden sm:flex p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+      <div className="hidden sm:flex p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
         <button
           onClick={() => onGridViewChange('comfortable')}
           className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${

@@ -35,10 +35,10 @@ export function SearchBar({ value, onChange, placeholder = 'Zoek producten...' }
       />
       
       {/* Input container */}
-      <div className={`relative flex items-center bg-white/[0.03] border rounded-2xl transition-all duration-300 ${
+      <div className={`relative flex items-center bg-white/[0.04] border rounded-2xl transition-all duration-300 ${
         isFocused 
-          ? 'border-orange-500/30 bg-white/[0.05]' 
-          : 'border-white/[0.06] hover:border-white/[0.1] hover:bg-white/[0.04]'
+          ? 'border-orange-500/30 bg-white/[0.06]' 
+          : 'border-white/[0.08] hover:border-white/[0.12] hover:bg-white/[0.05]'
       }`}>
         {/* Search icon */}
         <div className="flex-shrink-0 pl-5">
