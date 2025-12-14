@@ -73,7 +73,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
             {/* All products option */}
             <button
               onClick={() => onCategoryChange('')}
-              className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 min-w-[100px] ${
+              className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
                 selectedCategory === ''
                   ? 'bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30'
                   : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
@@ -84,7 +84,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
               }`}>
                 <Package size={28} strokeWidth={1.5} />
               </div>
-              <span className="text-xs font-semibold whitespace-nowrap">Alles</span>
+              <span className="text-xs font-semibold text-center truncate w-full px-1">Alles</span>
             </button>
 
             {/* Category buttons */}
@@ -96,7 +96,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
                 <button
                   key={category.id}
                   onClick={() => onCategoryChange(category.id)}
-                  className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 min-w-[100px] ${
+                  className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
                     isSelected
                       ? 'bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
@@ -118,7 +118,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
                       <Icon size={28} strokeWidth={1.5} />
                     )}
                   </div>
-                  <span className="text-xs font-semibold whitespace-nowrap uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-center uppercase tracking-wide truncate w-full px-1" title={category.name}>
                     {category.name}
                   </span>
                 </button>
