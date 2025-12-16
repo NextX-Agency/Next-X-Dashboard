@@ -1,8 +1,8 @@
--- Migration: Add missing columns for unified financial model
+-- Migration: Add missing columns for unified financial model with category-based commissions
 -- Date: 2024-12-16
 -- This migration adds ONLY the missing pieces to complete the unified model:
 -- - Add location_id to expenses (for location-based expense tracking)
--- - Add location_id and commission_rate to commissions (for location-based commissions)
+-- - Add location_id and category_id to commissions (for location + category based commissions)
 -- - Update wallet_transactions table structure to match application needs
 
 -- =====================================================
@@ -14,13 +14,15 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locati
 CREATE INDEX IF NOT EXISTS idx_expenses_location ON expenses(location_id);
 
 -- =====================================================
--- STEP 2: Add location_id and commission_rate to commissions
+-- STEP 2: Add location_id and category_id to commissions
+-- Commissions are calculated using seller_category_rates table (seller+category combo)
 -- =====================================================
 
 ALTER TABLE commissions ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES locations(id) ON DELETE SET NULL;
-ALTER TABLE commissions ADD COLUMN IF NOT EXISTS commission_rate NUMERIC(5, 2) DEFAULT 0;
+ALTER TABLE commissions ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES categories(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_commissions_location ON commissions(location_id);
+CREATE INDEX IF NOT EXISTS idx_commissions_category ON commissions(category_id);
 
 -- =====================================================
 -- STEP 3: Update wallet_transactions table structure

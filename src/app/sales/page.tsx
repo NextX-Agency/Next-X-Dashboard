@@ -514,34 +514,37 @@ export default function SalesPage() {
         ...combos.flatMap(combo => combo.items)
       ]
 
-      // Create commission for seller at this location
+      // Create commission per seller per category (since different categories have different rates)
       const { data: sellers } = await supabase
         .from('sellers')
         .select('*')
         .eq('location_id', selectedLocation)
 
       if (sellers && sellers.length > 0) {
-        // Create commission for each seller at this location
         for (const seller of sellers) {
-          let totalCommission = 0
-
-          // Calculate commission per item based on category-specific rates
+          // Group items by category
+          const itemsByCategory = new Map<string, typeof allCartItems>()
+          
           for (const cartItem of allCartItems) {
-            const item = cartItem.item
-            const itemPrice = currency === 'SRD'
-              ? (item.selling_price_srd || 0)
-              : (item.selling_price_usd || 0)
-            const itemTotal = itemPrice * cartItem.quantity
+            const categoryId = cartItem.item.category_id || 'uncategorized'
+            if (!itemsByCategory.has(categoryId)) {
+              itemsByCategory.set(categoryId, [])
+            }
+            itemsByCategory.get(categoryId)!.push(cartItem)
+          }
 
-            // Check if there's a category-specific rate
+          // Create one commission entry per category
+          for (const [categoryId, categoryItems] of itemsByCategory) {
+            let categoryCommission = 0
             let rateToUse = seller.commission_rate // Default rate
 
-            if (item.category_id) {
+            // Get category-specific rate if available
+            if (categoryId !== 'uncategorized') {
               const { data: categoryRate } = await supabase
                 .from('seller_category_rates')
                 .select('commission_rate')
                 .eq('seller_id', seller.id)
-                .eq('category_id', item.category_id)
+                .eq('category_id', categoryId)
                 .single()
 
               if (categoryRate) {
@@ -549,15 +552,28 @@ export default function SalesPage() {
               }
             }
 
-            totalCommission += itemTotal * (rateToUse / 100)
-          }
+            // Calculate commission for this category
+            for (const cartItem of categoryItems) {
+              const item = cartItem.item
+              const itemPrice = currency === 'SRD'
+                ? (item.selling_price_srd || 0)
+                : (item.selling_price_usd || 0)
+              const itemTotal = itemPrice * cartItem.quantity
+              categoryCommission += itemTotal * (rateToUse / 100)
+            }
 
-          await supabase.from('commissions').insert({
-            seller_id: seller.id,
-            sale_id: sale.id,
-            commission_amount: totalCommission,
-            paid: false
-          })
+            // Insert commission record with location_id and category_id
+            if (categoryCommission > 0) {
+              await supabase.from('commissions').insert({
+                seller_id: seller.id,
+                location_id: selectedLocation,
+                category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                sale_id: sale.id,
+                commission_amount: categoryCommission,
+                paid: false
+              })
+            }
+          }
         }
       }
 

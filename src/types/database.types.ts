@@ -476,9 +476,9 @@ export interface Database {
           id: string
           seller_id: string
           location_id: string | null
+          category_id: string | null
           sale_id: string
           commission_amount: number
-          commission_rate: number
           paid: boolean
           created_at: string
         }
@@ -486,9 +486,9 @@ export interface Database {
           id?: string
           seller_id: string
           location_id?: string | null
+          category_id?: string | null
           sale_id: string
           commission_amount: number
-          commission_rate?: number
           paid?: boolean
           created_at?: string
         }
@@ -496,9 +496,9 @@ export interface Database {
           id?: string
           seller_id?: string
           location_id?: string | null
+          category_id?: string | null
           sale_id?: string
           commission_amount?: number
-          commission_rate?: number
           paid?: boolean
           created_at?: string
         }

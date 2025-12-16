@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2 } from 'lucide-react'
+import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Percent } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, EmptyState, LoadingSpinner, Badge, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -14,10 +14,14 @@ type Commission = Database['public']['Tables']['commissions']['Row']
 type Sale = Database['public']['Tables']['sales']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 type Wallet = Database['public']['Tables']['wallets']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
+type Seller = Database['public']['Tables']['sellers']['Row']
+type SellerCategoryRate = Database['public']['Tables']['seller_category_rates']['Row']
 
 interface CommissionWithDetails extends Commission {
   locations?: Location | null
   sales?: Sale
+  categories?: Category | null
 }
 
 interface LocationCommissionSummary {
@@ -31,8 +35,11 @@ interface LocationCommissionSummary {
 export default function CommissionsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const [locations, setLocations] = useState<Location[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [commissions, setCommissions] = useState<CommissionWithDetails[]>([])
   const [wallets, setWallets] = useState<Wallet[]>([])
+  const [sellers, setSellers] = useState<Seller[]>([])
+  const [sellerCategoryRates, setSellerCategoryRates] = useState<SellerCategoryRate[]>([])
   const [loading, setLoading] = useState(true)
   const [payingCommission, setPayingCommission] = useState<string | null>(null)
   
@@ -46,18 +53,31 @@ export default function CommissionsPage() {
   const [selectedLocationForPay, setSelectedLocationForPay] = useState<string>('')
   const [selectedWalletForPay, setSelectedWalletForPay] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  
+  // Category rate management modal states
+  const [showRateModal, setShowRateModal] = useState(false)
+  const [selectedSeller, setSelectedSeller] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [rateValue, setRateValue] = useState<string>('')
+  const [editingRateId, setEditingRateId] = useState<string | null>(null)
 
   const loadData = async () => {
     setLoading(true)
-    const [commissionsRes, locationsRes, walletsRes] = await Promise.all([
-      supabase.from('commissions').select('*, locations(*), sales(*)').order('created_at', { ascending: false }),
+    const [commissionsRes, locationsRes, walletsRes, categoriesRes, sellersRes, ratesRes] = await Promise.all([
+      supabase.from('commissions').select('*, locations(*), sales(*), categories(*)').order('created_at', { ascending: false }),
       supabase.from('locations').select('*').eq('is_active', true).order('name'),
-      supabase.from('wallets').select('*').order('person_name')
+      supabase.from('wallets').select('*').order('person_name'),
+      supabase.from('categories').select('*').order('name'),
+      supabase.from('sellers').select('*').order('name'),
+      supabase.from('seller_category_rates').select('*')
     ])
     
     if (commissionsRes.data) setCommissions(commissionsRes.data as CommissionWithDetails[])
     if (locationsRes.data) setLocations(locationsRes.data)
     if (walletsRes.data) setWallets(walletsRes.data)
+    if (categoriesRes.data) setCategories(categoriesRes.data)
+    if (sellersRes.data) setSellers(sellersRes.data)
+    if (ratesRes.data) setSellerCategoryRates(ratesRes.data)
     setLoading(false)
   }
 
@@ -197,6 +217,86 @@ export default function CommissionsPage() {
     setShowPayModal(true)
   }
 
+  const openRateModal = (sellerId?: string, categoryId?: string, currentRate?: number, rateId?: string) => {
+    setSelectedSeller(sellerId || '')
+    setSelectedCategory(categoryId || '')
+    setRateValue(currentRate?.toString() || '')
+    setEditingRateId(rateId || null)
+    setShowRateModal(true)
+  }
+
+  const closeRateModal = () => {
+    setShowRateModal(false)
+    setSelectedSeller('')
+    setSelectedCategory('')
+    setRateValue('')
+    setEditingRateId(null)
+  }
+
+  const handleSaveRate = async () => {
+    if (!selectedSeller || !selectedCategory || !rateValue) {
+      alert('Please fill all fields')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const rate = parseFloat(rateValue)
+      
+      if (editingRateId) {
+        // Update existing rate
+        await supabase
+          .from('seller_category_rates')
+          .update({ commission_rate: rate })
+          .eq('id', editingRateId)
+      } else {
+        // Create new rate
+        await supabase
+          .from('seller_category_rates')
+          .insert({
+            seller_id: selectedSeller,
+            category_id: selectedCategory,
+            commission_rate: rate
+          })
+      }
+
+      const seller = sellers.find(s => s.id === selectedSeller)
+      const category = categories.find(c => c.id === selectedCategory)
+      
+      await logActivity({
+        action: editingRateId ? 'update' : 'create',
+        entityType: 'seller_category_rate',
+        entityId: editingRateId || selectedSeller,
+        entityName: `${seller?.name} - ${category?.name}`,
+        details: `${editingRateId ? 'Updated' : 'Set'} commission rate to ${rate}%`
+      })
+
+      closeRateModal()
+      await loadData()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteRate = async (rateId: string) => {
+    if (!confirm('Are you sure you want to delete this category rate?')) return
+
+    await supabase
+      .from('seller_category_rates')
+      .delete()
+      .eq('id', rateId)
+
+    await logActivity({
+      action: 'delete',
+      entityType: 'seller_category_rate',
+      entityId: rateId,
+      entityName: 'Category Rate',
+      details: 'Deleted category-specific commission rate'
+    })
+
+    await loadData()
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -239,6 +339,107 @@ export default function CommissionsPage() {
             value={locationSummaries.length.toString()} 
             icon={<MapPin size={20} />}
           />
+        </div>
+
+        {/* Category-Based Commission Rates - PROMINENT SECTION */}
+        <div className="mb-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border-2 border-primary/30 p-5 lg:p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <span className="text-2xl">📊</span>
+                Category Commission Rates
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Different categories can have different commission rates per seller
+              </p>
+            </div>
+            <Button onClick={() => openRateModal()} variant="primary" size="sm">
+              + Add Rate
+            </Button>
+          </div>
+
+          {/* Sellers and their category rates */}
+          <div className="space-y-4">
+            {sellers.map(seller => {
+              const sellerRates = sellerCategoryRates.filter(r => r.seller_id === seller.id)
+              const location = locations.find(l => l.id === seller.location_id)
+              
+              return (
+                <div key={seller.id} className="bg-card rounded-xl border border-border p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-bold text-foreground text-lg">{seller.name}</h3>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                        <MapPin size={14} />
+                        <span>{location?.name || 'No location'}</span>
+                        <span>•</span>
+                        <span className="font-medium text-foreground">Default: {seller.commission_rate}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Category-specific rates */}
+                  {sellerRates.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3">
+                      {sellerRates.map(rate => {
+                        const category = categories.find(c => c.id === rate.category_id)
+                        return (
+                          <div 
+                            key={rate.id} 
+                            className="bg-muted/30 px-3 py-2 rounded-lg border border-border hover:border-primary/50 transition-all flex items-center justify-between group"
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-sm font-medium text-foreground truncate">
+                                {category?.name || 'Unknown'}
+                              </span>
+                              <Badge variant="default" className="shrink-0">
+                                {rate.commission_rate}%
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                              <button
+                                onClick={() => openRateModal(seller.id, rate.category_id, rate.commission_rate, rate.id)}
+                                className="text-xs text-primary hover:text-primary/80 px-2 py-1 rounded"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRate(rate.id)}
+                                className="text-xs text-destructive hover:text-destructive/80 px-2 py-1 rounded"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground italic bg-muted/20 rounded-lg p-3 mt-3 text-center">
+                      No category-specific rates set. Using default rate ({seller.commission_rate}%) for all categories.
+                    </div>
+                  )}
+                  
+                  <Button 
+                    onClick={() => openRateModal(seller.id)} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="mt-3 w-full"
+                  >
+                    + Add Category Rate for {seller.name}
+                  </Button>
+                </div>
+              )
+            })}
+
+            {sellers.length === 0 && (
+              <EmptyState
+                icon={TrendingUp}
+                title="No sellers yet"
+                description="Create sellers to manage category-specific commission rates."
+              />
+            )}
+          </div>
         </div>
 
         {/* Location Summaries */}
@@ -384,9 +585,13 @@ export default function CommissionsPage() {
                             <span>•</span>
                           </>
                         )}
+                        {commission.categories && (
+                          <>
+                            <span>Category: <span className="font-medium text-foreground">{commission.categories.name}</span></span>
+                            <span>•</span>
+                          </>
+                        )}
                         <span>Sale: <span className="font-medium text-foreground">{formatCurrency(commission.sales?.total_amount || 0, 'USD')}</span></span>
-                        <span>•</span>
-                        <span>Rate: <span className="font-medium text-foreground">{commission.commission_rate}%</span></span>
                         <span>•</span>
                         <span>{new Date(commission.created_at).toLocaleDateString()}</span>
                       </div>
@@ -484,6 +689,94 @@ export default function CommissionsPage() {
                 setSelectedLocationForPay('')
                 setSelectedWalletForPay('')
               }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Category Rate Management Modal */}
+      <Modal 
+        isOpen={showRateModal} 
+        onClose={closeRateModal}
+        title={editingRateId ? "Edit Category Rate" : "Add Category Rate"}
+      >
+        <div className="space-y-4">
+          <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
+            <p className="text-sm text-foreground font-medium">
+              💡 Set different commission rates for different product categories
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              When a sale includes items from this category, the seller will earn this commission rate instead of their default rate.
+            </p>
+          </div>
+
+          <Select
+            label="Seller"
+            value={selectedSeller}
+            onChange={(e) => setSelectedSeller(e.target.value)}
+            required
+            disabled={!!editingRateId}
+          >
+            <option value="">Select seller...</option>
+            {sellers.map(seller => (
+              <option key={seller.id} value={seller.id}>
+                {seller.name} (Default: {seller.commission_rate}%)
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            label="Category"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            required
+            disabled={!!editingRateId}
+          >
+            <option value="">Select category...</option>
+            {categories.map(category => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </Select>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Commission Rate (%)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              value={rateValue}
+              onChange={(e) => setRateValue(e.target.value)}
+              placeholder="e.g., 15"
+              className="input-field"
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter the percentage commission for this category (0-100)
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button 
+              onClick={handleSaveRate} 
+              variant="primary" 
+              fullWidth 
+              loading={submitting}
+              disabled={!selectedSeller || !selectedCategory || !rateValue}
+            >
+              {editingRateId ? 'Update Rate' : 'Add Rate'}
+            </Button>
+            <Button 
+              type="button" 
+              variant="secondary" 
+              fullWidth 
+              onClick={closeRateModal}
             >
               Cancel
             </Button>
