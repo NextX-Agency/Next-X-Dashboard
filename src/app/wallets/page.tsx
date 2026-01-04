@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { 
   Wallet, Plus, DollarSign, Edit, Trash2, MapPin, ArrowUpRight, ArrowDownLeft, 
-  TrendingUp, History, Building2, Banknote, CreditCard
+  TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft
 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
@@ -37,6 +37,7 @@ export default function WalletsPage() {
   const [showForm, setShowForm] = useState(false)
   const [showTransactionForm, setShowTransactionForm] = useState(false)
   const [showTransactionHistory, setShowTransactionHistory] = useState(false)
+  const [showTransferForm, setShowTransferForm] = useState(false)
   const [selectedWallet, setSelectedWallet] = useState<WalletWithLocation | null>(null)
   const [editingWallet, setEditingWallet] = useState<WalletWithLocation | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,6 +55,13 @@ export default function WalletsPage() {
   
   const [transactionForm, setTransactionForm] = useState({
     type: 'add' as 'add' | 'remove',
+    amount: '',
+    description: ''
+  })
+
+  const [transferForm, setTransferForm] = useState({
+    fromWalletId: '',
+    toWalletId: '',
     amount: '',
     description: ''
   })
@@ -195,12 +203,13 @@ export default function WalletsPage() {
       // Create transaction record
       await supabase.from('wallet_transactions').insert({
         wallet_id: selectedWallet.id,
-        transaction_type: transactionForm.type === 'add' ? 'credit' : 'debit',
+        type: transactionForm.type === 'add' ? 'credit' : 'debit',
         amount: amount,
-        previous_balance: previousBalance,
-        new_balance: newBalance,
+        balance_before: previousBalance,
+        balance_after: newBalance,
         description: transactionForm.description || `Manual ${transactionForm.type === 'add' ? 'deposit' : 'withdrawal'}`,
-        reference_type: 'adjustment'
+        reference_type: 'adjustment',
+        currency: selectedWallet.currency
       })
 
       const locationName = selectedWallet.locations?.name || 'Unknown'
@@ -215,6 +224,100 @@ export default function WalletsPage() {
       setTransactionForm({ type: 'add', amount: '', description: '' })
       setShowTransactionForm(false)
       setSelectedWallet(null)
+      loadData()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (submitting || !transferForm.fromWalletId || !transferForm.toWalletId) return
+    
+    setSubmitting(true)
+    try {
+      const amount = parseFloat(transferForm.amount)
+      if (isNaN(amount) || amount <= 0) {
+        alert('Enter a valid amount')
+        setSubmitting(false)
+        return
+      }
+
+      const fromWallet = wallets.find(w => w.id === transferForm.fromWalletId)
+      const toWallet = wallets.find(w => w.id === transferForm.toWalletId)
+      
+      if (!fromWallet || !toWallet) {
+        alert('Invalid wallet selection')
+        setSubmitting(false)
+        return
+      }
+
+      if (fromWallet.balance < amount) {
+        alert('Insufficient balance in source wallet')
+        setSubmitting(false)
+        return
+      }
+
+      if (fromWallet.currency !== toWallet.currency) {
+        alert('Cannot transfer between wallets with different currencies')
+        setSubmitting(false)
+        return
+      }
+
+      const fromNewBalance = fromWallet.balance - amount
+      const toNewBalance = toWallet.balance + amount
+
+      // Update source wallet balance
+      await supabase
+        .from('wallets')
+        .update({ balance: fromNewBalance })
+        .eq('id', fromWallet.id)
+
+      // Update destination wallet balance
+      await supabase
+        .from('wallets')
+        .update({ balance: toNewBalance })
+        .eq('id', toWallet.id)
+
+      // Create debit transaction for source wallet
+      await supabase.from('wallet_transactions').insert({
+        wallet_id: fromWallet.id,
+        type: 'debit',
+        amount: amount,
+        balance_before: fromWallet.balance,
+        balance_after: fromNewBalance,
+        description: transferForm.description || `Transfer to ${toWallet.locations?.name || 'Unknown'} - ${toWallet.type} ${toWallet.currency}`,
+        reference_type: 'transfer',
+        reference_id: toWallet.id,
+        currency: fromWallet.currency
+      })
+
+      // Create credit transaction for destination wallet
+      await supabase.from('wallet_transactions').insert({
+        wallet_id: toWallet.id,
+        type: 'credit',
+        amount: amount,
+        balance_before: toWallet.balance,
+        balance_after: toNewBalance,
+        description: transferForm.description || `Transfer from ${fromWallet.locations?.name || 'Unknown'} - ${fromWallet.type} ${fromWallet.currency}`,
+        reference_type: 'transfer',
+        reference_id: fromWallet.id,
+        currency: toWallet.currency
+      })
+
+      const fromLocationName = fromWallet.locations?.name || 'Unknown'
+      const toLocationName = toWallet.locations?.name || 'Unknown'
+      
+      await logActivity({
+        action: 'transfer',
+        entityType: 'wallet',
+        entityId: fromWallet.id,
+        entityName: `${fromLocationName} → ${toLocationName}`,
+        details: `Transferred ${formatCurrency(amount, fromWallet.currency as Currency)} from ${fromLocationName} (${fromWallet.type}) to ${toLocationName} (${toWallet.type})`
+      })
+
+      setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
+      setShowTransferForm(false)
       loadData()
     } finally {
       setSubmitting(false)
@@ -278,6 +381,10 @@ export default function WalletsPage() {
         icon={<Wallet size={24} />}
         action={
           <div className="flex gap-2">
+            <Button onClick={() => setShowTransferForm(true)} variant="secondary">
+              <ArrowRightLeft size={20} />
+              <span className="hidden sm:inline">Transfer</span>
+            </Button>
             <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
               <History size={20} />
               <span className="hidden sm:inline">History</span>
@@ -737,6 +844,111 @@ export default function WalletsPage() {
             ))
           )}
         </div>
+      </Modal>
+
+      {/* Transfer Modal */}
+      <Modal 
+        isOpen={showTransferForm} 
+        onClose={() => {
+          setShowTransferForm(false)
+          setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
+        }} 
+        title="Transfer Between Wallets"
+      >
+        <form onSubmit={handleTransfer} className="space-y-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2 text-primary mb-2">
+              <ArrowRightLeft size={18} />
+              <span className="font-semibold">Wallet Transfer</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Transfer money between wallets of the same currency. Perfect for moving funds between locations or from cash to bank.
+            </p>
+          </div>
+          
+          <Select
+            label="From Wallet"
+            value={transferForm.fromWalletId}
+            onChange={(e) => setTransferForm({ ...transferForm, fromWalletId: e.target.value, toWalletId: '' })}
+            required
+          >
+            <option value="">Select source wallet...</option>
+            {wallets.map(wallet => (
+              <option key={wallet.id} value={wallet.id}>
+                {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+              </option>
+            ))}
+          </Select>
+          
+          <div className="flex justify-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowDownLeft size={20} className="text-primary" />
+            </div>
+          </div>
+          
+          <Select
+            label="To Wallet"
+            value={transferForm.toWalletId}
+            onChange={(e) => setTransferForm({ ...transferForm, toWalletId: e.target.value })}
+            required
+          >
+            <option value="">Select destination wallet...</option>
+            {wallets
+              .filter(w => {
+                if (!transferForm.fromWalletId) return true
+                const fromWallet = wallets.find(fw => fw.id === transferForm.fromWalletId)
+                return w.id !== transferForm.fromWalletId && w.currency === fromWallet?.currency
+              })
+              .map(wallet => (
+                <option key={wallet.id} value={wallet.id}>
+                  {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                </option>
+              ))}
+          </Select>
+          
+          <Input
+            label="Amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={transferForm.amount}
+            onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+            placeholder="0.00"
+            required
+          />
+          
+          {transferForm.fromWalletId && transferForm.amount && (
+            <div className="bg-muted rounded-lg p-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Current balance:</span>
+                <span>{formatCurrency(wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
+              </div>
+              <div className="flex justify-between font-medium text-foreground mt-1">
+                <span>After transfer:</span>
+                <span>{formatCurrency((wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0) - (parseFloat(transferForm.amount) || 0), (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
+              </div>
+            </div>
+          )}
+          
+          <Input
+            label="Description (optional)"
+            type="text"
+            value={transferForm.description}
+            onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
+            placeholder="e.g. Moving to bank account"
+          />
+          
+          <Button 
+            type="submit" 
+            variant="primary" 
+            fullWidth 
+            loading={submitting}
+            disabled={!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount}
+          >
+            <ArrowRightLeft size={18} />
+            Transfer {transferForm.amount ? formatCurrency(parseFloat(transferForm.amount) || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency) : 'Money'}
+          </Button>
+        </form>
       </Modal>
     </div>
   )

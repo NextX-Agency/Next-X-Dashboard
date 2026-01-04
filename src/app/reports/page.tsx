@@ -94,8 +94,11 @@ export default function ReportsPage() {
       .forEach(sale => {
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
-          if (item) {
-            const costInUSD = item.purchase_price_usd * saleItem.quantity
+          if (item && item.purchase_price_usd) {
+            const purchasePrice = typeof item.purchase_price_usd === 'string'
+              ? parseFloat(item.purchase_price_usd)
+              : item.purchase_price_usd
+            const costInUSD = purchasePrice * saleItem.quantity
             let revenueInUSD = saleItem.subtotal
             
             // Convert SRD revenue to USD using actual exchange rate
@@ -163,8 +166,11 @@ export default function ReportsPage() {
       .filter(s => !locationId || s.location_id === locationId)
       .reduce((sum, stock) => {
         const item = items.find(i => i.id === stock.item_id)
-        if (item) {
-          return sum + (item.purchase_price_usd * stock.quantity)
+        if (item && item.purchase_price_usd) {
+          const purchasePrice = typeof item.purchase_price_usd === 'string' 
+            ? parseFloat(item.purchase_price_usd) 
+            : item.purchase_price_usd
+          return sum + (purchasePrice * stock.quantity)
         }
         return sum
       }, 0)
@@ -186,8 +192,11 @@ export default function ReportsPage() {
       locationSales.forEach(sale => {
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
-          if (item) {
-            const costInUSD = item.purchase_price_usd * saleItem.quantity
+          if (item && item.purchase_price_usd) {
+            const purchasePrice = typeof item.purchase_price_usd === 'string'
+              ? parseFloat(item.purchase_price_usd)
+              : item.purchase_price_usd
+            const costInUSD = purchasePrice * saleItem.quantity
             let revenueInUSD = saleItem.subtotal
             
             // Convert SRD revenue to USD using actual exchange rate

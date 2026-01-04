@@ -592,10 +592,11 @@ export default function SalesPage() {
           wallet_id: matchingWallet.id,
           sale_id: sale.id,
           amount: total,
-          transaction_type: 'credit',
+          type: 'credit',
           description: `Sale ${invoiceNumber}`,
-          previous_balance: matchingWallet.balance,
-          new_balance: matchingWallet.balance + total
+          balance_before: matchingWallet.balance,
+          balance_after: matchingWallet.balance + total,
+          currency: currency
         })
         
         // Reload wallets to reflect new balance
@@ -639,7 +640,7 @@ export default function SalesPage() {
   }
 
   const handleUndoSale = async (sale: SaleWithDetails) => {
-    if (!confirm('Are you sure you want to undo this sale? Stock will be restored.')) return
+    if (!confirm('Are you sure you want to undo this sale? Stock will be restored and wallet will be refunded.')) return
 
     try {
       // Restore stock for each item
@@ -670,19 +671,65 @@ export default function SalesPage() {
         }
       }
 
+      // Refund the wallet if sale was linked to one
+      if (sale.wallet_id) {
+        const { data: wallet } = await supabase
+          .from('wallets')
+          .select('*')
+          .eq('id', sale.wallet_id)
+          .single()
+
+        if (wallet) {
+          const newBalance = wallet.balance - sale.total_amount
+          
+          // Update wallet balance (subtract the sale amount)
+          await supabase
+            .from('wallets')
+            .update({ balance: newBalance })
+            .eq('id', wallet.id)
+
+          // Create refund transaction record
+          await supabase.from('wallet_transactions').insert({
+            wallet_id: wallet.id,
+            sale_id: sale.id,
+            type: 'debit',
+            amount: sale.total_amount,
+            balance_before: wallet.balance,
+            balance_after: newBalance,
+            description: `Sale refund (undo)`,
+            reference_type: 'sale_refund',
+            currency: wallet.currency
+          })
+        }
+      }
+
+      // Delete commissions associated with this sale
+      await supabase.from('commissions').delete().eq('sale_id', sale.id)
+
       // Delete sale items first (due to foreign key constraint)
       await supabase.from('sale_items').delete().eq('sale_id', sale.id)
       
       // Delete the sale
       await supabase.from('sales').delete().eq('id', sale.id)
 
+      // Log the undo action
+      await logActivity({
+        action: 'delete',
+        entityType: 'sale',
+        entityId: sale.id,
+        entityName: 'Sale Undo',
+        details: `Undid sale of ${formatCurrency(sale.total_amount, sale.currency as Currency)} at ${sale.locations?.name || 'Unknown'}. Stock restored, wallet refunded, commissions removed.`
+      })
+
       // Reload data
       await loadRecentSales()
+      await loadSalesStats()
       if (selectedLocation) {
         loadStock(selectedLocation)
+        loadLocationWallets(selectedLocation)
       }
 
-      alert('Sale has been undone and stock restored.')
+      alert('Sale has been undone. Stock restored, wallet refunded, and commissions removed.')
     } catch (error) {
       console.error('Error undoing sale:', error)
       alert('Error undoing sale')

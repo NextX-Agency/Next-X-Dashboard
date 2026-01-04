@@ -407,14 +407,27 @@ export default function ReservationsPage() {
       const item = reservation.items
       const price = (item?.selling_price_srd || 0)
       const totalAmount = price * reservation.quantity
+      const currency = 'SRD'
+      const paymentMethod = 'cash'
+
+      // Find matching wallet for this location
+      const { data: wallets } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('location_id', reservation.location_id)
+      
+      const matchingWallet = wallets?.find(
+        w => w.currency === currency && w.type === paymentMethod
+      )
       
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert({
           location_id: reservation.location_id,
           total_amount: totalAmount,
-          currency: 'SRD',
-          payment_method: 'reservation',
+          currency: currency,
+          payment_method: paymentMethod,
+          wallet_id: matchingWallet?.id || null,
           created_at: new Date().toISOString()
         })
         .select()
@@ -459,11 +472,34 @@ export default function ReservationsPage() {
             const commissionAmount = totalAmount * (rateToUse / 100)
             await supabase.from('commissions').insert({
               seller_id: seller.id,
+              location_id: reservation.location_id,
+              category_id: item?.category_id || null,
               sale_id: saleData.id,
               commission_amount: commissionAmount,
               paid: false
             })
           }
+        }
+
+        // Credit the wallet for this sale (AUTOMATED LIKE SALES)
+        if (matchingWallet) {
+          // Update wallet balance
+          await supabase
+            .from('wallets')
+            .update({ balance: matchingWallet.balance + totalAmount })
+            .eq('id', matchingWallet.id)
+
+          // Create wallet transaction record
+          await supabase.from('wallet_transactions').insert({
+            wallet_id: matchingWallet.id,
+            sale_id: saleData.id,
+            amount: totalAmount,
+            type: 'credit',
+            description: `Completed reservation for ${reservation.clients?.name}`,
+            balance_before: matchingWallet.balance,
+            balance_after: matchingWallet.balance + totalAmount,
+            currency: currency
+          })
         }
       }
 

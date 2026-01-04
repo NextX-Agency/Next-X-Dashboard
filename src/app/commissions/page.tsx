@@ -218,6 +218,8 @@ export default function CommissionsPage() {
         type: 'debit',
         amount: totalToPay,
         currency: wallet.currency,
+        balance_before: wallet.balance,
+        balance_after: wallet.balance - totalToPay,
         description: `Commission payout for ${locations.find(l => l.id === selectedLocationForPay)?.name}`,
         reference_type: 'commission_payout',
         reference_id: selectedLocationForPay

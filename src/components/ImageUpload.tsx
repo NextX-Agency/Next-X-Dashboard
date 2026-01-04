@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import { Upload, X, Loader2, ImageIcon } from 'lucide-react'
 import { Button } from './UI'
@@ -18,6 +18,11 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(value || null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync preview with value prop when it changes (important for editing existing items)
+  useEffect(() => {
+    setPreview(value || null)
+  }, [value])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

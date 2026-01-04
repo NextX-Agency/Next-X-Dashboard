@@ -246,6 +246,8 @@ export default function ExpensesPage() {
           wallet_id: wallet.id,
           type: difference > 0 ? 'debit' : 'credit',
           amount: Math.abs(difference),
+          balance_before: wallet.balance,
+          balance_after: wallet.balance - difference,
           currency: wallet.currency,
           description: `Expense update: ${expenseForm.description || 'No description'}`,
           reference_type: 'expense',
@@ -287,6 +289,8 @@ export default function ExpensesPage() {
             wallet_id: wallet.id,
             type: 'debit',
             amount,
+            balance_before: wallet.balance,
+            balance_after: wallet.balance - amount,
             currency: wallet.currency,
             description: `Expense: ${expenseForm.description || 'No description'}`,
             reference_type: 'expense',
@@ -331,9 +335,11 @@ export default function ExpensesPage() {
     
     // Refund to wallet
     if (expense.wallets) {
+      const newBalance = expense.wallets.balance + expense.amount
+      
       await supabase
         .from('wallets')
-        .update({ balance: expense.wallets.balance + expense.amount })
+        .update({ balance: newBalance })
         .eq('id', expense.wallet_id)
       
       // Log wallet transaction for refund
@@ -341,6 +347,8 @@ export default function ExpensesPage() {
         wallet_id: expense.wallet_id,
         type: 'credit',
         amount: expense.amount,
+        balance_before: expense.wallets.balance,
+        balance_after: newBalance,
         currency: expense.wallets.currency,
         description: `Expense refund: ${expense.description || 'No description'}`,
         reference_type: 'expense_refund',
