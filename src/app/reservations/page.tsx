@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles } from 'lucide-react'
+import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -15,11 +15,6 @@ type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 type Reservation = Database['public']['Tables']['reservations']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
-type ComboItem = Database['public']['Tables']['combo_items']['Row']
-
-interface ItemWithComboItems extends Item {
-  combo_items?: (ComboItem & { item?: Item })[]
-}
 
 interface ReservationWithDetails extends Reservation {
   clients?: Client
@@ -44,7 +39,6 @@ interface ComboReservation {
 }
 
 interface InvoiceData {
-  reservationIds: string[]
   date: string
   client: string
   location: string
@@ -61,14 +55,39 @@ interface InvoiceData {
   isPaid: boolean
 }
 
-type SortField = 'date' | 'client' | 'item' | 'status'
-type SortOrder = 'asc' | 'desc'
+interface ReservationGroup {
+  id: string
+  client_id: string
+  location_id: string
+  client_name: string
+  location_name: string
+  created_at: string
+  status: string
+  total_amount: number
+  items: Array<{
+    id: string
+    item_id: string
+    item_name: string
+    quantity: number
+    unit_price: number
+    subtotal: number
+  }>
+}
+
+interface ReservationStats {
+  todayReservations: number
+  todayTotal: number
+  weekReservations: number
+  weekTotal: number
+  pendingCount: number
+  completedCount: number
+}
 
 export default function ReservationsPage() {
   const [clients, setClients] = useState<Client[]>([])
-  const [items, setItems] = useState<ItemWithComboItems[]>([])
+  const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
-  const [reservations, setReservations] = useState<ReservationWithDetails[]>([])
+  const [recentReservations, setRecentReservations] = useState<ReservationGroup[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [selectedClient, setSelectedClient] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -79,6 +98,7 @@ export default function ReservationsPage() {
   const [showClientForm, setShowClientForm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showNewReservation, setShowNewReservation] = useState(false)
   const [showInvoice, setShowInvoice] = useState(false)
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'paid'>('unpaid')
@@ -91,47 +111,158 @@ export default function ReservationsPage() {
   const [comboMode, setComboMode] = useState(false)
   const [tempComboItems, setTempComboItems] = useState<CartItem[]>([])
   const [quickComboPrice, setQuickComboPrice] = useState<string>('1400')
+  const [itemSearchQuery, setItemSearchQuery] = useState('')
   
-  // Filter and sort states for history
-  const [historySearchQuery, setHistorySearchQuery] = useState('')
-  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('')
-  const [historyClientFilter, setHistoryClientFilter] = useState<string>('')
-  const [historySortField, setHistorySortField] = useState<SortField>('date')
-  const [historySortOrder, setHistorySortOrder] = useState<SortOrder>('desc')
+  // Reservation statistics
+  const [reservationStats, setReservationStats] = useState<ReservationStats>({
+    todayReservations: 0,
+    todayTotal: 0,
+    weekReservations: 0,
+    weekTotal: 0,
+    pendingCount: 0,
+    completedCount: 0
+  })
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const [clientsRes, itemsRes, locationsRes, reservationsRes] = await Promise.all([
+      const [clientsRes, itemsRes, locationsRes] = await Promise.all([
         supabase.from('clients').select('*').order('name'),
         supabase.from('items').select('*').order('name'),
-        supabase.from('locations').select('*').order('name'),
-        supabase.from('reservations').select('*, clients(*), items(*), locations(*)').order('created_at', { ascending: false }).limit(50)
+        supabase.from('locations').select('*').order('name')
       ])
       
       if (clientsRes.data) setClients(clientsRes.data)
-      if (itemsRes.data) {
-        // Load combo items for each combo
-        const itemsWithCombos = await Promise.all(
-          itemsRes.data.map(async (item) => {
-            if (item.is_combo) {
-              const { data: comboItemsData } = await supabase
-                .from('combo_items')
-                .select('*, item:items(*)')
-                .eq('combo_id', item.id)
-              return { ...item, combo_items: comboItemsData || [] }
-            }
-            return item
-          })
-        )
-        setItems(itemsWithCombos)
-      }
+      if (itemsRes.data) setItems(itemsRes.data)
       if (locationsRes.data) setLocations(locationsRes.data)
-      if (reservationsRes.data) setReservations(reservationsRes.data as ReservationWithDetails[])
+      
+      await loadRecentReservations()
+      await loadReservationStats()
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadReservationStats = async () => {
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
+    
+    // Get today's reservations
+    const { data: todayData } = await supabase
+      .from('reservations')
+      .select('*, items(*)')
+      .gte('created_at', todayStart)
+    
+    // Get week's reservations
+    const { data: weekData } = await supabase
+      .from('reservations')
+      .select('*, items(*)')
+      .gte('created_at', weekStart)
+    
+    // Get pending and completed counts
+    const { data: pendingData } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('status', 'pending')
+    
+    const { data: completedData } = await supabase
+      .from('reservations')
+      .select('id')
+      .eq('status', 'completed')
+    
+    let todayTotal = 0
+    let weekTotal = 0
+    
+    if (todayData) {
+      todayData.forEach(res => {
+        const price = res.items?.selling_price_srd || 0
+        todayTotal += price * res.quantity
+      })
+    }
+    
+    if (weekData) {
+      weekData.forEach(res => {
+        const price = res.items?.selling_price_srd || 0
+        weekTotal += price * res.quantity
+      })
+    }
+    
+    setReservationStats({
+      todayReservations: todayData?.length || 0,
+      todayTotal,
+      weekReservations: weekData?.length || 0,
+      weekTotal,
+      pendingCount: pendingData?.length || 0,
+      completedCount: completedData?.length || 0
+    })
+  }
+
+  const loadRecentReservations = async () => {
+    try {
+      // Get all reservations with their related data
+      const { data: reservationsData } = await supabase
+        .from('reservations')
+        .select('*, clients(*), items(*), locations(*)')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      
+      if (!reservationsData) return
+      
+      // Group reservations by client, location, and created_at (within 5 minutes)
+      const groupedMap = new Map<string, ReservationGroup>()
+      
+      reservationsData.forEach((res) => {
+        // Create a unique key based on client, location, and timestamp (rounded to 5 minutes)
+        const timestamp = new Date(res.created_at).getTime()
+        const roundedTime = Math.floor(timestamp / (5 * 60 * 1000)) * (5 * 60 * 1000)
+        const groupKey = `${res.client_id}-${res.location_id}-${roundedTime}-${res.status}`
+        
+        const price = res.items?.selling_price_srd || 0
+        const subtotal = price * res.quantity
+        
+        if (groupedMap.has(groupKey)) {
+          const group = groupedMap.get(groupKey)!
+          group.items.push({
+            id: res.id,
+            item_id: res.item_id,
+            item_name: res.items?.name || 'Unknown Item',
+            quantity: res.quantity,
+            unit_price: price,
+            subtotal
+          })
+          group.total_amount += subtotal
+        } else {
+          groupedMap.set(groupKey, {
+            id: groupKey,
+            client_id: res.client_id,
+            location_id: res.location_id,
+            client_name: res.clients?.name || 'Unknown Client',
+            location_name: res.locations?.name || 'Unknown Location',
+            created_at: res.created_at,
+            status: res.status,
+            total_amount: subtotal,
+            items: [{
+              id: res.id,
+              item_id: res.item_id,
+              item_name: res.items?.name || 'Unknown Item',
+              quantity: res.quantity,
+              unit_price: price,
+              subtotal
+            }]
+          })
+        }
+      })
+      
+      const grouped = Array.from(groupedMap.values()).sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      
+      setRecentReservations(grouped)
+    } catch (error) {
+      console.error('Error loading recent reservations:', error)
     }
   }
 
@@ -251,75 +382,67 @@ export default function ReservationsPage() {
     setTempComboItems(tempComboItems.filter(c => c.item.id !== itemId))
   }
 
+  const calculateTempComboOriginalPrice = () => {
+    return tempComboItems.reduce((sum, cartItem) => {
+      const price = currency === 'SRD' 
+        ? (cartItem.item.selling_price_srd || 0)
+        : (cartItem.item.selling_price_usd || 0)
+      return sum + (price * cartItem.quantity)
+    }, 0)
+  }
+
   const createQuickCombo = () => {
-    if (tempComboItems.length === 0) return
+    if (tempComboItems.length < 2) {
+      alert('Select at least 2 items for a combo')
+      return
+    }
 
     const comboPrice = parseFloat(quickComboPrice) || 0
-    const originalPrice = tempComboItems.reduce((sum, item) => {
-      const price = currency === 'SRD'
-        ? (item.item.selling_price_srd || 0)
-        : (item.item.selling_price_usd || 0)
-      return sum + (price * item.quantity)
-    }, 0)
+    const originalPrice = calculateTempComboOriginalPrice()
+    const comboId = `combo-${Date.now()}`
 
     const newCombo: ComboReservation = {
-      id: `combo-${Date.now()}`,
+      id: comboId,
       name: `Quick Combo (${tempComboItems.length} items)`,
-      items: tempComboItems.map(item => ({ ...item, isComboItem: true, comboId: `combo-${Date.now()}` })),
+      items: tempComboItems.map(item => ({ ...item, isComboItem: true, comboId })),
       comboPrice,
       originalPrice
     }
 
     setCombos([...combos, newCombo])
     setTempComboItems([])
+    setQuickComboPrice('1400')
     setComboMode(false)
   }
 
-  const addPredefinedCombo = (combo: ItemWithComboItems) => {
-    if (!combo.combo_items) return
-
-    // Check if all items have stock
-    const comboItems: CartItem[] = []
-    for (const comboItem of combo.combo_items) {
-      if (!comboItem.item) continue
-      const stock = getAvailableStock(comboItem.item.id)
-      if (stock < comboItem.quantity) {
-        alert(`Not enough stock for ${comboItem.item.name}`)
-        return
-      }
-      comboItems.push({
-        item: comboItem.item,
-        quantity: comboItem.quantity,
-        availableStock: stock,
-        isComboItem: true,
-        comboId: combo.id
-      })
-    }
-
-    const comboPrice = currency === 'SRD'
-      ? (combo.selling_price_srd || 0)
-      : (combo.selling_price_usd || 0)
-
-    const originalPrice = comboItems.reduce((sum, item) => {
-      const price = currency === 'SRD'
-        ? (item.item.selling_price_srd || 0)
-        : (item.item.selling_price_usd || 0)
-      return sum + (price * item.quantity)
-    }, 0)
-
-    const newCombo: ComboReservation = {
-      id: combo.id,
-      name: combo.name,
-      items: comboItems,
-      comboPrice,
-      originalPrice
-    }
-
-    setCombos([...combos, newCombo])
+  const cancelComboMode = () => {
+    setTempComboItems([])
+    setComboMode(false)
+    setQuickComboPrice('1400')
   }
 
   const removeCombo = (comboId: string) => {
     setCombos(combos.filter(c => c.id !== comboId))
+  }
+
+  const calculateTotal = () => {
+    const cartTotal = cart.reduce((sum, cartItem) => {
+      const price = currency === 'SRD' 
+        ? (cartItem.item.selling_price_srd || 0)
+        : (cartItem.item.selling_price_usd || 0)
+      return sum + (price * cartItem.quantity)
+    }, 0)
+    
+    const comboTotal = combos.reduce((sum, combo) => sum + combo.comboPrice, 0)
+    
+    return cartTotal + comboTotal
+  }
+
+  const getTotalItemCount = () => {
+    const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+    const comboCount = combos.reduce((sum, combo) => 
+      sum + combo.items.reduce((s, i) => s + i.quantity, 0), 0)
+    return cartCount + comboCount
   }
 
   const generateInvoiceNumber = () => {
@@ -402,114 +525,102 @@ export default function ReservationsPage() {
     const client = clients.find(c => c.id === selectedClient)
     const location = locations.find(l => l.id === selectedLocation)
     const invoiceNumber = generateInvoiceNumber()
-    const reservationIds: string[] = []
+    const total = calculateTotal()
     
     try {
+      const invoiceItems: InvoiceData['items'] = []
+      
       // Create reservation for each cart item
       for (const cartItem of cart) {
-        const { data } = await supabase.from('reservations').insert({
+        const price = currency === 'SRD' 
+          ? (cartItem.item.selling_price_srd || 0)
+          : (cartItem.item.selling_price_usd || 0)
+        
+        await supabase.from('reservations').insert({
           client_id: selectedClient,
           item_id: cartItem.item.id,
           location_id: selectedLocation,
           quantity: cartItem.quantity,
           status: paymentStatus === 'paid' ? 'completed' : 'pending'
-        }).select().single()
+        })
         
-        if (data) {
-          reservationIds.push(data.id)
-          
-          // If paid, reduce stock immediately
-          if (paymentStatus === 'paid') {
-            const { data: stock } = await supabase
-              .from('stock')
-              .select('*')
-              .eq('item_id', cartItem.item.id)
-              .eq('location_id', selectedLocation)
-              .single()
+        invoiceItems.push({
+          name: cartItem.item.name,
+          quantity: cartItem.quantity,
+          unitPrice: price,
+          subtotal: price * cartItem.quantity,
+          isCombo: false
+        })
+        
+        // If paid, reduce stock immediately
+        if (paymentStatus === 'paid') {
+          const { data: stock } = await supabase
+            .from('stock')
+            .select('*')
+            .eq('item_id', cartItem.item.id)
+            .eq('location_id', selectedLocation)
+            .single()
 
-            if (stock) {
-              await supabase
-                .from('stock')
-                .update({ quantity: stock.quantity - cartItem.quantity })
-                .eq('id', stock.id)
-            }
+          if (stock) {
+            await supabase
+              .from('stock')
+              .update({ quantity: stock.quantity - cartItem.quantity })
+              .eq('id', stock.id)
           }
         }
       }
 
       // Create reservations for combo items
       for (const combo of combos) {
-        for (const comboItem of combo.items) {
-          const { data } = await supabase.from('reservations').insert({
-            client_id: selectedClient,
-            item_id: comboItem.item.id,
-            location_id: selectedLocation,
-            quantity: comboItem.quantity,
-            status: paymentStatus === 'paid' ? 'completed' : 'pending'
-          }).select().single()
-          
-          if (data) {
-            reservationIds.push(data.id)
-            
-            // If paid, reduce stock immediately
-            if (paymentStatus === 'paid') {
-              const { data: stock } = await supabase
-                .from('stock')
-                .select('*')
-                .eq('item_id', comboItem.item.id)
-                .eq('location_id', selectedLocation)
-                .single()
-
-              if (stock) {
-                await supabase
-                  .from('stock')
-                  .update({ quantity: stock.quantity - comboItem.quantity })
-                  .eq('id', stock.id)
-              }
-            }
-          }
-        }
-      }
-
-      // Calculate totals for individual items
-      const invoiceItems = cart.map(c => {
-        const price = currency === 'SRD' 
-          ? (c.item.selling_price_srd || 0)
-          : (c.item.selling_price_usd || 0)
-        return {
-          name: c.item.name,
-          quantity: c.quantity,
-          unitPrice: price,
-          subtotal: price * c.quantity,
-          isCombo: false
-        }
-      })
-
-      // Add combo items to invoice
-      for (const combo of combos) {
+        // Add combo as a grouped item on the invoice
+        const comboItemNames = combo.items.map(i => `${i.item.name} x${i.quantity}`).join(', ')
         invoiceItems.push({
-          name: `🎁 ${combo.name}`,
+          name: `🎁 ${combo.name}: ${comboItemNames}`,
           quantity: 1,
           unitPrice: combo.comboPrice,
           subtotal: combo.comboPrice,
           isCombo: true
         })
-      }
+        
+        for (const comboItem of combo.items) {
+          await supabase.from('reservations').insert({
+            client_id: selectedClient,
+            item_id: comboItem.item.id,
+            location_id: selectedLocation,
+            quantity: comboItem.quantity,
+            status: paymentStatus === 'paid' ? 'completed' : 'pending'
+          })
+          
+          // If paid, reduce stock immediately
+          if (paymentStatus === 'paid') {
+            const { data: stock } = await supabase
+              .from('stock')
+              .select('*')
+              .eq('item_id', comboItem.item.id)
+              .eq('location_id', selectedLocation)
+              .single()
 
-      const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0)
+            if (stock) {
+              await supabase
+                .from('stock')
+                .update({ quantity: stock.quantity - comboItem.quantity })
+                .eq('id', stock.id)
+            }
+          }
+        }
+      }
 
       // Log activity
       await logActivity({
         action: 'create',
         entityType: 'reservation',
-        entityId: reservationIds[0],
+        entityId: invoiceNumber,
         entityName: invoiceNumber,
-        details: `Reservation created for ${client?.name} at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length} items${combos.length > 0 ? `, ${combos.length} combos` : ''})`
+        details: `Reservation created for ${client?.name} at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length + combos.length} items)`
       })
 
       // Create invoice data
       setInvoiceData({
-        reservationIds: reservationIds,
         date: new Date().toLocaleString(),
         client: client?.name || 'Unknown Client',
         location: location?.name || 'Unknown Location',
@@ -522,7 +633,8 @@ export default function ReservationsPage() {
 
       setCart([])
       setCombos([])
-      await loadData()
+      await loadRecentReservations()
+      await loadReservationStats()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
@@ -540,24 +652,28 @@ export default function ReservationsPage() {
     }
   }
 
-  const handleCancelReservation = async (reservation: ReservationWithDetails) => {
-    if (!confirm('Are you sure you want to cancel this reservation?')) return
+  const handleCancelReservationGroup = async (group: ReservationGroup) => {
+    if (!confirm(`Are you sure you want to cancel this reservation for ${group.client_name}? This will cancel ${group.items.length} item(s).`)) return
 
     try {
-      await supabase
-        .from('reservations')
-        .update({ status: 'cancelled' })
-        .eq('id', reservation.id)
+      // Cancel all reservation items in the group
+      for (const item of group.items) {
+        await supabase
+          .from('reservations')
+          .update({ status: 'cancelled' })
+          .eq('id', item.id)
+      }
 
       await logActivity({
         action: 'cancel',
         entityType: 'reservation',
-        entityId: reservation.id,
-        entityName: reservation.items?.name || 'Unknown item',
-        details: `Cancelled reservation for ${reservation.clients?.name}: ${reservation.quantity}x ${reservation.items?.name}`
+        entityId: group.id,
+        entityName: group.client_name,
+        details: `Cancelled reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items, ${formatCurrency(group.total_amount, 'SRD')}`
       })
 
-      await loadData()
+      await loadRecentReservations()
+      await loadReservationStats()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
@@ -568,165 +684,190 @@ export default function ReservationsPage() {
     }
   }
 
-  const handleCompleteReservation = async (reservation: ReservationWithDetails) => {
-    if (!confirm('Mark this reservation as completed? Stock will be reduced and a receipt will be generated.')) return
+  const handleCompleteReservationGroup = async (group: ReservationGroup) => {
+    if (!confirm(`Complete this reservation for ${group.client_name}? Stock will be reduced and a receipt will be generated for ${group.items.length} item(s).`)) return
 
     try {
-      // Update stock
-      const { data: stock } = await supabase
-        .from('stock')
-        .select('*')
-        .eq('item_id', reservation.item_id)
-        .eq('location_id', reservation.location_id)
-        .single()
-
-      if (stock) {
+      const invoiceNumber = `RES-COMP-${Date.now()}`
+      
+      // Update all reservation items to completed and reduce stock
+      for (const item of group.items) {
+        // Update reservation status
         await supabase
+          .from('reservations')
+          .update({ status: 'completed' })
+          .eq('id', item.id)
+        
+        // Update stock
+        const { data: stock } = await supabase
           .from('stock')
-          .update({ quantity: stock.quantity - reservation.quantity })
-          .eq('id', stock.id)
+          .select('*')
+          .eq('item_id', item.item_id)
+          .eq('location_id', group.location_id)
+          .single()
+
+        if (stock) {
+          await supabase
+            .from('stock')
+            .update({ quantity: stock.quantity - item.quantity })
+            .eq('id', stock.id)
+        }
       }
-
-      // Update reservation status
-      await supabase
-        .from('reservations')
-        .update({ status: 'completed' })
-        .eq('id', reservation.id)
-
-      // Create sale record for completed reservation
-      const item = reservation.items
-      const price = (item?.selling_price_srd || 0)
-      const totalAmount = price * reservation.quantity
-      const currency = 'SRD'
-      const paymentMethod = 'cash'
 
       // Find matching wallet for this location
       const { data: wallets } = await supabase
         .from('wallets')
         .select('*')
-        .eq('location_id', reservation.location_id)
+        .eq('location_id', group.location_id)
       
       const matchingWallet = wallets?.find(
-        w => w.currency === currency && w.type === paymentMethod
+        w => w.currency === 'SRD' && w.type === 'cash'
       )
       
-      const { data: saleData, error: saleError } = await supabase
+      // Create sale record for completed reservation
+      const { data: saleData } = await supabase
         .from('sales')
         .insert({
-          location_id: reservation.location_id,
-          total_amount: totalAmount,
-          currency: currency,
-          payment_method: paymentMethod,
-          wallet_id: matchingWallet?.id || null,
-          created_at: new Date().toISOString()
+          location_id: group.location_id,
+          total_amount: group.total_amount,
+          currency: 'SRD',
+          payment_method: 'reservation',
+          wallet_id: matchingWallet?.id || null
         })
         .select()
         .single()
 
-      if (saleData && !saleError) {
-        // Create sale item record
-        await supabase
-          .from('sale_items')
-          .insert({
-            sale_id: saleData.id,
-            item_id: reservation.item_id,
-            quantity: reservation.quantity,
-            unit_price: price,
-            subtotal: totalAmount
-          })
+      if (saleData) {
+        // Create sale item records
+        for (const item of group.items) {
+          await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: saleData.id,
+              item_id: item.item_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.subtotal
+            })
+        }
 
         // Create commission for sellers at this location
         const { data: sellers } = await supabase
           .from('sellers')
           .select('*')
-          .eq('location_id', reservation.location_id)
+          .eq('location_id', group.location_id)
 
         if (sellers && sellers.length > 0) {
           for (const seller of sellers) {
-            // Check if there's a category-specific rate
-            let rateToUse = seller.commission_rate // Default rate
-
-            if (item?.category_id) {
-              const { data: categoryRate } = await supabase
-                .from('seller_category_rates')
-                .select('commission_rate')
-                .eq('seller_id', seller.id)
-                .eq('category_id', item.category_id)
+            // Group items by category for commission calculation
+            const itemsByCategory = new Map<string, Array<{ item_id: string; quantity: number; unit_price: number; subtotal: number; category_id?: string }>>()
+            
+            for (const item of group.items) {
+              // Get the item details to find category
+              const { data: itemData } = await supabase
+                .from('items')
+                .select('category_id')
+                .eq('id', item.item_id)
                 .single()
-
-              if (categoryRate) {
-                rateToUse = categoryRate.commission_rate
+              
+              const categoryId = itemData?.category_id || 'uncategorized'
+              if (!itemsByCategory.has(categoryId)) {
+                itemsByCategory.set(categoryId, [])
               }
+              itemsByCategory.get(categoryId)!.push({ ...item, category_id: categoryId })
             }
 
-            const commissionAmount = totalAmount * (rateToUse / 100)
-            await supabase.from('commissions').insert({
-              seller_id: seller.id,
-              location_id: reservation.location_id,
-              category_id: item?.category_id || null,
-              sale_id: saleData.id,
-              commission_amount: commissionAmount,
-              paid: false
-            })
+            // Create one commission entry per category
+            for (const [categoryId, categoryItems] of itemsByCategory) {
+              let categoryCommission = 0
+              let rateToUse = seller.commission_rate
+
+              // Get category-specific rate if available
+              if (categoryId !== 'uncategorized') {
+                const { data: categoryRate } = await supabase
+                  .from('seller_category_rates')
+                  .select('commission_rate')
+                  .eq('seller_id', seller.id)
+                  .eq('category_id', categoryId)
+                  .single()
+
+                if (categoryRate) {
+                  rateToUse = categoryRate.commission_rate
+                }
+              }
+
+              // Calculate commission for this category - use subtotal which is already price * quantity
+              for (const item of categoryItems) {
+                categoryCommission += item.subtotal * (rateToUse / 100)
+              }
+
+              if (categoryCommission > 0) {
+                await supabase.from('commissions').insert({
+                  seller_id: seller.id,
+                  location_id: group.location_id,
+                  category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                  sale_id: saleData.id,
+                  commission_amount: categoryCommission,
+                  paid: false
+                })
+              }
+            }
           }
         }
 
-        // Credit the wallet for this sale (AUTOMATED LIKE SALES)
+        // Credit the wallet for this sale
         if (matchingWallet) {
-          // Update wallet balance
           await supabase
             .from('wallets')
-            .update({ balance: matchingWallet.balance + totalAmount })
+            .update({ balance: matchingWallet.balance + group.total_amount })
             .eq('id', matchingWallet.id)
 
-          // Create wallet transaction record
           await supabase.from('wallet_transactions').insert({
             wallet_id: matchingWallet.id,
             sale_id: saleData.id,
-            amount: totalAmount,
+            amount: group.total_amount,
             type: 'credit',
-            description: `Completed reservation for ${reservation.clients?.name}`,
+            description: `Completed reservation for ${group.client_name}`,
             balance_before: matchingWallet.balance,
-            balance_after: matchingWallet.balance + totalAmount,
-            currency: currency
+            balance_after: matchingWallet.balance + group.total_amount,
+            currency: 'SRD'
           })
         }
       }
 
       // Generate receipt
-      const receiptData: InvoiceData = {
-        reservationIds: [reservation.id],
+      setInvoiceData({
         date: new Date().toLocaleString(),
-        client: reservation.clients?.name || 'Unknown Client',
-        location: reservation.locations?.name || 'Unknown Location',
-        items: [{
-          name: item?.name || 'Unknown Item',
-          quantity: reservation.quantity,
-          unitPrice: price,
-          subtotal: price * reservation.quantity
-        }],
+        client: group.client_name,
+        location: group.location_name,
+        items: group.items.map(item => ({
+          name: item.item_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          subtotal: item.subtotal
+        })),
         currency: 'SRD',
-        total: price * reservation.quantity,
-        invoiceNumber: `RES-COMP-${reservation.id.substring(0, 8).toUpperCase()}`,
+        total: group.total_amount,
+        invoiceNumber: invoiceNumber,
         isPaid: true
-      }
+      })
 
       await logActivity({
         action: 'complete',
         entityType: 'reservation',
-        entityId: reservation.id,
-        entityName: reservation.items?.name || 'Unknown item',
-        details: `Completed reservation for ${reservation.clients?.name}: ${reservation.quantity}x ${reservation.items?.name} - ${formatCurrency(totalAmount, 'SRD')}`
+        entityId: group.id,
+        entityName: group.client_name,
+        details: `Completed reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items - ${formatCurrency(group.total_amount, 'SRD')}`
       })
 
-      await loadData()
+      await loadRecentReservations()
+      await loadReservationStats()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
       }
 
       // Show receipt
-      setInvoiceData(receiptData)
       setShowInvoice(true)
       setShowHistory(false)
     } catch (error) {
@@ -757,9 +898,6 @@ export default function ReservationsPage() {
     return date.toLocaleDateString()
   }
 
-  const pendingCount = reservations.filter(r => r.status === 'pending').length
-  const completedCount = reservations.filter(r => r.status === 'completed').length
-
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -771,7 +909,8 @@ export default function ReservationsPage() {
 
   const availableItems = items.filter(item => {
     const stock = getAvailableStock(item.id)
-    return stock > 0
+    const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+    return stock > 0 && price
   })
 
   return (
@@ -791,85 +930,384 @@ export default function ReservationsPage() {
 
       <PageHeader 
         title="Reservations" 
-        subtitle="Reserve items for clients"
+        subtitle="Manage customer reservations efficiently"
         icon={<ClipboardList size={24} />}
         action={
           <div className="flex gap-2">
             <Button onClick={() => setShowHistory(true)} variant="secondary">
               <History size={20} />
-              <span className="hidden sm:inline">Recent</span>
+              <span className="hidden sm:inline">History</span>
             </Button>
-            <Button onClick={() => setShowClientForm(true)} variant="primary">
+            <Button onClick={() => setShowClientForm(true)} variant="secondary">
               <User size={20} />
               <span className="hidden sm:inline">New Client</span>
+            </Button>
+            <Button onClick={() => setShowNewReservation(true)} variant="primary">
+              <Plus size={20} />
+              <span className="hidden sm:inline">New Reservation</span>
             </Button>
           </div>
         }
       />
 
       <PageContainer>
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatBox
-            label="Total Reservations"
-            value={reservations.length}
-            icon={<ClipboardList size={24} />}
-            variant="primary"
-          />
-          <StatBox
-            label="Pending"
-            value={pendingCount}
-            icon={<Clock size={24} />}
-            variant="warning"
-          />
-          <StatBox
-            label="Completed"
-            value={completedCount}
-            icon={<CheckCircle size={24} />}
-            variant="success"
-          />
-          <StatBox
-            label="Active Clients"
-            value={clients.length}
-            icon={<User size={24} />}
-            variant="default"
-          />
+        {/* Reservation Statistics Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-4 mb-6">
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                <ClipboardList size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Vandaag</div>
+                <div className="text-lg font-bold text-foreground">{reservationStats.todayReservations}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Receipt size={20} className="text-green-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Totaal Vandaag</div>
+                <div className="text-lg font-bold text-foreground">{formatCurrency(reservationStats.todayTotal, 'SRD')}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Calendar size={20} className="text-purple-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Deze Week</div>
+                <div className="text-lg font-bold text-foreground">{reservationStats.weekReservations}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                <Receipt size={20} className="text-orange-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Week Totaal</div>
+                <div className="text-lg font-bold text-foreground">{formatCurrency(reservationStats.weekTotal, 'SRD')}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
+                <Clock size={20} className="text-yellow-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Pending</div>
+                <div className="text-lg font-bold text-foreground">{reservationStats.pendingCount}</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-xl p-4 border border-border">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <CheckCircle size={20} className="text-green-600" />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Completed</div>
+                <div className="text-lg font-bold text-foreground">{reservationStats.completedCount}</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Client & Location Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <Select
-            label="Select Client"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-          >
-            <option value="">Choose a client...</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>{client.name}</option>
-            ))}
-          </Select>
-          <Select
-            label="Select Location"
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-          >
-            <option value="">Choose a location...</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </Select>
+        {/* Pending Reservations - Primary Focus */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Pending Reservations</h2>
+              <p className="text-sm text-muted-foreground mt-1">Complete or cancel customer reservations</p>
+            </div>
+            <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
+              <Plus size={18} />
+              New Reservation
+            </Button>
+          </div>
+          
+          {recentReservations.filter(g => g.status === 'pending').length === 0 ? (
+            <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-12 border-2 border-dashed border-border text-center">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock size={40} className="text-primary" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">No Pending Reservations</h3>
+              <p className="text-muted-foreground mb-6">Create a new reservation to get started</p>
+              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
+                <Plus size={18} />
+                Create First Reservation
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {recentReservations.filter(g => g.status === 'pending').map((group) => {
+                return (
+                  <div key={group.id} className="bg-card rounded-2xl p-5 border-2 border-border hover:border-primary hover:shadow-lg transition-all group">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-foreground text-2xl mb-2">
+                          {formatCurrency(group.total_amount, 'SRD')}
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2 mb-1.5">
+                          <User size={16} />
+                          <span className="font-medium">{group.client_name}</span>
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-2">
+                          <MapPin size={16} />
+                          {group.location_name}
+                        </div>
+                      </div>
+                      <Badge variant="warning" className="shrink-0 px-3 py-1.5">
+                        <Clock size={14} className="mr-1" />
+                        {getTimeSince(group.created_at)}
+                      </Badge>
+                    </div>
+                    
+                    {group.items && group.items.length > 0 && (
+                      <div className="mb-4 pt-4 border-t border-border">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                          {group.items.length} Item{group.items.length > 1 ? 's' : ''}
+                        </div>
+                        <div className="space-y-2 max-h-28 overflow-y-auto pr-1">
+                          {group.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm bg-muted/50 rounded-lg px-3 py-2">
+                              <span className="text-foreground font-medium truncate">
+                                {item.item_name} <span className="text-muted-foreground">× {item.quantity}</span>
+                              </span>
+                              <span className="text-foreground font-semibold shrink-0 ml-3">
+                                {formatCurrency(item.subtotal, 'SRD')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4 border-t border-border">
+                      <Button
+                        onClick={() => handleCompleteReservationGroup(group)}
+                        variant="success"
+                        size="lg"
+                        fullWidth
+                        className="font-semibold"
+                      >
+                        <Check size={18} />
+                        Complete & Print
+                      </Button>
+                      <Button
+                        onClick={() => handleCancelReservationGroup(group)}
+                        variant="danger"
+                        size="lg"
+                        fullWidth
+                        className="font-semibold"
+                      >
+                        <X size={18} />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        {!selectedClient || !selectedLocation ? (
-          <EmptyState
-            icon={MapPin}
-            title="Select Client and Location"
-            description="Choose both a client and location to see available items and create reservations."
-          />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Item Selection */}
-            <div className="lg:col-span-2 space-y-4">
+        {/* Recent Completed/Cancelled - Compact View */}
+        <div>
+          <div className="mb-5">
+            <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
+            <p className="text-sm text-muted-foreground mt-1">Completed and cancelled reservations</p>
+          </div>
+          {recentReservations.filter(g => g.status !== 'pending').length === 0 ? (
+            <div className="bg-card rounded-xl p-8 border border-border text-center">
+              <History size={40} className="mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground">No recent activity</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentReservations.filter(g => g.status !== 'pending').slice(0, 5).map((group) => {
+                return (
+                  <div key={group.id} className="bg-card rounded-xl p-4 border border-border hover:border-border/80 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-semibold text-foreground text-base">{group.client_name}</span>
+                          <Badge variant={group.status === 'completed' ? 'success' : 'danger'} className="px-2.5 py-1">
+                            {group.status === 'completed' ? '✅ Completed' : '❌ Cancelled'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <MapPin size={14} />
+                            {group.location_name}
+                          </span>
+                          <span>•</span>
+                          <span>{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
+                          <span>•</span>
+                          <span className="font-medium text-foreground">{formatCurrency(group.total_amount, 'SRD')}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 ml-4">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <Clock size={14} />
+                          {getTimeSince(group.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {recentReservations.filter(g => g.status !== 'pending').length > 5 && (
+                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth>
+                  View All History
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </PageContainer>
+
+      {/* New Reservation Modal */}
+      <Modal 
+        isOpen={showNewReservation} 
+        onClose={() => {
+          setShowNewReservation(false)
+          setSelectedClient('')
+          setSelectedLocation('')
+          setCart([])
+          setCombos([])
+          setComboMode(false)
+          setTempComboItems([])
+        }} 
+        title="Create New Reservation"
+      >
+        <div className="space-y-3">
+          {/* Client & Location Selection - Sticky Top */}
+          <div className="sticky top-0 z-10 bg-card pb-3 border-b border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <Select
+                label="Select Client"
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+              >
+                <option value="">Choose a client...</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>{client.name}</option>
+                ))}
+              </Select>
+              <Select
+                label="Select Location"
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+              >
+                <option value="">Choose a location...</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </Select>
+              {selectedClient && selectedLocation && (
+                <>
+                  <div>
+                    <label className="input-label">Currency</label>
+                    <CurrencyToggle value={currency} onChange={setCurrency} />
+                  </div>
+                  <div className="relative">
+                    <label className="input-label">Search Items</label>
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={itemSearchQuery}
+                      onChange={(e) => setItemSearchQuery(e.target.value)}
+                      className="input-field pl-9"
+                    />
+                    <Search className="absolute left-3 top-[38px] text-muted-foreground" size={16} />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {!selectedClient || !selectedLocation ? (
+            <div className="text-center py-12">
+              <MapPin size={48} className="mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground font-medium">Select client and location to continue</p>
+            </div>
+          ) : (
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Left Column - Item Selection */}
+              <div className="lg:col-span-2 space-y-3">
+
+              {/* Combo Mode Toggle */}
+                <div className="bg-card rounded-xl border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        comboMode ? 'bg-orange-500 text-white' : 'bg-orange-500/10 text-orange-500'
+                      }`}>
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-foreground text-sm">Combo Mode</div>
+                        <div className="text-xs text-muted-foreground">
+                          {comboMode ? `${tempComboItems.length} items` : 'Build custom combo'}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        comboMode 
+                          ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' 
+                          : 'bg-orange-500 hover:bg-orange-600 text-white'
+                      }`}
+                    >
+                      {comboMode ? 'Cancel' : 'Start'}
+                    </button>
+                  </div>
+                
+                  {comboMode && tempComboItems.length >= 2 && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <div className="flex items-center gap-3">
+                        <Input
+                          label="Combo Price"
+                        type="number"
+                        value={quickComboPrice}
+                        onChange={(e) => setQuickComboPrice(e.target.value)}
+                        suffix={currency === 'SRD' ? 'SRD' : 'USD'}
+                        placeholder="1400"
+                        className="flex-1"
+                      />
+                      <div className="pt-6">
+                        <Button onClick={createQuickCombo} variant="success" size="lg">
+                          <Check size={18} />
+                          Maak Combo
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Originele prijs:</span>
+                        <span className="line-through">{formatCurrency(calculateTempComboOriginalPrice(), currency)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-green-700 dark:text-green-400">Klant bespaart:</span>
+                        <span className="text-lg font-bold text-green-600">
+                          {formatCurrency(calculateTempComboOriginalPrice() - Number(quickComboPrice), currency)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Mode Toggle */}
               <div className="flex gap-2">
                 <Button
@@ -890,60 +1328,24 @@ export default function ReservationsPage() {
                 </Button>
               </div>
 
-              {/* Predefined Combos Section */}
-              {items.filter(item => item.is_combo).length > 0 && (
-                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Sparkles size={18} className="text-primary" />
-                    Predefined Combos
-                    <span className="text-sm font-normal text-muted-foreground ml-auto">
-                      {items.filter(i => i.is_combo).length} combos
-                    </span>
-                  </h3>
-                  <div className="space-y-2">
-                    {items.filter(item => item.is_combo).map((combo) => {
-                      const price = currency === 'SRD'
-                        ? (combo.selling_price_srd || 0)
-                        : (combo.selling_price_usd || 0)
-                      
-                      return (
-                        <button
-                          key={combo.id}
-                          onClick={() => addPredefinedCombo(combo)}
-                          className="w-full p-3.5 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 rounded-xl text-left transition-all duration-200 group border border-primary/20 hover:border-primary/40"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-2">
-                                <Sparkles size={14} className="text-primary" />
-                                {combo.name}
-                              </div>
-                              <div className="text-sm text-muted-foreground mt-0.5">
-                                {combo.combo_items?.length || 0} items • {formatCurrency(price, currency)}
-                              </div>
-                            </div>
-                            <div className="w-8 h-8 rounded-lg bg-primary/20 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
-                              <Plus size={16} className="text-primary group-hover:text-white" />
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* Available Items or Combo Builder */}
               {comboMode ? (
-                <div className="bg-card rounded-2xl border border-primary/30 p-4 lg:p-5">
+                <div className="bg-card rounded-2xl border border-orange-500/30 p-4 lg:p-5">
                   <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Layers size={18} className="text-primary" />
+                    <Layers size={18} className="text-orange-500" />
                     Build Quick Combo
                     <span className="text-sm font-normal text-muted-foreground ml-auto">
                       {tempComboItems.length} items selected
                     </span>
                   </h3>
                   
+                  {comboMode && (
+                    <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                      <p className="text-sm text-orange-700 dark:text-orange-400">
+                        💡 Klik op items om toe te voegen aan combo. Minimaal 2 items nodig.
+                      </p>
+                    </div>
+                  )}
                   {/* Combo Items Selected */}
                   {tempComboItems.length > 0 && (
                     <div className="mb-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
@@ -1027,38 +1429,60 @@ export default function ReservationsPage() {
               ) : (
                 <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
                   <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Package size={18} className="text-primary" />
-                    Available Items
+                    <Package size={18} className={comboMode ? "text-orange-500" : "text-primary"} />
+                    {comboMode ? 'Selecteer Items voor Combo' : 'Available Items'}
                     <span className="text-sm font-normal text-muted-foreground ml-auto">
-                      {availableItems.filter(i => !i.is_combo).length} items
+                      {availableItems.length} items
                     </span>
                   </h3>
-                  {availableItems.filter(i => !i.is_combo).length === 0 ? (
+                  {availableItems.length === 0 ? (
                     <p className="text-muted-foreground text-sm text-center py-12">
                       No items available at this location
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {availableItems.filter(item => !item.is_combo).map((item) => {
+                      {availableItems
+                      .filter(item => !itemSearchQuery || item.name.toLowerCase().includes(itemSearchQuery.toLowerCase()))
+                      .map((item) => {
                         const stock = getAvailableStock(item.id)
+                        const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
                         const inCart = cart.find(c => c.item.id === item.id)
+                        const inCombo = tempComboItems.find(c => c.item.id === item.id)
+                        const isDisabled = comboMode ? false : (inCart && inCart.quantity >= stock)
                         
                         return (
                           <button
                             key={item.id}
-                            onClick={() => addToCart(item)}
-                            disabled={inCart && inCart.quantity >= stock}
-                            className="w-full p-3.5 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
+                            onClick={() => comboMode ? addItemToCombo(item) : addToCart(item)}
+                            disabled={isDisabled}
+                            className={`w-full p-3.5 rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border ${
+                              inCombo 
+                                ? 'bg-orange-500/20 border-orange-500 hover:bg-orange-500/30' 
+                                : comboMode
+                                ? 'bg-orange-500/5 hover:bg-orange-500/10 border-transparent hover:border-orange-500/30'
+                                : 'bg-muted/50 hover:bg-muted border-transparent hover:border-primary/20'
+                            }`}
                           >
                             <div className="flex justify-between items-center">
                               <div className="min-w-0 flex-1">
-                                <div className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{item.name}</div>
+                                <div className={`font-semibold truncate transition-colors ${
+                                  inCombo ? 'text-orange-600' : 'text-foreground group-hover:text-primary'
+                                }`}>
+                                  {item.name}
+                                  {inCombo && <span className="ml-2 text-xs">✓ In combo</span>}
+                                </div>
                                 <div className="text-sm text-muted-foreground mt-0.5">
-                                  Available: <span className="font-medium text-foreground">{stock}</span>
+                                  Stock: <span className="font-medium text-foreground">{stock}</span> • {formatCurrency(price || 0, currency)}
                                 </div>
                               </div>
-                              <div className="w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
-                                <Plus size={16} className="text-primary group-hover:text-white" />
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ml-3 ${
+                                inCombo
+                                  ? 'bg-orange-500 text-white'
+                                  : comboMode
+                                  ? 'bg-orange-500/10 group-hover:bg-orange-500 text-orange-500 group-hover:text-white'
+                                  : 'bg-primary/10 group-hover:bg-primary text-primary group-hover:text-white'
+                              }`}>
+                                <Plus size={16} />
                               </div>
                             </div>
                           </button>
@@ -1092,29 +1516,59 @@ export default function ReservationsPage() {
                 ) : (
                   <>
                     <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
-                      {/* Combos in Cart */}
+                      {/* Temp Combo Items (when in combo mode) */}
+                      {comboMode && tempComboItems.length > 0 && (
+                        <div className="p-3.5 bg-orange-500/10 rounded-xl border-2 border-dashed border-orange-500">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <Sparkles size={14} className="text-orange-500" />
+                              <span className="font-semibold text-orange-600">Nieuwe Combo (wordt aangemaakt)</span>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            {tempComboItems.map((item) => (
+                              <div key={item.item.id} className="flex items-center justify-between text-sm">
+                                <span className="text-foreground">{item.item.name} × {item.quantity}</span>
+                                <button
+                                  onClick={() => removeFromCombo(item.item.id)}
+                                  className="w-5 h-5 flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 rounded text-destructive transition-colors"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Combo Deals */}
                       {combos.map((combo) => (
-                        <div key={combo.id} className="p-3.5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+                        <div key={combo.id} className="p-3.5 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-xl border border-orange-500/30">
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold text-foreground truncate flex items-center gap-2">
-                                <Sparkles size={14} className="text-primary" />
+                                <Sparkles size={14} className="text-orange-500" />
                                 {combo.name}
                               </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {combo.items.map(i => `${i.quantity}x ${i.item.name}`).join(', ')}
+                              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                {combo.items.map((item, idx) => (
+                                  <div key={idx}>{item.item.name} × {item.quantity}</div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="text-right ml-3">
+                              <div className="text-xs text-muted-foreground line-through">
+                                {formatCurrency(combo.originalPrice, currency)}
+                              </div>
+                              <div className="font-bold text-orange-500">
+                                {formatCurrency(combo.comboPrice, currency)}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm">
-                              <span className="text-muted-foreground line-through mr-2">
-                                {formatCurrency(combo.originalPrice, currency)}
-                              </span>
-                              <span className="font-bold text-primary">
-                                {formatCurrency(combo.comboPrice, currency)}
-                              </span>
-                            </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-orange-500/20">
+                            <Badge variant="success" className="text-xs">
+                              Bespaar {formatCurrency(combo.originalPrice - combo.comboPrice, currency)}
+                            </Badge>
                             <button
                               onClick={() => removeCombo(combo.id)}
                               className="text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
@@ -1124,92 +1578,89 @@ export default function ReservationsPage() {
                           </div>
                         </div>
                       ))}
-
-                      {/* Individual Items in Cart */}
-                      {cart.map((cartItem) => (
-                        <div key={cartItem.item.id} className="p-3.5 bg-muted/50 rounded-xl border border-border/50">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-foreground truncate">{cartItem.item.name}</div>
-                              <div className="text-sm text-muted-foreground mt-0.5">
-                                Qty: {cartItem.quantity}
+                      
+                      {/* Regular Cart Items */}
+                      {cart.map((cartItem) => {
+                        const price = currency === 'SRD' 
+                          ? (cartItem.item.selling_price_srd || 0)
+                          : (cartItem.item.selling_price_usd || 0)
+                        
+                        return (
+                          <div key={cartItem.item.id} className="p-3.5 bg-muted/50 rounded-xl border border-border/50">
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-foreground truncate">{cartItem.item.name}</div>
+                                <div className="text-sm text-muted-foreground mt-0.5">
+                                  {formatCurrency(price, currency)} × {cartItem.quantity}
+                                </div>
+                              </div>
+                              <div className="font-bold text-foreground ml-3 text-right">
+                                {formatCurrency(price * cartItem.quantity, currency)}
                               </div>
                             </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateQuantity(cartItem.item.id, -1)}
+                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 active:scale-95"
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span className="w-8 text-center font-bold text-foreground">{cartItem.quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(cartItem.item.id, 1)}
+                                disabled={cartItem.quantity >= cartItem.availableStock}
+                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 disabled:opacity-50 active:scale-95"
+                              >
+                                <Plus size={14} />
+                              </button>
+                              <button
+                                onClick={() => removeFromCart(cartItem.item.id)}
+                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => updateQuantity(cartItem.item.id, -1)}
-                              className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 active:scale-95"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="w-8 text-center font-bold text-foreground">{cartItem.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(cartItem.item.id, 1)}
-                              disabled={cartItem.quantity >= cartItem.availableStock}
-                              className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 disabled:opacity-50 active:scale-95"
-                            >
-                              <Plus size={14} />
-                            </button>
-                            <button
-                              onClick={() => removeFromCart(cartItem.item.id)}
-                              className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
 
-                    <div className="border-t border-border pt-4 mt-4 space-y-4">
-                      {/* Currency Toggle */}
-                      <CurrencyToggle value={currency} onChange={(c) => setCurrency(c)} />
-                      
-                      {/* Total */}
-                      <div className="bg-primary/5 rounded-xl p-3 border border-primary/20">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-muted-foreground">Total Amount:</span>
-                          <span className="text-xl font-bold text-primary">
-                            {formatCurrency(
-                              cart.reduce((sum, item) => {
-                                const price = currency === 'SRD' 
-                                  ? (item.item.selling_price_srd || 0)
-                                  : (item.item.selling_price_usd || 0)
-                                return sum + (price * item.quantity)
-                              }, 0) + combos.reduce((sum, combo) => sum + combo.comboPrice, 0),
-                              currency
-                            )}
+                    {(cart.length > 0 || combos.length > 0) && (
+                      <div className="border-t border-border pt-4 mt-4 space-y-4">
+                        {/* Total */}
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="font-semibold text-muted-foreground">Total</span>
+                          <span className="text-2xl font-bold text-primary">
+                            {formatCurrency(calculateTotal(), currency)}
                           </span>
                         </div>
-                      </div>
 
-                      {/* Payment Status Toggle */}
-                      <div>
-                        <label className="input-label mb-2">Payment Status</label>
-                        <div className="currency-toggle">
-                          <button
-                            type="button"
-                            onClick={() => setPaymentStatus('unpaid')}
-                            className={`currency-toggle-btn ${paymentStatus === 'unpaid' ? 'active' : ''}`}
-                          >
-                            📄 Unpaid (Invoice)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPaymentStatus('paid')}
-                            className={`currency-toggle-btn ${paymentStatus === 'paid' ? 'active' : ''}`}
-                          >
-                            ✅ Paid (Receipt)
-                          </button>
+                        {/* Payment Status Toggle */}
+                        <div>
+                          <label className="input-label mb-2">Payment Status</label>
+                          <div className="currency-toggle">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentStatus('unpaid')}
+                              className={`currency-toggle-btn ${paymentStatus === 'unpaid' ? 'active' : ''}`}
+                            >
+                              📄 Unpaid (Invoice)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentStatus('paid')}
+                              className={`currency-toggle-btn ${paymentStatus === 'paid' ? 'active' : ''}`}
+                            >
+                              ✅ Paid (Receipt)
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      <Button
-                        onClick={handleCreateReservation}
-                        disabled={submitting || (cart.length === 0 && combos.length === 0)}
-                        loading={submitting}
-                        variant="primary"
+                        <Button
+                          onClick={handleCreateReservation}
+                          disabled={submitting || (cart.length === 0 && combos.length === 0)}
+                          loading={submitting}
+                          variant="primary"
                         size="lg"
                         fullWidth
                       >
@@ -1217,85 +1668,15 @@ export default function ReservationsPage() {
                         Create Reservation & Generate {paymentStatus === 'paid' ? 'Receipt' : 'Invoice'}
                       </Button>
                     </div>
+                    )}
                   </>
                 )}
               </div>
             </div>
           </div>
-        )}
-
-        {/* Active Reservations List */}
-        {selectedLocation && reservations.filter(r => r.location_id === selectedLocation).length > 0 && (
-          <div className="mt-6">
-            <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-foreground flex items-center gap-2">
-                  <ClipboardList size={18} className="text-primary" />
-                  Reservations at {locations.find(l => l.id === selectedLocation)?.name}
-                </h3>
-                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm">
-                  <History size={16} />
-                  View All
-                </Button>
-              </div>
-              
-              <div className="space-y-3">
-                {reservations.filter(r => r.location_id === selectedLocation).slice(0, 5).map((reservation) => {
-                  const price = reservation.items?.selling_price_srd || 0
-                  const total = price * reservation.quantity
-                  
-                  return (
-                    <div key={reservation.id} className="bg-muted/50 rounded-xl p-3.5 border border-border/50">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-foreground">{reservation.items?.name || 'Unknown Item'}</div>
-                          <div className="text-sm text-muted-foreground mt-0.5">
-                            {reservation.clients?.name || 'Unknown Client'}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1.5 ml-3">
-                          {getStatusBadge(reservation.status)}
-                          <span className="text-xs text-muted-foreground">{getTimeSince(reservation.created_at)}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm mt-2 pt-2 border-t border-border/50">
-                        <div className="flex items-center gap-3">
-                          <span className="text-muted-foreground">
-                            Qty: <span className="font-bold text-foreground">{reservation.quantity}</span>
-                          </span>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="font-bold text-primary">{formatCurrency(total, 'SRD')}</span>
-                        </div>
-                        
-                        {reservation.status === 'pending' && (
-                          <div className="flex gap-1.5">
-                            <Button
-                              onClick={() => handleCompleteReservation(reservation)}
-                              variant="success"
-                              size="sm"
-                            >
-                              <Check size={14} />
-                              Complete
-                            </Button>
-                            <Button
-                              onClick={() => handleCancelReservation(reservation)}
-                              variant="danger"
-                              size="sm"
-                            >
-                              <X size={14} />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </PageContainer>
+          )}
+        </div>
+      </Modal>
 
       {/* Client Modal */}
       <Modal isOpen={showClientForm} onClose={() => setShowClientForm(false)} title="Add Client">
@@ -1494,221 +1875,100 @@ export default function ReservationsPage() {
 
       {/* Recent Reservations History Modal */}
       <Modal isOpen={showHistory} onClose={() => setShowHistory(false)} title="Reservations History">
-        {/* Filters in History Modal */}
-        <div className="mb-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={historySearchQuery}
-                onChange={(e) => setHistorySearchQuery(e.target.value)}
-                className="input-field pl-9 text-sm"
-              />
-            </div>
-            <Select
-              value={historyStatusFilter}
-              onChange={(e) => setHistoryStatusFilter(e.target.value)}
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </Select>
-            <Select
-              value={historyClientFilter}
-              onChange={(e) => setHistoryClientFilter(e.target.value)}
-            >
-              <option value="">All Clients</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>{client.name}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground self-center">Sort:</span>
-            <button
-              onClick={() => {
-                if (historySortField === 'date') {
-                  setHistorySortOrder(historySortOrder === 'asc' ? 'desc' : 'asc')
-                } else {
-                  setHistorySortField('date')
-                  setHistorySortOrder('desc')
-                }
-              }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                historySortField === 'date' ? 'bg-primary text-white' : 'bg-muted text-foreground'
-              }`}
-            >
-              Date
-              {historySortField === 'date' && <ArrowUpDown size={12} />}
-            </button>
-            <button
-              onClick={() => {
-                if (historySortField === 'status') {
-                  setHistorySortOrder(historySortOrder === 'asc' ? 'desc' : 'asc')
-                } else {
-                  setHistorySortField('status')
-                  setHistorySortOrder('asc')
-                }
-              }}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
-                historySortField === 'status' ? 'bg-primary text-white' : 'bg-muted text-foreground'
-              }`}
-            >
-              Status
-              {historySortField === 'status' && <ArrowUpDown size={12} />}
-            </button>
-            {(historySearchQuery || historyStatusFilter || historyClientFilter) && (
-              <button
-                onClick={() => {
-                  setHistorySearchQuery('')
-                  setHistoryStatusFilter('')
-                  setHistoryClientFilter('')
-                }}
-                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-        
         <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-          {(() => {
-            const filteredReservations = reservations
-              .filter(r => {
-                const matchesSearch = !historySearchQuery || 
-                  r.items?.name?.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
-                  r.clients?.name?.toLowerCase().includes(historySearchQuery.toLowerCase()) ||
-                  r.locations?.name?.toLowerCase().includes(historySearchQuery.toLowerCase())
-                const matchesStatus = !historyStatusFilter || r.status === historyStatusFilter
-                const matchesClient = !historyClientFilter || r.client_id === historyClientFilter
-                return matchesSearch && matchesStatus && matchesClient
-              })
-              .sort((a, b) => {
-                let comparison = 0
-                switch (historySortField) {
-                  case 'date':
-                    comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                    break
-                  case 'status':
-                    comparison = a.status.localeCompare(b.status)
-                    break
-                  case 'client':
-                    comparison = (a.clients?.name || '').localeCompare(b.clients?.name || '')
-                    break
-                  case 'item':
-                    comparison = (a.items?.name || '').localeCompare(b.items?.name || '')
-                    break
-                }
-                return historySortOrder === 'asc' ? comparison : -comparison
-              })
-            
-            if (filteredReservations.length === 0) {
-              return (
-                <div className="text-center py-12">
-                  <ClipboardList size={40} className="mx-auto mb-3 text-muted-foreground/30" />
-                  <p className="text-muted-foreground">
-                    {reservations.length === 0 ? 'No reservations yet' : 'No matching reservations'}
-                  </p>
+          {recentReservations.length === 0 ? (
+            <div className="text-center py-12">
+              <ClipboardList size={40} className="mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground">No recent reservations</p>
+            </div>
+          ) : (
+            recentReservations.map((group) => (
+              <div key={group.id} className="bg-muted/50 rounded-xl p-4 border border-border/50">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="font-bold text-foreground">
+                      {formatCurrency(group.total_amount, 'SRD')}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {group.client_name} • {group.location_name}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={
+                      group.status === 'pending' ? 'warning' :
+                      group.status === 'completed' ? 'success' : 'danger'
+                    }>
+                      {group.status === 'pending' ? '⏳ Pending' :
+                       group.status === 'completed' ? '✅ Completed' : '❌ Cancelled'}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock size={12} />
+                      {getTimeSince(group.created_at)}
+                    </span>
+                  </div>
                 </div>
-              )
-            }
-            
-            return filteredReservations.map((reservation) => {
-              const price = reservation.items?.selling_price_srd || 0
-              const total = price * reservation.quantity
-              
-              return (
-                <div key={reservation.id} className="bg-muted/50 rounded-xl p-4 border border-border/50 hover:border-primary/30 transition-all">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-foreground text-lg mb-1">
-                        {reservation.items?.name || 'Unknown Item'}
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <User size={14} />
-                          {reservation.clients?.name || 'Unknown Client'}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <MapPin size={14} />
-                          {reservation.locations?.name || 'Unknown Location'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2 ml-3">
-                      {getStatusBadge(reservation.status)}
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock size={12} />
-                        {getTimeSince(reservation.created_at)}
-                      </span>
+                
+                {group.items && group.items.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="text-xs text-muted-foreground mb-2">Items:</div>
+                    <div className="space-y-1">
+                      {group.items.map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-foreground">
+                            {item.item_name} × {item.quantity}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {formatCurrency(item.subtotal, 'SRD')}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/50">
-                    <div className="bg-background/50 rounded-lg p-2.5">
-                      <div className="text-xs text-muted-foreground mb-1">Quantity</div>
-                      <div className="text-lg font-bold text-foreground flex items-center gap-1">
-                        <Package size={16} className="text-primary" />
-                        {reservation.quantity}
-                      </div>
-                    </div>
-                    <div className="bg-background/50 rounded-lg p-2.5">
-                      <div className="text-xs text-muted-foreground mb-1">Total Value</div>
-                      <div className="text-lg font-bold text-primary">
-                        {formatCurrency(total, 'SRD')}
-                      </div>
-                    </div>
-                  </div>
+                )}
 
-                  {reservation.status === 'pending' && (
-                    <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
-                      <Button
-                        onClick={() => handleCompleteReservation(reservation)}
-                        variant="success"
-                        size="sm"
-                        fullWidth
-                      >
-                        <Check size={16} />
-                        Complete & Print Receipt
-                      </Button>
-                      <Button
-                        onClick={() => handleCancelReservation(reservation)}
-                        variant="danger"
-                        size="sm"
-                        fullWidth
-                      >
-                        <X size={16} />
-                        Cancel
-                      </Button>
+                {group.status === 'pending' && (
+                  <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
+                    <Button
+                      onClick={() => handleCompleteReservationGroup(group)}
+                      variant="success"
+                      size="sm"
+                      fullWidth
+                    >
+                      <Check size={16} />
+                      Complete & Print Receipt
+                    </Button>
+                    <Button
+                      onClick={() => handleCancelReservationGroup(group)}
+                      variant="danger"
+                      size="sm"
+                      fullWidth
+                    >
+                      <X size={16} />
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+                
+                {group.status === 'completed' && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-2 text-sm text-success">
+                      <CheckCircle size={16} />
+                      <span className="font-medium">Completed - Items picked up</span>
                     </div>
-                  )}
-                  
-                  {reservation.status === 'completed' && (
-                    <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="flex items-center gap-2 text-sm text-success">
-                        <CheckCircle size={16} />
-                        <span className="font-medium">Completed - Items picked up</span>
-                      </div>
+                  </div>
+                )}
+                
+                {group.status === 'cancelled' && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <X size={16} />
+                      <span className="font-medium">Cancelled</span>
                     </div>
-                  )}
-                  
-                  {reservation.status === 'cancelled' && (
-                    <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <X size={16} />
-                        <span className="font-medium">Cancelled</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })
-          })()}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </Modal>
     </div>

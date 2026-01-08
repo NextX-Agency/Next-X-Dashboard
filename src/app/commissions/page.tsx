@@ -147,9 +147,10 @@ export default function CommissionsPage() {
     return matchesLocation && matchesStatus && matchesSearch
   })
 
-  // Totals
+  // Totals (mixed currency - show in SRD by default but note it's mixed)
   const totalUnpaidAll = commissions.filter(c => !c.paid).reduce((sum, c) => sum + c.commission_amount, 0)
   const totalPaidAll = commissions.filter(c => c.paid).reduce((sum, c) => sum + c.commission_amount, 0)
+  const hasMixedCurrency = new Set(commissions.map(c => c.sales?.currency)).size > 1
 
   const clearFilters = () => {
     setFilterLocation('')
@@ -162,6 +163,7 @@ export default function CommissionsPage() {
   const handleMarkPaid = async (commissionId: string) => {
     setPayingCommission(commissionId)
     const commission = commissions.find(c => c.id === commissionId)
+    const currency = (commission?.sales?.currency || 'USD') as Currency
     
     await supabase
       .from('commissions')
@@ -173,7 +175,7 @@ export default function CommissionsPage() {
       entityType: 'commission',
       entityId: commissionId,
       entityName: commission?.locations?.name || 'Unknown',
-      details: `Marked commission as paid: ${formatCurrency(commission?.commission_amount || 0, 'USD')} for ${commission?.locations?.seller_name || commission?.locations?.name}`
+      details: `Marked commission as paid: ${formatCurrency(commission?.commission_amount || 0, currency)} for ${commission?.locations?.seller_name || commission?.locations?.name}`
     })
     
     await loadData()
@@ -226,12 +228,13 @@ export default function CommissionsPage() {
       })
 
       const location = locations.find(l => l.id === selectedLocationForPay)
+      const paymentCurrency = wallet.currency as Currency
       await logActivity({
         action: 'pay',
         entityType: 'commission',
         entityId: selectedLocationForPay,
         entityName: location?.name || 'Unknown',
-        details: `Paid all commissions for ${location?.name}: ${formatCurrency(totalToPay, 'USD')} (${unpaidCommissions.length} commissions)`
+        details: `Paid all commissions for ${location?.name}: ${formatCurrency(totalToPay, paymentCurrency)} (${unpaidCommissions.length} commissions)`
       })
 
       setShowPayModal(false)
@@ -356,13 +359,13 @@ export default function CommissionsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <StatBox 
             label="Total Unpaid"
-            value={formatCurrency(totalUnpaidAll, 'USD')} 
+            value={formatCurrency(totalUnpaidAll, 'SRD') + (hasMixedCurrency ? ' (mixed)' : '')} 
             icon={<DollarSign size={20} />}
             variant="warning"
           />
           <StatBox 
             label="Total Paid"
-            value={formatCurrency(totalPaidAll, 'USD')} 
+            value={formatCurrency(totalPaidAll, 'SRD') + (hasMixedCurrency ? ' (mixed)' : '')} 
             icon={<CheckCircle size={20} />}
             variant="success"
           />
@@ -516,13 +519,13 @@ export default function CommissionsPage() {
                     <div className="bg-[hsl(var(--warning-muted))] p-3.5 rounded-xl border border-[hsl(var(--warning))]/20">
                       <div className="text-xs text-muted-foreground mb-1 font-medium">Unpaid</div>
                       <div className="text-lg font-bold text-[hsl(var(--warning))]">
-                        {formatCurrency(totalUnpaid, 'USD')}
+                        {formatCurrency(totalUnpaid, 'SRD')}
                       </div>
                     </div>
                     <div className="bg-[hsl(var(--success-muted))] p-3.5 rounded-xl border border-[hsl(var(--success))]/20">
                       <div className="text-xs text-muted-foreground mb-1 font-medium">Paid</div>
                       <div className="text-lg font-bold text-[hsl(var(--success))]">
-                        {formatCurrency(totalPaid, 'USD')}
+                        {formatCurrency(totalPaid, 'SRD')}
                       </div>
                     </div>
                   </div>
@@ -534,7 +537,7 @@ export default function CommissionsPage() {
                         size="sm"
                         fullWidth
                       >
-                        💰 Pay All Unpaid ({formatCurrency(totalUnpaid, 'USD')})
+                        💰 Pay All Unpaid ({formatCurrency(totalUnpaid, 'SRD')})
                       </Button>
                     </div>
                   )}
@@ -623,14 +626,14 @@ export default function CommissionsPage() {
                             <span>•</span>
                           </>
                         )}
-                        <span>Sale: <span className="font-medium text-foreground">{formatCurrency(commission.sales?.total_amount || 0, 'USD')}</span></span>
+                        <span>Sale: <span className="font-medium text-foreground">{formatCurrency(commission.sales?.total_amount || 0, (commission.sales?.currency || 'USD') as Currency)}</span></span>
                         <span>•</span>
                         <span>{new Date(commission.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <div className="text-right ml-4">
                       <div className="text-lg font-bold text-[hsl(var(--success))] mb-2">
-                        {formatCurrency(commission.commission_amount, 'USD')}
+                        {formatCurrency(commission.commission_amount, (commission.sales?.currency || 'USD') as Currency)}
                       </div>
                       {commission.paid ? (
                         <Badge variant="success">
@@ -680,7 +683,7 @@ export default function CommissionsPage() {
           <div className="bg-[hsl(var(--warning-muted))] p-4 rounded-xl border border-[hsl(var(--warning))]/20">
             <div className="text-sm text-muted-foreground mb-1">Total to Pay</div>
             <div className="text-2xl font-bold text-[hsl(var(--warning))]">
-              {formatCurrency(unpaidAmountForSelectedLocation, 'USD')}
+              {formatCurrency(unpaidAmountForSelectedLocation, 'SRD')}
             </div>
           </div>
 
@@ -710,7 +713,7 @@ export default function CommissionsPage() {
               loading={submitting}
               disabled={!selectedWalletForPay}
             >
-              Pay {formatCurrency(unpaidAmountForSelectedLocation, 'USD')}
+              Pay {formatCurrency(unpaidAmountForSelectedLocation, 'SRD')}
             </Button>
             <Button 
               type="button" 

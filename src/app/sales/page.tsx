@@ -508,13 +508,7 @@ export default function SalesPage() {
         }
       }
 
-      // Combine all items for commission calculation
-      const allCartItems = [
-        ...cart,
-        ...combos.flatMap(combo => combo.items)
-      ]
-
-      // Create commission per seller per category (since different categories have different rates)
+      // Create commission per seller
       const { data: sellers } = await supabase
         .from('sellers')
         .select('*')
@@ -522,69 +516,112 @@ export default function SalesPage() {
 
       if (sellers && sellers.length > 0) {
         for (const seller of sellers) {
-          // Group items by category
-          const itemsByCategory = new Map<string, typeof allCartItems>()
-          
-          for (const cartItem of allCartItems) {
-            const categoryId = cartItem.item.category_id || 'uncategorized'
-            if (!itemsByCategory.has(categoryId)) {
-              itemsByCategory.set(categoryId, [])
+          // Process regular cart items - group by category for category-specific rates
+          if (cart.length > 0) {
+            const itemsByCategory = new Map<string, typeof cart>()
+            
+            for (const cartItem of cart) {
+              const categoryId = cartItem.item.category_id || 'uncategorized'
+              if (!itemsByCategory.has(categoryId)) {
+                itemsByCategory.set(categoryId, [])
+              }
+              itemsByCategory.get(categoryId)!.push(cartItem)
             }
-            itemsByCategory.get(categoryId)!.push(cartItem)
+
+            // Create one commission entry per category for regular items
+            for (const [categoryId, categoryItems] of itemsByCategory) {
+              let categoryCommission = 0
+              let rateToUse = seller.commission_rate // Default rate
+
+              // Get category-specific rate if available
+              if (categoryId !== 'uncategorized') {
+                const { data: categoryRate } = await supabase
+                  .from('seller_category_rates')
+                  .select('commission_rate')
+                  .eq('seller_id', seller.id)
+                  .eq('category_id', categoryId)
+                  .single()
+
+                if (categoryRate) {
+                  rateToUse = categoryRate.commission_rate
+                }
+              }
+
+              // Calculate commission for this category
+              for (const cartItem of categoryItems) {
+                const regularPrice = currency === 'SRD'
+                  ? (cartItem.item.selling_price_srd || 0)
+                  : (cartItem.item.selling_price_usd || 0)
+                const actualPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
+                  ? cartItem.customPrice 
+                  : regularPrice
+                const itemTotal = actualPrice * cartItem.quantity
+                categoryCommission += itemTotal * (rateToUse / 100)
+              }
+
+              // Insert commission record for this category
+              if (categoryCommission > 0) {
+                await supabase.from('commissions').insert({
+                  seller_id: seller.id,
+                  location_id: selectedLocation,
+                  category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                  sale_id: sale.id,
+                  commission_amount: categoryCommission,
+                  paid: false
+                })
+                
+                // Log detailed commission activity
+                const locationName = location?.name || 'Unknown'
+                await logActivity({
+                  action: 'create',
+                  entityType: 'commission',
+                  entityId: sale.id,
+                  entityName: `${seller.name || locationName}`,
+                  details: `Commission earned: ${formatCurrency(categoryCommission, currency)} at ${rateToUse}% for category sale at ${locationName}`
+                })
+              }
+            }
           }
 
-          // Create one commission entry per category
-          for (const [categoryId, categoryItems] of itemsByCategory) {
-            let categoryCommission = 0
-            let rateToUse = seller.commission_rate // Default rate
+          // Process combo items - create ONE commission per combo based on total combo price
+          for (const combo of combos) {
+            // Determine the rate to use for this combo
+            // Get the first item's category to determine the rate, or use seller's default
+            const firstItem = combo.items[0]?.item
+            let comboRate = seller.commission_rate
 
-            // Get category-specific rate if available
-            if (categoryId !== 'uncategorized') {
+            if (firstItem?.category_id) {
               const { data: categoryRate } = await supabase
                 .from('seller_category_rates')
                 .select('commission_rate')
                 .eq('seller_id', seller.id)
-                .eq('category_id', categoryId)
-                .single()
+                .eq('category_id', firstItem.category_id)
+                .maybeSingle()
 
               if (categoryRate) {
-                rateToUse = categoryRate.commission_rate
+                comboRate = categoryRate.commission_rate
               }
             }
 
-            // Calculate commission for this category
-            for (const cartItem of categoryItems) {
-              const item = cartItem.item
-              // Use custom price if set, otherwise use regular price
-              const regularPrice = currency === 'SRD'
-                ? (item.selling_price_srd || 0)
-                : (item.selling_price_usd || 0)
-              const itemPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
-                ? cartItem.customPrice 
-                : regularPrice
-              const itemTotal = itemPrice * cartItem.quantity
-              categoryCommission += itemTotal * (rateToUse / 100)
-            }
+            const comboCommission = combo.comboPrice * (comboRate / 100)
 
-            // Insert commission record with location_id and category_id
-            if (categoryCommission > 0) {
+            if (comboCommission > 0) {
               await supabase.from('commissions').insert({
                 seller_id: seller.id,
                 location_id: selectedLocation,
-                category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                category_id: null, // Combos are not tied to a single category
                 sale_id: sale.id,
-                commission_amount: categoryCommission,
+                commission_amount: comboCommission,
                 paid: false
               })
-              
-              // Log detailed commission activity
+
               const locationName = location?.name || 'Unknown'
               await logActivity({
                 action: 'create',
                 entityType: 'commission',
                 entityId: sale.id,
                 entityName: `${seller.name || locationName}`,
-                details: `Commission earned: ${formatCurrency(categoryCommission, currency)} at ${rateToUse}% for sale at ${locationName}`
+                details: `Commission earned: ${formatCurrency(comboCommission, currency)} at ${comboRate}% for combo "${combo.name}" at ${locationName}`
               })
             }
           }

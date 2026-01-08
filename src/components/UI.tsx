@@ -378,7 +378,7 @@ export function Modal({
   onClose, 
   title, 
   children,
-  size = 'md'
+  size = 'lg'
 }: { 
   isOpen: boolean
   onClose: () => void
@@ -390,10 +390,10 @@ export function Modal({
 
   const sizeClasses = {
     sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-[90vw]'
+    md: 'max-w-2xl',
+    lg: 'max-w-[96vw]',
+    xl: 'max-w-[98vw]',
+    full: 'max-w-[99vw]'
   }
 
   return (
