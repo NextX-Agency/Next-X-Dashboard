@@ -31,7 +31,7 @@ export function NewProductCard({
   onQuickView
 }: NewProductCardProps) {
   return (
-    <article className="group relative bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-neutral-200 hover:shadow-lg hover:shadow-neutral-100 transition-all duration-300">
+    <article className="group relative bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-[#f97015]/30 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
       {/* Image Container */}
       <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
         {imageUrl ? (
@@ -50,7 +50,7 @@ export function NewProductCard({
         
         {/* Category Badge */}
         {categoryName && (
-          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-neutral-600 shadow-sm">
+          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-[#141c2e] shadow-sm">
             {categoryName}
           </span>
         )}
@@ -63,7 +63,7 @@ export function NewProductCard({
               e.preventDefault()
               onAddToCart()
             }}
-            className="flex-1 h-11 rounded-xl bg-neutral-900 text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors shadow-lg"
+            className="flex-1 h-11 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] transition-colors shadow-lg"
           >
             <Plus size={16} />
             Toevoegen
@@ -73,7 +73,7 @@ export function NewProductCard({
               e.preventDefault()
               onQuickView()
             }}
-            className="w-11 h-11 rounded-xl bg-white text-neutral-900 flex items-center justify-center hover:bg-neutral-100 transition-colors shadow-lg"
+            className="w-11 h-11 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 transition-colors shadow-lg"
           >
             <Eye size={18} />
           </button>
@@ -81,7 +81,7 @@ export function NewProductCard({
         
         {/* In Cart Indicator */}
         {quantity > 0 && (
-          <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-neutral-900 text-white text-xs font-bold flex items-center justify-center shadow-lg">
+          <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#f97015] text-white text-xs font-bold flex items-center justify-center shadow-lg">
             {quantity}
           </div>
         )}
@@ -91,7 +91,7 @@ export function NewProductCard({
       <div className="p-4">
         {/* Name */}
         <Link href={`/catalog/${id}`}>
-          <h3 className="font-medium text-neutral-900 line-clamp-2 leading-snug group-hover:text-neutral-700 transition-colors">
+          <h3 className="font-medium text-[#141c2e] line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors">
             {name}
           </h3>
         </Link>
@@ -105,14 +105,14 @@ export function NewProductCard({
         
         {/* Price */}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-lg font-bold text-neutral-900">
+          <span className="text-lg font-bold text-[#141c2e]">
             {formatCurrency(price, currency)}
           </span>
           
           {/* Quick Add Button (Mobile) */}
           <button
             onClick={onAddToCart}
-            className="lg:hidden w-9 h-9 rounded-full bg-neutral-900 text-white flex items-center justify-center hover:bg-neutral-700 transition-colors"
+            className="lg:hidden w-9 h-9 rounded-full bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] transition-colors"
           >
             <Plus size={16} />
           </button>
@@ -139,19 +139,19 @@ export function NewProductGrid({
   if (isEmpty) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6">
-        <div className="w-20 h-20 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4">
-          <Package size={32} className="text-neutral-400" strokeWidth={1.5} />
+        <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mb-4">
+          <Package size={32} className="text-white/40" strokeWidth={1.5} />
         </div>
-        <h3 className="text-lg font-medium text-neutral-900 mb-2">
+        <h3 className="text-lg font-medium text-white mb-2">
           {emptyMessage}
         </h3>
-        <p className="text-sm text-neutral-500 mb-6 text-center max-w-sm">
+        <p className="text-sm text-white/60 mb-6 text-center max-w-sm">
           Probeer een andere zoekterm of bekijk alle producten
         </p>
         {onClearFilters && (
           <button
             onClick={onClearFilters}
-            className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+            className="px-6 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
           >
             Bekijk alle producten
           </button>
@@ -187,11 +187,11 @@ export function ProductSectionHeader({
   return (
     <div className="flex items-end justify-between mb-6">
       <div>
-        <h2 className="text-2xl font-bold text-neutral-900">
+        <h2 className="text-2xl font-bold text-white">
           {title}
         </h2>
         {(subtitle || count !== undefined) && (
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-sm text-white/60 mt-1">
             {subtitle || `${count} producten`}
           </p>
         )}
@@ -199,7 +199,7 @@ export function ProductSectionHeader({
       {action && (
         <button
           onClick={action.onClick}
-          className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+          className="text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
         >
           {action.label} →
         </button>

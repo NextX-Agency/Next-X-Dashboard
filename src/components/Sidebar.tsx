@@ -130,7 +130,7 @@ export default function Sidebar() {
           <div className="flex items-center gap-3 w-full">
             <div className="relative w-full h-12">
               <Image
-                src="/nextx-logo-dark.png"
+                src="/logo.png"
                 alt="NextX Logo"
                 width={200}
                 height={48}
@@ -143,7 +143,7 @@ export default function Sidebar() {
         {isCollapsed && (
           <div className="relative mx-auto w-12 h-12">
             <Image
-              src="/nextx-logo-dark.png"
+              src="/logo.png"
               alt="NextX"
               width={48}
               height={48}

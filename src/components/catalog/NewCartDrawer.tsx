@@ -88,21 +88,21 @@ export function NewCartDrawer({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-neutral-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center">
-              <ShoppingBag size={18} className="text-neutral-600" />
+            <div className="w-10 h-10 rounded-xl bg-[#f97015]/10 flex items-center justify-center">
+              <ShoppingBag size={18} className="text-[#f97015]" />
             </div>
             <div>
-              <h2 className="font-semibold text-neutral-900">Winkelwagen</h2>
-              <p className="text-xs text-neutral-500">
+              <h2 className="font-semibold text-[#141c2e]">Winkelwagen</h2>
+              <p className="text-xs text-[#141c2e]/60">
                 {totalItems} {totalItems === 1 ? 'product' : 'producten'}
               </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="w-10 h-10 rounded-xl hover:bg-neutral-100 flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-xl hover:bg-[#f97015]/10 flex items-center justify-center transition-colors"
           >
-            <X size={20} className="text-neutral-500" />
+            <X size={20} className="text-[#141c2e]/60" />
           </button>
         </div>
 
@@ -110,18 +110,18 @@ export function NewCartDrawer({
         <div className="flex-1 overflow-y-auto">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 px-6">
-              <div className="w-20 h-20 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4">
-                <ShoppingBag size={32} className="text-neutral-300" />
+              <div className="w-20 h-20 rounded-2xl bg-[#f97015]/10 flex items-center justify-center mb-4">
+                <ShoppingBag size={32} className="text-[#f97015]/40" />
               </div>
-              <h3 className="font-medium text-neutral-900 mb-2">
+              <h3 className="font-medium text-[#141c2e] mb-2">
                 Je winkelwagen is leeg
               </h3>
-              <p className="text-sm text-neutral-500 text-center mb-6">
+              <p className="text-sm text-[#141c2e]/60 text-center mb-6">
                 Voeg producten toe om een bestelling te plaatsen
               </p>
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+                className="px-6 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
               >
                 Verder winkelen
               </button>
@@ -153,10 +153,10 @@ export function NewCartDrawer({
                   
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-neutral-900 text-sm line-clamp-2 mb-1">
+                    <h4 className="font-medium text-[#141c2e] text-sm line-clamp-2 mb-1">
                       {item.name}
                     </h4>
-                    <p className="text-sm font-semibold text-neutral-900 mb-3">
+                    <p className="text-sm font-semibold text-[#141c2e] mb-3">
                       {formatCurrency(item.price, currency)}
                     </p>
                     
@@ -165,23 +165,23 @@ export function NewCartDrawer({
                       <div className="flex items-center gap-0 rounded-lg border border-neutral-200 bg-white">
                         <button
                           onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
                         >
                           <Minus size={14} />
                         </button>
-                        <span className="w-8 text-center text-sm font-medium text-neutral-900">
+                        <span className="w-8 text-center text-sm font-medium text-[#141c2e]">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => onAddOne(item.id)}
-                          className="w-8 h-8 flex items-center justify-center text-neutral-500 hover:text-neutral-900 transition-colors"
+                          className="w-8 h-8 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
                         >
                           <Plus size={14} />
                         </button>
                       </div>
                       <button
                         onClick={() => onUpdateQuantity(item.id, 0)}
-                        className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
+                        className="text-xs text-[#141c2e]/40 hover:text-red-500 transition-colors"
                       >
                         Verwijder
                       </button>
@@ -207,7 +207,7 @@ export function NewCartDrawer({
                     <select
                       value={selectedLocation}
                       onChange={(e) => onLocationChange(e.target.value)}
-                      className="w-full h-11 pl-10 pr-4 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl border border-neutral-200 bg-white text-sm text-[#141c2e] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#f97015]/30 focus:border-[#f97015]"
                     >
                       {locations.map((loc) => (
                         <option key={loc.id} value={loc.id}>
@@ -231,8 +231,8 @@ export function NewCartDrawer({
                     onClick={() => onPickupDateChange('today')}
                     className={`flex-1 h-10 rounded-lg text-sm font-medium transition-colors ${
                       pickupDate === 'today'
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        ? 'bg-[#f97015] text-white'
+                        : 'bg-white border border-neutral-200 text-[#141c2e]/70 hover:border-[#f97015]/50'
                     }`}
                   >
                     Vandaag
@@ -241,8 +241,8 @@ export function NewCartDrawer({
                     onClick={() => onPickupDateChange('tomorrow')}
                     className={`flex-1 h-10 rounded-lg text-sm font-medium transition-colors ${
                       pickupDate === 'tomorrow'
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        ? 'bg-[#f97015] text-white'
+                        : 'bg-white border border-neutral-200 text-[#141c2e]/70 hover:border-[#f97015]/50'
                     }`}
                   >
                     Morgen
@@ -251,8 +251,8 @@ export function NewCartDrawer({
                     onClick={() => onPickupDateChange('custom')}
                     className={`flex-1 h-10 rounded-lg text-sm font-medium transition-colors ${
                       pickupDate === 'custom'
-                        ? 'bg-neutral-900 text-white'
-                        : 'bg-white border border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        ? 'bg-[#f97015] text-white'
+                        : 'bg-white border border-neutral-200 text-[#141c2e]/70 hover:border-[#f97015]/50'
                     }`}
                   >
                     Anders
@@ -264,7 +264,7 @@ export function NewCartDrawer({
                     value={customPickupDate}
                     onChange={(e) => onCustomPickupDateChange(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 mt-2 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-[#141c2e] mt-2 focus:outline-none focus:ring-2 focus:ring-[#f97015]/30 focus:border-[#f97015]"
                   />
                 )}
               </div>
@@ -272,7 +272,7 @@ export function NewCartDrawer({
               {/* Customer Details */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-neutral-500 mb-1.5">
+                  <label className="block text-xs font-medium text-[#141c2e]/60 mb-1.5">
                     Naam
                   </label>
                   <input
@@ -280,11 +280,11 @@ export function NewCartDrawer({
                     value={customerName}
                     onChange={(e) => onCustomerNameChange(e.target.value)}
                     placeholder="Je naam"
-                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-[#141c2e] placeholder:text-[#141c2e]/40 focus:outline-none focus:ring-2 focus:ring-[#f97015]/30 focus:border-[#f97015]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-neutral-500 mb-1.5">
+                  <label className="block text-xs font-medium text-[#141c2e]/60 mb-1.5">
                     Telefoon
                   </label>
                   <input
@@ -292,14 +292,14 @@ export function NewCartDrawer({
                     value={customerPhone}
                     onChange={(e) => onCustomerPhoneChange(e.target.value)}
                     placeholder="Telefoonnummer"
-                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                    className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-sm text-[#141c2e] placeholder:text-[#141c2e]/40 focus:outline-none focus:ring-2 focus:ring-[#f97015]/30 focus:border-[#f97015]"
                   />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1.5">
+                <label className="block text-xs font-medium text-[#141c2e]/60 mb-1.5">
                   Opmerkingen (optioneel)
                 </label>
                 <textarea
@@ -307,15 +307,15 @@ export function NewCartDrawer({
                   onChange={(e) => onCustomerNotesChange(e.target.value)}
                   placeholder="Bijv. specifieke wensen of ophaaltijd"
                   rows={2}
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 resize-none focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 bg-white text-sm text-[#141c2e] placeholder:text-[#141c2e]/40 resize-none focus:outline-none focus:ring-2 focus:ring-[#f97015]/30 focus:border-[#f97015]"
                 />
               </div>
             </div>
 
             {/* Total & Submit */}
             <div className="flex items-center justify-between py-4 border-t border-neutral-200 mb-4">
-              <span className="text-neutral-600">Totaal</span>
-              <span className="text-xl font-bold text-neutral-900">
+              <span className="text-[#141c2e]/70">Totaal</span>
+              <span className="text-xl font-bold text-[#141c2e]">
                 {formatCurrency(totalPrice, currency)}
               </span>
             </div>
@@ -328,7 +328,7 @@ export function NewCartDrawer({
               Bestelling Plaatsen via WhatsApp
             </button>
             
-            <p className="text-xs text-neutral-500 text-center mt-4">
+            <p className="text-xs text-[#141c2e]/50 text-center mt-4">
               Je wordt doorgestuurd naar WhatsApp om je bestelling te bevestigen
             </p>
           </div>

@@ -86,7 +86,7 @@ export function BannerSlider({ banners, autoPlayInterval = 5000 }: BannerSliderP
               {currentBanner.link_url && (
                 <Link
                   href={currentBanner.link_url}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-slate-900 font-medium hover:bg-orange-500 hover:text-white transition-all group"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-[#141c2e] font-medium hover:bg-[#f97015] hover:text-white transition-all group"
                 >
                   {currentBanner.link_text || 'Shop Now'}
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -132,7 +132,7 @@ export function BannerSlider({ banners, autoPlayInterval = 5000 }: BannerSliderP
               }}
               className={`w-2.5 h-2.5 rounded-full transition-all ${
                 index === currentIndex 
-                  ? 'bg-white w-8' 
+                  ? 'bg-[#f97015] w-8' 
                   : 'bg-white/40 hover:bg-white/60'
               }`}
               aria-label={`Go to banner ${index + 1}`}

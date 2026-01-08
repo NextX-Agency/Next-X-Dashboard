@@ -75,7 +75,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
               onClick={() => onCategoryChange('')}
               className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
                 selectedCategory === ''
-                  ? 'bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30'
+                  ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                   : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
               }`}
             >
@@ -98,7 +98,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
                   onClick={() => onCategoryChange(category.id)}
                   className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
                     isSelected
-                      ? 'bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30'
+                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
                   }`}
                 >

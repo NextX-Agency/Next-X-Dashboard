@@ -77,9 +77,9 @@ export function NewQuickViewModal({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-neutral-200 transition-colors"
+          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center hover:bg-[#f97015]/10 transition-colors"
         >
-          <X size={18} className="text-neutral-600" />
+          <X size={18} className="text-[#141c2e]" />
         </button>
 
         <div className="md:flex">
@@ -102,7 +102,7 @@ export function NewQuickViewModal({
             {/* Category badge */}
             {categoryName && (
               <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-neutral-700 shadow-sm">
+                <span className="px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-[#141c2e] shadow-sm">
                   {categoryName}
                 </span>
               </div>
@@ -112,20 +112,20 @@ export function NewQuickViewModal({
           {/* Content */}
           <div className="md:w-1/2 p-6 sm:p-8 flex flex-col">
             {/* Title */}
-            <h2 className="text-2xl font-bold text-neutral-900 mb-2">
+            <h2 className="text-2xl font-bold text-[#141c2e] mb-2">
               {name}
             </h2>
             
             {/* Description */}
             {description && (
-              <p className="text-sm text-neutral-600 leading-relaxed mb-6">
+              <p className="text-sm text-[#141c2e]/70 leading-relaxed mb-6">
                 {description}
               </p>
             )}
 
             {/* Pickup Info */}
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-6 p-3 rounded-xl bg-neutral-50">
-              <MapPin size={16} className="text-neutral-400 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-sm text-[#141c2e]/60 mb-6 p-3 rounded-xl bg-[#f97015]/5 border border-[#f97015]/10">
+              <MapPin size={16} className="text-[#f97015] flex-shrink-0" />
               <span>Alleen afhalen in {storeAddress}</span>
             </div>
 
@@ -133,8 +133,8 @@ export function NewQuickViewModal({
               {/* Price */}
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-xs text-neutral-500 mb-1">Prijs per stuk</p>
-                  <span className="text-2xl font-bold text-neutral-900">
+                  <p className="text-xs text-[#141c2e]/50 mb-1">Prijs per stuk</p>
+                  <span className="text-2xl font-bold text-[#141c2e]">
                     {formatCurrency(price, currency)}
                   </span>
                 </div>
@@ -143,16 +143,16 @@ export function NewQuickViewModal({
                 <div className="flex items-center rounded-xl border border-neutral-200 bg-neutral-50">
                   <button
                     onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                    className="w-10 h-10 flex items-center justify-center text-neutral-500 hover:text-neutral-900 transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
                   >
                     <Minus size={16} />
                   </button>
-                  <span className="w-10 text-center font-medium text-neutral-900">
+                  <span className="w-10 text-center font-medium text-[#141c2e]">
                     {quantity}
                   </span>
                   <button
                     onClick={() => setQuantity(q => q + 1)}
-                    className="w-10 h-10 flex items-center justify-center text-neutral-500 hover:text-neutral-900 transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
                   >
                     <Plus size={16} />
                   </button>
@@ -162,8 +162,8 @@ export function NewQuickViewModal({
               {/* Total when quantity > 1 */}
               {quantity > 1 && (
                 <div className="flex items-center justify-between py-3 mb-4 border-t border-neutral-100">
-                  <span className="text-sm text-neutral-500">Totaal ({quantity} stuks)</span>
-                  <span className="text-lg font-bold text-neutral-900">
+                  <span className="text-sm text-[#141c2e]/60">Totaal ({quantity} stuks)</span>
+                  <span className="text-lg font-bold text-[#141c2e]">
                     {formatCurrency(price * quantity, currency)}
                   </span>
                 </div>
@@ -173,7 +173,7 @@ export function NewQuickViewModal({
               <div className="space-y-3">
                 <button
                   onClick={handleAddToCart}
-                  className="w-full h-12 rounded-xl bg-neutral-900 text-white font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors"
+                  className="w-full h-12 rounded-xl bg-[#f97015] text-white font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] transition-colors"
                 >
                   <Plus size={18} />
                   Toevoegen aan winkelwagen
@@ -189,7 +189,7 @@ export function NewQuickViewModal({
                 
                 <Link
                   href={`/catalog/${id}`}
-                  className="w-full h-12 rounded-xl border border-neutral-200 text-neutral-600 font-medium flex items-center justify-center gap-2 hover:bg-neutral-50 transition-colors"
+                  className="w-full h-12 rounded-xl border border-neutral-200 text-[#141c2e] font-medium flex items-center justify-center gap-2 hover:bg-[#f97015]/5 hover:border-[#f97015]/30 transition-colors"
                 >
                   Bekijk details
                   <ExternalLink size={16} />

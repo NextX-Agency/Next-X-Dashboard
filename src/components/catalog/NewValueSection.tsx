@@ -41,11 +41,11 @@ export function NewValueSection({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#141c2e] mb-4">
             Waarom bij ons bestellen?
           </h2>
           {storeDescription && (
-            <p className="text-neutral-600 max-w-2xl mx-auto">
+            <p className="text-[#141c2e]/70 max-w-2xl mx-auto">
               {storeDescription}
             </p>
           )}
@@ -56,15 +56,15 @@ export function NewValueSection({
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="bg-white rounded-2xl p-6 text-center hover:shadow-lg hover:shadow-neutral-100 transition-shadow"
+              className="bg-white rounded-2xl p-6 text-center hover:shadow-lg hover:shadow-[#f97015]/10 hover:border-[#f97015]/20 border border-transparent transition-all"
             >
-              <div className="w-14 h-14 rounded-2xl bg-neutral-100 flex items-center justify-center mx-auto mb-4">
-                <feature.icon size={24} className="text-neutral-600" />
+              <div className="w-14 h-14 rounded-2xl bg-[#f97015]/10 flex items-center justify-center mx-auto mb-4">
+                <feature.icon size={24} className="text-[#f97015]" />
               </div>
-              <h3 className="font-semibold text-neutral-900 mb-2">
+              <h3 className="font-semibold text-[#141c2e] mb-2">
                 {feature.title}
               </h3>
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-[#141c2e]/60">
                 {feature.description}
               </p>
             </div>
@@ -85,13 +85,13 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
 
   return (
-    <section className="py-16 bg-neutral-900">
+    <section className="py-16 bg-[#141c2e]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
             Klaar om te bestellen?
           </h2>
-          <p className="text-neutral-400 mb-8">
+          <p className="text-white/60 mb-8">
             Neem direct contact op via WhatsApp voor vragen of om je bestelling te plaatsen. 
             We reageren meestal binnen een uur.
           </p>
@@ -99,12 +99,12 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
             href={`https://wa.me/${whatsappClean}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#25D366] text-white font-medium hover:bg-[#22c55e] transition-colors shadow-lg shadow-green-500/20"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#25D366] text-white font-medium hover:bg-[#22c55e] transition-colors shadow-lg shadow-[#25D366]/30"
           >
             <MessageCircle size={20} />
             Chat met ons op WhatsApp
           </a>
-          <p className="mt-6 text-sm text-neutral-500">
+          <p className="mt-6 text-sm text-white/40">
             {whatsappNumber}
           </p>
         </div>

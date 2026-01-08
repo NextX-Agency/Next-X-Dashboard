@@ -65,7 +65,7 @@ export default function TopBar() {
             <div className="lg:hidden flex items-center gap-2 min-w-0">
               <div className="relative h-7 w-16 flex-shrink-0">
                 <Image
-                  src="/nextx-logo-dark.png"
+                  src="/logo.png"
                   alt="NextX"
                   width={64}
                   height={28}
