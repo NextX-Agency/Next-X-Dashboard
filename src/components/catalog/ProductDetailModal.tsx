@@ -121,7 +121,7 @@ export function ProductDetailModal({
           <div className="md:w-1/2 p-6 sm:p-8 flex flex-col">
             {/* Category tag */}
             {categoryName && (
-              <div className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500 text-xs font-medium mb-4 md:hidden">
+              <div className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-[#f97015]/10 text-[#f97015] text-xs font-medium mb-4 md:hidden">
                 <Tag size={12} strokeWidth={2} />
                 <span>{categoryName}</span>
               </div>
@@ -140,8 +140,8 @@ export function ProductDetailModal({
             )}
 
             {/* Pickup Info */}
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-6 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <MapPin size={16} className="text-green-500 flex-shrink-0" />
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-6 p-3 rounded-xl bg-[#f97015]/5 border border-[#f97015]/10">
+              <MapPin size={16} className="text-[#f97015] flex-shrink-0" />
               <span>Ophalen in {storeAddress}</span>
             </div>
 
@@ -150,7 +150,7 @@ export function ProductDetailModal({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs text-neutral-500 mb-1">Prijs</p>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent">
+                  <span className="text-2xl font-bold text-[#f97015]">
                     {formatCurrency(price, currency)}
                   </span>
                 </div>
@@ -188,7 +188,7 @@ export function ProductDetailModal({
                 {/* WhatsApp Order Button */}
                 <button
                   onClick={handleWhatsAppOrder}
-                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#22c55e] hover:to-[#10b981] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 min-h-[56px]"
+                  className="w-full h-14 rounded-2xl bg-[#25D366] hover:bg-[#22c55e] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 min-h-[56px]"
                 >
                   <MessageCircle size={20} strokeWidth={2} />
                   <span>Bestel voor ophalen</span>
@@ -198,7 +198,7 @@ export function ProductDetailModal({
                 <div className="flex gap-3">
                   <button
                     onClick={handleAddToCart}
-                    className="flex-1 h-12 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
+                    className="flex-1 h-12 rounded-xl bg-[#f97015] hover:bg-[#e5640d] text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
                   >
                     <Plus size={18} strokeWidth={2} />
                     <span>{quantity > 1 ? `${quantity}× toevoegen` : 'In winkelwagen'}</span>

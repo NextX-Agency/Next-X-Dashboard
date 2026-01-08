@@ -86,8 +86,8 @@ export function CartDrawer({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between p-6 border-b border-white/4">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-2xl bg-orange-500/10 flex items-center justify-center">
-              <ShoppingBag size={20} className="text-orange-500" strokeWidth={1.5} />
+            <div className="w-11 h-11 rounded-2xl bg-[#f97015]/10 flex items-center justify-center">
+              <ShoppingBag size={20} className="text-[#f97015]" strokeWidth={1.5} />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Winkelwagen</h2>
@@ -154,7 +154,7 @@ export function CartDrawer({
                     <h4 className="text-sm font-medium text-white line-clamp-1 mb-1">
                       {item.name}
                     </h4>
-                    <p className="text-sm font-semibold text-orange-500 mb-3">
+                    <p className="text-sm font-semibold text-[#f97015] mb-3">
                       {formatCurrency(item.price, currency)}
                     </p>
                     
@@ -243,7 +243,7 @@ export function CartDrawer({
                   onClick={() => onPickupDateChange('today')}
                   className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
                     pickupDate === 'today'
-                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -253,7 +253,7 @@ export function CartDrawer({
                   onClick={() => onPickupDateChange('tomorrow')}
                   className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
                     pickupDate === 'tomorrow'
-                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -263,7 +263,7 @@ export function CartDrawer({
                   onClick={() => onPickupDateChange('custom')}
                   className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
                     pickupDate === 'custom'
-                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
+                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -279,7 +279,7 @@ export function CartDrawer({
                     value={customPickupDate}
                     onChange={(e) => onCustomPickupDateChange(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-orange-500/50 transition-colors cursor-pointer"
+                    className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-[#f97015]/50 transition-colors cursor-pointer"
                     style={{
                       colorScheme: 'dark'
                     }}
@@ -294,21 +294,21 @@ export function CartDrawer({
               value={customerName}
               onChange={(e) => onCustomerNameChange(e.target.value)}
               placeholder="Naam"
-              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-orange-500/30 transition-colors"
+              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
             />
             <input
               type="tel"
               value={customerPhone}
               onChange={(e) => onCustomerPhoneChange(e.target.value)}
               placeholder="Telefoonnummer"
-              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-orange-500/30 transition-colors"
+              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
             />
             <textarea
               value={customerNotes}
               onChange={(e) => onCustomerNotesChange(e.target.value)}
               placeholder="Opmerkingen (optioneel)"
               rows={2}
-              className="w-full px-4 py-3 rounded-xl bg-white/3 border border-white/6 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-orange-500/30 resize-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-white/3 border border-white/6 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 resize-none transition-colors"
             />
             
             {/* Total */}

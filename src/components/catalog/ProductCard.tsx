@@ -35,12 +35,12 @@ export function ProductCard({
   return (
     <article className="group relative flex flex-col">
       {/* Card glow effect */}
-      <div className="absolute -inset-2 bg-gradient-to-r from-orange-500/0 via-orange-500/0 to-orange-500/0 rounded-3xl blur-xl group-hover:from-orange-500/20 group-hover:via-amber-500/10 group-hover:to-orange-500/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+      <div className="absolute -inset-2 bg-gradient-to-r from-[#f97015]/0 via-[#f97015]/0 to-[#f97015]/0 rounded-3xl blur-xl group-hover:from-[#f97015]/20 group-hover:via-[#f97015]/10 group-hover:to-[#f97015]/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
       
       {/* Entire card is a link for navigation */}
       <Link
         href={`/catalog/${id}`}
-        className="relative aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 cursor-pointer mb-4 border border-white/[0.08] group-hover:border-orange-500/40 transition-all duration-500 shadow-lg group-hover:shadow-2xl group-hover:shadow-orange-500/20 block"
+        className="relative aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 cursor-pointer mb-4 border border-white/[0.08] group-hover:border-[#f97015]/40 transition-all duration-500 shadow-lg group-hover:shadow-2xl group-hover:shadow-[#f97015]/20 block"
       >
         {/* Shimmer overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent" />
@@ -88,7 +88,7 @@ export function ProductCard({
                 e.stopPropagation()
                 onAddToCart()
               }}
-              className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500 hover:from-orange-400 hover:via-orange-400 hover:to-amber-400 text-white text-sm font-bold flex items-center justify-center gap-2.5 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 shadow-2xl shadow-orange-500/50 min-h-[48px]"
+              className="w-full py-3.5 px-5 rounded-2xl bg-[#f97015] hover:bg-[#e5640d] text-white text-sm font-bold flex items-center justify-center gap-2.5 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 shadow-2xl shadow-[#f97015]/50 min-h-[48px]"
             >
               <Plus size={18} strokeWidth={2.5} />
               <span>Toevoegen</span>
@@ -100,7 +100,7 @@ export function ProductCard({
       {/* Product info - also clickable */}
       <Link href={`/catalog/${id}`} className="flex flex-col flex-1 group/info">
         {/* Title */}
-        <h3 className="text-sm font-medium text-white leading-tight mb-1 line-clamp-2 transition-colors group-hover/info:text-orange-500">
+        <h3 className="text-sm font-medium text-white leading-tight mb-1 line-clamp-2 transition-colors group-hover/info:text-[#f97015]">
           {name}
         </h3>
         
@@ -114,7 +114,7 @@ export function ProductCard({
         
       {/* Price and cart controls - separate from link */}
       <div className="mt-auto flex items-center justify-between gap-3 pt-1">
-        <span className="text-lg font-black bg-gradient-to-r from-orange-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
+        <span className="text-lg font-black text-[#f97015]">
           {formatCurrency(price, currency)}
         </span>
         
@@ -148,7 +148,7 @@ export function ProductCard({
               e.preventDefault()
               onAddToCart()
             }}
-            className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-lg shadow-orange-500/40"
+            className="w-12 h-12 rounded-xl bg-[#f97015] hover:bg-[#e5640d] flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-lg shadow-[#f97015]/40"
           >
             <Plus size={20} className="text-white" strokeWidth={2.5} />
           </button>

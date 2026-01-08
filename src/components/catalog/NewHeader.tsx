@@ -57,7 +57,7 @@ export function NewHeader({
                     onClick={() => onCurrencyChange('SRD')}
                     className={`px-2 py-0.5 rounded transition-colors ${
                       currency === 'SRD' 
-                        ? 'bg-neutral-900 text-white' 
+                        ? 'bg-[#f97015] text-white' 
                         : 'hover:bg-neutral-100'
                     }`}
                   >
@@ -68,7 +68,7 @@ export function NewHeader({
                     onClick={() => onCurrencyChange('USD')}
                     className={`px-2 py-0.5 rounded transition-colors ${
                       currency === 'USD' 
-                        ? 'bg-neutral-900 text-white' 
+                        ? 'bg-[#f97015] text-white' 
                         : 'hover:bg-neutral-100'
                     }`}
                   >
@@ -95,8 +95,9 @@ export function NewHeader({
                   unoptimized
                 />
               ) : (
-                <span className="text-xl font-bold text-neutral-900 tracking-tight">
-                  {storeName}
+                <span className="text-xl font-bold tracking-tight">
+                  <span className="text-[#141c2e]">Next</span>
+                  <span className="text-[#f97015]">X</span>
                 </span>
               )}
             </Link>
@@ -107,8 +108,8 @@ export function NewHeader({
                 onClick={() => onCategoryChange('')}
                 className={`text-sm font-medium transition-colors ${
                   !selectedCategory 
-                    ? 'text-neutral-900' 
-                    : 'text-neutral-500 hover:text-neutral-900'
+                    ? 'text-[#f97015]' 
+                    : 'text-[#141c2e]/70 hover:text-[#141c2e]'
                 }`}
               >
                 Alle Producten
@@ -119,8 +120,8 @@ export function NewHeader({
                   onClick={() => onCategoryChange(cat.id)}
                   className={`text-sm font-medium transition-colors ${
                     selectedCategory === cat.id 
-                      ? 'text-neutral-900' 
-                      : 'text-neutral-500 hover:text-neutral-900'
+                      ? 'text-[#f97015]' 
+                      : 'text-[#141c2e]/70 hover:text-[#141c2e]'
                   }`}
                 >
                   {cat.name}
@@ -128,7 +129,7 @@ export function NewHeader({
               ))}
               {categories.length > 5 && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                  <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors">
                     Meer
                     <ChevronDown size={14} />
                   </button>
@@ -138,7 +139,7 @@ export function NewHeader({
                         <button
                           key={cat.id}
                           onClick={() => onCategoryChange(cat.id)}
-                          className="w-full px-4 py-2 text-sm text-left text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+                          className="w-full px-4 py-2 text-sm text-left text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e] transition-colors"
                         >
                           {cat.name}
                         </button>
@@ -154,7 +155,7 @@ export function NewHeader({
               {/* Search Toggle */}
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:bg-neutral-100 transition-colors"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
               >
                 <Search size={20} />
               </button>
@@ -162,11 +163,11 @@ export function NewHeader({
               {/* Cart */}
               <button
                 onClick={onCartClick}
-                className="relative w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:bg-neutral-100 transition-colors"
+                className="relative w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
               >
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-neutral-900 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#f97015] text-white text-[10px] font-bold flex items-center justify-center">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
@@ -175,7 +176,7 @@ export function NewHeader({
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:bg-neutral-100 transition-colors"
+                className="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
               >
                 {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
               </button>
@@ -195,7 +196,7 @@ export function NewHeader({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   autoFocus
-                  className="w-full h-12 pl-11 pr-4 rounded-full bg-white border border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition-all"
+                  className="w-full h-12 pl-11 pr-4 rounded-full bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all"
                 />
                 {searchQuery && (
                   <button
@@ -221,8 +222,8 @@ export function NewHeader({
                 }}
                 className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
                   !selectedCategory 
-                    ? 'bg-neutral-100 text-neutral-900' 
-                    : 'text-neutral-600 hover:bg-neutral-50'
+                    ? 'bg-[#f97015]/10 text-[#f97015]' 
+                    : 'text-[#141c2e]/70 hover:bg-neutral-50'
                 }`}
               >
                 Alle Producten
@@ -236,8 +237,8 @@ export function NewHeader({
                   }}
                   className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
                     selectedCategory === cat.id 
-                      ? 'bg-neutral-100 text-neutral-900' 
-                      : 'text-neutral-600 hover:bg-neutral-50'
+                      ? 'bg-[#f97015]/10 text-[#f97015]' 
+                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
                   }`}
                 >
                   {cat.name}

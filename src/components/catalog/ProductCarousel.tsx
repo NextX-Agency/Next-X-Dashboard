@@ -53,7 +53,7 @@ export function ProductCarousel({
           {viewAllHref && (
             <Link 
               href={viewAllHref}
-              className="text-sm font-medium text-orange-500 hover:text-orange-400 transition-colors"
+              className="text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
             >
               Bekijk alles →
             </Link>
@@ -82,7 +82,7 @@ export function ProductCarousel({
                 href={`/catalog/${product.id}`}
                 className="flex-shrink-0 w-[200px] sm:w-[220px] group/card"
               >
-                <article className="bg-neutral-900/50 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-orange-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10">
+                <article className="bg-neutral-900/50 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-[#f97015]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#f97015]/10">
                   {/* Image */}
                   <div className="aspect-square bg-neutral-800 relative overflow-hidden">
                     {product.image_url ? (
@@ -107,7 +107,7 @@ export function ProductCarousel({
                           e.stopPropagation()
                           onAddToCart(product.id)
                         }}
-                        className="absolute bottom-3 right-3 w-10 h-10 rounded-xl bg-orange-500 hover:bg-orange-400 flex items-center justify-center text-white opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/card:translate-y-0 shadow-lg"
+                        className="absolute bottom-3 right-3 w-10 h-10 rounded-xl bg-[#f97015] hover:bg-[#e5640d] flex items-center justify-center text-white opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/card:translate-y-0 shadow-lg"
                       >
                         <Plus size={20} />
                       </button>
@@ -117,12 +117,12 @@ export function ProductCarousel({
                   {/* Product info */}
                   <div className="p-4">
                     {/* Price */}
-                    <p className="text-lg font-bold text-orange-500 mb-1">
+                    <p className="text-lg font-bold text-[#f97015] mb-1">
                       {formatCurrency(product.price, currency)}
                     </p>
                     
                     {/* Name */}
-                    <h3 className="text-sm text-white font-medium line-clamp-2 leading-snug group-hover/card:text-orange-400 transition-colors">
+                    <h3 className="text-sm text-white font-medium line-clamp-2 leading-snug group-hover/card:text-[#f97015] transition-colors">
                       {product.name}
                     </h3>
                   </div>

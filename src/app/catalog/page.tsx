@@ -440,10 +440,10 @@ export default function NewCatalogPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#141c2e] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Laden...</p>
+          <div className="w-10 h-10 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/60">Laden...</p>
         </div>
       </div>
     )
@@ -452,13 +452,13 @@ export default function NewCatalogPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[#141c2e] flex items-center justify-center px-6">
         <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Er ging iets mis</h2>
-          <p className="text-neutral-500 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-white mb-2">Er ging iets mis</h2>
+          <p className="text-white/60 mb-6">{error}</p>
           <button
             onClick={loadData}
-            className="px-6 py-3 rounded-full bg-neutral-900 text-white font-medium hover:bg-neutral-800 transition-colors"
+            className="px-6 py-3 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-colors"
           >
             Opnieuw proberen
           </button>
@@ -468,7 +468,7 @@ export default function NewCatalogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#141c2e]">
       {/* Header */}
       <NewHeader
         storeName={settings.store_name}
@@ -534,7 +534,7 @@ export default function NewCatalogPage() {
       <div ref={productsRef}>
         {/* Search Results */}
         {showSearchResults && (
-          <section className="py-10 bg-white">
+          <section className="py-10 bg-[#141c2e]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductSectionHeader
                 title={`Zoekresultaten voor "${searchQuery}"`}
@@ -567,7 +567,7 @@ export default function NewCatalogPage() {
 
         {/* Category Products */}
         {showCategoryProducts && (
-          <section className="py-10 bg-white">
+          <section className="py-10 bg-[#141c2e]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductSectionHeader
                 title={getCategoryName(selectedCategory) || 'Producten'}
@@ -626,9 +626,9 @@ export default function NewCatalogPage() {
                       return (
                         <div
                           key={combo.id}
-                          className="bg-white rounded-2xl border border-neutral-200 overflow-hidden hover:shadow-lg transition-shadow"
+                          className="bg-[#1a2438] rounded-2xl border border-white/10 overflow-hidden hover:shadow-lg hover:shadow-[#f97015]/10 transition-shadow"
                         >
-                          <div className="relative aspect-square bg-neutral-100">
+                          <div className="relative aspect-square bg-[#141c2e]">
                             {combo.image_url ? (
                               <img
                                 src={combo.image_url}
@@ -643,18 +643,18 @@ export default function NewCatalogPage() {
                                 -{savingsPercent}%
                               </div>
                             )}
-                            <div className="absolute top-3 left-3 bg-neutral-900 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            <div className="absolute top-3 left-3 bg-[#f97015] text-white text-xs font-bold px-2 py-1 rounded-full">
                               COMBO
                             </div>
                           </div>
                           
                           <div className="p-4">
-                            <h3 className="font-semibold text-neutral-900 mb-2">{combo.name}</h3>
+                            <h3 className="font-semibold text-white mb-2">{combo.name}</h3>
                             
                             <div className="space-y-1 mb-3">
                               {combo.combo_items?.map((ci) => (
-                                <div key={ci.id} className="text-sm text-neutral-500 flex items-center gap-2">
-                                  <span className="text-neutral-400">•</span>
+                                <div key={ci.id} className="text-sm text-white/60 flex items-center gap-2">
+                                  <span className="text-white/40">•</span>
                                   <span>{ci.quantity}× {ci.items?.name || 'Item'}</span>
                                 </div>
                               ))}
@@ -662,24 +662,24 @@ export default function NewCatalogPage() {
                             
                             <div className="flex items-baseline gap-2 mb-3">
                               {originalPrice > comboPrice && (
-                                <span className="text-sm text-neutral-400 line-through">
+                                <span className="text-sm text-white/40 line-through">
                                   {formatCurrency(originalPrice, currency)}
                                 </span>
                               )}
-                              <span className="text-xl font-bold text-neutral-900">
+                              <span className="text-xl font-bold text-[#f97015]">
                                 {formatCurrency(comboPrice, currency)}
                               </span>
                             </div>
                             
                             {savings > 0 && (
-                              <div className="text-sm text-green-600 mb-3">
+                              <div className="text-sm text-green-400 mb-3">
                                 💰 Bespaar {formatCurrency(savings, currency)}
                               </div>
                             )}
                             
                             <button
                               onClick={() => addToCart(combo)}
-                              className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-medium rounded-xl transition-colors"
+                              className="w-full py-2.5 bg-[#f97015] hover:bg-[#e5640d] text-white font-medium rounded-xl transition-colors"
                             >
                               Toevoegen
                             </button>

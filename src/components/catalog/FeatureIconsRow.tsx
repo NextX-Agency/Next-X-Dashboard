@@ -29,7 +29,7 @@ export function FeatureIconsRow() {
   return (
     <section className="relative overflow-hidden border-y border-white/[0.06]">
       {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-orange-500/[0.02] via-transparent to-amber-500/[0.02]" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#f97015]/[0.02] via-transparent to-[#f97015]/[0.02]" />
       
       <div className="relative max-w-7xl mx-auto px-6 lg:px-8 py-10">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-10">
@@ -39,10 +39,10 @@ export function FeatureIconsRow() {
               className="flex items-center gap-4 group"
             >
               {/* Icon container */}
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500/15 to-amber-500/5 border border-orange-500/20 flex items-center justify-center transition-all duration-300 group-hover:from-orange-500/25 group-hover:to-amber-500/15 group-hover:border-orange-400/40 group-hover:shadow-xl group-hover:shadow-orange-500/20 group-hover:scale-110">
+              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-[#f97015]/15 to-[#f97015]/5 border border-[#f97015]/20 flex items-center justify-center transition-all duration-300 group-hover:from-[#f97015]/25 group-hover:to-[#f97015]/15 group-hover:border-[#f97015]/40 group-hover:shadow-xl group-hover:shadow-[#f97015]/20 group-hover:scale-110">
                 <feature.icon 
                   size={22} 
-                  className="text-orange-400 transition-all duration-300" 
+                  className="text-[#f97015] transition-all duration-300" 
                   strokeWidth={2}
                 />
               </div>

@@ -53,9 +53,9 @@ export function NewProductCarousel({
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-neutral-900">{title}</h2>
+            <h2 className="text-2xl font-bold text-[#141c2e]">{title}</h2>
             {subtitle && (
-              <p className="text-sm text-neutral-500 mt-1">{subtitle}</p>
+              <p className="text-sm text-[#141c2e]/60 mt-1">{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -63,13 +63,13 @@ export function NewProductCarousel({
             <div className="hidden sm:flex items-center gap-2 mr-4">
               <button
                 onClick={() => scroll('left')}
-                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors"
+                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/30 transition-colors"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors"
+                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/30 transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
@@ -80,7 +80,7 @@ export function NewProductCarousel({
               viewAllHref ? (
                 <Link 
                   href={viewAllHref}
-                  className="flex items-center gap-1 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                  className="flex items-center gap-1 text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
                 >
                   Bekijk alles
                   <ArrowRight size={14} />
@@ -88,7 +88,7 @@ export function NewProductCarousel({
               ) : (
                 <button
                   onClick={viewAllClick}
-                  className="flex items-center gap-1 text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+                  className="flex items-center gap-1 text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
                 >
                   Bekijk alles
                   <ArrowRight size={14} />
@@ -107,7 +107,7 @@ export function NewProductCarousel({
           >
             {products.map((product) => (
               <div key={product.id} className="flex-shrink-0 w-[240px] sm:w-[280px]">
-                <article className="group bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-neutral-200 hover:shadow-lg hover:shadow-neutral-100 transition-all duration-300">
+                <article className="group bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-[#f97015]/30 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
                   {/* Image */}
                   <Link href={`/catalog/${product.id}`} className="block relative aspect-[4/3] bg-neutral-50 overflow-hidden">
                     {product.image_url ? (
@@ -131,7 +131,7 @@ export function NewProductCarousel({
                           e.preventDefault()
                           onAddToCart(product.id)
                         }}
-                        className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-neutral-700 shadow-lg"
+                        className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] shadow-lg"
                       >
                         <Plus size={18} />
                       </button>
@@ -140,10 +140,10 @@ export function NewProductCarousel({
                   
                   {/* Info */}
                   <Link href={`/catalog/${product.id}`} className="block p-4">
-                    <p className="text-lg font-bold text-neutral-900 mb-1">
+                    <p className="text-lg font-bold text-[#141c2e] mb-1">
                       {formatCurrency(product.price, currency)}
                     </p>
-                    <h3 className="text-sm text-neutral-600 line-clamp-2 leading-snug group-hover:text-neutral-900 transition-colors">
+                    <h3 className="text-sm text-[#141c2e]/70 line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors">
                       {product.name}
                     </h3>
                   </Link>

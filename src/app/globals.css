@@ -1,40 +1,43 @@
 @import "tailwindcss";
 
-/* NextX Dashboard - Premium Dark Design System */
+/* NextX Dashboard - Premium Dark Design System
+ * Brand Color: #141c2e (Main Brand - Dark Blue)
+ * Accent Color: #f97015 (Primary Accent - Orange)
+ */
 :root {
-  /* Dark Backgrounds with depth */
-  --background: 222 47% 11%;
-  --background-elevated: 222 40% 13%;
+  /* Dark Backgrounds with depth - Brand: #141c2e */
+  --background: 218 36% 13%;
+  --background-elevated: 218 36% 15%;
   --foreground: 0 0% 98%;
   
   /* Card system with elevation - Dark theme */
-  --card: 222 40% 13%;
+  --card: 218 36% 15%;
   --card-foreground: 0 0% 98%;
-  --card-hover: 222 40% 16%;
+  --card-hover: 218 36% 18%;
   
   /* Popover & Modals - Dark */
   --popover: 222 40% 14%;
   --popover-foreground: 0 0% 98%;
   
-  /* NextX Brand - Refined Orange Palette */
-  --primary: 24 95% 53%;
-  --primary-hover: 24 95% 58%;
-  --primary-active: 24 95% 48%;
+  /* NextX Brand - Refined Orange Palette (#f97015) */
+  --primary: 20 96% 53%;
+  --primary-hover: 20 96% 58%;
+  --primary-active: 20 96% 48%;
   --primary-foreground: 0 0% 100%;
-  --primary-muted: 24 60% 20%;
+  --primary-muted: 20 60% 20%;
   
   /* Secondary & Neutral Tones - Dark */
-  --secondary: 222 40% 18%;
+  --secondary: 218 36% 18%;
   --secondary-foreground: 0 0% 98%;
-  --secondary-hover: 222 40% 22%;
+  --secondary-hover: 218 36% 22%;
   
   /* Muted for subtle UI elements - Dark */
-  --muted: 222 40% 18%;
-  --muted-foreground: 220 9% 60%;
-  --muted-hover: 222 40% 22%;
+  --muted: 218 36% 18%;
+  --muted-foreground: 218 15% 60%;
+  --muted-hover: 218 36% 22%;
   
   /* Accent (Same as primary for brand consistency) */
-  --accent: 24 95% 53%;
+  --accent: 20 96% 53%;
   --accent-foreground: 0 0% 100%;
   
   /* Semantic Colors - Dark Mode Optimized */
@@ -55,11 +58,11 @@
   --info-foreground: 217 91% 90%;
   
   /* Borders with subtle contrast - Dark */
-  --border: 222 30% 22%;
-  --border-hover: 222 30% 30%;
-  --input: 222 40% 16%;
-  --input-focus: 222 40% 18%;
-  --ring: 24 95% 53%;
+  --border: 218 30% 22%;
+  --border-hover: 218 30% 30%;
+  --input: 218 36% 16%;
+  --input-focus: 218 36% 18%;
+  --ring: 20 96% 53%;
   
   /* Shadows for depth - Darker shadows */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -85,28 +88,28 @@
 }
 
 .dark {
-  --background: 222 47% 8%;
+  --background: 218 36% 10%;
   --foreground: 0 0% 98%;
-  --card: 222 40% 11%;
+  --card: 218 36% 13%;
   --card-foreground: 0 0% 98%;
-  --popover: 222 40% 12%;
+  --popover: 218 36% 14%;
   --popover-foreground: 0 0% 98%;
   
   /* NextX Brand Colors - Dark Mode */
-  --primary: 24 95% 53%;
+  --primary: 20 96% 53%;
   --primary-foreground: 0 0% 100%;
   
-  --secondary: 222 40% 15%;
+  --secondary: 218 36% 15%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 222 40% 15%;
-  --muted-foreground: 220 9% 55%;
-  --accent: 24 95% 53%;
+  --muted: 218 36% 15%;
+  --muted-foreground: 218 15% 55%;
+  --accent: 20 96% 53%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 62.8% 40%;
   --destructive-foreground: 0 0% 98%;
-  --border: 222 30% 18%;
-  --input: 222 40% 13%;
-  --ring: 24 95% 53%;
+  --border: 218 30% 18%;
+  --input: 218 36% 13%;
+  --ring: 20 96% 53%;
 }
 
 @theme inline {
@@ -171,6 +174,98 @@ body {
 
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Hero Map Styles - Slanted Container */
+.hero-map-container {
+  position: relative;
+}
+
+.hero-map-iframe {
+  pointer-events: none;
+  touch-action: none;
+}
+
+.hero-map-container:hover .hero-map-iframe,
+.hero-map-container:focus-within .hero-map-iframe {
+  pointer-events: auto;
+  touch-action: auto;
+}
+
+/* ========================================
+   CATALOG PAGE THEME
+   Main: #141c2e | Accent: #f97015
+   ======================================== */
+
+/* Catalog Brand Colors */
+.catalog-bg {
+  background-color: #141c2e;
+}
+
+.catalog-bg-light {
+  background: linear-gradient(to bottom right, #f8fafc, #ffffff, #f1f5f9);
+}
+
+.catalog-text {
+  color: #141c2e;
+}
+
+.catalog-accent {
+  background-color: #f97015;
+}
+
+.catalog-accent-text {
+  color: #f97015;
+}
+
+.catalog-btn {
+  background-color: #f97015;
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.catalog-btn:hover {
+  background-color: #e5640d;
+  box-shadow: 0 10px 25px -5px rgba(249, 112, 21, 0.4);
+}
+
+.catalog-btn-outline {
+  border: 2px solid #f97015;
+  color: #f97015;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.catalog-btn-outline:hover {
+  background-color: #f97015;
+  color: #ffffff;
+}
+
+.catalog-badge {
+  background-color: rgba(249, 112, 21, 0.1);
+  color: #f97015;
+  border: 1px solid rgba(249, 112, 21, 0.2);
+}
+
+.catalog-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.catalog-card:hover {
+  border-color: #f97015;
+  box-shadow: 0 20px 40px -15px rgba(20, 28, 46, 0.15);
+}
+
+.catalog-header {
+  background-color: #141c2e;
+  color: #ffffff;
+}
+
+.catalog-footer {
+  background-color: #141c2e;
+  color: #ffffff;
 }
 
 /* Smooth transitions - Only on specific properties to avoid perf issues */
@@ -637,9 +732,10 @@ button, a, input, select, textarea {
     border-style: solid !important;
   }
   
-  .border-orange-500 { border-color: #f97316 !important; }
+  /* Updated brand colors for print */
+  .border-orange-500 { border-color: #f97015 !important; }
   .border-orange-200 { border-color: #fed7aa !important; }
-  .border-orange-600 { border-color: #ea580c !important; }
+  .border-orange-600 { border-color: #e0620c !important; }
   .border-orange-800 { border-color: #9a3412 !important; }
   .border-green-600 { border-color: #16a34a !important; }
   .border-gray-200 { border-color: #e5e7eb !important; }
@@ -657,7 +753,7 @@ button, a, input, select, textarea {
   .bg-white { background-color: white !important; }
   
   /* Ensure text colors print */
-  .text-orange-600 { color: #ea580c !important; }
+  .text-orange-600 { color: #e0620c !important; }
   .text-orange-700 { color: #c2410c !important; }
   .text-orange-800 { color: #9a3412 !important; }
   .text-green-700 { color: #15803d !important; }
@@ -885,5 +981,67 @@ button, a, input, select, textarea {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+/* Brand Color Utilities - Use these for consistent branding */
+.bg-brand {
+  background-color: #141c2e;
+}
+
+.bg-accent {
+  background-color: #f97015;
+}
+
+.text-brand {
+  color: #141c2e;
+}
+
+.text-accent {
+  color: #f97015;
+}
+
+.border-accent {
+  border-color: #f97015;
+}
+
+.hover\:bg-accent:hover {
+  background-color: #f97015;
+}
+
+.hover\:text-accent:hover {
+  color: #f97015;
+}
+
+.hover\:border-accent:hover {
+  border-color: #f97015;
+}
+
+/* Brand gradient utilities */
+.bg-gradient-brand {
+  background: linear-gradient(135deg, #141c2e 0%, #1e293f 100%);
+}
+
+.bg-gradient-accent {
+  background: linear-gradient(135deg, #f97015 0%, #ff8534 100%);
+}
+
+.bg-gradient-accent-hover:hover {
+  background: linear-gradient(135deg, #e0620c 0%, #f97015 100%);
+}
+
+/* Shadow utilities with accent color */
+.shadow-accent {
+  box-shadow: 0 4px 14px 0 rgba(249, 112, 21, 0.25);
+}
+
+.shadow-accent-lg {
+  box-shadow: 0 10px 40px 0 rgba(249, 112, 21, 0.3);
+}
+
+/* Focus ring with accent */
+.focus-accent:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 112, 21, 0.2);
+  border-color: #f97015;
 }
 

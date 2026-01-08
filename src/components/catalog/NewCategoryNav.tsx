@@ -58,8 +58,8 @@ export function NewCategoryNav({
               onClick={() => onCategoryChange('')}
               className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
                 selectedCategory === ''
-                  ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/20'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                  : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -75,16 +75,16 @@ export function NewCategoryNav({
                 onClick={() => onCategoryChange(category.id)}
                 className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
                   selectedCategory === category.id
-                    ? 'bg-neutral-900 text-white shadow-lg shadow-neutral-900/20'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                    : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
                 }`}
               >
                 {category.name}
                 {productCounts[category.id] !== undefined && (
                   <span className={`ml-1.5 text-xs ${
                     selectedCategory === category.id 
-                      ? 'text-neutral-400' 
-                      : 'text-neutral-400'
+                      ? 'text-white/70' 
+                      : 'text-[#141c2e]/50'
                   }`}>
                     ({productCounts[category.id]})
                   </span>

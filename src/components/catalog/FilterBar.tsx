@@ -37,7 +37,7 @@ export function FilterBar({
         <select
           value={selectedCategory}
           onChange={(e) => onCategoryChange(e.target.value)}
-          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-orange-500/30 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/20 transition-all cursor-pointer"
+          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
         >
           <option value="" className="bg-neutral-900">Alle categorieën</option>
           {categories.map(cat => (
@@ -48,7 +48,7 @@ export function FilterBar({
         </select>
         <ChevronDown 
           size={16} 
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none group-hover:text-orange-500 transition-colors" 
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none group-hover:text-[#f97015] transition-colors" 
         />
       </div>
 
@@ -57,7 +57,7 @@ export function FilterBar({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value)}
-          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-orange-500/30 focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/20 transition-all cursor-pointer"
+          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
         >
           <option value="name" className="bg-neutral-900">Naam A-Z</option>
           <option value="price-asc" className="bg-neutral-900">Prijs: Laag → Hoog</option>
@@ -66,7 +66,7 @@ export function FilterBar({
         </select>
         <ChevronDown 
           size={16} 
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none group-hover:text-orange-500 transition-colors" 
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none group-hover:text-[#f97015] transition-colors" 
         />
       </div>
 
@@ -79,7 +79,7 @@ export function FilterBar({
           onClick={() => onGridViewChange('comfortable')}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             gridView === 'comfortable' 
-              ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30' 
+              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
               : 'text-neutral-500 hover:text-white hover:bg-white/6'
           }`}
         >
@@ -89,7 +89,7 @@ export function FilterBar({
           onClick={() => onGridViewChange('compact')}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             gridView === 'compact' 
-              ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30' 
+              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
               : 'text-neutral-500 hover:text-white hover:bg-white/6'
           }`}
         >
@@ -103,7 +103,7 @@ export function FilterBar({
           onClick={() => onCurrencyChange('SRD')}
           className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
             currency === 'SRD' 
-              ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30' 
+              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
               : 'text-neutral-400 hover:text-white'
           }`}
         >
@@ -113,7 +113,7 @@ export function FilterBar({
           onClick={() => onCurrencyChange('USD')}
           className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
             currency === 'USD' 
-              ? 'bg-linear-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30' 
+              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
               : 'text-neutral-400 hover:text-white'
           }`}
         >
