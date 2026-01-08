@@ -3,5 +3,28 @@
   "outputDirectory": ".next",
   "devCommand": "next dev",
   "installCommand": "pnpm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "redirects": [
+    {
+      "source": "/shop",
+      "destination": "/catalog",
+      "permanent": false
+    },
+    {
+      "source": "/store",
+      "destination": "/catalog",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/catalog(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    }
+  ]
 }
