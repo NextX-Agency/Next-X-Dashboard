@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Activity, Filter, Calendar, Search, RefreshCw, Trash2, Package, Tag, MapPin, Warehouse, ShoppingCart, Bookmark, Wallet, Receipt, Target, Users, User, Percent, DollarSign } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, LoadingSpinner, Badge, EmptyState } from '@/components/UI'
+import { Activity, Filter, Calendar, Search, RefreshCw, Trash2, Package, Tag, MapPin, Warehouse, ShoppingCart, Bookmark, Wallet, Receipt, Target, Users, User, Percent, DollarSign, TrendingUp, Clock, BarChart3 } from 'lucide-react'
+import { PageHeader, PageContainer, Button, Input, Select, LoadingSpinner, Badge, EmptyState, StatBox } from '@/components/UI'
 import { getActionText, getEntityTypeText, getActionColor } from '@/lib/activityLog'
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row']
@@ -86,9 +86,55 @@ export default function ActivityLogPage() {
     return (
       log.entity_name?.toLowerCase().includes(search) ||
       log.action.toLowerCase().includes(search) ||
-      log.entity_type.toLowerCase().includes(search)
+      log.entity_type.toLowerCase().includes(search) ||
+      (typeof log.details === 'string' && log.details.toLowerCase().includes(search))
     )
   })
+
+  // Activity Stats
+  const getTodayActivityCount = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return logs.filter(log => new Date(log.created_at) >= today).length
+  }
+
+  const getThisWeekActivityCount = () => {
+    const weekAgo = new Date()
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    return logs.filter(log => new Date(log.created_at) >= weekAgo).length
+  }
+
+  const getMostActiveEntityType = () => {
+    const counts = new Map<string, number>()
+    logs.forEach(log => {
+      counts.set(log.entity_type, (counts.get(log.entity_type) || 0) + 1)
+    })
+    let maxType = ''
+    let maxCount = 0
+    counts.forEach((count, type) => {
+      if (count > maxCount) {
+        maxCount = count
+        maxType = type
+      }
+    })
+    return maxType ? getEntityTypeText(maxType as EntityType) : 'N/A'
+  }
+
+  const getMostCommonAction = () => {
+    const counts = new Map<string, number>()
+    logs.forEach(log => {
+      counts.set(log.action, (counts.get(log.action) || 0) + 1)
+    })
+    let maxAction = ''
+    let maxCount = 0
+    counts.forEach((count, action) => {
+      if (count > maxCount) {
+        maxCount = count
+        maxAction = action
+      }
+    })
+    return maxAction ? getActionText(maxAction as ActionType) : 'N/A'
+  }
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -142,12 +188,13 @@ export default function ActivityLogPage() {
     return <Icon size={16} />
   }
 
-  const parseDetails = (details: unknown): Record<string, unknown> | null => {
+  // Better details display - show as readable text
+  const formatDetails = (details: unknown): string | null => {
     if (!details) return null
-    if (typeof details === 'object') return details as Record<string, unknown>
-    if (typeof details === 'string') {
+    if (typeof details === 'string') return details
+    if (typeof details === 'object') {
       try {
-        return JSON.parse(details)
+        return JSON.stringify(details)
       } catch {
         return null
       }
@@ -193,6 +240,34 @@ export default function ActivityLogPage() {
       />
       
       <PageContainer>
+        {/* Activity Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatBox 
+            label="Today's Activity"
+            value={getTodayActivityCount().toString()}
+            icon={<Clock size={20} />}
+            variant="primary"
+          />
+          <StatBox 
+            label="This Week"
+            value={getThisWeekActivityCount().toString()}
+            icon={<Calendar size={20} />}
+            variant="default"
+          />
+          <StatBox 
+            label="Most Active"
+            value={getMostActiveEntityType()}
+            icon={<TrendingUp size={20} />}
+            variant="success"
+          />
+          <StatBox 
+            label="Common Action"
+            value={getMostCommonAction()}
+            icon={<BarChart3 size={20} />}
+            variant="warning"
+          />
+        </div>
+
         {/* Filters */}
         <div className="bg-card p-4 rounded-2xl border border-border mb-6">
           <div className="flex items-center gap-2 mb-4">
@@ -282,7 +357,7 @@ export default function ActivityLogPage() {
                 </h3>
                 <div className="space-y-3">
                   {dayLogs.map((log) => {
-                    const details = parseDetails(log.details)
+                    const detailsStr = formatDetails(log.details)
                     const actionColor = getActionColor(log.action as ActionType)
                     
                     return (
@@ -306,18 +381,9 @@ export default function ActivityLogPage() {
                             <p className="text-foreground font-medium mt-1">
                               {log.entity_name || `ID: ${log.entity_id}`}
                             </p>
-                            {details && Object.keys(details).length > 0 && (
-                              <div className="mt-2 p-2 bg-muted/50 rounded-lg text-sm">
-                                {Object.entries(details).map(([key, value]) => (
-                                  <div key={key} className="flex gap-2">
-                                    <span className="text-muted-foreground capitalize">
-                                      {key.replace(/_/g, ' ')}:
-                                    </span>
-                                    <span className="text-foreground">
-                                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                    </span>
-                                  </div>
-                                ))}
+                            {detailsStr && (
+                              <div className="mt-2 p-3 bg-muted/50 rounded-lg text-sm text-foreground">
+                                <p className="whitespace-pre-wrap break-words">{detailsStr}</p>
                               </div>
                             )}
                           </div>

@@ -315,18 +315,24 @@ export default function Home() {
                 {monthlySales.map((amount, i) => {
                   const displayAmount = displayCurrency === 'USD' ? amount : amount * exchangeRate
                   const displayAmounts = monthlySales.map(a => displayCurrency === 'USD' ? a : a * exchangeRate)
-                  const maxSale = Math.max(...displayAmounts, 100)
-                  const heightPercent = maxSale > 0 ? (displayAmount / maxSale) * 100 : 5
-                  const height = Math.max(heightPercent, 2)
+                  // Only use actual data for scaling - no arbitrary minimum
+                  const maxSale = Math.max(...displayAmounts)
+                  // Calculate height based on actual data proportion, with minimum visibility for non-zero values
+                  const heightPercent = maxSale > 0 ? (displayAmount / maxSale) * 100 : 0
+                  const height = displayAmount > 0 ? Math.max(heightPercent, 5) : 2
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                      <div className="relative w-full">
+                      <div className="relative w-full h-full flex items-end">
                         <div 
-                          className="w-full bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-lg hover:from-orange-600 hover:to-orange-500 transition-all cursor-pointer"
-                          style={{ height: `${height}%`, minHeight: '8px' }}
+                          className={`w-full rounded-t-lg transition-all cursor-pointer ${
+                            displayAmount > 0 
+                              ? 'bg-gradient-to-t from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500' 
+                              : 'bg-muted/50'
+                          }`}
+                          style={{ height: `${height}%`, minHeight: displayAmount > 0 ? '12px' : '4px' }}
                           title={`${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}: ${formatCurrency(displayAmount, displayCurrency)}`}
                         ></div>
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card text-foreground text-xs font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap shadow-lg border border-border">
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card text-foreground text-xs font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap shadow-lg border border-border z-10">
                           {formatCurrency(displayAmount, displayCurrency)}
                         </div>
                       </div>

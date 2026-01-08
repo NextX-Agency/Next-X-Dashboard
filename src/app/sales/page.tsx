@@ -555,9 +555,13 @@ export default function SalesPage() {
             // Calculate commission for this category
             for (const cartItem of categoryItems) {
               const item = cartItem.item
-              const itemPrice = currency === 'SRD'
+              // Use custom price if set, otherwise use regular price
+              const regularPrice = currency === 'SRD'
                 ? (item.selling_price_srd || 0)
                 : (item.selling_price_usd || 0)
+              const itemPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
+                ? cartItem.customPrice 
+                : regularPrice
               const itemTotal = itemPrice * cartItem.quantity
               categoryCommission += itemTotal * (rateToUse / 100)
             }
@@ -571,6 +575,16 @@ export default function SalesPage() {
                 sale_id: sale.id,
                 commission_amount: categoryCommission,
                 paid: false
+              })
+              
+              // Log detailed commission activity
+              const locationName = location?.name || 'Unknown'
+              await logActivity({
+                action: 'create',
+                entityType: 'commission',
+                entityId: sale.id,
+                entityName: `${seller.name || locationName}`,
+                details: `Commission earned: ${formatCurrency(categoryCommission, currency)} at ${rateToUse}% for sale at ${locationName}`
               })
             }
           }

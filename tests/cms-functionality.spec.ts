@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+ import { test, expect, Page } from '@playwright/test';
 
 // Setup function to mock authentication
 async function setupAuth(page: Page) {

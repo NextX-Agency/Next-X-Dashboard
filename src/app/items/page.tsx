@@ -461,22 +461,52 @@ export default function ItemsPage() {
                     key={combo.id} 
                     className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 hover:shadow-lg transition-all group"
                   >
-                    {/* Combo Badge */}
-                    <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-white font-semibold">
-                        <Layers size={18} />
-                        Combo Deal
+                    {/* Combo Image */}
+                    {combo.image_url && (
+                      <div className="relative w-full h-40 overflow-hidden">
+                        <img
+                          src={combo.image_url}
+                          alt={combo.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                          }}
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Badge variant="orange" className="bg-orange-500/90 text-white border-0 shadow-lg">
+                            <Layers size={12} className="mr-1" />
+                            Combo
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge variant="orange" className="bg-white/20 text-white border-0">
-                        {combo.combo_items?.length || 0} items
-                      </Badge>
-                    </div>
+                    )}
+                    
+                    {/* Combo Badge - only show if no image */}
+                    {!combo.image_url && (
+                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-white font-semibold">
+                          <Layers size={18} />
+                          Combo Deal
+                        </div>
+                        <Badge variant="orange" className="bg-white/20 text-white border-0">
+                          {combo.combo_items?.length || 0} items
+                        </Badge>
+                      </div>
+                    )}
                     
                     {/* Combo Content */}
                     <div className="p-4">
-                      <h3 className="font-bold text-lg text-foreground mb-2 group-hover:text-primary transition-colors">
-                        {combo.name}
-                      </h3>
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                          {combo.name}
+                        </h3>
+                        {combo.image_url && (
+                          <Badge variant="default" className="text-xs">
+                            {combo.combo_items?.length || 0} items
+                          </Badge>
+                        )}
+                      </div>
                       
                       {combo.description && (
                         <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{combo.description}</p>

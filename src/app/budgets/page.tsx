@@ -3,28 +3,46 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2 } from 'lucide-react'
+import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { logActivity } from '@/lib/activityLog'
+import { formatCurrency, type Currency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
 
 type BudgetCategory = Database['public']['Tables']['budget_categories']['Row']
 type Budget = Database['public']['Tables']['budgets']['Row']
 type Goal = Database['public']['Tables']['goals']['Row']
+type WalletType = Database['public']['Tables']['wallets']['Row']
+type Expense = Database['public']['Tables']['expenses']['Row']
+type Location = Database['public']['Tables']['locations']['Row']
+
+interface ExpenseWithCategory extends Expense {
+  expense_categories?: { name: string } | null
+}
+
+interface WalletWithLocation extends WalletType {
+  locations?: Location | null
+}
 
 interface BudgetWithCategory extends Budget {
   budget_categories?: BudgetCategory
 }
 
-type TabType = 'budgets' | 'goals' | 'categories'
+type TabType = 'overview' | 'budgets' | 'goals' | 'categories'
 
 export default function BudgetsGoalsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('budgets')
+  const { displayCurrency, exchangeRate } = useCurrency()
+  const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([])
   const [budgets, setBudgets] = useState<BudgetWithCategory[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
+  const [wallets, setWallets] = useState<WalletWithLocation[]>([])
+  const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   
   // Form modals
   const [showBudgetCategoryForm, setShowBudgetCategoryForm] = useState(false)
@@ -59,15 +77,21 @@ export default function BudgetsGoalsPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [categoriesRes, budgetsRes, goalsRes] = await Promise.all([
+      const [categoriesRes, budgetsRes, goalsRes, walletsRes, expensesRes, locationsRes] = await Promise.all([
         supabase.from('budget_categories').select('*').order('name'),
         supabase.from('budgets').select('*, budget_categories(*)').order('created_at', { ascending: false }),
-        supabase.from('goals').select('*').order('created_at', { ascending: false })
+        supabase.from('goals').select('*').order('created_at', { ascending: false }),
+        supabase.from('wallets').select('*, locations(*)').order('created_at', { ascending: false }),
+        supabase.from('expenses').select('*, expense_categories(name)').order('created_at', { ascending: false }),
+        supabase.from('locations').select('*').eq('is_active', true).order('name')
       ])
       
       if (categoriesRes.data) setBudgetCategories(categoriesRes.data)
       if (budgetsRes.data) setBudgets(budgetsRes.data as BudgetWithCategory[])
       if (goalsRes.data) setGoals(goalsRes.data)
+      if (walletsRes.data) setWallets(walletsRes.data as WalletWithLocation[])
+      if (expensesRes.data) setExpenses(expensesRes.data as ExpenseWithCategory[])
+      if (locationsRes.data) setLocations(locationsRes.data)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -318,6 +342,87 @@ export default function BudgetsGoalsPage() {
     return goals.reduce((sum, g) => sum + getProgressPercentage(g.current_amount, g.target_amount), 0) / goals.length
   }
 
+  // Wallet calculations
+  const getTotalWalletBalance = () => {
+    return wallets.reduce((sum, w) => {
+      if (displayCurrency === 'USD') {
+        return sum + (w.currency === 'USD' ? w.balance : w.balance / exchangeRate)
+      }
+      return sum + (w.currency === 'SRD' ? w.balance : w.balance * exchangeRate)
+    }, 0)
+  }
+
+  const getWalletsByType = (type: 'cash' | 'bank') => {
+    return wallets.filter(w => w.type === type).reduce((sum, w) => {
+      if (displayCurrency === 'USD') {
+        return sum + (w.currency === 'USD' ? w.balance : w.balance / exchangeRate)
+      }
+      return sum + (w.currency === 'SRD' ? w.balance : w.balance * exchangeRate)
+    }, 0)
+  }
+
+  // Expense calculations
+  const getMonthlyExpenses = () => {
+    const now = new Date()
+    return expenses
+      .filter(e => {
+        const expDate = new Date(e.created_at)
+        return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear()
+      })
+      .reduce((sum, e) => {
+        if (displayCurrency === 'USD') {
+          return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
+        }
+        return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
+      }, 0)
+  }
+
+  const getTotalExpenses = () => {
+    return expenses.reduce((sum, e) => {
+      if (displayCurrency === 'USD') {
+        return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
+      }
+      return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
+    }, 0)
+  }
+
+  // Sync budget spent amounts from expenses
+  const handleSyncBudgets = async () => {
+    setSyncing(true)
+    try {
+      // For each budget, calculate actual spending from expenses
+      for (const budget of budgets) {
+        // Get expenses within the budget period
+        const startDate = new Date(budget.start_date)
+        const endDate = budget.end_date ? new Date(budget.end_date) : new Date()
+        
+        const budgetExpenses = expenses.filter(e => {
+          const expDate = new Date(e.created_at)
+          return expDate >= startDate && expDate <= endDate
+        })
+
+        const totalSpent = budgetExpenses.reduce((sum, e) => sum + e.amount, 0)
+        
+        if (totalSpent !== budget.amount_spent) {
+          await supabase.from('budgets').update({ amount_spent: totalSpent }).eq('id', budget.id)
+        }
+      }
+      
+      await loadData()
+      await logActivity({
+        action: 'update',
+        entityType: 'budget',
+        entityId: 'sync',
+        entityName: 'Budget Sync',
+        details: `Synced ${budgets.length} budgets with actual expense data`
+      })
+    } catch (error) {
+      console.error('Error syncing budgets:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -336,15 +441,17 @@ export default function BudgetsGoalsPage() {
 
       <PageContainer>
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Total Budget" value={`${getTotalBudget().toFixed(2)} SRD`} icon={<Wallet size={24} />} />
-          <StatBox label="Total Spent" value={`${getTotalSpent().toFixed(2)} SRD`} icon={<TrendingUp size={24} />} variant="warning" />
-          <StatBox label="Goal Progress" value={`${getTotalGoalProgress().toFixed(0)}%`} icon={<Target size={24} />} variant="success" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatBox label={`Total Wallet Balance`} value={formatCurrency(getTotalWalletBalance(), displayCurrency)} icon={<Wallet size={24} />} variant="success" />
+          <StatBox label="Total Budget" value={formatCurrency(getTotalBudget(), 'SRD')} icon={<PiggyBank size={24} />} />
+          <StatBox label="Budget Spent" value={formatCurrency(getTotalSpent(), 'SRD')} icon={<TrendingUp size={24} />} variant="warning" />
+          <StatBox label="Goal Progress" value={`${getTotalGoalProgress().toFixed(0)}%`} icon={<Target size={24} />} variant="primary" />
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1.5 bg-card rounded-2xl border border-border">
+        <div className="flex gap-1 mb-6 p-1.5 bg-card rounded-2xl border border-border overflow-x-auto">
           {[
+            { id: 'overview', label: 'Overview', icon: DollarSign },
             { id: 'budgets', label: 'Budgets', icon: TrendingUp },
             { id: 'goals', label: 'Goals', icon: Target },
             { id: 'categories', label: 'Categories', icon: Calendar },
@@ -354,16 +461,153 @@ export default function BudgetsGoalsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap ${
                   activeTab === tab.id ? 'bg-primary text-white shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
                 <Icon size={18} />
-                <span>{tab.label}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             )
           })}
         </div>
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Wallet Summary */}
+            <div className="bg-card rounded-2xl border border-border p-4 lg:p-6">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                <Wallet size={20} className="text-primary" />
+                Wallet Summary
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="bg-success/10 rounded-xl p-4 border border-success/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard size={18} className="text-success" />
+                    <span className="text-sm font-medium text-muted-foreground">Cash Wallets</span>
+                  </div>
+                  <div className="text-2xl font-bold text-success">{formatCurrency(getWalletsByType('cash'), displayCurrency)}</div>
+                </div>
+                <div className="bg-primary/10 rounded-xl p-4 border border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard size={18} className="text-primary" />
+                    <span className="text-sm font-medium text-muted-foreground">Bank Wallets</span>
+                  </div>
+                  <div className="text-2xl font-bold text-primary">{formatCurrency(getWalletsByType('bank'), displayCurrency)}</div>
+                </div>
+                <div className="bg-warning/10 rounded-xl p-4 border border-warning/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowDownRight size={18} className="text-warning" />
+                    <span className="text-sm font-medium text-muted-foreground">This Month's Expenses</span>
+                  </div>
+                  <div className="text-2xl font-bold text-warning">{formatCurrency(getMonthlyExpenses(), displayCurrency)}</div>
+                </div>
+              </div>
+              
+              {/* Wallet List */}
+              {wallets.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">All Wallets</h3>
+                  {wallets.map((wallet) => (
+                    <div key={wallet.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${wallet.type === 'cash' ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}`}>
+                          {wallet.type === 'cash' ? '💵' : '🏦'}
+                        </div>
+                        <div>
+                          <div className="font-medium">{wallet.person_name || wallet.locations?.name || 'Unknown'}</div>
+                          <div className="text-xs text-muted-foreground">{wallet.type} • {wallet.currency}</div>
+                        </div>
+                      </div>
+                      <div className={`text-lg font-bold ${wallet.balance > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                        {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Budget vs Expenses Summary */}
+            <div className="bg-card rounded-2xl border border-border p-4 lg:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <TrendingUp size={20} className="text-primary" />
+                  Budget vs Expenses
+                </h2>
+                <Button onClick={handleSyncBudgets} variant="secondary" size="sm" disabled={syncing}>
+                  <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                  {syncing ? 'Syncing...' : 'Sync'}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-muted/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowUpRight size={18} className="text-primary" />
+                    <span className="text-sm font-medium text-muted-foreground">Total Budget Allocated</span>
+                  </div>
+                  <div className="text-2xl font-bold text-foreground">{formatCurrency(getTotalBudget(), 'SRD')}</div>
+                </div>
+                <div className="bg-muted/50 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ArrowDownRight size={18} className="text-destructive" />
+                    <span className="text-sm font-medium text-muted-foreground">Total Expenses</span>
+                  </div>
+                  <div className="text-2xl font-bold text-destructive">{formatCurrency(getTotalExpenses(), displayCurrency)}</div>
+                </div>
+              </div>
+
+              {/* Budget health indicator */}
+              <div className="bg-muted/30 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Budget Health</span>
+                  <span className="text-sm font-bold">
+                    {getTotalBudget() > 0 ? ((getTotalSpent() / getTotalBudget()) * 100).toFixed(1) : 0}% used
+                  </span>
+                </div>
+                <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      getTotalSpent() > getTotalBudget() ? 'bg-destructive' : 
+                      getTotalSpent() / getTotalBudget() > 0.8 ? 'bg-warning' : 'bg-success'
+                    }`}
+                    style={{ width: `${Math.min((getTotalSpent() / getTotalBudget()) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Expenses */}
+            <div className="bg-card rounded-2xl border border-border p-4 lg:p-6">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2 mb-4">
+                <ArrowDownRight size={20} className="text-destructive" />
+                Recent Expenses
+              </h2>
+              {expenses.length === 0 ? (
+                <p className="text-muted-foreground text-center py-6">No expenses recorded yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {expenses.slice(0, 5).map((expense) => (
+                    <div key={expense.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors">
+                      <div>
+                        <div className="font-medium">{expense.expense_categories?.name || 'Uncategorized'}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {expense.description ? `${expense.description} • ` : ''}
+                          {new Date(expense.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="text-destructive font-bold">
+                        -{formatCurrency(expense.amount, expense.currency as Currency)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Categories Tab */}
         {activeTab === 'categories' && (

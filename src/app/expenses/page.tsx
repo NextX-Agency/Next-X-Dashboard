@@ -43,7 +43,10 @@ export default function ExpensesPage() {
     wallet_id: '',
     amount: '',
     currency: 'SRD' as Currency,
-    description: ''
+    description: '',
+    expense_date: new Date().toISOString().split('T')[0],
+    vendor: '',
+    receipt_number: ''
   })
   
   // Filter and sort states
@@ -87,7 +90,17 @@ export default function ExpensesPage() {
   }
 
   const resetExpenseForm = () => {
-    setExpenseForm({ location_id: '', category_id: '', wallet_id: '', amount: '', currency: 'SRD', description: '' })
+    setExpenseForm({ 
+      location_id: '', 
+      category_id: '', 
+      wallet_id: '', 
+      amount: '', 
+      currency: 'SRD', 
+      description: '',
+      expense_date: new Date().toISOString().split('T')[0],
+      vendor: '',
+      receipt_number: ''
+    })
     setEditingExpense(null)
     setShowExpenseForm(false)
   }
@@ -323,7 +336,10 @@ export default function ExpensesPage() {
       wallet_id: expense.wallet_id,
       amount: expense.amount.toString(),
       currency: expense.currency as Currency,
-      description: expense.description || ''
+      description: expense.description || '',
+      expense_date: new Date(expense.created_at).toISOString().split('T')[0],
+      vendor: '',
+      receipt_number: ''
     })
     setShowExpenseForm(true)
   }
@@ -402,13 +418,110 @@ export default function ExpensesPage() {
 
       <PageContainer>
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox 
             label={`Total Expenses (${displayCurrency})`}
             value={formatCurrency(getTotalExpensesInDisplayCurrency(), displayCurrency)} 
             icon={<Receipt size={20} />}
           />
+          <StatBox 
+            label="This Month"
+            value={formatCurrency(
+              expenses
+                .filter(e => {
+                  const expDate = new Date(e.created_at)
+                  const now = new Date()
+                  return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear()
+                })
+                .reduce((sum, e) => {
+                  if (displayCurrency === 'USD') {
+                    return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
+                  }
+                  return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
+                }, 0),
+              displayCurrency
+            )} 
+            icon={<Receipt size={20} />}
+            variant="warning"
+          />
+          <StatBox 
+            label="Total Entries"
+            value={expenses.length.toString()} 
+            icon={<Receipt size={20} />}
+            variant="default"
+          />
+          <StatBox 
+            label="Categories Used"
+            value={new Set(expenses.filter(e => e.category_id).map(e => e.category_id)).size.toString()} 
+            icon={<Tag size={20} />}
+            variant="primary"
+          />
         </div>
+
+        {/* Top Spending Categories */}
+        {categories.length > 0 && (
+          <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 mb-6">
+            <h2 className="font-bold text-foreground flex items-center gap-2 mb-4">
+              <Tag size={18} className="text-primary" />
+              Spending by Category
+            </h2>
+            <div className="space-y-3">
+              {categories
+                .map(cat => {
+                  const catExpenses = expenses.filter(e => e.category_id === cat.id)
+                  const total = catExpenses.reduce((sum, e) => {
+                    if (displayCurrency === 'USD') {
+                      return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
+                    }
+                    return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
+                  }, 0)
+                  return { ...cat, total, count: catExpenses.length }
+                })
+                .filter(cat => cat.count > 0)
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 5)
+                .map((cat, index) => {
+                  const maxTotal = categories
+                    .map(c => expenses.filter(e => e.category_id === c.id).reduce((sum, e) => {
+                      if (displayCurrency === 'USD') {
+                        return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
+                      }
+                      return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
+                    }, 0))
+                    .sort((a, b) => b - a)[0] || 1
+                  const percentage = (cat.total / maxTotal) * 100
+
+                  return (
+                    <div key={cat.id} className="flex items-center gap-3">
+                      <div className="w-6 text-center text-sm font-bold text-muted-foreground">
+                        #{index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-medium text-sm">{cat.name}</span>
+                          <span className="text-sm font-bold text-destructive">
+                            {formatCurrency(cat.total, displayCurrency)}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-destructive/70 rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {cat.count} expense{cat.count !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              {categories.filter(cat => expenses.some(e => e.category_id === cat.id)).length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No categorized expenses yet</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Categories */}
         <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 mb-6">
@@ -637,63 +750,90 @@ export default function ExpensesPage() {
       {/* Create/Edit Expense Modal */}
       <Modal isOpen={showExpenseForm} onClose={resetExpenseForm} title={editingExpense ? 'Edit Expense' : 'Record Expense'}>
         <form onSubmit={handleSubmitExpense} className="space-y-4">
-          <Select
-            label="Location"
-            value={expenseForm.location_id}
-            onChange={(e) => setExpenseForm({ ...expenseForm, location_id: e.target.value, wallet_id: '' })}
-            required
-          >
-            <option value="">Select Location</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </Select>
-          <Select
-            label="Category"
-            value={expenseForm.category_id}
-            onChange={(e) => setExpenseForm({ ...expenseForm, category_id: e.target.value })}
-          >
-            <option value="">No Category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </Select>
-          <Select
-            label="Wallet"
-            value={expenseForm.wallet_id}
-            onChange={(e) => {
-              const wallet = wallets.find(w => w.id === e.target.value)
-              setExpenseForm({ 
-                ...expenseForm, 
-                wallet_id: e.target.value,
-                currency: (wallet?.currency as Currency) || 'SRD'
-              })
-            }}
-            required
-            disabled={!expenseForm.location_id}
-          >
-            <option value="">{expenseForm.location_id ? 'Select Wallet' : 'Select location first'}</option>
-            {walletsForSelectedLocation.map((wallet) => (
-              <option key={wallet.id} value={wallet.id}>
-                {wallet.type} - {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
-              </option>
-            ))}
-          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Location"
+              value={expenseForm.location_id}
+              onChange={(e) => setExpenseForm({ ...expenseForm, location_id: e.target.value, wallet_id: '' })}
+              required
+            >
+              <option value="">Select Location</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </Select>
+            <Select
+              label="Category"
+              value={expenseForm.category_id}
+              onChange={(e) => setExpenseForm({ ...expenseForm, category_id: e.target.value })}
+            >
+              <option value="">No Category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Wallet"
+              value={expenseForm.wallet_id}
+              onChange={(e) => {
+                const wallet = wallets.find(w => w.id === e.target.value)
+                setExpenseForm({ 
+                  ...expenseForm, 
+                  wallet_id: e.target.value,
+                  currency: (wallet?.currency as Currency) || 'SRD'
+                })
+              }}
+              required
+              disabled={!expenseForm.location_id}
+            >
+              <option value="">{expenseForm.location_id ? 'Select Wallet' : 'Select location first'}</option>
+              {walletsForSelectedLocation.map((wallet) => (
+                <option key={wallet.id} value={wallet.id}>
+                  {wallet.type} - {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Date"
+              type="date"
+              value={expenseForm.expense_date}
+              onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Amount"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={expenseForm.amount}
+              onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+              placeholder="0.00"
+              required
+            />
+            <Input
+              label="Vendor/Supplier"
+              type="text"
+              value={expenseForm.vendor}
+              onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+              placeholder="Who was paid?"
+            />
+          </div>
           <Input
-            label="Amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={expenseForm.amount}
-            onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-            placeholder="0.00"
-            required
+            label="Receipt/Reference #"
+            type="text"
+            value={expenseForm.receipt_number}
+            onChange={(e) => setExpenseForm({ ...expenseForm, receipt_number: e.target.value })}
+            placeholder="Optional receipt or reference number"
           />
           <Textarea
             label="Description"
             value={expenseForm.description}
             onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-            placeholder="Optional description"
+            placeholder="What was this expense for?"
             rows={2}
           />
           <div className="flex gap-3">

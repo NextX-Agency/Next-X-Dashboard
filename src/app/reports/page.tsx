@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { BarChart3, TrendingUp, Package, DollarSign, MapPin, Award } from 'lucide-react'
-import { PageHeader, Badge } from '@/components/UI'
+import { BarChart3, TrendingUp, Package, DollarSign, MapPin, Award, Layers, Sparkles } from 'lucide-react'
+import { PageHeader, Badge, StatBox } from '@/components/UI'
 import { ChartCard } from '@/components/Cards'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -23,10 +23,14 @@ interface SaleWithItems extends Sale {
   }>
 }
 
+interface ItemWithCombo extends Item {
+  is_combo: boolean
+}
+
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const [sales, setSales] = useState<SaleWithItems[]>([])
-  const [items, setItems] = useState<Item[]>([])
+  const [items, setItems] = useState<ItemWithCombo[]>([])
   const [stocks, setStocks] = useState<Stock[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily')
@@ -62,7 +66,7 @@ export default function ReportsPage() {
     ])
 
     if (salesRes.data) setSales(salesRes.data as SaleWithItems[])
-    if (itemsRes.data) setItems(itemsRes.data)
+    if (itemsRes.data) setItems(itemsRes.data as ItemWithCombo[])
     if (stocksRes.data) setStocks(stocksRes.data)
     if (locationsRes.data) setLocations(locationsRes.data)
   }
@@ -72,7 +76,7 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period])
 
-  // Get total sales converted to display currency
+  // Get total sales converted to display currency (including combos)
   const getTotalSalesInDisplayCurrency = () => {
     const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
     
@@ -83,6 +87,64 @@ export default function ReportsPage() {
       return totalUSD + (totalSRD / exchangeRate)
     }
     return totalSRD + (totalUSD * exchangeRate)
+  }
+
+  // Get combo stats - now counts items marked as combos from sale_items
+  const getComboStats = () => {
+    const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
+    let totalCombos = 0
+    let totalComboRevenue = 0
+    
+    filteredSales.forEach(sale => {
+      (sale.sale_items || []).forEach(saleItem => {
+        const item = items.find(i => i.id === saleItem.item_id)
+        if (item?.is_combo) {
+          totalCombos += 1
+          // Convert based on sale currency
+          if (displayCurrency === 'USD') {
+            totalComboRevenue += sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / exchangeRate
+          } else {
+            totalComboRevenue += sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * exchangeRate
+          }
+        }
+      })
+    })
+    
+    return { totalCombos, totalComboRevenue, totalSavings: 0 }
+  }
+
+  // Get top selling combos - items marked as combos
+  const getTopSellingCombos = () => {
+    const comboSalesMap = new Map<string, { name: string; count: number; revenue: number }>()
+    
+    sales
+      .filter(s => !selectedLocation || s.location_id === selectedLocation)
+      .forEach(sale => {
+        (sale.sale_items || []).forEach(saleItem => {
+          const item = items.find(i => i.id === saleItem.item_id)
+          if (item?.is_combo) {
+            const revenueInDisplayCurrency = displayCurrency === 'USD'
+              ? (sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / exchangeRate)
+              : (sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * exchangeRate)
+            
+            const existing = comboSalesMap.get(item.id)
+            if (existing) {
+              existing.count += saleItem.quantity
+              existing.revenue += revenueInDisplayCurrency
+            } else {
+              comboSalesMap.set(item.id, {
+                name: item.name,
+                count: saleItem.quantity,
+                revenue: revenueInDisplayCurrency
+              })
+            }
+          }
+        })
+      })
+
+    return Array.from(comboSalesMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
   }
 
   // Calculate profit in USD (base currency for cost)
@@ -222,6 +284,8 @@ export default function ReportsPage() {
 
   const topItems = getTopSellingItems()
   const locationStats = getProfitByLocation()
+  const comboStats = getComboStats()
+  const topCombos = getTopSellingCombos()
 
   return (
     <div className="min-h-screen bg-[var(--background)] pb-20">
@@ -265,7 +329,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent blur-2xl"></div>
             <div className="relative">
@@ -273,9 +337,9 @@ export default function ReportsPage() {
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-blue-600" />
                 </div>
-                <span className="text-caption text-muted-foreground">Total Sales ({displayCurrency})</span>
+                <span className="text-caption text-muted-foreground">Total Sales</span>
               </div>
-              <div className="text-3xl font-bold tracking-tight">
+              <div className="text-2xl font-bold tracking-tight">
                 {formatCurrency(getTotalSalesInDisplayCurrency(), displayCurrency)}
               </div>
             </div>
@@ -288,9 +352,9 @@ export default function ReportsPage() {
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-purple-600" />
                 </div>
-                <span className="text-caption text-muted-foreground">Est. Profit ({displayCurrency})</span>
+                <span className="text-caption text-muted-foreground">Est. Profit</span>
               </div>
-              <div className="text-3xl font-bold tracking-tight">
+              <div className="text-2xl font-bold tracking-tight">
                 {formatCurrency(getTotalProfit(), displayCurrency)}
               </div>
             </div>
@@ -305,8 +369,53 @@ export default function ReportsPage() {
                 </div>
                 <span className="text-caption text-muted-foreground">Total Sales</span>
               </div>
-              <div className="text-3xl font-bold tracking-tight">
+              <div className="text-2xl font-bold tracking-tight">
                 {sales.filter(s => !selectedLocation || s.location_id === selectedLocation).length}
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-500/10 to-transparent blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-pink-600" />
+                </div>
+                <span className="text-caption text-muted-foreground">Combos Sold</span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight">
+                {comboStats.totalCombos}
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-caption text-muted-foreground">Combo Revenue</span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight">
+                {formatCurrency(comboStats.totalComboRevenue, displayCurrency)}
+              </div>
+            </div>
+          </div>
+
+          <div className="card-premium group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-500/10 to-transparent blur-2xl"></div>
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20 flex items-center justify-center">
+                  <Award className="w-5 h-5 text-yellow-600" />
+                </div>
+                <span className="text-caption text-muted-foreground">Combo Savings</span>
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-green-600">
+                {formatCurrency(comboStats.totalSavings, displayCurrency)}
               </div>
             </div>
           </div>
@@ -338,6 +447,40 @@ export default function ReportsPage() {
               <div className="text-center py-12">
                 <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                 <p className="text-muted-foreground">No sales data for this period</p>
+              </div>
+            )}
+          </div>
+        </ChartCard>
+
+        {/* Top Selling Combos */}
+        <ChartCard title="Top Selling Combos" icon={<Layers size={20} />}>
+          <div className="space-y-3">
+            {topCombos.map((combo, index) => (
+              <div key={index} className="flex justify-between items-center p-4 bg-gradient-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 hover:shadow-md transition-all duration-200 group">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-sm text-pink-600">
+                    #{index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-foreground group-hover:text-pink-600 transition-colors truncate flex items-center gap-2">
+                      <Sparkles size={14} className="text-pink-500" />
+                      {combo.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Sold: <span className="font-medium text-foreground">{combo.count}</span> times</div>
+                  </div>
+                </div>
+                <div className="text-right ml-4">
+                  <div className="text-xl font-bold text-pink-600">
+                    {formatCurrency(combo.revenue, displayCurrency)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">revenue</div>
+                </div>
+              </div>
+            ))}
+            {topCombos.length === 0 && (
+              <div className="text-center py-12">
+                <Layers className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground">No combo sales for this period</p>
               </div>
             )}
           </div>

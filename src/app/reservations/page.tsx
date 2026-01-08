@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown } from 'lucide-react'
+import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -15,6 +15,11 @@ type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 type Reservation = Database['public']['Tables']['reservations']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
+type ComboItem = Database['public']['Tables']['combo_items']['Row']
+
+interface ItemWithComboItems extends Item {
+  combo_items?: (ComboItem & { item?: Item })[]
+}
 
 interface ReservationWithDetails extends Reservation {
   clients?: Client
@@ -26,6 +31,16 @@ interface CartItem {
   item: Item
   quantity: number
   availableStock: number
+  isComboItem?: boolean
+  comboId?: string
+}
+
+interface ComboReservation {
+  id: string
+  name: string
+  items: CartItem[]
+  comboPrice: number
+  originalPrice: number
 }
 
 interface InvoiceData {
@@ -38,6 +53,7 @@ interface InvoiceData {
     quantity: number
     unitPrice: number
     subtotal: number
+    isCombo?: boolean
   }>
   currency: 'SRD' | 'USD'
   total: number
@@ -50,12 +66,13 @@ type SortOrder = 'asc' | 'desc'
 
 export default function ReservationsPage() {
   const [clients, setClients] = useState<Client[]>([])
-  const [items, setItems] = useState<Item[]>([])
+  const [items, setItems] = useState<ItemWithComboItems[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [selectedClient, setSelectedClient] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
+  const [combos, setCombos] = useState<ComboReservation[]>([])
   const [currency, setCurrency] = useState<Currency>('SRD')
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
   const [reservationsMap, setReservationsMap] = useState<Map<string, number>>(new Map())
@@ -69,6 +86,11 @@ export default function ReservationsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [clientForm, setClientForm] = useState({ name: '', phone: '', email: '', notes: '', location_id: '' })
   const invoiceRef = useRef<HTMLDivElement>(null)
+  
+  // Combo mode states
+  const [comboMode, setComboMode] = useState(false)
+  const [tempComboItems, setTempComboItems] = useState<CartItem[]>([])
+  const [quickComboPrice, setQuickComboPrice] = useState<string>('1400')
   
   // Filter and sort states for history
   const [historySearchQuery, setHistorySearchQuery] = useState('')
@@ -88,7 +110,22 @@ export default function ReservationsPage() {
       ])
       
       if (clientsRes.data) setClients(clientsRes.data)
-      if (itemsRes.data) setItems(itemsRes.data)
+      if (itemsRes.data) {
+        // Load combo items for each combo
+        const itemsWithCombos = await Promise.all(
+          itemsRes.data.map(async (item) => {
+            if (item.is_combo) {
+              const { data: comboItemsData } = await supabase
+                .from('combo_items')
+                .select('*, item:items(*)')
+                .eq('combo_id', item.id)
+              return { ...item, combo_items: comboItemsData || [] }
+            }
+            return item
+          })
+        )
+        setItems(itemsWithCombos)
+      }
       if (locationsRes.data) setLocations(locationsRes.data)
       if (reservationsRes.data) setReservations(reservationsRes.data as ReservationWithDetails[])
     } catch (error) {
@@ -180,6 +217,111 @@ export default function ReservationsPage() {
     setCart(cart.filter(c => c.item.id !== itemId))
   }
 
+  // Combo functions
+  const addItemToCombo = (item: Item) => {
+    const availableStock = getAvailableStock(item.id)
+    if (availableStock <= 0) return
+
+    const existing = tempComboItems.find(c => c.item.id === item.id)
+    if (existing) {
+      if (existing.quantity >= availableStock) return
+      setTempComboItems(tempComboItems.map(c =>
+        c.item.id === item.id
+          ? { ...c, quantity: c.quantity + 1 }
+          : c
+      ))
+    } else {
+      setTempComboItems([...tempComboItems, { item, quantity: 1, availableStock }])
+    }
+  }
+
+  const updateComboItemQuantity = (itemId: string, delta: number) => {
+    setTempComboItems(tempComboItems.map(c => {
+      if (c.item.id === itemId) {
+        const newQty = c.quantity + delta
+        if (newQty <= 0) return c
+        if (newQty > c.availableStock) return c
+        return { ...c, quantity: newQty }
+      }
+      return c
+    }).filter(c => c.quantity > 0))
+  }
+
+  const removeFromCombo = (itemId: string) => {
+    setTempComboItems(tempComboItems.filter(c => c.item.id !== itemId))
+  }
+
+  const createQuickCombo = () => {
+    if (tempComboItems.length === 0) return
+
+    const comboPrice = parseFloat(quickComboPrice) || 0
+    const originalPrice = tempComboItems.reduce((sum, item) => {
+      const price = currency === 'SRD'
+        ? (item.item.selling_price_srd || 0)
+        : (item.item.selling_price_usd || 0)
+      return sum + (price * item.quantity)
+    }, 0)
+
+    const newCombo: ComboReservation = {
+      id: `combo-${Date.now()}`,
+      name: `Quick Combo (${tempComboItems.length} items)`,
+      items: tempComboItems.map(item => ({ ...item, isComboItem: true, comboId: `combo-${Date.now()}` })),
+      comboPrice,
+      originalPrice
+    }
+
+    setCombos([...combos, newCombo])
+    setTempComboItems([])
+    setComboMode(false)
+  }
+
+  const addPredefinedCombo = (combo: ItemWithComboItems) => {
+    if (!combo.combo_items) return
+
+    // Check if all items have stock
+    const comboItems: CartItem[] = []
+    for (const comboItem of combo.combo_items) {
+      if (!comboItem.item) continue
+      const stock = getAvailableStock(comboItem.item.id)
+      if (stock < comboItem.quantity) {
+        alert(`Not enough stock for ${comboItem.item.name}`)
+        return
+      }
+      comboItems.push({
+        item: comboItem.item,
+        quantity: comboItem.quantity,
+        availableStock: stock,
+        isComboItem: true,
+        comboId: combo.id
+      })
+    }
+
+    const comboPrice = currency === 'SRD'
+      ? (combo.selling_price_srd || 0)
+      : (combo.selling_price_usd || 0)
+
+    const originalPrice = comboItems.reduce((sum, item) => {
+      const price = currency === 'SRD'
+        ? (item.item.selling_price_srd || 0)
+        : (item.item.selling_price_usd || 0)
+      return sum + (price * item.quantity)
+    }, 0)
+
+    const newCombo: ComboReservation = {
+      id: combo.id,
+      name: combo.name,
+      items: comboItems,
+      comboPrice,
+      originalPrice
+    }
+
+    setCombos([...combos, newCombo])
+  }
+
+  const removeCombo = (comboId: string) => {
+    setCombos(combos.filter(c => c.id !== comboId))
+  }
+
   const generateInvoiceNumber = () => {
     const date = new Date()
     const year = date.getFullYear()
@@ -254,7 +396,7 @@ export default function ReservationsPage() {
   }
 
   const handleCreateReservation = async () => {
-    if (!selectedLocation || !selectedClient || cart.length === 0 || submitting) return
+    if (!selectedLocation || !selectedClient || (cart.length === 0 && combos.length === 0) || submitting) return
 
     setSubmitting(true)
     const client = clients.find(c => c.id === selectedClient)
@@ -295,7 +437,41 @@ export default function ReservationsPage() {
         }
       }
 
-      // Calculate totals
+      // Create reservations for combo items
+      for (const combo of combos) {
+        for (const comboItem of combo.items) {
+          const { data } = await supabase.from('reservations').insert({
+            client_id: selectedClient,
+            item_id: comboItem.item.id,
+            location_id: selectedLocation,
+            quantity: comboItem.quantity,
+            status: paymentStatus === 'paid' ? 'completed' : 'pending'
+          }).select().single()
+          
+          if (data) {
+            reservationIds.push(data.id)
+            
+            // If paid, reduce stock immediately
+            if (paymentStatus === 'paid') {
+              const { data: stock } = await supabase
+                .from('stock')
+                .select('*')
+                .eq('item_id', comboItem.item.id)
+                .eq('location_id', selectedLocation)
+                .single()
+
+              if (stock) {
+                await supabase
+                  .from('stock')
+                  .update({ quantity: stock.quantity - comboItem.quantity })
+                  .eq('id', stock.id)
+              }
+            }
+          }
+        }
+      }
+
+      // Calculate totals for individual items
       const invoiceItems = cart.map(c => {
         const price = currency === 'SRD' 
           ? (c.item.selling_price_srd || 0)
@@ -304,9 +480,22 @@ export default function ReservationsPage() {
           name: c.item.name,
           quantity: c.quantity,
           unitPrice: price,
-          subtotal: price * c.quantity
+          subtotal: price * c.quantity,
+          isCombo: false
         }
       })
+
+      // Add combo items to invoice
+      for (const combo of combos) {
+        invoiceItems.push({
+          name: `🎁 ${combo.name}`,
+          quantity: 1,
+          unitPrice: combo.comboPrice,
+          subtotal: combo.comboPrice,
+          isCombo: true
+        })
+      }
+
       const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0)
 
       // Log activity
@@ -315,7 +504,7 @@ export default function ReservationsPage() {
         entityType: 'reservation',
         entityId: reservationIds[0],
         entityName: invoiceNumber,
-        details: `Reservation created for ${client?.name} at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length} items)`
+        details: `Reservation created for ${client?.name} at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length} items${combos.length > 0 ? `, ${combos.length} combos` : ''})`
       })
 
       // Create invoice data
@@ -332,6 +521,7 @@ export default function ReservationsPage() {
       })
 
       setCart([])
+      setCombos([])
       await loadData()
       if (selectedLocation) {
         loadStock(selectedLocation)
@@ -680,40 +870,59 @@ export default function ReservationsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Item Selection */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Available Items */}
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                  <Package size={18} className="text-primary" />
-                  Available Items
-                  <span className="text-sm font-normal text-muted-foreground ml-auto">
-                    {availableItems.length} items
-                  </span>
-                </h3>
-                {availableItems.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-12">
-                    No items available at this location
-                  </p>
-                ) : (
+              {/* Mode Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setComboMode(false)}
+                  variant={!comboMode ? 'primary' : 'secondary'}
+                  size="sm"
+                >
+                  <Package size={16} />
+                  Individual Items
+                </Button>
+                <Button
+                  onClick={() => setComboMode(true)}
+                  variant={comboMode ? 'primary' : 'secondary'}
+                  size="sm"
+                >
+                  <Layers size={16} />
+                  Create Combo
+                </Button>
+              </div>
+
+              {/* Predefined Combos Section */}
+              {items.filter(item => item.is_combo).length > 0 && (
+                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
+                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                    <Sparkles size={18} className="text-primary" />
+                    Predefined Combos
+                    <span className="text-sm font-normal text-muted-foreground ml-auto">
+                      {items.filter(i => i.is_combo).length} combos
+                    </span>
+                  </h3>
                   <div className="space-y-2">
-                    {availableItems.map((item) => {
-                      const stock = getAvailableStock(item.id)
-                      const inCart = cart.find(c => c.item.id === item.id)
+                    {items.filter(item => item.is_combo).map((combo) => {
+                      const price = currency === 'SRD'
+                        ? (combo.selling_price_srd || 0)
+                        : (combo.selling_price_usd || 0)
                       
                       return (
                         <button
-                          key={item.id}
-                          onClick={() => addToCart(item)}
-                          disabled={inCart && inCart.quantity >= stock}
-                          className="w-full p-3.5 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
+                          key={combo.id}
+                          onClick={() => addPredefinedCombo(combo)}
+                          className="w-full p-3.5 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 rounded-xl text-left transition-all duration-200 group border border-primary/20 hover:border-primary/40"
                         >
                           <div className="flex justify-between items-center">
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{item.name}</div>
+                              <div className="font-semibold text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-2">
+                                <Sparkles size={14} className="text-primary" />
+                                {combo.name}
+                              </div>
                               <div className="text-sm text-muted-foreground mt-0.5">
-                                Available: <span className="font-medium text-foreground">{stock}</span>
+                                {combo.combo_items?.length || 0} items • {formatCurrency(price, currency)}
                               </div>
                             </div>
-                            <div className="w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
+                            <div className="w-8 h-8 rounded-lg bg-primary/20 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
                               <Plus size={16} className="text-primary group-hover:text-white" />
                             </div>
                           </div>
@@ -721,8 +930,144 @@ export default function ReservationsPage() {
                       )
                     })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Available Items or Combo Builder */}
+              {comboMode ? (
+                <div className="bg-card rounded-2xl border border-primary/30 p-4 lg:p-5">
+                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                    <Layers size={18} className="text-primary" />
+                    Build Quick Combo
+                    <span className="text-sm font-normal text-muted-foreground ml-auto">
+                      {tempComboItems.length} items selected
+                    </span>
+                  </h3>
+                  
+                  {/* Combo Items Selected */}
+                  {tempComboItems.length > 0 && (
+                    <div className="mb-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                      <div className="text-sm font-medium text-foreground mb-2">Selected Items:</div>
+                      <div className="space-y-2">
+                        {tempComboItems.map((item) => (
+                          <div key={item.item.id} className="flex items-center justify-between bg-background/50 rounded-lg p-2">
+                            <span className="text-sm">{item.item.name}</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateComboItemQuantity(item.item.id, -1)}
+                                className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                              <button
+                                onClick={() => updateComboItemQuantity(item.item.id, 1)}
+                                className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs"
+                              >
+                                <Plus size={12} />
+                              </button>
+                              <button
+                                onClick={() => removeFromCombo(item.item.id)}
+                                className="text-destructive text-xs ml-2"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Input
+                          label="Combo Price"
+                          type="number"
+                          value={quickComboPrice}
+                          onChange={(e) => setQuickComboPrice(e.target.value)}
+                          placeholder="Enter combo price"
+                        />
+                      </div>
+                      <Button
+                        onClick={createQuickCombo}
+                        variant="primary"
+                        size="sm"
+                        fullWidth
+                        className="mt-3"
+                      >
+                        <Check size={16} />
+                        Add Combo to Cart
+                      </Button>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-2">
+                    {availableItems.filter(item => !item.is_combo).map((item) => {
+                      const stock = getAvailableStock(item.id)
+                      const inCombo = tempComboItems.find(c => c.item.id === item.id)
+                      
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => addItemToCombo(item)}
+                          disabled={inCombo && inCombo.quantity >= stock}
+                          className="w-full p-3 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-foreground truncate text-sm">{item.name}</div>
+                              <div className="text-xs text-muted-foreground">Stock: {stock}</div>
+                            </div>
+                            <div className="w-7 h-7 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-2">
+                              <Plus size={14} className="text-primary group-hover:text-white" />
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
+                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                    <Package size={18} className="text-primary" />
+                    Available Items
+                    <span className="text-sm font-normal text-muted-foreground ml-auto">
+                      {availableItems.filter(i => !i.is_combo).length} items
+                    </span>
+                  </h3>
+                  {availableItems.filter(i => !i.is_combo).length === 0 ? (
+                    <p className="text-muted-foreground text-sm text-center py-12">
+                      No items available at this location
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {availableItems.filter(item => !item.is_combo).map((item) => {
+                        const stock = getAvailableStock(item.id)
+                        const inCart = cart.find(c => c.item.id === item.id)
+                        
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => addToCart(item)}
+                            disabled={inCart && inCart.quantity >= stock}
+                            className="w-full p-3.5 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{item.name}</div>
+                                <div className="text-sm text-muted-foreground mt-0.5">
+                                  Available: <span className="font-medium text-foreground">{stock}</span>
+                                </div>
+                              </div>
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
+                                <Plus size={16} className="text-primary group-hover:text-white" />
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right Column - Cart */}
@@ -731,22 +1076,56 @@ export default function ReservationsPage() {
                 <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                   <ShoppingCart size={18} className="text-primary" />
                   Reservation Cart
-                  {cart.length > 0 && (
+                  {(cart.length > 0 || combos.length > 0) && (
                     <span className="ml-auto bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                      {cart.length}
+                      {cart.length + combos.length}
                     </span>
                   )}
                 </h3>
 
-                {cart.length === 0 ? (
+                {cart.length === 0 && combos.length === 0 ? (
                   <div className="text-center py-12">
                     <ShoppingCart size={40} className="mx-auto mb-3 text-muted-foreground/30" />
                     <p className="text-muted-foreground text-sm">Cart is empty</p>
-                    <p className="text-muted-foreground text-xs mt-1">Add items to reserve</p>
+                    <p className="text-muted-foreground text-xs mt-1">Add items or combos to reserve</p>
                   </div>
                 ) : (
                   <>
                     <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
+                      {/* Combos in Cart */}
+                      {combos.map((combo) => (
+                        <div key={combo.id} className="p-3.5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-foreground truncate flex items-center gap-2">
+                                <Sparkles size={14} className="text-primary" />
+                                {combo.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {combo.items.map(i => `${i.quantity}x ${i.item.name}`).join(', ')}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm">
+                              <span className="text-muted-foreground line-through mr-2">
+                                {formatCurrency(combo.originalPrice, currency)}
+                              </span>
+                              <span className="font-bold text-primary">
+                                {formatCurrency(combo.comboPrice, currency)}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => removeCombo(combo.id)}
+                              className="text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Individual Items in Cart */}
                       {cart.map((cartItem) => (
                         <div key={cartItem.item.id} className="p-3.5 bg-muted/50 rounded-xl border border-border/50">
                           <div className="flex justify-between items-start mb-3">
@@ -798,7 +1177,7 @@ export default function ReservationsPage() {
                                   ? (item.item.selling_price_srd || 0)
                                   : (item.item.selling_price_usd || 0)
                                 return sum + (price * item.quantity)
-                              }, 0),
+                              }, 0) + combos.reduce((sum, combo) => sum + combo.comboPrice, 0),
                               currency
                             )}
                           </span>
@@ -828,7 +1207,7 @@ export default function ReservationsPage() {
 
                       <Button
                         onClick={handleCreateReservation}
-                        disabled={submitting || cart.length === 0}
+                        disabled={submitting || (cart.length === 0 && combos.length === 0)}
                         loading={submitting}
                         variant="primary"
                         size="lg"

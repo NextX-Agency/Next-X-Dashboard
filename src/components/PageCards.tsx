@@ -172,60 +172,49 @@ interface StockCardProps {
 
 export function StockCard({ itemName, locationName, quantity, imageUrl, onRemove }: StockCardProps) {
   const isLowStock = quantity < 5
-  const maxStock = 20 // Reference point for progress bar
-  const progressPercent = Math.min((quantity / maxStock) * 100, 100)
+  const isOutOfStock = quantity === 0
   
   return (
-    <div className="bg-card rounded-2xl p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
+    <div className={`bg-card rounded-2xl p-4 border transition-all duration-200 group ${
+      isOutOfStock 
+        ? 'border-destructive/30 bg-destructive/5' 
+        : isLowStock 
+          ? 'border-warning/30 bg-warning/5'
+          : 'border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg'
+    }`}>
       <div className="flex items-center gap-3">
         {imageUrl ? (
-          <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
+          <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
             <Image src={imageUrl} alt={itemName} fill className="object-cover" unoptimized />
           </div>
         ) : (
-          <div className="w-16 h-16 bg-gradient-to-br from-muted to-muted/50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-            <span className="text-2xl opacity-40">📦</span>
+          <div className="w-14 h-14 bg-gradient-to-br from-muted to-muted/50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+            <span className="text-xl opacity-40">📦</span>
           </div>
         )}
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">{itemName}</h3>
           <p className="text-sm text-muted-foreground truncate">📍 {locationName}</p>
-          <div className="mt-2.5 flex items-center gap-3">
-            <span className={`text-lg font-bold min-w-[2rem] ${isLowStock ? 'text-destructive' : 'text-primary'}`}>
-              {quantity}
-            </span>
-            <div className="flex-1 bg-muted rounded-full h-2.5 overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 rounded-full ${
-                  quantity === 0 
-                    ? 'bg-neutral-600' 
-                    : isLowStock 
-                      ? 'bg-gradient-to-r from-destructive to-destructive/80' 
-                      : 'bg-gradient-to-r from-primary to-primary/80'
-                }`}
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <div className={`px-3 py-1.5 rounded-xl font-bold text-lg ${
+            isOutOfStock 
+              ? 'bg-destructive/10 text-destructive' 
+              : isLowStock 
+                ? 'bg-warning/10 text-warning'
+                : 'bg-primary/10 text-primary'
+          }`}>
+            {quantity}
           </div>
-          {isLowStock && quantity > 0 && (
-            <span className="badge badge-danger mt-2.5 text-[10px]">
-              ⚠️ Low Stock
-            </span>
-          )}
-          {quantity === 0 && (
-            <span className="inline-flex items-center gap-1 mt-2.5 px-2 py-1 rounded-lg bg-destructive/10 border border-destructive/30 text-[10px] font-bold text-destructive">
-              ⚠️ OUT OF STOCK
-            </span>
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="px-2.5 py-1.5 bg-[hsl(var(--destructive-muted))] hover:bg-[hsl(var(--destructive-muted)/0.8)] text-[hsl(var(--destructive-foreground))] rounded-lg text-xs font-semibold transition-colors"
+            >
+              Remove
+            </button>
           )}
         </div>
-        {onRemove && (
-          <button
-            onClick={onRemove}
-            className="px-3 py-2 bg-[hsl(var(--destructive-muted))] hover:bg-[hsl(var(--destructive-muted)/0.8)] text-[hsl(var(--destructive-foreground))] rounded-xl text-xs font-semibold transition-colors flex-shrink-0"
-          >
-            Remove
-          </button>
-        )}
       </div>
     </div>
   )
