@@ -115,9 +115,9 @@ export default function CommissionsPage() {
     loadData()
   }, [])
 
-  // Get wallets for a specific location (for paying commissions)
-  const getWalletsForLocation = (locationId: string) => {
-    return wallets.filter(w => w.location_id === locationId)
+  // Get all wallets (allow paying from any wallet)
+  const getAllWallets = () => {
+    return wallets
   }
 
   // Group commissions by location
@@ -125,10 +125,21 @@ export default function CommissionsPage() {
     .filter(loc => !filterLocation || loc.id === filterLocation)
     .map(location => {
       const locationCommissions = commissions.filter(c => c.location_id === location.id)
+      // Convert all to SRD for accurate totals
+      const totalUnpaid = locationCommissions.filter(c => !c.paid).reduce((sum, c) => {
+        const amount = c.commission_amount
+        const currency = c.sales?.currency || 'SRD'
+        return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+      }, 0)
+      const totalPaid = locationCommissions.filter(c => c.paid).reduce((sum, c) => {
+        const amount = c.commission_amount
+        const currency = c.sales?.currency || 'SRD'
+        return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+      }, 0)
       return {
         location,
-        totalUnpaid: locationCommissions.filter(c => !c.paid).reduce((sum, c) => sum + c.commission_amount, 0),
-        totalPaid: locationCommissions.filter(c => c.paid).reduce((sum, c) => sum + c.commission_amount, 0),
+        totalUnpaid,
+        totalPaid,
         salesCount: locationCommissions.length,
         commissions: locationCommissions
       }
@@ -147,9 +158,21 @@ export default function CommissionsPage() {
     return matchesLocation && matchesStatus && matchesSearch
   })
 
-  // Totals (mixed currency - show in SRD by default but note it's mixed)
-  const totalUnpaidAll = commissions.filter(c => !c.paid).reduce((sum, c) => sum + c.commission_amount, 0)
-  const totalPaidAll = commissions.filter(c => c.paid).reduce((sum, c) => sum + c.commission_amount, 0)
+  // Totals - convert all to SRD using exchange rate
+  const totalUnpaidAll = commissions.filter(c => !c.paid).reduce((sum, c) => {
+    const amount = c.commission_amount
+    const currency = c.sales?.currency || 'SRD'
+    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+  }, 0)
+  const totalPaidAll = commissions.filter(c => c.paid).reduce((sum, c) => {
+    const amount = c.commission_amount
+    const currency = c.sales?.currency || 'SRD'
+    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+  }, 0)
+  
+  // Calculate USD equivalents
+  const totalUnpaidUSD = totalUnpaidAll / exchangeRate
+  const totalPaidUSD = totalPaidAll / exchangeRate
   const hasMixedCurrency = new Set(commissions.map(c => c.sales?.currency)).size > 1
 
   const clearFilters = () => {
@@ -192,7 +215,23 @@ export default function CommissionsPage() {
     if (!wallet) return
 
     const unpaidCommissions = commissions.filter(c => c.location_id === selectedLocationForPay && !c.paid)
-    const totalToPay = unpaidCommissions.reduce((sum, c) => sum + c.commission_amount, 0)
+    
+    // Convert all commissions to wallet's currency for accurate total
+    const totalToPay = unpaidCommissions.reduce((sum, c) => {
+      const amount = c.commission_amount
+      const commissionCurrency = c.sales?.currency || 'SRD'
+      const walletCurrency = wallet.currency
+      
+      // Convert if currencies don't match
+      if (commissionCurrency === walletCurrency) {
+        return sum + amount
+      } else if (commissionCurrency === 'USD' && walletCurrency === 'SRD') {
+        return sum + (amount * exchangeRate)
+      } else if (commissionCurrency === 'SRD' && walletCurrency === 'USD') {
+        return sum + (amount / exchangeRate)
+      }
+      return sum + amount
+    }, 0)
     
     if (wallet.balance < totalToPay) {
       alert(`Insufficient wallet balance. Need ${formatCurrency(totalToPay, wallet.currency as Currency)} but only have ${formatCurrency(wallet.balance, wallet.currency as Currency)}`)
@@ -227,7 +266,19 @@ export default function CommissionsPage() {
         reference_id: selectedLocationForPay
       })
 
+      // Record as expense
       const location = locations.find(l => l.id === selectedLocationForPay)
+      const walletLocation = locations.find(l => l.id === wallet.location_id)
+      await supabase.from('expenses').insert({
+        location_id: wallet.location_id, // Expense is at the wallet's location
+        category: 'Commissions',
+        description: `Commission payout for ${location?.seller_name || location?.name} (${unpaidCommissions.length} sales)`,
+        amount: totalToPay,
+        currency: wallet.currency,
+        payment_method: wallet.type,
+        date: new Date().toISOString()
+      })
+
       const paymentCurrency = wallet.currency as Currency
       await logActivity({
         action: 'pay',
@@ -342,9 +393,12 @@ export default function CommissionsPage() {
   }
 
   const selectedLocationForPayData = locations.find(l => l.id === selectedLocationForPay)
-  const unpaidAmountForSelectedLocation = commissions
-    .filter(c => c.location_id === selectedLocationForPay && !c.paid)
-    .reduce((sum, c) => sum + c.commission_amount, 0)
+  const unpaidCommissionsForLocation = commissions.filter(c => c.location_id === selectedLocationForPay && !c.paid)
+  const unpaidAmountForSelectedLocation = unpaidCommissionsForLocation.reduce((sum, c) => {
+    const amount = c.commission_amount
+    const currency = c.sales?.currency || 'SRD'
+    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+  }, 0)
 
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
@@ -357,18 +411,22 @@ export default function CommissionsPage() {
       <PageContainer>
         {/* Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <StatBox 
-            label="Total Unpaid"
-            value={formatCurrency(totalUnpaidAll, 'SRD') + (hasMixedCurrency ? ' (mixed)' : '')} 
-            icon={<DollarSign size={20} />}
-            variant="warning"
-          />
-          <StatBox 
-            label="Total Paid"
-            value={formatCurrency(totalPaidAll, 'SRD') + (hasMixedCurrency ? ' (mixed)' : '')} 
-            icon={<CheckCircle size={20} />}
-            variant="success"
-          />
+          <div className="bg-gradient-to-br from-warning/10 to-warning/5 p-4 rounded-2xl border border-warning/30">
+            <div className="flex items-center gap-2 text-warning mb-2">
+              <DollarSign size={20} />
+              <span className="text-sm font-medium">Total Unpaid</span>
+            </div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalUnpaidAll, 'SRD')}</div>
+            <div className="text-sm text-muted-foreground mt-1">{formatCurrency(totalUnpaidUSD, 'USD')}</div>
+          </div>
+          <div className="bg-gradient-to-br from-success/10 to-success/5 p-4 rounded-2xl border border-success/30">
+            <div className="flex items-center gap-2 text-success mb-2">
+              <CheckCircle size={20} />
+              <span className="text-sm font-medium">Total Paid</span>
+            </div>
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(totalPaidAll, 'SRD')}</div>
+            <div className="text-sm text-muted-foreground mt-1">{formatCurrency(totalPaidUSD, 'USD')}</div>
+          </div>
           <StatBox 
             label="Active Locations"
             value={locationSummaries.length.toString()} 
@@ -694,11 +752,14 @@ export default function CommissionsPage() {
             required
           >
             <option value="">Select wallet...</option>
-            {getWalletsForLocation(selectedLocationForPay).map((wallet) => (
-              <option key={wallet.id} value={wallet.id}>
-                {wallet.type} - {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
-              </option>
-            ))}
+            {getAllWallets().map((wallet) => {
+              const walletLocation = locations.find(l => l.id === wallet.location_id)
+              return (
+                <option key={wallet.id} value={wallet.id}>
+                  {walletLocation?.name || 'Unknown'} - {wallet.type} - {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                </option>
+              )
+            })}
           </Select>
 
           <p className="text-sm text-muted-foreground">

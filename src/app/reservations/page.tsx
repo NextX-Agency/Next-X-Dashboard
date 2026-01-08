@@ -213,6 +213,7 @@ export default function ReservationsPage() {
       
       // Group reservations by client, location, and created_at (within 5 minutes)
       const groupedMap = new Map<string, ReservationGroup>()
+      const comboTracker = new Map<string, Set<string>>() // Track which combos we've already counted per group
       
       reservationsData.forEach((res) => {
         // Create a unique key based on client, location, and timestamp (rounded to 5 minutes)
@@ -222,6 +223,34 @@ export default function ReservationsPage() {
         
         const price = res.items?.selling_price_srd || 0
         const subtotal = price * res.quantity
+        
+        // Check if this is part of a combo and if it has the combo price
+        const comboId = res.combo_id
+        const comboPrice = res.combo_price
+        const hasComboPrice = comboPrice !== null && comboPrice !== undefined
+        
+        // Initialize combo tracker for this group if needed
+        if (!comboTracker.has(groupKey)) {
+          comboTracker.set(groupKey, new Set())
+        }
+        
+        // Determine if we should add this item's price to the total
+        let priceToAdd = 0
+        if (comboId) {
+          // This item is part of a combo
+          const trackedCombos = comboTracker.get(groupKey)!
+          if (!trackedCombos.has(comboId)) {
+            // First time seeing this combo in this group
+            if (hasComboPrice) {
+              priceToAdd = comboPrice
+            }
+            trackedCombos.add(comboId)
+          }
+          // If we've already counted this combo, priceToAdd stays 0
+        } else {
+          // Not part of a combo, add individual price
+          priceToAdd = subtotal
+        }
         
         if (groupedMap.has(groupKey)) {
           const group = groupedMap.get(groupKey)!
@@ -233,7 +262,7 @@ export default function ReservationsPage() {
             unit_price: price,
             subtotal
           })
-          group.total_amount += subtotal
+          group.total_amount += priceToAdd
         } else {
           groupedMap.set(groupKey, {
             id: groupKey,
@@ -243,7 +272,7 @@ export default function ReservationsPage() {
             location_name: res.locations?.name || 'Unknown Location',
             created_at: res.created_at,
             status: res.status,
-            total_amount: subtotal,
+            total_amount: priceToAdd,
             items: [{
               id: res.id,
               item_id: res.item_id,
@@ -582,14 +611,20 @@ export default function ReservationsPage() {
           isCombo: true
         })
         
+        // Create reservations with combo information
+        let isFirstItem = true
         for (const comboItem of combo.items) {
           await supabase.from('reservations').insert({
             client_id: selectedClient,
             item_id: comboItem.item.id,
             location_id: selectedLocation,
             quantity: comboItem.quantity,
-            status: paymentStatus === 'paid' ? 'completed' : 'pending'
+            status: paymentStatus === 'paid' ? 'completed' : 'pending',
+            combo_id: combo.id,
+            combo_price: isFirstItem ? combo.comboPrice : null,
+            original_price: isFirstItem ? combo.originalPrice : null
           })
+          isFirstItem = false
           
           // If paid, reduce stock immediately
           if (paymentStatus === 'paid') {
@@ -724,6 +759,7 @@ export default function ReservationsPage() {
         w => w.currency === 'SRD' && w.type === 'cash'
       )
       
+      // Use the group's total_amount which already includes combo pricing
       // Create sale record for completed reservation
       const { data: saleData } = await supabase
         .from('sales')
@@ -1189,10 +1225,10 @@ export default function ReservationsPage() {
         }} 
         title="Create New Reservation"
       >
-        <div className="space-y-3">
+        <div className="space-y-5">
           {/* Client & Location Selection - Sticky Top */}
-          <div className="sticky top-0 z-10 bg-card pb-3 border-b border-border">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="sticky top-0 z-10 bg-card pb-4 border-b border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Select
                 label="Select Client"
                 value={selectedClient}
@@ -1236,17 +1272,17 @@ export default function ReservationsPage() {
           </div>
 
           {!selectedClient || !selectedLocation ? (
-            <div className="text-center py-12">
+            <div className="text-center py-16">
               <MapPin size={48} className="mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-muted-foreground font-medium">Select client and location to continue</p>
             </div>
           ) : (
-<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Column - Item Selection */}
-              <div className="lg:col-span-2 space-y-3">
+              <div className="lg:col-span-2 space-y-4">
 
               {/* Combo Mode Toggle */}
-                <div className="bg-card rounded-xl border border-border p-3">
+                <div className="bg-card rounded-xl border border-border p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
@@ -1274,8 +1310,8 @@ export default function ReservationsPage() {
                   </div>
                 
                   {comboMode && tempComboItems.length >= 2 && (
-                    <div className="mt-3 pt-3 border-t border-border">
-                      <div className="flex items-center gap-3">
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <div className="flex items-center gap-4">
                         <Input
                           label="Combo Price"
                         type="number"
@@ -1309,7 +1345,7 @@ export default function ReservationsPage() {
               </div>
 
               {/* Mode Toggle */}
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button
                   onClick={() => setComboMode(false)}
                   variant={!comboMode ? 'primary' : 'secondary'}
@@ -1340,7 +1376,7 @@ export default function ReservationsPage() {
                   </h3>
                   
                   {comboMode && (
-                    <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
                       <p className="text-sm text-orange-700 dark:text-orange-400">
                         💡 Klik op items om toe te voegen aan combo. Minimaal 2 items nodig.
                       </p>
@@ -1348,37 +1384,37 @@ export default function ReservationsPage() {
                   )}
                   {/* Combo Items Selected */}
                   {tempComboItems.length > 0 && (
-                    <div className="mb-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
-                      <div className="text-sm font-medium text-foreground mb-2">Selected Items:</div>
-                      <div className="space-y-2">
+                    <div className="mb-5 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                      <div className="text-sm font-medium text-foreground mb-3">Selected Items:</div>
+                      <div className="space-y-2.5">
                         {tempComboItems.map((item) => (
-                          <div key={item.item.id} className="flex items-center justify-between bg-background/50 rounded-lg p-2">
-                            <span className="text-sm">{item.item.name}</span>
-                            <div className="flex items-center gap-2">
+                          <div key={item.item.id} className="flex items-center justify-between bg-background/50 rounded-lg p-3">
+                            <span className="text-sm font-medium">{item.item.name}</span>
+                            <div className="flex items-center gap-2.5">
                               <button
                                 onClick={() => updateComboItemQuantity(item.item.id, -1)}
-                                className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs"
+                                className="w-7 h-7 flex items-center justify-center bg-secondary rounded-lg text-xs hover:bg-secondary/80 transition-colors"
                               >
-                                <Minus size={12} />
+                                <Minus size={14} />
                               </button>
-                              <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                              <span className="w-7 text-center text-sm font-bold">{item.quantity}</span>
                               <button
                                 onClick={() => updateComboItemQuantity(item.item.id, 1)}
-                                className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs"
+                                className="w-7 h-7 flex items-center justify-center bg-secondary rounded-lg text-xs hover:bg-secondary/80 transition-colors"
                               >
-                                <Plus size={12} />
+                                <Plus size={14} />
                               </button>
                               <button
                                 onClick={() => removeFromCombo(item.item.id)}
-                                className="text-destructive text-xs ml-2"
+                                className="text-destructive text-sm ml-2 hover:text-destructive/80 font-medium transition-colors"
                               >
-                                <X size={14} />
+                                <X size={16} />
                               </button>
                             </div>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-4 flex gap-3">
                         <Input
                           label="Combo Price"
                           type="number"
@@ -1392,7 +1428,7 @@ export default function ReservationsPage() {
                         variant="primary"
                         size="sm"
                         fullWidth
-                        className="mt-3"
+                        className="mt-4"
                       >
                         <Check size={16} />
                         Add Combo to Cart
@@ -1400,7 +1436,7 @@ export default function ReservationsPage() {
                     </div>
                   )}
                   
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {availableItems.filter(item => !item.is_combo).map((item) => {
                       const stock = getAvailableStock(item.id)
                       const inCombo = tempComboItems.find(c => c.item.id === item.id)
@@ -1410,15 +1446,15 @@ export default function ReservationsPage() {
                           key={item.id}
                           onClick={() => addItemToCombo(item)}
                           disabled={inCombo && inCombo.quantity >= stock}
-                          className="w-full p-3 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
+                          className="w-full p-4 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
                         >
                           <div className="flex justify-between items-center">
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium text-foreground truncate text-sm">{item.name}</div>
-                              <div className="text-xs text-muted-foreground">Stock: {stock}</div>
+                              <div className="font-medium text-foreground truncate">{item.name}</div>
+                              <div className="text-sm text-muted-foreground mt-0.5">Stock: {stock}</div>
                             </div>
-                            <div className="w-7 h-7 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-2">
-                              <Plus size={14} className="text-primary group-hover:text-white" />
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
+                              <Plus size={16} className="text-primary group-hover:text-white" />
                             </div>
                           </div>
                         </button>
@@ -1427,8 +1463,8 @@ export default function ReservationsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+                <div className="bg-card rounded-2xl border border-border p-5 lg:p-6">
+                  <h3 className="font-bold text-foreground mb-5 flex items-center gap-2">
                     <Package size={18} className={comboMode ? "text-orange-500" : "text-primary"} />
                     {comboMode ? 'Selecteer Items voor Combo' : 'Available Items'}
                     <span className="text-sm font-normal text-muted-foreground ml-auto">
@@ -1440,7 +1476,7 @@ export default function ReservationsPage() {
                       No items available at this location
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {availableItems
                       .filter(item => !itemSearchQuery || item.name.toLowerCase().includes(itemSearchQuery.toLowerCase()))
                       .map((item) => {
@@ -1496,8 +1532,8 @@ export default function ReservationsPage() {
 
             {/* Right Column - Cart */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 sticky top-24">
-                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="bg-card rounded-2xl border border-border p-5 lg:p-6 sticky top-24">
+                <h3 className="font-bold text-foreground mb-5 flex items-center gap-2">
                   <ShoppingCart size={18} className="text-primary" />
                   Reservation Cart
                   {(cart.length > 0 || combos.length > 0) && (
@@ -1626,10 +1662,10 @@ export default function ReservationsPage() {
                     </div>
 
                     {(cart.length > 0 || combos.length > 0) && (
-                      <div className="border-t border-border pt-4 mt-4 space-y-4">
+                      <div className="border-t border-border pt-5 mt-5 space-y-5">
                         {/* Total */}
-                        <div className="flex justify-between items-center mb-4">
-                          <span className="font-semibold text-muted-foreground">Total</span>
+                        <div className="flex justify-between items-center mb-5">
+                          <span className="font-semibold text-muted-foreground text-base">Total</span>
                           <span className="text-2xl font-bold text-primary">
                             {formatCurrency(calculateTotal(), currency)}
                           </span>
@@ -1637,7 +1673,7 @@ export default function ReservationsPage() {
 
                         {/* Payment Status Toggle */}
                         <div>
-                          <label className="input-label mb-2">Payment Status</label>
+                          <label className="input-label mb-3">Payment Status</label>
                           <div className="currency-toggle">
                             <button
                               type="button"

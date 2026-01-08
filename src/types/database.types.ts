@@ -262,6 +262,9 @@ export interface Database {
           quantity: number
           status: string
           notes: string | null
+          combo_id: string | null
+          combo_price: number | null
+          original_price: number | null
           created_at: string
           updated_at: string
         }
@@ -273,6 +276,9 @@ export interface Database {
           quantity: number
           status?: string
           notes?: string | null
+          combo_id?: string | null
+          combo_price?: number | null
+          original_price?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -284,6 +290,9 @@ export interface Database {
           quantity?: number
           status?: string
           notes?: string | null
+          combo_id?: string | null
+          combo_price?: number | null
+          original_price?: number | null
           created_at?: string
           updated_at?: string
         }

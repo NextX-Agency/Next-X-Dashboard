@@ -54,7 +54,7 @@ export default function WalletsPage() {
   })
   
   const [transactionForm, setTransactionForm] = useState({
-    type: 'add' as 'add' | 'remove',
+    type: 'add' as 'add' | 'remove' | 'correct',
     amount: '',
     description: ''
   })
@@ -177,18 +177,32 @@ export default function WalletsPage() {
     setSubmitting(true)
     try {
       const amount = parseFloat(transactionForm.amount)
-      if (isNaN(amount) || amount <= 0) {
+      if (isNaN(amount) || amount < 0) {
         alert('Enter a valid amount')
         setSubmitting(false)
         return
       }
       
       const previousBalance = selectedWallet.balance
-      const newBalance = transactionForm.type === 'add'
-        ? previousBalance + amount
-        : previousBalance - amount
+      let newBalance: number
+      let transactionType: 'credit' | 'debit' | 'adjustment'
+      let description: string
+      
+      if (transactionForm.type === 'correct') {
+        // Correct balance - set to exact amount
+        newBalance = amount
+        transactionType = 'adjustment'
+        description = transactionForm.description || `Balance correction to ${formatCurrency(amount, selectedWallet.currency as Currency)}`
+      } else {
+        // Add or remove
+        newBalance = transactionForm.type === 'add'
+          ? previousBalance + amount
+          : previousBalance - amount
+        transactionType = transactionForm.type === 'add' ? 'credit' : 'debit'
+        description = transactionForm.description || `Manual ${transactionForm.type === 'add' ? 'deposit' : 'withdrawal'}`
+      }
 
-      if (newBalance < 0) {
+      if (newBalance < 0 && transactionForm.type !== 'correct') {
         alert('Insufficient balance')
         setSubmitting(false)
         return
@@ -203,12 +217,12 @@ export default function WalletsPage() {
       // Create transaction record
       await supabase.from('wallet_transactions').insert({
         wallet_id: selectedWallet.id,
-        type: transactionForm.type === 'add' ? 'credit' : 'debit',
-        amount: amount,
+        type: transactionType,
+        amount: transactionForm.type === 'correct' ? Math.abs(newBalance - previousBalance) : amount,
         balance_before: previousBalance,
         balance_after: newBalance,
-        description: transactionForm.description || `Manual ${transactionForm.type === 'add' ? 'deposit' : 'withdrawal'}`,
-        reference_type: 'adjustment',
+        description: description,
+        reference_type: transactionForm.type === 'correct' ? 'correction' : 'adjustment',
         currency: selectedWallet.currency
       })
 
@@ -218,7 +232,9 @@ export default function WalletsPage() {
         entityType: 'wallet',
         entityId: selectedWallet.id,
         entityName: `${locationName} - ${selectedWallet.type} ${selectedWallet.currency}`,
-        details: `${transactionForm.type === 'add' ? 'Added' : 'Removed'} ${formatCurrency(amount, selectedWallet.currency as Currency)} - Balance: ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
+        details: transactionForm.type === 'correct' 
+          ? `Corrected balance from ${formatCurrency(previousBalance, selectedWallet.currency as Currency)} to ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
+          : `${transactionForm.type === 'add' ? 'Added' : 'Removed'} ${formatCurrency(amount, selectedWallet.currency as Currency)} - Balance: ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
       })
 
       setTransactionForm({ type: 'add', amount: '', description: '' })
@@ -729,7 +745,7 @@ export default function WalletsPage() {
           setSelectedWallet(null)
           setTransactionForm({ type: 'add', amount: '', description: '' })
         }} 
-        title="Add / Remove Money"
+        title="Wallet Transaction"
       >
         {selectedWallet && (
           <form onSubmit={handleTransaction} className="space-y-4">
@@ -742,41 +758,61 @@ export default function WalletsPage() {
               </p>
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'add' })}
-                className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
                   transactionForm.type === 'add'
                     ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
                     : 'border-border hover:border-emerald-500/50'
                 }`}
               >
                 <ArrowDownLeft size={20} />
-                Add Money
+                <span className="text-xs">Add</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'remove' })}
-                className={`p-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
                   transactionForm.type === 'remove'
                     ? 'border-destructive bg-destructive/10 text-destructive'
                     : 'border-border hover:border-destructive/50'
                 }`}
               >
                 <ArrowUpRight size={20} />
-                Remove Money
+                <span className="text-xs">Remove</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransactionForm({ ...transactionForm, type: 'correct' })}
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                  transactionForm.type === 'correct'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+                    : 'border-border hover:border-blue-500/50'
+                }`}
+              >
+                <Edit size={20} />
+                <span className="text-xs">Correct</span>
               </button>
             </div>
+
+            {transactionForm.type === 'correct' && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  💡 Correct Balance: Enter the exact amount the wallet should have. This will adjust the balance to match.
+                </p>
+              </div>
+            )}
             
             <Input
-              label="Amount"
+              label={transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
               type="number"
               step="0.01"
-              min="0.01"
+              min="0"
               value={transactionForm.amount}
               onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-              placeholder="0.00"
+              placeholder={transactionForm.type === 'correct' ? 'Enter correct balance' : '0.00'}
               required
             />
             

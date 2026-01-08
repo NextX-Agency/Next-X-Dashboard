@@ -236,20 +236,20 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
-      <div className="relative bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200">
-        <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">{title}</h2>
+      <div className="relative bg-card rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200">
+        <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-5 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-foreground">{title}</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             aria-label="Close modal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
             </svg>
           </button>
         </div>
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-4.5rem)]">{children}</div>
+        <div className="p-6 overflow-y-auto max-h-[calc(95vh-5rem)]">{children}</div>
       </div>
     </div>
   )
