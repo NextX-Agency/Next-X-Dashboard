@@ -214,6 +214,14 @@ export default function ReservationsPage() {
       // Group reservations by client, location, and created_at (within 5 minutes)
       const groupedMap = new Map<string, ReservationGroup>()
       const comboTracker = new Map<string, Set<string>>() // Track which combos we've already counted per group
+      const comboPrices = new Map<string, number>() // Store combo prices we find
+      
+      // First pass: collect combo prices
+      reservationsData.forEach((res) => {
+        if (res.combo_id && res.combo_price !== null && res.combo_price !== undefined) {
+          comboPrices.set(res.combo_id, res.combo_price)
+        }
+      })
       
       reservationsData.forEach((res) => {
         // Create a unique key based on client, location, and timestamp (rounded to 5 minutes)
@@ -224,10 +232,8 @@ export default function ReservationsPage() {
         const price = res.items?.selling_price_srd || 0
         const subtotal = price * res.quantity
         
-        // Check if this is part of a combo and if it has the combo price
+        // Check if this is part of a combo
         const comboId = res.combo_id
-        const comboPrice = res.combo_price
-        const hasComboPrice = comboPrice !== null && comboPrice !== undefined
         
         // Initialize combo tracker for this group if needed
         if (!comboTracker.has(groupKey)) {
@@ -240,10 +246,8 @@ export default function ReservationsPage() {
           // This item is part of a combo
           const trackedCombos = comboTracker.get(groupKey)!
           if (!trackedCombos.has(comboId)) {
-            // First time seeing this combo in this group
-            if (hasComboPrice) {
-              priceToAdd = comboPrice
-            }
+            // First time seeing this combo in this group - use the combo price we found
+            priceToAdd = comboPrices.get(comboId) || 0
             trackedCombos.add(comboId)
           }
           // If we've already counted this combo, priceToAdd stays 0
