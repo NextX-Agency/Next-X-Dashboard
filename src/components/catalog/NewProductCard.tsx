@@ -4,13 +4,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Plus, Package, ShoppingCart, Eye } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { Database } from '@/types/database.types'
+
+type Item = Database['public']['Tables']['items']['Row']
 
 interface ComboItem {
   quantity: number
-  child_item: {
-    name: string
-    price: number
-  }
+  child_item: Item
 }
 
 interface NewProductCardProps {

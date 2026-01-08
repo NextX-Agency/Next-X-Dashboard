@@ -1054,7 +1054,6 @@ export default function ReservationsPage() {
                 value={reservationSearchQuery}
                 onChange={(e) => setReservationSearchQuery(e.target.value)}
                 className="w-full lg:w-64"
-                prefix={<Search size={16} />}
               />
               <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
                 <Plus size={18} />

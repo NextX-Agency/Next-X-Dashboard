@@ -690,8 +690,8 @@ export default function NewCatalogPage() {
                           isCombo={true}
                           originalPrice={originalPrice > comboPrice ? originalPrice : undefined}
                           comboItems={combo.combo_items?.map(ci => ({
-                            name: ci.child_item?.name || 'Item',
-                            quantity: ci.quantity
+                            quantity: ci.quantity,
+                            child_item: ci.child_item!
                           }))}
                         />
                       )
