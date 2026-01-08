@@ -29,9 +29,9 @@ export default function RecalculateCommissionsPage() {
   return (
     <PageContainer>
       <PageHeader
-        icon={RefreshCw}
+        icon={<RefreshCw size={20} />}
         title="Recalculate Commissions"
-        description="Fix commission amounts that were calculated incorrectly"
+        subtitle="Fix commission amounts that were calculated incorrectly"
       />
 
       <div className="max-w-2xl mx-auto">
