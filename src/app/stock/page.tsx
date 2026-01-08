@@ -53,7 +53,8 @@ export default function StockPage() {
       supabase.from('items').select('*').order('name'),
       supabase.from('locations').select('*').order('name')
     ])
-    if (itemsRes.data) setItems(itemsRes.data)
+    // Filter out combo items from the items list for stock management
+    if (itemsRes.data) setItems(itemsRes.data.filter(item => !item.is_combo))
     if (locationsRes.data) setLocations(locationsRes.data)
     await loadAllStock()
     setLoading(false)
@@ -74,7 +75,11 @@ export default function StockPage() {
       return
     }
     
-    if (data) setStocks(data as StockWithDetails[])
+    // Filter out combo items - they don't have physical stock
+    if (data) {
+      const filteredData = data.filter(stock => !stock.items?.is_combo)
+      setStocks(filteredData as StockWithDetails[])
+    }
   }
 
   const loadStockByLocation = async (locationId: string) => {
@@ -93,7 +98,11 @@ export default function StockPage() {
       return
     }
     
-    if (data) setStocks(data as StockWithDetails[])
+    // Filter out combo items - they don't have physical stock
+    if (data) {
+      const filteredData = data.filter(stock => !stock.items?.is_combo)
+      setStocks(filteredData as StockWithDetails[])
+    }
   }
 
   useEffect(() => {
