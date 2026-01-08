@@ -82,11 +82,15 @@ export default function ProductDetailPage() {
         settingsRes.data.forEach((s: { key: string; value: string }) => {
           settingsMap[s.key] = s.value
         })
+        // Filter out invalid logo URLs (like /logo.png which doesn't exist)
+        const logoUrl = settingsMap.store_logo_url || ''
+        const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
+        
         setSettings({
           whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
           store_name: settingsMap.store_name || 'NextX',
           store_address: settingsMap.store_address || 'Commewijne, Noord',
-          store_logo_url: settingsMap.store_logo_url || ''
+          store_logo_url: validLogoUrl
         })
       }
 

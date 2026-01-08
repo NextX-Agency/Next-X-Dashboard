@@ -5,6 +5,14 @@ import Link from 'next/link'
 import { Plus, Package, ShoppingCart, Eye } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 
+interface ComboItem {
+  quantity: number
+  child_item: {
+    name: string
+    price: number
+  }
+}
+
 interface NewProductCardProps {
   id: string
   name: string
@@ -16,6 +24,9 @@ interface NewProductCardProps {
   quantity: number
   onAddToCart: () => void
   onQuickView: () => void
+  isCombo?: boolean
+  originalPrice?: number
+  comboItems?: ComboItem[]
 }
 
 export function NewProductCard({
@@ -28,7 +39,10 @@ export function NewProductCard({
   categoryName,
   quantity,
   onAddToCart,
-  onQuickView
+  onQuickView,
+  isCombo = false,
+  originalPrice,
+  comboItems
 }: NewProductCardProps) {
   return (
     <article className="group relative bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-[#f97015]/30 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
@@ -49,9 +63,16 @@ export function NewProductCard({
         )}
         
         {/* Category Badge */}
-        {categoryName && (
+        {categoryName && !isCombo && (
           <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-[#141c2e] shadow-sm">
             {categoryName}
+          </span>
+        )}
+        
+        {/* Combo Badge */}
+        {isCombo && (
+          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-[#141c2e] text-xs font-semibold shadow-lg">
+            Combo Deal
           </span>
         )}
         
@@ -96,18 +117,45 @@ export function NewProductCard({
           </h3>
         </Link>
         
-        {/* Description */}
-        {description && (
+        {/* Description or Combo Items */}
+        {isCombo && comboItems && comboItems.length > 0 ? (
+          <div className="mt-2 space-y-1">
+            {comboItems.map((item, index) => (
+              <div key={index} className="text-xs text-neutral-600 flex items-center gap-1">
+                <span className="text-[#f97015] font-medium">{item.quantity}x</span>
+                <span>{item.child_item.name}</span>
+              </div>
+            ))}
+          </div>
+        ) : description ? (
           <p className="mt-1 text-sm text-neutral-500 line-clamp-1">
             {description}
           </p>
-        )}
+        ) : null}
         
         {/* Price */}
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-lg font-bold text-[#141c2e]">
-            {formatCurrency(price, currency)}
-          </span>
+          <div className="flex flex-col">
+            {isCombo && originalPrice && originalPrice > price ? (
+              <>
+                <span className="text-xs text-neutral-400 line-through">
+                  {formatCurrency(originalPrice, currency)}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-[#f97015]">
+                    {formatCurrency(price, currency)}
+                  </span>
+                  <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                    Bespaar {formatCurrency(originalPrice - price, currency)}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <span className="text-lg font-bold text-[#141c2e]">
+                {formatCurrency(price, currency)}
+              </span>
+            )}
+          </div>
           
           {/* Quick Add Button (Mobile) */}
           <button
@@ -172,6 +220,7 @@ interface ProductSectionHeaderProps {
   title: string
   subtitle?: string
   count?: number
+  variant?: 'light' | 'dark'
   action?: {
     label: string
     onClick: () => void
@@ -182,16 +231,20 @@ export function ProductSectionHeader({
   title, 
   subtitle,
   count,
+  variant = 'light',
   action 
 }: ProductSectionHeaderProps) {
+  const titleClass = `text-2xl font-bold ${variant === 'light' ? 'text-white' : 'text-[#141c2e]'}`
+  const subtitleClass = `text-sm ${variant === 'light' ? 'text-white/60' : 'text-neutral-600'} mt-1`
+
   return (
     <div className="flex items-end justify-between mb-6">
       <div>
-        <h2 className="text-2xl font-bold text-white">
+        <h2 className={titleClass}>
           {title}
         </h2>
         {(subtitle || count !== undefined) && (
-          <p className="text-sm text-white/60 mt-1">
+          <p className={subtitleClass}>
             {subtitle || `${count} producten`}
           </p>
         )}

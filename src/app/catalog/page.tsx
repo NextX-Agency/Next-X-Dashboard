@@ -66,7 +66,7 @@ interface ComboItem {
   parent_item_id: string
   child_item_id: string
   quantity: number
-  items?: Item
+  child_item?: Item
 }
 
 interface ItemWithCombo extends Item {
@@ -183,24 +183,11 @@ export default function NewCatalogPage() {
     setLoading(true)
     setError(null)
     try {
-      const [categoriesRes, itemsRes, rateRes, settingsRes, comboItemsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
+      const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
-        supabase.from('items').select('*').eq('is_public', true).order('created_at', { ascending: false }),
+        supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).order('created_at', { ascending: false }),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
         supabase.from('store_settings').select('*'),
-        supabase.from('items')
-          .select(`
-            *,
-            combo_items!combo_items_parent_item_id_fkey (
-              id,
-              parent_item_id,
-              child_item_id,
-              quantity,
-              items:child_item_id (*)
-            )
-          `)
-          .eq('is_public', true)
-          .eq('is_combo', true),
         supabase.from('locations').select('*').eq('is_active', true).order('name'),
         // Load active banners sorted by order
         supabase.from('banners').select('*').eq('is_active', true).order('position'),
@@ -226,12 +213,48 @@ export default function NewCatalogPage() {
       
       if (categoriesRes.data) setCategories(categoriesRes.data)
       if (itemsRes.data) {
-        const nonComboItems = itemsRes.data.filter((item: Item) => !item.is_combo)
-        setItems(nonComboItems)
+        setItems(itemsRes.data)
       }
-      if (comboItemsRes.data) {
-        setComboItems(comboItemsRes.data as ItemWithCombo[])
+      
+      // Load combos separately
+      const combosRes = await supabase
+        .from('items')
+        .select('*')
+        .eq('is_public', true)
+        .eq('is_combo', true)
+      
+      if (combosRes.data && combosRes.data.length > 0) {
+        // Load combo_items for each combo
+        const comboItemsRes = await supabase
+          .from('combo_items')
+          .select('*')
+          .in('parent_item_id', combosRes.data.map(c => c.id))
+        
+        // Load all child items
+        const childItemIds = comboItemsRes.data?.map(ci => ci.child_item_id) || []
+        const childItemsRes = await supabase
+          .from('items')
+          .select('*')
+          .in('id', childItemIds)
+        
+        // Map child items to combo_items
+        const comboItemsWithChildren = comboItemsRes.data?.map(ci => ({
+          ...ci,
+          child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id)
+        })) || []
+        
+        // Merge combo_items into combos
+        const combosWithItems: ItemWithCombo[] = combosRes.data.map(combo => ({
+          ...combo,
+          combo_items: comboItemsWithChildren.filter(ci => ci.parent_item_id === combo.id)
+        }))
+        
+        console.log('Combo Items loaded:', combosWithItems.length, combosWithItems)
+        setComboItems(combosWithItems)
+      } else {
+        console.log('No combos found')
       }
+      
       if (locationsRes.data) {
         setLocations(locationsRes.data)
         if (!selectedLocation && locationsRes.data.length > 0) {
@@ -252,13 +275,17 @@ export default function NewCatalogPage() {
         settingsRes.data.forEach((s: { key: string; value: string }) => {
           settingsMap[s.key] = s.value
         })
+        // Filter out invalid logo URLs (like /logo.png which doesn't exist)
+        const logoUrl = settingsMap.store_logo_url || ''
+        const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
+        
         setSettings({
           whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
           store_name: settingsMap.store_name || 'NextX',
           store_description: settingsMap.store_description || '',
           store_address: settingsMap.store_address || 'Commewijne, Noord',
           store_email: settingsMap.store_email || '',
-          store_logo_url: settingsMap.store_logo_url || '',
+          store_logo_url: validLogoUrl,
           hero_title: settingsMap.hero_title || 'Welkom',
           hero_subtitle: settingsMap.hero_subtitle || ''
         })
@@ -408,14 +435,16 @@ export default function NewCatalogPage() {
     return grouped
   }, [items, categories])
 
-  // Product counts per category
+  // Product counts per category (includes combos)
   const productCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     categories.forEach(cat => {
-      counts[cat.id] = items.filter(item => item.category_id === cat.id).length
+      const regularCount = items.filter(item => item.category_id === cat.id).length
+      const comboCount = comboItems.filter(combo => combo.category_id === cat.id).length
+      counts[cat.id] = regularCount + comboCount
     })
     return counts
-  }, [items, categories])
+  }, [items, comboItems, categories])
 
   // Search results
   const searchResults = useMemo(() => {
@@ -426,11 +455,13 @@ export default function NewCatalogPage() {
     })
   }, [items, searchQuery])
 
-  // Filtered items when category is selected
+  // Filtered items when category is selected (includes combos from same category)
   const filteredItems = useMemo(() => {
     if (!selectedCategory) return []
-    return items.filter(item => item.category_id === selectedCategory)
-  }, [items, selectedCategory])
+    const regularItems = items.filter(item => item.category_id === selectedCategory)
+    const combosInCategory = comboItems.filter(combo => combo.category_id === selectedCategory)
+    return [...regularItems, ...combosInCategory]
+  }, [items, comboItems, selectedCategory])
 
   // Determine view
   const showSearchResults = searchQuery.trim().length > 0
@@ -577,21 +608,41 @@ export default function NewCatalogPage() {
                 isEmpty={filteredItems.length === 0}
                 onClearFilters={() => setSelectedCategory('')}
               >
-                {filteredItems.map((item) => (
-                  <NewProductCard
-                    key={item.id}
-                    id={item.id}
-                    name={item.name}
-                    description={item.description}
-                    imageUrl={item.image_url}
-                    price={getPrice(item)}
-                    currency={currency}
-                    categoryName={getCategoryName(item.category_id)}
-                    quantity={getCartItemQuantity(item.id)}
-                    onAddToCart={() => addToCart(item)}
-                    onQuickView={() => setSelectedItem(item)}
-                  />
-                ))}
+                {filteredItems.map((item) => {
+                  const isCombo = item.is_combo || false
+                  const comboPrice = getPrice(item)
+                  const originalPrice = isCombo && item.combo_items ? item.combo_items.reduce((sum, ci) => {
+                    if (ci.child_item) {
+                      const itemPrice = currency === 'USD' 
+                        ? (ci.child_item.selling_price_usd || 0) 
+                        : (ci.child_item.selling_price_srd || 0)
+                      return sum + (itemPrice * ci.quantity)
+                    }
+                    return sum
+                  }, 0) : undefined
+
+                  return (
+                    <NewProductCard
+                      key={item.id}
+                      id={item.id}
+                      name={item.name}
+                      description={item.description}
+                      imageUrl={item.image_url}
+                      price={comboPrice}
+                      currency={currency}
+                      categoryName={getCategoryName(item.category_id)}
+                      quantity={getCartItemQuantity(item.id)}
+                      onAddToCart={() => addToCart(item)}
+                      onQuickView={() => setSelectedItem(item)}
+                      isCombo={isCombo}
+                      originalPrice={originalPrice && originalPrice > comboPrice ? originalPrice : undefined}
+                      comboItems={isCombo ? item.combo_items?.map(ci => ({
+                        quantity: ci.quantity,
+                        child_item: ci.child_item!
+                      })) : undefined}
+                    />
+                  )
+                })}
               </NewProductGrid>
             </div>
           </section>
@@ -605,89 +656,47 @@ export default function NewCatalogPage() {
               <section className="py-10 bg-neutral-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                   <ProductSectionHeader
-                    title="🎁 Combo Deals"
+                    title="Combo Deals"
                     subtitle="Bespaar meer met onze speciale combinaties"
+                    variant="dark"
                   />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <NewProductGrid>
                     {comboItems.map((combo) => {
                       const comboPrice = getPrice(combo)
                       const originalPrice = combo.combo_items?.reduce((sum, ci) => {
-                        if (ci.items) {
+                        if (ci.child_item) {
                           const itemPrice = currency === 'USD' 
-                            ? (ci.items.selling_price_usd || 0) 
-                            : (ci.items.selling_price_srd || 0)
+                            ? (ci.child_item.selling_price_usd || 0) 
+                            : (ci.child_item.selling_price_srd || 0)
                           return sum + (itemPrice * ci.quantity)
                         }
                         return sum
                       }, 0) || 0
                       const savings = originalPrice - comboPrice
-                      const savingsPercent = originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0
                       
                       return (
-                        <div
+                        <NewProductCard
                           key={combo.id}
-                          className="bg-[#1a2438] rounded-2xl border border-white/10 overflow-hidden hover:shadow-lg hover:shadow-[#f97015]/10 transition-shadow"
-                        >
-                          <div className="relative aspect-square bg-[#141c2e]">
-                            {combo.image_url ? (
-                              <img
-                                src={combo.image_url}
-                                alt={combo.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-6xl">🎁</div>
-                            )}
-                            {savingsPercent > 0 && (
-                              <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                -{savingsPercent}%
-                              </div>
-                            )}
-                            <div className="absolute top-3 left-3 bg-[#f97015] text-white text-xs font-bold px-2 py-1 rounded-full">
-                              COMBO
-                            </div>
-                          </div>
-                          
-                          <div className="p-4">
-                            <h3 className="font-semibold text-white mb-2">{combo.name}</h3>
-                            
-                            <div className="space-y-1 mb-3">
-                              {combo.combo_items?.map((ci) => (
-                                <div key={ci.id} className="text-sm text-white/60 flex items-center gap-2">
-                                  <span className="text-white/40">•</span>
-                                  <span>{ci.quantity}× {ci.items?.name || 'Item'}</span>
-                                </div>
-                              ))}
-                            </div>
-                            
-                            <div className="flex items-baseline gap-2 mb-3">
-                              {originalPrice > comboPrice && (
-                                <span className="text-sm text-white/40 line-through">
-                                  {formatCurrency(originalPrice, currency)}
-                                </span>
-                              )}
-                              <span className="text-xl font-bold text-[#f97015]">
-                                {formatCurrency(comboPrice, currency)}
-                              </span>
-                            </div>
-                            
-                            {savings > 0 && (
-                              <div className="text-sm text-green-400 mb-3">
-                                💰 Bespaar {formatCurrency(savings, currency)}
-                              </div>
-                            )}
-                            
-                            <button
-                              onClick={() => addToCart(combo)}
-                              className="w-full py-2.5 bg-[#f97015] hover:bg-[#e5640d] text-white font-medium rounded-xl transition-colors"
-                            >
-                              Toevoegen
-                            </button>
-                          </div>
-                        </div>
+                          id={combo.id}
+                          name={combo.name}
+                          description={combo.description}
+                          imageUrl={combo.image_url}
+                          price={comboPrice}
+                          currency={currency}
+                          categoryName="COMBO"
+                          quantity={getCartItemQuantity(combo.id)}
+                          onAddToCart={() => addToCart(combo)}
+                          onQuickView={() => setSelectedItem(combo)}
+                          isCombo={true}
+                          originalPrice={originalPrice > comboPrice ? originalPrice : undefined}
+                          comboItems={combo.combo_items?.map(ci => ({
+                            name: ci.child_item?.name || 'Item',
+                            quantity: ci.quantity
+                          }))}
+                        />
                       )
                     })}
-                  </div>
+                  </NewProductGrid>
                 </div>
               </section>
             )}

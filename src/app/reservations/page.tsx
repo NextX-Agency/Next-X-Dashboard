@@ -112,6 +112,8 @@ export default function ReservationsPage() {
   const [tempComboItems, setTempComboItems] = useState<CartItem[]>([])
   const [quickComboPrice, setQuickComboPrice] = useState<string>('1400')
   const [itemSearchQuery, setItemSearchQuery] = useState('')
+  const [reservationSearchQuery, setReservationSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all')
   
   // Reservation statistics
   const [reservationStats, setReservationStats] = useState<ReservationStats>({
@@ -992,7 +994,7 @@ export default function ReservationsPage() {
 
       <PageContainer>
         {/* Reservation Statistics Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 lg:gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
           <div className="bg-card rounded-xl p-4 border border-border">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -1012,28 +1014,6 @@ export default function ReservationsPage() {
               <div>
                 <div className="text-xs text-muted-foreground">Totaal Vandaag</div>
                 <div className="text-lg font-bold text-foreground">{formatCurrency(reservationStats.todayTotal, 'SRD')}</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card rounded-xl p-4 border border-border">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                <Calendar size={20} className="text-purple-600" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Deze Week</div>
-                <div className="text-lg font-bold text-foreground">{reservationStats.weekReservations}</div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card rounded-xl p-4 border border-border">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                <Receipt size={20} className="text-orange-600" />
-              </div>
-              <div>
-                <div className="text-xs text-muted-foreground">Week Totaal</div>
-                <div className="text-lg font-bold text-foreground">{formatCurrency(reservationStats.weekTotal, 'SRD')}</div>
               </div>
             </div>
           </div>
@@ -1063,32 +1043,66 @@ export default function ReservationsPage() {
 
         {/* Pending Reservations - Primary Focus */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-5">
             <div>
               <h2 className="text-xl font-bold text-foreground">Pending Reservations</h2>
               <p className="text-sm text-muted-foreground mt-1">Complete or cancel customer reservations</p>
             </div>
-            <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
-              <Plus size={18} />
-              New Reservation
-            </Button>
+            <div className="flex gap-2 w-full lg:w-auto">
+              <Input
+                placeholder="Search by client or location..."
+                value={reservationSearchQuery}
+                onChange={(e) => setReservationSearchQuery(e.target.value)}
+                className="w-full lg:w-64"
+                prefix={<Search size={16} />}
+              />
+              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
+                <Plus size={18} />
+                New Reservation
+              </Button>
+            </div>
           </div>
           
-          {recentReservations.filter(g => g.status === 'pending').length === 0 ? (
+          {recentReservations
+            .filter(g => g.status === 'pending')
+            .filter(g => {
+              if (!reservationSearchQuery) return true
+              const query = reservationSearchQuery.toLowerCase()
+              return (
+                g.client_name.toLowerCase().includes(query) ||
+                g.location_name.toLowerCase().includes(query)
+              )
+            }).length === 0 ? (
             <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-12 border-2 border-dashed border-border text-center">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock size={40} className="text-primary" />
               </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">No Pending Reservations</h3>
-              <p className="text-muted-foreground mb-6">Create a new reservation to get started</p>
-              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
-                <Plus size={18} />
-                Create First Reservation
-              </Button>
+              <h3 className="text-lg font-bold text-foreground mb-2">
+                {reservationSearchQuery ? 'No Matching Reservations' : 'No Pending Reservations'}
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {reservationSearchQuery ? 'Try a different search term' : 'Create a new reservation to get started'}
+              </p>
+              {!reservationSearchQuery && (
+                <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
+                  <Plus size={18} />
+                  Create First Reservation
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {recentReservations.filter(g => g.status === 'pending').map((group) => {
+              {recentReservations
+                .filter(g => g.status === 'pending')
+                .filter(g => {
+                  if (!reservationSearchQuery) return true
+                  const query = reservationSearchQuery.toLowerCase()
+                  return (
+                    g.client_name.toLowerCase().includes(query) ||
+                    g.location_name.toLowerCase().includes(query)
+                  )
+                })
+                .map((group) => {
                 return (
                   <div key={group.id} className="bg-card rounded-2xl p-5 border-2 border-border hover:border-primary hover:shadow-lg transition-all group">
                     <div className="flex justify-between items-start mb-4">
@@ -1162,9 +1176,15 @@ export default function ReservationsPage() {
 
         {/* Recent Completed/Cancelled - Compact View */}
         <div>
-          <div className="mb-5">
-            <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
-            <p className="text-sm text-muted-foreground mt-1">Completed and cancelled reservations</p>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
+              <p className="text-sm text-muted-foreground mt-1">Last 10 completed and cancelled reservations</p>
+            </div>
+            <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm">
+              <History size={16} />
+              View All History
+            </Button>
           </div>
           {recentReservations.filter(g => g.status !== 'pending').length === 0 ? (
             <div className="bg-card rounded-xl p-8 border border-border text-center">
@@ -1173,7 +1193,7 @@ export default function ReservationsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {recentReservations.filter(g => g.status !== 'pending').slice(0, 5).map((group) => {
+              {recentReservations.filter(g => g.status !== 'pending').slice(0, 10).map((group) => {
                 return (
                   <div key={group.id} className="bg-card rounded-xl p-4 border border-border hover:border-border/80 transition-all">
                     <div className="flex items-center justify-between">

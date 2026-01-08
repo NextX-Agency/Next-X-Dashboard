@@ -1137,10 +1137,10 @@ export default function SalesPage() {
               <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 sticky top-24">
                 <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                   <ShoppingCart size={18} className="text-primary" />
-                  Cart
+                  Sales Cart
                   {(cart.length > 0 || combos.length > 0) && (
                     <span className="ml-auto bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                      {getTotalItemCount()}
+                      {cart.length + combos.length}
                     </span>
                   )}
                 </h3>
@@ -1149,7 +1149,7 @@ export default function SalesPage() {
                   <div className="text-center py-12">
                     <ShoppingCart size={40} className="mx-auto mb-3 text-muted-foreground/30" />
                     <p className="text-muted-foreground text-sm">Cart is empty</p>
-                    <p className="text-muted-foreground text-xs mt-1">Add items to get started</p>
+                    <p className="text-muted-foreground text-xs mt-1">Add items or combos to get started</p>
                   </div>
                 ) : (
                   <>
@@ -1364,9 +1364,9 @@ export default function SalesPage() {
                     </div>
 
                     {(cart.length > 0 || combos.length > 0) && (
-                      <div className="border-t border-border pt-4 mt-4">
-                        <div className="flex justify-between items-center mb-4">
-                          <span className="font-semibold text-muted-foreground">Total</span>
+                      <div className="border-t border-border pt-5 mt-5 space-y-5">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-muted-foreground text-base">Total</span>
                           <span className="text-2xl font-bold text-primary">
                             {formatCurrency(calculateTotal(), currency)}
                           </span>
@@ -1375,7 +1375,7 @@ export default function SalesPage() {
                           onClick={handleCompleteSale}
                           disabled={submitting || (cart.length === 0 && combos.length === 0)}
                           loading={submitting}
-                          variant="primary"
+                          variant="success"
                           size="lg"
                           fullWidth
                         >
