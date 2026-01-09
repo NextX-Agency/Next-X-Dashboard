@@ -84,7 +84,7 @@ export function NewCartDrawer({
       />
       
       {/* Drawer */}
-      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white flex flex-col shadow-2xl">
+      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-neutral-100">
           <div className="flex items-center gap-3">
@@ -106,12 +106,12 @@ export function NewCartDrawer({
           </button>
         </div>
 
-        {/* Items */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Items - Scrollable area with better mobile height */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 px-6">
-              <div className="w-20 h-20 rounded-2xl bg-[#f97015]/10 flex items-center justify-center mb-4">
-                <ShoppingBag size={32} className="text-[#f97015]/40" />
+              <div className="w-16 h-16 rounded-2xl bg-[#f97015]/10 flex items-center justify-center mb-4">
+                <ShoppingBag size={28} className="text-[#f97015]/40" />
               </div>
               <h3 className="font-medium text-[#141c2e] mb-2">
                 Je winkelwagen is leeg
@@ -127,14 +127,19 @@ export function NewCartDrawer({
               </button>
             </div>
           ) : (
-            <div className="p-6 space-y-4">
+            <div className="p-4 space-y-3">
+              {/* Items count indicator */}
+              <div className="text-xs text-[#141c2e]/50 font-medium px-1">
+                {totalItems} {totalItems === 1 ? 'item' : 'items'} in je winkelwagen
+              </div>
+              
               {items.map((item) => (
                 <div 
                   key={item.id}
-                  className="flex gap-4 p-4 rounded-2xl bg-neutral-50"
+                  className="flex gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100"
                 >
-                  {/* Image */}
-                  <div className="w-20 h-20 rounded-xl bg-white overflow-hidden flex-shrink-0">
+                  {/* Image - Smaller on mobile */}
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-white overflow-hidden flex-shrink-0 border border-neutral-100">
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}
@@ -146,42 +151,44 @@ export function NewCartDrawer({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package size={24} className="text-neutral-300" />
+                        <Package size={20} className="text-neutral-300" />
                       </div>
                     )}
                   </div>
                   
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-[#141c2e] text-sm line-clamp-2 mb-1">
-                      {item.name}
-                    </h4>
-                    <p className="text-sm font-semibold text-[#141c2e] mb-3">
-                      {formatCurrency(item.price, currency)}
-                    </p>
+                  {/* Info - Compact layout */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-medium text-[#141c2e] text-sm leading-tight line-clamp-2">
+                        {item.name}
+                      </h4>
+                      <p className="text-sm font-bold text-[#f97015] mt-0.5">
+                        {formatCurrency(item.price, currency)}
+                      </p>
+                    </div>
                     
-                    {/* Quantity controls */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-0 rounded-lg border border-neutral-200 bg-white">
+                    {/* Quantity controls - Compact */}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center rounded-lg border border-neutral-200 bg-white">
                         <button
                           onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
+                          className="w-7 h-7 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100 transition-colors"
                         >
-                          <Minus size={14} />
+                          <Minus size={12} />
                         </button>
-                        <span className="w-8 text-center text-sm font-medium text-[#141c2e]">
+                        <span className="w-7 text-center text-xs font-semibold text-[#141c2e]">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => onAddOne(item.id)}
-                          className="w-8 h-8 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] transition-colors"
+                          className="w-7 h-7 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100 transition-colors"
                         >
-                          <Plus size={14} />
+                          <Plus size={12} />
                         </button>
                       </div>
                       <button
                         onClick={() => onUpdateQuantity(item.id, 0)}
-                        className="text-xs text-[#141c2e]/40 hover:text-red-500 transition-colors"
+                        className="text-[11px] text-[#141c2e]/40 hover:text-red-500 active:text-red-600 transition-colors px-2 py-1"
                       >
                         Verwijder
                       </button>
@@ -193,10 +200,10 @@ export function NewCartDrawer({
           )}
         </div>
 
-        {/* Checkout Form */}
+        {/* Checkout Form - Collapsible on mobile for more item visibility */}
         {items.length > 0 && (
-          <div className="shrink-0 border-t border-neutral-100 p-6 bg-neutral-50">
-            <div className="space-y-4 mb-6">
+          <div className="shrink-0 border-t border-neutral-200 p-4 sm:p-6 bg-white max-h-[55vh] sm:max-h-none overflow-y-auto">
+            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
               {/* Location Selection */}
               {locations.length > 0 && (
                 <div>
@@ -313,23 +320,23 @@ export function NewCartDrawer({
             </div>
 
             {/* Total & Submit */}
-            <div className="flex items-center justify-between py-4 border-t border-neutral-200 mb-4">
-              <span className="text-[#141c2e]/70">Totaal</span>
-              <span className="text-xl font-bold text-[#141c2e]">
+            <div className="flex items-center justify-between py-3 border-t border-neutral-200 mb-3">
+              <span className="text-sm text-[#141c2e]/70">Totaal ({totalItems} items)</span>
+              <span className="text-lg sm:text-xl font-bold text-[#141c2e]">
                 {formatCurrency(totalPrice, currency)}
               </span>
             </div>
 
             <button
               onClick={onSubmitOrder}
-              className="w-full h-14 rounded-2xl bg-[#25D366] text-white font-semibold flex items-center justify-center gap-3 hover:bg-[#22c55e] transition-colors shadow-lg shadow-green-500/20"
+              className="w-full h-12 sm:h-14 rounded-xl sm:rounded-2xl bg-[#25D366] text-white font-semibold flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#22c55e] active:scale-[0.98] transition-all shadow-lg shadow-green-500/20"
             >
-              <MessageCircle size={20} />
-              Bestelling Plaatsen via WhatsApp
+              <MessageCircle size={18} />
+              <span className="text-sm sm:text-base">Bestellen via WhatsApp</span>
             </button>
             
-            <p className="text-xs text-[#141c2e]/50 text-center mt-4">
-              Je wordt doorgestuurd naar WhatsApp om je bestelling te bevestigen
+            <p className="text-[10px] sm:text-xs text-[#141c2e]/50 text-center mt-3">
+              Je wordt doorgestuurd naar WhatsApp
             </p>
           </div>
         )}

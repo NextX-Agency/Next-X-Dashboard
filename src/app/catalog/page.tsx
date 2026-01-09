@@ -735,7 +735,10 @@ export default function NewCatalogPage() {
                 }))}
                 currency={currency}
                 onAddToCart={addToCartById}
-                viewAllClick={() => setSelectedCategory(category.id)}
+                viewAllClick={() => {
+                  setSelectedCategory(category.id)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
                 bgColor={category.name === 'In-Ear Accessories' ? 'neutral-50' : 'white'}
               />
             ))}
