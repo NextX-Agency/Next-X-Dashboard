@@ -565,16 +565,18 @@ export default function NewCatalogPage() {
       <div ref={productsRef}>
         {/* Search Results */}
         {showSearchResults && (
-          <section className="py-10 bg-[#141c2e]">
+          <section className="py-10 bg-[#f8f7f4]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductSectionHeader
                 title={`Zoekresultaten voor "${searchQuery}"`}
                 count={searchResults.length}
+                variant="dark"
               />
               <NewProductGrid 
                 isEmpty={searchResults.length === 0}
                 onClearFilters={() => setSearchQuery('')}
                 emptyMessage="Geen producten gevonden voor deze zoekopdracht"
+                variant="dark"
               >
                 {searchResults.map((item) => (
                   <NewProductCard
@@ -598,15 +600,17 @@ export default function NewCatalogPage() {
 
         {/* Category Products */}
         {showCategoryProducts && (
-          <section className="py-10 bg-[#141c2e]">
+          <section className="py-10 bg-[#f8f7f4]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <ProductSectionHeader
                 title={getCategoryName(selectedCategory) || 'Producten'}
                 count={filteredItems.length}
+                variant="dark"
               />
               <NewProductGrid 
                 isEmpty={filteredItems.length === 0}
                 onClearFilters={() => setSelectedCategory('')}
+                variant="dark"
               >
                 {filteredItems.map((item) => {
                   const isCombo = item.is_combo || false
@@ -653,52 +657,23 @@ export default function NewCatalogPage() {
           <>
             {/* Combo Deals */}
             {comboItems.length > 0 && (
-              <section className="py-10 bg-neutral-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <ProductSectionHeader
-                    title="Combo Deals"
-                    subtitle="Bespaar meer met onze speciale combinaties"
-                    variant="dark"
-                  />
-                  <NewProductGrid>
-                    {comboItems.map((combo) => {
-                      const comboPrice = getPrice(combo)
-                      const originalPrice = combo.combo_items?.reduce((sum, ci) => {
-                        if (ci.child_item) {
-                          const itemPrice = currency === 'USD' 
-                            ? (ci.child_item.selling_price_usd || 0) 
-                            : (ci.child_item.selling_price_srd || 0)
-                          return sum + (itemPrice * ci.quantity)
-                        }
-                        return sum
-                      }, 0) || 0
-                      const savings = originalPrice - comboPrice
-                      
-                      return (
-                        <NewProductCard
-                          key={combo.id}
-                          id={combo.id}
-                          name={combo.name}
-                          description={combo.description}
-                          imageUrl={combo.image_url}
-                          price={comboPrice}
-                          currency={currency}
-                          categoryName="COMBO"
-                          quantity={getCartItemQuantity(combo.id)}
-                          onAddToCart={() => addToCart(combo)}
-                          onQuickView={() => setSelectedItem(combo)}
-                          isCombo={true}
-                          originalPrice={originalPrice > comboPrice ? originalPrice : undefined}
-                          comboItems={combo.combo_items?.map(ci => ({
-                            quantity: ci.quantity,
-                            child_item: ci.child_item!
-                          }))}
-                        />
-                      )
-                    })}
-                  </NewProductGrid>
-                </div>
-              </section>
+              <NewProductCarousel
+                title="Combo Deals"
+                subtitle="Bespaar meer met onze speciale combinaties"
+                products={comboItems.map((combo) => {
+                  const comboPrice = getPrice(combo)
+                  return {
+                    id: combo.id,
+                    name: combo.name,
+                    description: combo.description,
+                    image_url: combo.image_url,
+                    price: comboPrice
+                  }
+                })}
+                currency={currency}
+                onAddToCart={addToCartById}
+                bgColor="neutral-50"
+              />
             )}
 
             {/* New Products Carousel */}

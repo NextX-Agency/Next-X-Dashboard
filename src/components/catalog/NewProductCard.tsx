@@ -45,7 +45,11 @@ export function NewProductCard({
   comboItems
 }: NewProductCardProps) {
   return (
-    <article className="group relative bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-[#f97015]/30 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
+    <article className={`group relative bg-white rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${
+      isCombo 
+        ? 'border-2 border-[#f97015]/50 hover:shadow-lg hover:shadow-[#f97015]/20' 
+        : 'border border-neutral-200 hover:border-[#f97015]/40 hover:shadow-lg hover:shadow-[#f97015]/10'
+    }`}>
       {/* Image Container */}
       <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
         {imageUrl ? (
@@ -71,7 +75,7 @@ export function NewProductCard({
         
         {/* Combo Badge */}
         {isCombo && (
-          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-[#141c2e] text-xs font-semibold shadow-lg">
+          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#000000] to-[#7d3302] text-white text-xs font-semibold shadow-lg">
             Combo Deal
           </span>
         )}
@@ -176,24 +180,27 @@ interface NewProductGridProps {
   isEmpty?: boolean
   onClearFilters?: () => void
   emptyMessage?: string
+  variant?: 'light' | 'dark'
 }
 
 export function NewProductGrid({ 
   children, 
   isEmpty, 
   onClearFilters,
-  emptyMessage = "Geen producten gevonden" 
+  emptyMessage = "Geen producten gevonden",
+  variant = 'light'
 }: NewProductGridProps) {
   if (isEmpty) {
+    const isDark = variant === 'dark'
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6">
-        <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mb-4">
-          <Package size={32} className="text-white/40" strokeWidth={1.5} />
+        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-neutral-200' : 'bg-white/10'}`}>
+          <Package size={32} className={isDark ? 'text-neutral-400' : 'text-white/40'} strokeWidth={1.5} />
         </div>
-        <h3 className="text-lg font-medium text-white mb-2">
+        <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-[#141c2e]' : 'text-white'}`}>
           {emptyMessage}
         </h3>
-        <p className="text-sm text-white/60 mb-6 text-center max-w-sm">
+        <p className={`text-sm mb-6 text-center max-w-sm ${isDark ? 'text-[#141c2e]/60' : 'text-white/60'}`}>
           Probeer een andere zoekterm of bekijk alle producten
         </p>
         {onClearFilters && (

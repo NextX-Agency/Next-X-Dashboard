@@ -249,13 +249,82 @@ body {
 
 .catalog-card {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s ease;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
 }
 
 .catalog-card:hover {
-  border-color: #f97015;
-  box-shadow: 0 20px 40px -15px rgba(20, 28, 46, 0.15);
+  border-color: rgba(249, 112, 21, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(20, 28, 46, 0.1), 0 8px 10px -6px rgba(249, 112, 21, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Enhanced Product Card Styling */
+.catalog-product-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.catalog-product-card:hover {
+  border-color: rgba(249, 112, 21, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(20, 28, 46, 0.12), 0 4px 6px -4px rgba(249, 112, 21, 0.1);
+}
+
+/* Info Card Styling - "Waarom bij ons bestellen" */
+.catalog-info-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.catalog-info-card:hover {
+  border-color: rgba(249, 112, 21, 0.4);
+  box-shadow: 0 10px 20px -5px rgba(20, 28, 46, 0.1), 0 4px 6px -4px rgba(249, 112, 21, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Combo Deal Badge */
+.catalog-combo-badge {
+  background: linear-gradient(135deg, #f97015 0%, #e5640d 100%);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  box-shadow: 0 2px 8px rgba(249, 112, 21, 0.3);
+}
+
+/* Price Highlight */
+.catalog-price-highlight {
+  color: #f97015;
+  font-weight: 700;
+}
+
+.catalog-price-original {
+  color: #9ca3af;
+  text-decoration: line-through;
+  font-size: 0.875em;
+}
+
+/* Savings Badge */
+.catalog-savings-badge {
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
 }
 
 .catalog-header {
@@ -266,6 +335,16 @@ body {
 .catalog-footer {
   background-color: #141c2e;
   color: #ffffff;
+}
+
+/* Hero Logo Styling */
+.catalog-hero-logo {
+  display: inline-flex;
+  align-items: center;
+  height: 1em;
+  width: auto;
+  object-fit: contain;
+  vertical-align: middle;
 }
 
 /* Smooth transitions - Only on specific properties to avoid perf issues */

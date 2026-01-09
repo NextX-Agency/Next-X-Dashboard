@@ -454,7 +454,7 @@ export default function ProductDetailPage() {
       </main>
 
       {/* Mobile Sticky Bottom CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-4 pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-4 pb-8 safe-area-bottom">
         {/* Quantity & Date Row */}
         <div className="flex items-center gap-3 mb-3">
           {/* Quantity */}
@@ -514,7 +514,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Bottom padding for mobile sticky CTA */}
-      <div className="lg:hidden h-40" />
+      <div className="lg:hidden h-48" />
 
       {/* Footer */}
       <NewFooter

@@ -56,7 +56,7 @@ export function NewValueSection({
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="bg-white rounded-2xl p-6 text-center hover:shadow-lg hover:shadow-[#f97015]/10 hover:border-[#f97015]/20 border border-transparent transition-all"
+              className="bg-white rounded-xl p-6 text-center border border-neutral-200 shadow-sm hover:shadow-lg hover:shadow-[#f97015]/10 hover:border-[#f97015]/40 cursor-pointer transition-all duration-300"
             >
               <div className="w-14 h-14 rounded-2xl bg-[#f97015]/10 flex items-center justify-center mx-auto mb-4">
                 <feature.icon size={24} className="text-[#f97015]" />
@@ -85,13 +85,13 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
 
   return (
-    <section className="py-16 bg-[#141c2e]">
+    <section className="py-16 bg-[#f8f7f4]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#141c2e] mb-4">
             Klaar om te bestellen?
           </h2>
-          <p className="text-white/60 mb-8">
+          <p className="text-[#141c2e]/60 mb-8">
             Neem direct contact op via WhatsApp voor vragen of om je bestelling te plaatsen. 
             We reageren meestal binnen een uur.
           </p>
@@ -104,7 +104,7 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
             <MessageCircle size={20} />
             Chat met ons op WhatsApp
           </a>
-          <p className="mt-6 text-sm text-white/40">
+          <p className="mt-6 text-sm text-[#141c2e]/40">
             {whatsappNumber}
           </p>
         </div>

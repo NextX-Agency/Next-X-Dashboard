@@ -67,13 +67,13 @@ export function NewProductCarousel({
             <div className="hidden sm:flex items-center gap-2 mr-4">
               <button
                 onClick={() => scroll('left')}
-                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/30 transition-colors"
+                className="w-9 h-9 rounded-full border-2 border-neutral-300 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/50 transition-colors"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/30 transition-colors"
+                className="w-9 h-9 rounded-full border-2 border-neutral-300 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/50 transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
@@ -84,7 +84,7 @@ export function NewProductCarousel({
               viewAllHref ? (
                 <Link 
                   href={viewAllHref}
-                  className="flex items-center gap-1 text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all"
                 >
                   Bekijk alles
                   <ArrowRight size={14} />
@@ -92,7 +92,7 @@ export function NewProductCarousel({
               ) : (
                 <button
                   onClick={viewAllClick}
-                  className="flex items-center gap-1 text-sm font-medium text-[#f97015] hover:text-[#e5640d] transition-colors"
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all"
                 >
                   Bekijk alles
                   <ArrowRight size={14} />
@@ -111,7 +111,7 @@ export function NewProductCarousel({
           >
             {products.map((product) => (
               <div key={product.id} className="flex-shrink-0 w-[240px] sm:w-[280px]">
-                <article className="group bg-white rounded-2xl border border-neutral-100 overflow-hidden hover:border-[#f97015]/30 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
+                <article className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:border-[#f97015]/40 hover:shadow-lg hover:shadow-[#f97015]/10 transition-all duration-300">
                   {/* Image */}
                   <Link href={`/catalog/${product.id}`} className="block relative aspect-[4/3] bg-neutral-50 overflow-hidden">
                     {product.image_url ? (

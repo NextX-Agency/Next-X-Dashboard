@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { ArrowRight, MapPin, Clock } from 'lucide-react'
 
 interface NewHeroProps {
@@ -59,7 +60,22 @@ export function NewHero({
             
             {/* Title */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
-              {heroTitle || `Welkom bij ${storeName}`}
+              <span className="inline-flex items-center">
+                <span>Welcome to</span>
+                <Image 
+                  src="/Colored - White background.png" 
+                  alt="Next x Logo" 
+                  width={280} 
+                  height={90}
+                  className="ml-3 sm:ml-4 relative"
+                  style={{ 
+                    height: '1.15em', 
+                    width: 'auto',
+                    top: '0.08em'
+                  }}
+                  priority
+                />
+              </span>
             </h1>
             
             {/* Subtitle */}
