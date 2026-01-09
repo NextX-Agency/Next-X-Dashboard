@@ -667,12 +667,14 @@ export default function NewCatalogPage() {
                     name: combo.name,
                     description: combo.description,
                     image_url: combo.image_url,
-                    price: comboPrice
+                    price: comboPrice,
+                    isCombo: true
                   }
                 })}
                 currency={currency}
                 onAddToCart={addToCartById}
                 bgColor="neutral-50"
+                isComboCarousel={true}
               />
             )}
 

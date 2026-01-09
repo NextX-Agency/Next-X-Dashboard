@@ -113,33 +113,37 @@ export function NewProductCard({
       </Link>
       
       {/* Content */}
-      <div className="p-4">
-        {/* Name */}
-        <Link href={`/catalog/${id}`}>
-          <h3 className="font-medium text-[#141c2e] line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors">
-            {name}
-          </h3>
-        </Link>
-        
-        {/* Description or Combo Items */}
-        {isCombo && comboItems && comboItems.length > 0 ? (
-          <div className="mt-2 space-y-1">
-            {comboItems.map((item, index) => (
-              <div key={index} className="text-xs text-neutral-600 flex items-center gap-1">
-                <span className="text-[#f97015] font-medium">{item.quantity}x</span>
-                <span>{item.child_item.name}</span>
+      <div className="p-4 h-32 flex flex-col justify-between">
+        <div className="flex-1">
+          {/* Name */}
+          <Link href={`/catalog/${id}`}>
+            <h3 className="font-medium text-[#141c2e] line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors h-10">
+              {name}
+            </h3>
+          </Link>
+          
+          {/* Description or Combo Items */}
+          <div className="mt-2 h-8 overflow-hidden">
+            {isCombo && comboItems && comboItems.length > 0 ? (
+              <div className="space-y-1">
+                {comboItems.slice(0, 2).map((item, index) => (
+                  <div key={index} className="text-xs text-neutral-600 flex items-center gap-1 line-clamp-1">
+                    <span className="text-[#f97015] font-medium">{item.quantity}x</span>
+                    <span className="truncate">{item.child_item.name}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : description ? (
+              <p className="text-sm text-neutral-500 line-clamp-2">
+                {description}
+              </p>
+            ) : null}
           </div>
-        ) : description ? (
-          <p className="mt-1 text-sm text-neutral-500 line-clamp-1">
-            {description}
-          </p>
-        ) : null}
+        </div>
         
         {/* Price */}
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between mt-auto">
+          <div className="flex flex-col min-h-[3rem]">
             {isCombo && originalPrice && originalPrice > price ? (
               <>
                 <span className="text-xs text-neutral-400 line-through">

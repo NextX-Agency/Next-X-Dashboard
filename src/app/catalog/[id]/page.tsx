@@ -204,7 +204,7 @@ export default function ProductDetailPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto bg-white">
+      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8">
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
           {/* Image Gallery - Left Column */}
           <div className="relative">
@@ -498,7 +498,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Price & Order Button */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 mb-4">
           <div className="flex-shrink-0">
             <p className="text-xs text-neutral-500">Totaal</p>
             <p className="text-xl font-bold text-neutral-900">{formatCurrency(total, currency)}</p>
@@ -514,7 +514,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Bottom padding for mobile sticky CTA */}
-      <div className="lg:hidden h-48" />
+      <div className="lg:hidden h-30" />
 
       {/* Footer */}
       <NewFooter
