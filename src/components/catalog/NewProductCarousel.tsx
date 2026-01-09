@@ -157,11 +157,11 @@ export function NewProductCarousel({
                   </Link>
                   
                   {/* Info */}
-                  <Link href={`/catalog/${product.id}`} className="block p-4">
+                  <Link href={`/catalog/${product.id}`} className="block p-4 h-24">
                     <p className="text-lg font-bold text-[#141c2e] mb-1">
                       {formatCurrency(product.price, currency)}
                     </p>
-                    <h3 className="text-sm text-[#141c2e]/70 line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors">
+                    <h3 className="text-sm text-[#141c2e]/70 line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors h-10 overflow-hidden">
                       {product.name}
                     </h3>
                   </Link>
