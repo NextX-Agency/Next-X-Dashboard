@@ -517,6 +517,11 @@ export default function NewCatalogPage() {
           setSearchQuery('')
           if (catId) scrollToProducts()
         }}
+        onLogoClick={() => {
+          setSelectedCategory('')
+          setSearchQuery('')
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }}
       />
 
       {/* Hero - Only on homepage */}

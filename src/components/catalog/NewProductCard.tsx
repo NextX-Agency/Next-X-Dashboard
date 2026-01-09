@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package, ShoppingCart, Eye } from 'lucide-react'
+import { Plus, Package, Eye } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { Database } from '@/types/database.types'
 
@@ -45,10 +45,10 @@ export function NewProductCard({
   comboItems
 }: NewProductCardProps) {
   return (
-    <article className={`group relative bg-white rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${
+    <article className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
       isCombo 
-        ? 'border-2 border-[#f97015]/50 hover:shadow-lg hover:shadow-[#f97015]/20' 
-        : 'border border-neutral-200 hover:border-[#f97015]/40 hover:shadow-lg hover:shadow-[#f97015]/10'
+        ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
+        : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
     }`}>
       {/* Image Container */}
       <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
@@ -68,109 +68,113 @@ export function NewProductCard({
         
         {/* Category Badge */}
         {categoryName && !isCombo && (
-          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm text-xs font-medium text-[#141c2e] shadow-sm">
+          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-sm text-[11px] font-medium text-[#141c2e] shadow-sm">
             {categoryName}
           </span>
         )}
         
         {/* Combo Badge */}
         {isCombo && (
-          <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#000000] to-[#7d3302] text-white text-xs font-semibold shadow-lg">
+          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
             Combo Deal
           </span>
         )}
         
-        {/* Hover Actions */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-        <div className="absolute bottom-4 left-4 right-4 flex gap-2 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              onAddToCart()
-            }}
-            className="flex-1 h-11 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] transition-colors shadow-lg"
-          >
-            <Plus size={16} />
-            Toevoegen
-          </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              onQuickView()
-            }}
-            className="w-11 h-11 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 transition-colors shadow-lg"
-          >
-            <Eye size={18} />
-          </button>
+        {/* Desktop Hover Actions */}
+        <div className="hidden lg:block">
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+          <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                onAddToCart()
+              }}
+              className="flex-1 h-10 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] active:scale-[0.98] transition-all shadow-lg"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              Toevoegen
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                onQuickView()
+              }}
+              className="w-10 h-10 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 active:scale-[0.98] transition-all shadow-lg"
+            >
+              <Eye size={18} />
+            </button>
+          </div>
         </div>
         
         {/* In Cart Indicator */}
         {quantity > 0 && (
-          <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#f97015] text-white text-xs font-bold flex items-center justify-center shadow-lg">
+          <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-[#f97015] text-white text-[11px] font-bold flex items-center justify-center shadow-md">
             {quantity}
           </div>
         )}
       </Link>
       
       {/* Content */}
-      <div className="p-4 h-32 flex flex-col justify-between">
-        <div className="flex-1">
-          {/* Name */}
-          <Link href={`/catalog/${id}`}>
-            <h3 className="font-medium text-[#141c2e] line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors h-10">
-              {name}
-            </h3>
-          </Link>
-          
-          {/* Description or Combo Items */}
-          <div className="mt-2 h-8 overflow-hidden">
+      <div className="p-3 sm:p-4 flex-1 flex flex-col">
+        {/* Name */}
+        <Link href={`/catalog/${id}`} className="block flex-shrink-0">
+          <h3 className="font-semibold text-[#141c2e] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-[2.5rem] sm:min-h-[2.75rem]">
+            {name}
+          </h3>
+        </Link>
+        
+        {/* Description or Combo Items */}
+        {(isCombo && comboItems && comboItems.length > 0) || description ? (
+          <div className="mt-1.5 flex-shrink-0 min-h-[1.25rem]">
             {isCombo && comboItems && comboItems.length > 0 ? (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {comboItems.slice(0, 2).map((item, index) => (
-                  <div key={index} className="text-xs text-neutral-600 flex items-center gap-1 line-clamp-1">
-                    <span className="text-[#f97015] font-medium">{item.quantity}x</span>
+                  <div key={index} className="text-[11px] sm:text-xs text-neutral-500 flex items-center gap-1">
+                    <span className="text-[#f97015] font-medium">{item.quantity}×</span>
                     <span className="truncate">{item.child_item.name}</span>
                   </div>
                 ))}
               </div>
             ) : description ? (
-              <p className="text-sm text-neutral-500 line-clamp-2">
+              <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-1">
                 {description}
               </p>
             ) : null}
           </div>
-        </div>
+        ) : null}
         
-        {/* Price */}
-        <div className="flex items-center justify-between mt-auto">
-          <div className="flex flex-col min-h-[3rem]">
+        {/* Spacer */}
+        <div className="flex-1 min-h-2" />
+        
+        {/* Price and Add Button Row */}
+        <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+          <div className="flex flex-col min-w-0">
             {isCombo && originalPrice && originalPrice > price ? (
               <>
-                <span className="text-xs text-neutral-400 line-through">
+                <span className="text-[11px] text-neutral-400 line-through">
                   {formatCurrency(originalPrice, currency)}
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-[#f97015]">
-                    {formatCurrency(price, currency)}
-                  </span>
-                  <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">
-                    Bespaar {formatCurrency(originalPrice - price, currency)}
-                  </span>
-                </div>
+                <span className="text-base sm:text-lg font-bold text-[#f97015]">
+                  {formatCurrency(price, currency)}
+                </span>
               </>
             ) : (
-              <span className="text-lg font-bold text-[#141c2e]">
+              <span className="text-base sm:text-lg font-bold text-[#141c2e]">
                 {formatCurrency(price, currency)}
               </span>
             )}
           </div>
           
-          {/* Quick Add Button (Mobile) */}
+          {/* Add Button - Always visible on mobile, visible on desktop too */}
           <button
-            onClick={onAddToCart}
-            className="lg:hidden w-9 h-9 rounded-full bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddToCart()
+            }}
+            className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] active:scale-95 transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100"
+            aria-label="Toevoegen aan winkelwagen"
           >
-            <Plus size={16} />
+            <Plus size={18} strokeWidth={2.5} />
           </button>
         </div>
       </div>
@@ -220,7 +224,7 @@ export function NewProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
       {children}
     </div>
   )

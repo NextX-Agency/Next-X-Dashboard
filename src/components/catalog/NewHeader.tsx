@@ -22,6 +22,7 @@ interface NewHeaderProps {
   onSearchChange: (query: string) => void
   selectedCategory: string
   onCategoryChange: (categoryId: string) => void
+  onLogoClick?: () => void
 }
 
 export function NewHeader({
@@ -35,7 +36,8 @@ export function NewHeader({
   searchQuery,
   onSearchChange,
   selectedCategory,
-  onCategoryChange
+  onCategoryChange,
+  onLogoClick
 }: NewHeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
@@ -84,7 +86,17 @@ export function NewHeader({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
-            <Link href="/catalog" className="flex-shrink-0">
+            <Link 
+              href="/catalog" 
+              className="flex-shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
+              aria-label="Ga naar homepagina"
+              onClick={(e) => {
+                if (onLogoClick) {
+                  e.preventDefault()
+                  onLogoClick()
+                }
+              }}
+            >
               {logoUrl ? (
                 <Image 
                   src={logoUrl} 
@@ -95,7 +107,7 @@ export function NewHeader({
                   unoptimized
                 />
               ) : (
-                <span className="text-xl font-bold tracking-tight">
+                <span className="text-xl font-bold tracking-tight inline-block">
                   <span className="text-[#141c2e]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>

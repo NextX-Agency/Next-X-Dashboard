@@ -113,14 +113,14 @@ export function NewProductCarousel({
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {products.map((product) => (
-              <div key={product.id} className="flex-shrink-0 w-[240px] sm:w-[280px]">
-                <article className={`group bg-white rounded-xl overflow-hidden shadow-sm transition-all duration-300 ${
+              <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[220px]">
+                <article className={`group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
                   isComboCarousel || product.isCombo
-                    ? 'border-2 border-[#f97015]/50 hover:shadow-lg hover:shadow-[#f97015]/20' 
-                    : 'border border-neutral-200 hover:border-[#f97015]/40 hover:shadow-lg hover:shadow-[#f97015]/10'
+                    ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
+                    : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
                 }`}>
                   {/* Image */}
-                  <Link href={`/catalog/${product.id}`} className="block relative aspect-[4/3] bg-neutral-50 overflow-hidden">
+                  <Link href={`/catalog/${product.id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
                     {product.image_url ? (
                       <Image
                         src={product.image_url}
@@ -131,40 +131,61 @@ export function NewProductCarousel({
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Package size={40} className="text-neutral-200" strokeWidth={1} />
+                        <Package size={36} className="text-neutral-200" strokeWidth={1} />
                       </div>
                     )}
                     
                     {/* Combo Badge */}
                     {(isComboCarousel || product.isCombo) && (
-                      <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-xs font-semibold shadow-lg">
+                      <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
                         Combo Deal
                       </span>
                     )}
                     
-                    {/* Quick Add */}
+                    {/* Desktop Hover Quick Add */}
                     {onAddToCart && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          onAddToCart(product.id)
-                        }}
-                        className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] shadow-lg"
-                      >
-                        <Plus size={18} />
-                      </button>
+                      <div className="hidden lg:block">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            onAddToCart(product.id)
+                          }}
+                          className="absolute bottom-3 right-3 w-9 h-9 rounded-xl bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] active:scale-95 shadow-lg"
+                        >
+                          <Plus size={18} strokeWidth={2.5} />
+                        </button>
+                      </div>
                     )}
                   </Link>
                   
                   {/* Info */}
-                  <Link href={`/catalog/${product.id}`} className="block p-4 h-24">
-                    <p className="text-lg font-bold text-[#141c2e] mb-1">
-                      {formatCurrency(product.price, currency)}
-                    </p>
-                    <h3 className="text-sm text-[#141c2e]/70 line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors h-10 overflow-hidden">
-                      {product.name}
-                    </h3>
-                  </Link>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <Link href={`/catalog/${product.id}`} className="block flex-1">
+                      <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-[2.5rem]">
+                        {product.name}
+                      </h3>
+                    </Link>
+                    
+                    {/* Price and Button Row */}
+                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-100">
+                      <p className="text-base sm:text-lg font-bold text-[#141c2e]">
+                        {formatCurrency(product.price, currency)}
+                      </p>
+                      {onAddToCart && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            onAddToCart(product.id)
+                          }}
+                          className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] active:scale-95 transition-all shadow-sm"
+                          aria-label="Toevoegen aan winkelwagen"
+                        >
+                          <Plus size={16} strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </article>
               </div>
             ))}
