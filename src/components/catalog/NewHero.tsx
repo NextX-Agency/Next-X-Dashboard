@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
 import { ArrowRight, MapPin, Clock } from 'lucide-react'
 
 interface NewHeroProps {
@@ -19,6 +20,25 @@ export function NewHero({
   storeAddress,
   onExploreClick
 }: NewHeroProps) {
+  const [mapActive, setMapActive] = useState(false)
+  const mapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mapRef.current && !mapRef.current.contains(event.target as Node)) {
+        setMapActive(false)
+      }
+    }
+
+    if (mapActive) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [mapActive])
+
   return (
     <section className="relative overflow-hidden catalog-bg-light">
       {/* Decorative elements */}
@@ -76,32 +96,50 @@ export function NewHero({
           {/* Map Container */}
           <div className="order-1 lg:order-2 relative">
             <div className="relative aspect-square max-w-md mx-auto lg:max-w-none">
-              {/* Background decoration */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#141c2e]/20 to-[#141c2e]/10 rounded-[2rem] transform rotate-3" />
-              
               {/* Main container with Google Maps */}
-              <div className="relative bg-white rounded-[2rem] shadow-2xl shadow-[#141c2e]/20 overflow-hidden hero-map-container">
+              <div 
+                ref={mapRef}
+                className="relative bg-white rounded-2xl border-2 border-[#f97015]/20 shadow-lg overflow-hidden hover:border-[#f97015]/40 transition-all duration-300"
+              >
                 <div className="aspect-square relative">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
-                    className="absolute inset-0 w-full h-full border-0 hero-map-iframe"
+                    className="absolute inset-0 w-full h-full border-0"
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     title="Store Location Map"
+                    style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
                   />
+                  
+                  {/* Click overlay */}
+                  {!mapActive && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center bg-black/5 cursor-pointer group"
+                      onClick={() => setMapActive(true)}
+                    >
+                      <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-[#f97015]/20 group-hover:border-[#f97015]/40 transition-all">
+                        <p className="text-sm font-medium text-[#141c2e] flex items-center gap-2">
+                          <MapPin size={16} className="text-[#f97015]" />
+                          Klik om kaart te activeren
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              
-              {/* Floating card */}
-              <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-4 hidden sm:block border border-[#f97015]/10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#f97015]/10 flex items-center justify-center">
-                    <MapPin size={18} className="text-[#f97015]" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#141c2e]/50">Afhaallocatie</p>
-                    <p className="text-sm font-medium text-[#141c2e]">{storeAddress}</p>
+                
+                {/* Location overlay */}
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 border border-neutral-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
+                        <MapPin size={18} className="text-[#f97015]" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#141c2e]/60 font-medium uppercase tracking-wider">Afhaallocatie</p>
+                        <p className="text-sm font-semibold text-[#141c2e]">{storeAddress}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

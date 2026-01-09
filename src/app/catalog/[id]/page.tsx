@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { NewHeader, NewFooter } from '@/components/catalog'
 import { 
   ArrowLeft, 
   Package, 
@@ -28,6 +29,8 @@ interface StoreSettings {
   store_name: string
   store_address: string
   store_logo_url: string
+  store_description?: string
+  store_email?: string
 }
 
 export default function ProductDetailPage() {
@@ -37,6 +40,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Item | null>(null)
   const [category, setCategory] = useState<Category | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -55,10 +59,11 @@ export default function ProductDetailPage() {
     const loadData = async () => {
       setLoading(true)
       
-      const [productRes, rateRes, settingsRes] = await Promise.all([
+      const [productRes, rateRes, settingsRes, categoriesRes] = await Promise.all([
         supabase.from('items').select('*').eq('id', productId).single(),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
-        supabase.from('store_settings').select('*')
+        supabase.from('store_settings').select('*'),
+        supabase.from('categories').select('*').eq('is_active', true).order('name')
       ])
 
       if (productRes.data) {
@@ -90,9 +95,13 @@ export default function ProductDetailPage() {
           whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
           store_name: settingsMap.store_name || 'NextX',
           store_address: settingsMap.store_address || 'Commewijne, Noord',
-          store_logo_url: validLogoUrl
+          store_logo_url: validLogoUrl,
+          store_description: settingsMap.store_description || '',
+          store_email: settingsMap.store_email || ''
         })
       }
+
+      if (categoriesRes.data) setCategories(categoriesRes.data)
 
       setLoading(false)
     }
@@ -178,73 +187,29 @@ export default function ProductDetailPage() {
   const total = price * quantity
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-200/80 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Back button */}
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-neutral-500 hover:text-neutral-900 transition-colors min-h-[44px] min-w-[44px] -ml-2 pl-2"
-            >
-              <ArrowLeft size={20} />
-              <span className="hidden sm:inline">Terug</span>
-            </button>
-
-            {/* Store name */}
-            <Link href="/catalog" className="flex items-center gap-2">
-              {settings.store_logo_url ? (
-                <Image
-                  src={settings.store_logo_url}
-                  alt={settings.store_name}
-                  width={32}
-                  height={32}
-                  className="rounded-lg"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-                  <Store size={16} className="text-white" />
-                </div>
-              )}
-              <span className="font-semibold text-neutral-900">{settings.store_name}</span>
-            </Link>
-
-            {/* Currency toggle */}
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-neutral-100 border border-neutral-200">
-              <button
-                onClick={() => setCurrency('SRD')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                  currency === 'SRD' 
-                    ? 'bg-orange-500 text-white shadow-sm' 
-                    : 'text-neutral-500 hover:text-neutral-900'
-                }`}
-              >
-                SRD
-              </button>
-              <button
-                onClick={() => setCurrency('USD')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                  currency === 'USD' 
-                    ? 'bg-orange-500 text-white shadow-sm' 
-                    : 'text-neutral-500 hover:text-neutral-900'
-                }`}
-              >
-                USD
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <NewHeader
+        storeName={settings.store_name}
+        logoUrl={settings.store_logo_url}
+        categories={categories}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        cartCount={0}
+        onCartClick={() => {}}
+        searchQuery=""
+        onSearchChange={() => {}}
+        selectedCategory=""
+        onCategoryChange={() => {}}
+      />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto">
+      <main className="max-w-7xl mx-auto bg-white">
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
           {/* Image Gallery - Left Column */}
           <div className="relative">
             {/* Main Image */}
-            <div className="aspect-square bg-white relative border-b lg:border-b-0 lg:border-r border-neutral-200">
+            <div className="aspect-square bg-white relative border border-neutral-200 rounded-2xl overflow-hidden shadow-sm lg:border-r-0 lg:rounded-r-none">
               {images.length > 0 ? (
                 <>
                   <Image
@@ -550,6 +515,18 @@ export default function ProductDetailPage() {
 
       {/* Bottom padding for mobile sticky CTA */}
       <div className="lg:hidden h-40" />
+
+      {/* Footer */}
+      <NewFooter
+        storeName={settings.store_name}
+        logoUrl={settings.store_logo_url}
+        storeDescription={settings.store_description || ''}
+        storeAddress={settings.store_address}
+        whatsappNumber={settings.whatsapp_number}
+        storeEmail={settings.store_email || ''}
+        categories={categories}
+        onCategoryClick={() => {}}
+      />
     </div>
   )
 }

@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { MessageCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import FloatingWhatsApp from '@/components/FloatingWhatsApp'
 
 import {
   NewHeader,
@@ -754,6 +754,7 @@ export default function NewCatalogPage() {
                 currency={currency}
                 onAddToCart={addToCartById}
                 viewAllClick={() => setSelectedCategory(category.id)}
+                bgColor={category.name === 'In-Ear Accessories' ? 'neutral-50' : 'white'}
               />
             ))}
 
@@ -789,15 +790,10 @@ export default function NewCatalogPage() {
         }}
       />
 
-      {/* Mobile WhatsApp FAB */}
-      <a
-        href={`https://wa.me/${settings.whatsapp_number.replace(/[^0-9]/g, '')}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="md:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-lg shadow-green-500/30 hover:scale-105 transition-transform"
-      >
-        <MessageCircle size={24} className="text-white" />
-      </a>
+      {/* Floating WhatsApp Button */}
+      <FloatingWhatsApp 
+        whatsappNumber={settings.whatsapp_number}
+      />
 
       {/* Cart Drawer */}
       <NewCartDrawer

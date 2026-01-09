@@ -22,6 +22,7 @@ interface NewProductCarouselProps {
   onAddToCart?: (productId: string) => void
   viewAllHref?: string
   viewAllClick?: () => void
+  bgColor?: 'white' | 'neutral-50'
 }
 
 export function NewProductCarousel({ 
@@ -31,7 +32,8 @@ export function NewProductCarousel({
   currency, 
   onAddToCart,
   viewAllHref,
-  viewAllClick
+  viewAllClick,
+  bgColor = 'white'
 }: NewProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -47,8 +49,10 @@ export function NewProductCarousel({
 
   if (products.length === 0) return null
 
+  const backgroundClass = bgColor === 'neutral-50' ? 'bg-neutral-50' : 'bg-white'
+
   return (
-    <section className="py-10 bg-white">
+    <section className={`py-10 ${backgroundClass}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
