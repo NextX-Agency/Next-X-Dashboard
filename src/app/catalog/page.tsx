@@ -165,18 +165,45 @@ export default function NewCatalogPage() {
 
   // Sync cart with items
   useEffect(() => {
-    if (items.length > 0 && cart.length > 0) {
-      const validCart = cart.filter(c => items.some(i => i.id === c.item.id))
+    if ((items.length > 0 || comboItems.length > 0) && cart.length > 0) {
+      const allItems = [...items, ...comboItems]
+      const validCart = cart.filter(c => allItems.some(i => i.id === c.item.id))
       const syncedCart = validCart.map(c => {
-        const updatedItem = items.find(i => i.id === c.item.id)
-        return updatedItem ? { ...c, item: updatedItem } : c
+        const updatedItem = allItems.find(i => i.id === c.item.id)
+        if (updatedItem) {
+          // Ensure cart item has correct Item structure
+          const cartItem: Item = {
+            id: updatedItem.id,
+            name: updatedItem.name,
+            description: updatedItem.description,
+            image_url: updatedItem.image_url,
+            category_id: updatedItem.category_id,
+            selling_price_srd: updatedItem.selling_price_srd,
+            selling_price_usd: updatedItem.selling_price_usd,
+            cost_price_srd: updatedItem.cost_price_srd,
+            cost_price_usd: updatedItem.cost_price_usd,
+            is_active: updatedItem.is_active,
+            is_public: updatedItem.is_public,
+            is_combo: updatedItem.is_combo,
+            quantity_in_stock: updatedItem.quantity_in_stock,
+            created_at: updatedItem.created_at,
+            updated_at: updatedItem.updated_at,
+            location_id: updatedItem.location_id,
+            sku: updatedItem.sku,
+            barcode: updatedItem.barcode,
+            weight: updatedItem.weight
+          }
+          return { ...c, item: cartItem }
+        }
+        return c
       }).filter(c => c.item !== undefined)
       
-      if (syncedCart.length !== cart.length) {
+      if (syncedCart.length !== cart.length || 
+          syncedCart.some((sc, idx) => sc.item.id !== cart[idx]?.item.id)) {
         setCart(syncedCart)
       }
     }
-  }, [items, cart])
+  }, [items, comboItems, cart])
 
   // Load data
   const loadData = async () => {
@@ -312,12 +339,35 @@ export default function NewCatalogPage() {
 
   // Cart functions
   const addToCart = (item: Item | ItemWithCombo) => {
+    // Convert ItemWithCombo to Item format for cart storage
+    const cartItem: Item = {
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      image_url: item.image_url,
+      category_id: item.category_id,
+      selling_price_srd: item.selling_price_srd,
+      selling_price_usd: item.selling_price_usd,
+      cost_price_srd: item.cost_price_srd,
+      cost_price_usd: item.cost_price_usd,
+      is_active: item.is_active,
+      is_public: item.is_public,
+      is_combo: item.is_combo,
+      quantity_in_stock: item.quantity_in_stock,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      location_id: item.location_id,
+      sku: item.sku,
+      barcode: item.barcode,
+      weight: item.weight
+    }
+    
     setCart(prev => {
-      const existing = prev.find(c => c.item.id === item.id)
+      const existing = prev.find(c => c.item.id === cartItem.id)
       if (existing) {
-        return prev.map(c => c.item.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)
+        return prev.map(c => c.item.id === cartItem.id ? { ...c, quantity: c.quantity + 1 } : c)
       }
-      return [...prev, { item: item as Item, quantity: 1 }]
+      return [...prev, { item: cartItem, quantity: 1 }]
     })
   }
 
@@ -407,7 +457,18 @@ export default function NewCatalogPage() {
   }
 
   const scrollToProducts = () => {
-    productsRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // For mobile, scroll to top instead of products section for better UX
+    const isMobile = window.innerWidth < 768
+    if (isMobile) {
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        if (window.scrollY > 0) {
+          window.scrollTo(0, 0)
+        }
+      }, 50)
+    } else {
+      productsRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   // Get newest products
@@ -515,7 +576,16 @@ export default function NewCatalogPage() {
         onCategoryChange={(catId) => {
           setSelectedCategory(catId)
           setSearchQuery('')
-          if (catId) scrollToProducts()
+          if (catId) {
+            // Ensure smooth scroll to top for mobile
+            setTimeout(() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+              // Fallback for older mobile browsers
+              if (window.scrollY > 0) {
+                window.scrollTo(0, 0)
+              }
+            }, 50)
+          }
         }}
         onLogoClick={() => {
           setSelectedCategory('')
@@ -737,7 +807,14 @@ export default function NewCatalogPage() {
                 onAddToCart={addToCartById}
                 viewAllClick={() => {
                   setSelectedCategory(category.id)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                  // Force scroll to top with multiple strategies for mobile compatibility
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                    // Fallback for older mobile browsers
+                    if (window.scrollY > 0) {
+                      window.scrollTo(0, 0)
+                    }
+                  }, 50)
                 }}
                 bgColor={category.name === 'In-Ear Accessories' ? 'neutral-50' : 'white'}
               />
