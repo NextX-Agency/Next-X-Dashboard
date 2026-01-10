@@ -178,20 +178,14 @@ export default function NewCatalogPage() {
             description: updatedItem.description,
             image_url: updatedItem.image_url,
             category_id: updatedItem.category_id,
+            purchase_price_usd: updatedItem.purchase_price_usd,
             selling_price_srd: updatedItem.selling_price_srd,
             selling_price_usd: updatedItem.selling_price_usd,
-            cost_price_srd: updatedItem.cost_price_srd,
-            cost_price_usd: updatedItem.cost_price_usd,
-            is_active: updatedItem.is_active,
             is_public: updatedItem.is_public,
             is_combo: updatedItem.is_combo,
-            quantity_in_stock: updatedItem.quantity_in_stock,
+            allow_custom_price: updatedItem.allow_custom_price,
             created_at: updatedItem.created_at,
-            updated_at: updatedItem.updated_at,
-            location_id: updatedItem.location_id,
-            sku: updatedItem.sku,
-            barcode: updatedItem.barcode,
-            weight: updatedItem.weight
+            updated_at: updatedItem.updated_at
           }
           return { ...c, item: cartItem }
         }
@@ -346,20 +340,14 @@ export default function NewCatalogPage() {
       description: item.description,
       image_url: item.image_url,
       category_id: item.category_id,
+      purchase_price_usd: item.purchase_price_usd,
       selling_price_srd: item.selling_price_srd,
       selling_price_usd: item.selling_price_usd,
-      cost_price_srd: item.cost_price_srd,
-      cost_price_usd: item.cost_price_usd,
-      is_active: item.is_active,
       is_public: item.is_public,
       is_combo: item.is_combo,
-      quantity_in_stock: item.quantity_in_stock,
+      allow_custom_price: item.allow_custom_price,
       created_at: item.created_at,
-      updated_at: item.updated_at,
-      location_id: item.location_id,
-      sku: item.sku,
-      barcode: item.barcode,
-      weight: item.weight
+      updated_at: item.updated_at
     }
     
     setCart(prev => {
