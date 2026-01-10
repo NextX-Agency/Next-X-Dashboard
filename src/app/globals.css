@@ -965,6 +965,10 @@ button, a, input, select, textarea {
   animation-fill-mode: both;
 }
 
+.animate-fadeIn {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
 .fade-in {
   animation-name: fade-in;
 }

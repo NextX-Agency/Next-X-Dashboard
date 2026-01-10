@@ -466,7 +466,7 @@ export default function ProductDetailPage() {
               <button
                 onClick={handleAddToCart}
                 disabled={addedToCart}
-                className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg ${
+                className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
                   addedToCart
                     ? 'bg-green-500 text-white shadow-green-500/20'
                     : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
@@ -527,7 +527,7 @@ export default function ProductDetailPage() {
         <button
           onClick={handleAddToCart}
           disabled={addedToCart}
-          className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
+          className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg mb-4 ${
             addedToCart
               ? 'bg-green-500 text-white shadow-green-500/20'
               : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
