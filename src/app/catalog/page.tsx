@@ -445,18 +445,7 @@ export default function NewCatalogPage() {
   }
 
   const scrollToProducts = () => {
-    // For mobile, scroll to top instead of products section for better UX
-    const isMobile = window.innerWidth < 768
-    if (isMobile) {
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-        if (window.scrollY > 0) {
-          window.scrollTo(0, 0)
-        }
-      }, 50)
-    } else {
-      productsRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
+    productsRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   // Get newest products
@@ -520,10 +509,10 @@ export default function NewCatalogPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#141c2e] flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-white/60">Laden...</p>
+          <p className="text-sm text-neutral-500">Laden...</p>
         </div>
       </div>
     )
