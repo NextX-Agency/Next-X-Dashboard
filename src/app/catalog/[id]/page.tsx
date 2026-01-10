@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { NewHeader, NewFooter } from '@/components/catalog'
+import { NewHeader, NewFooter, NewCartDrawer } from '@/components/catalog'
 import { 
   ArrowLeft, 
   Package, 
@@ -25,9 +25,19 @@ import {
 
 type Item = Database['public']['Tables']['items']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
+type Location = Database['public']['Tables']['locations']['Row']
 
 interface CartItem {
   item: Item
+  quantity: number
+}
+
+// Cart item format for drawer component
+interface DrawerCartItem {
+  id: string
+  name: string
+  imageUrl?: string | null
+  price: number
   quantity: number
 }
 
@@ -51,6 +61,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Item | null>(null)
   const [category, setCategory] = useState<Category | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
+  const [locations, setLocations] = useState<Location[]>([])
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -64,6 +75,15 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1)
   const [cartCount, setCartCount] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
+  
+  // Cart drawer states
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState('')
+  const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'custom'>('today')
+  const [customPickupDate, setCustomPickupDate] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
 
   // Load cart count from localStorage
   const loadCartCount = useCallback(() => {
@@ -84,11 +104,12 @@ export default function ProductDetailPage() {
     const loadData = async () => {
       setLoading(true)
       
-      const [productRes, rateRes, settingsRes, categoriesRes] = await Promise.all([
+      const [productRes, rateRes, settingsRes, categoriesRes, locationsRes] = await Promise.all([
         supabase.from('items').select('*').eq('id', productId).single(),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
         supabase.from('store_settings').select('*'),
-        supabase.from('categories').select('*').eq('is_active', true).order('name')
+        supabase.from('categories').select('*').eq('is_active', true).order('name'),
+        supabase.from('locations').select('*').eq('is_active', true).order('name')
       ])
 
       if (productRes.data) {
@@ -126,6 +147,11 @@ export default function ProductDetailPage() {
       }
 
       if (categoriesRes.data) setCategories(categoriesRes.data)
+      
+      if (locationsRes.data && locationsRes.data.length > 0) {
+        setLocations(locationsRes.data)
+        setSelectedLocation(locationsRes.data[0].id)
+      }
 
       setLoading(false)
     }
@@ -188,15 +214,107 @@ export default function ProductDetailPage() {
     }
   }, [product, quantity])
 
-  // Navigate to cart (catalog page with cart open)
+  // Open cart drawer
   const handleCartClick = useCallback(() => {
-    router.push('/catalog')
-  }, [router])
+    setIsCartOpen(true)
+  }, [])
+
+  // Load cart items from localStorage
+  const loadCartItems = useCallback((): DrawerCartItem[] => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        return cart.map(cartItem => ({
+          id: cartItem.item.id,
+          name: cartItem.item.name,
+          imageUrl: cartItem.item.image_url,
+          price: currency === 'USD' 
+            ? cartItem.item.selling_price_usd || (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : 0)
+            : cartItem.item.selling_price_srd || (cartItem.item.selling_price_usd ? cartItem.item.selling_price_usd * exchangeRate : 0),
+          quantity: cartItem.quantity
+        }))
+      }
+      return []
+    } catch (e) {
+      console.error('Failed to load cart items:', e)
+      return []
+    }
+  }, [currency, exchangeRate])
+
+  // Update cart quantity
+  const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        let cart: CartItem[] = JSON.parse(savedCart)
+        
+        if (quantity === 0) {
+          // Remove item
+          cart = cart.filter(item => item.item.id !== itemId)
+        } else {
+          // Update quantity
+          const itemIndex = cart.findIndex(item => item.item.id === itemId)
+          if (itemIndex >= 0) {
+            cart[itemIndex].quantity = quantity
+          }
+        }
+        
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+        loadCartCount()
+      }
+    } catch (e) {
+      console.error('Failed to update cart quantity:', e)
+    }
+  }, [loadCartCount])
+
+  // Add one to cart
+  const handleAddOne = useCallback((itemId: string) => {
+    handleUpdateQuantity(itemId, loadCartItems().find(item => item.id === itemId)?.quantity + 1 || 1)
+  }, [handleUpdateQuantity, loadCartItems])
+
+  // Generate WhatsApp order message
+  const generateOrderMessage = useCallback(() => {
+    const cartItems = loadCartItems()
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const selectedLocationData = locations.find(l => l.id === selectedLocation)
+    const pickupDateText = pickupDate === 'today' ? 'Vandaag' : pickupDate === 'tomorrow' ? 'Morgen' : customPickupDate
+    
+    let message = `Hallo ${settings.store_name}!\n\n`
+    message += `Ik wil graag de volgende producten ophalen:\n\n`
+    
+    cartItems.forEach(item => {
+      message += `• ${item.name} (${item.quantity}x) - ${formatCurrency(item.price * item.quantity, currency)}\n`
+    })
+    
+    message += `\n━━━━━━━━━━━━━━━━━━\n`
+    message += `💵 Totaal: ${formatCurrency(total, currency)}\n`
+    message += `━━━━━━━━━━━━━━━━━━\n\n`
+    message += `📍 Ophaallocatie: ${selectedLocationData?.name || 'Hoofdvestiging'}\n`
+    message += `📅 Gewenste ophaaldatum: ${pickupDateText}\n`
+    message += `👤 Naam: ${customerName}\n`
+    message += `📱 Telefoon: ${customerPhone}\n`
+    
+    if (customerNotes.trim()) {
+      message += `📝 Opmerkingen: ${customerNotes}\n`
+    }
+    
+    message += `\nBedankt!`
+    return message
+  }, [loadCartItems, locations, selectedLocation, pickupDate, customPickupDate, settings.store_name, currency, customerName, customerPhone, customerNotes])
+
+  // Submit WhatsApp order
+  const handleSubmitOrder = useCallback(() => {
+    const message = generateOrderMessage()
+    const whatsappNumber = settings.whatsapp_number.replace(/[^0-9]/g, '')
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
+  }, [generateOrderMessage, settings.whatsapp_number])
 
   // Computed values
   const unitPrice = getPrice()
   const totalPrice = unitPrice * quantity
   const images = product?.image_url ? [product.image_url] : []
+  const cartItems = loadCartItems()
 
   // Loading state
   if (loading) {
@@ -557,6 +675,33 @@ export default function ProductDetailPage() {
         storeEmail={settings.store_email || ''}
         categories={categories}
         onCategoryClick={() => {}}
+      />
+      
+      {/* Cart Drawer */}
+      <NewCartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        currency={currency}
+        storeName={settings.store_name}
+        whatsappNumber={settings.whatsapp_number}
+        storeAddress={settings.store_address}
+        locations={locations}
+        selectedLocation={selectedLocation}
+        onLocationChange={setSelectedLocation}
+        pickupDate={pickupDate}
+        onPickupDateChange={setPickupDate}
+        customPickupDate={customPickupDate}
+        onCustomPickupDateChange={setCustomPickupDate}
+        onUpdateQuantity={handleUpdateQuantity}
+        onAddOne={handleAddOne}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
+        customerNotes={customerNotes}
+        onCustomerNotesChange={setCustomerNotes}
+        onSubmitOrder={handleSubmitOrder}
       />
     </div>
   )

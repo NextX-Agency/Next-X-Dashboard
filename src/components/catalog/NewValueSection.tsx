@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { MapPin, Phone, MessageCircle, Clock, Shield, Truck } from 'lucide-react'
 
 interface NewValueSectionProps {
@@ -85,13 +86,13 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
 
   return (
-    <section className="py-16 bg-[#f8f7f4]">
+    <section className="py-16 bg-gradient-to-br from-[#f97015] to-[#e5640d]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#141c2e] mb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
             Klaar om te bestellen?
           </h2>
-          <p className="text-[#141c2e]/60 mb-8">
+          <p className="text-white/80 mb-8">
             Neem direct contact op via WhatsApp voor vragen of om je bestelling te plaatsen. 
             We reageren meestal binnen een uur.
           </p>
@@ -99,12 +100,18 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
             href={`https://wa.me/${whatsappClean}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-[#25D366] text-white font-medium hover:bg-[#22c55e] transition-colors shadow-lg shadow-[#25D366]/30"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white text-[#f97015] font-medium hover:bg-neutral-50 transition-colors shadow-lg"
           >
-            <MessageCircle size={20} />
+            <Image 
+              src="/whatsapp.png" 
+              alt="WhatsApp" 
+              width={20} 
+              height={20} 
+              className="w-5 h-5"
+            />
             Chat met ons op WhatsApp
           </a>
-          <p className="mt-6 text-sm text-[#141c2e]/40">
+          <p className="mt-6 text-sm text-white/60">
             {whatsappNumber}
           </p>
         </div>

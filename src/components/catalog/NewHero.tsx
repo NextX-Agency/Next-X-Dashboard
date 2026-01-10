@@ -124,7 +124,7 @@ export function NewHero({
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Store Location Map"
+                    title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
                     style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
                   />
                   
@@ -139,24 +139,12 @@ export function NewHero({
                           <MapPin size={16} className="text-[#f97015]" />
                           Klik om kaart te activeren
                         </p>
+                        <p className="text-xs text-[#141c2e]/60 mt-1">
+                          Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108
+                        </p>
                       </div>
                     </div>
                   )}
-                </div>
-                
-                {/* Location overlay */}
-                <div className="absolute bottom-4 left-4 right-4">
-                  <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-4 border border-neutral-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
-                        <MapPin size={18} className="text-[#f97015]" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#141c2e]/60 font-medium uppercase tracking-wider">Afhaallocatie</p>
-                        <p className="text-sm font-semibold text-[#141c2e]">{storeAddress}</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

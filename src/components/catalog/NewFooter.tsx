@@ -66,7 +66,13 @@ export function NewFooter({
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
             >
-              <MessageCircle size={16} />
+              <Image 
+                src="/whatsapp-white.png" 
+                alt="WhatsApp" 
+                width={16} 
+                height={16} 
+                className="w-4 h-4"
+              />
               WhatsApp
             </a>
           </div>
@@ -78,21 +84,21 @@ export function NewFooter({
             </h4>
             <ul className="space-y-3">
               <li>
-                <button
-                  onClick={() => onCategoryClick('')}
-                  className="text-sm text-[#141c2e]/60 hover:text-[#f97015] transition-colors"
+                <Link
+                  href="/catalog"
+                  className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium"
                 >
                   Alle Producten
-                </button>
+                </Link>
               </li>
               {categories.slice(0, 5).map((cat) => (
                 <li key={cat.id}>
-                  <button
-                    onClick={() => onCategoryClick(cat.id)}
-                    className="text-sm text-[#141c2e]/60 hover:text-[#f97015] transition-colors"
+                  <Link
+                    href={`/catalog?category=${cat.id}`}
+                    className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium"
                   >
                     {cat.name}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -105,7 +111,7 @@ export function NewFooter({
             </h4>
             <ul className="space-y-3">
               <li>
-                <Link href="/blog" className="text-sm text-[#141c2e]/60 hover:text-[#f97015] transition-colors">
+                <Link href="/blog" className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium">
                   Blog
                 </Link>
               </li>
@@ -144,12 +150,18 @@ export function NewFooter({
                   href={`https://wa.me/${whatsappClean}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-start gap-3 group"
+                  className="flex items-start gap-3 group hover:bg-[#f97015]/5 -m-2 p-2 rounded-lg transition-all duration-300"
                 >
-                  <Phone size={16} className="text-[#f97015] mt-0.5 flex-shrink-0" />
+                  <Image 
+                    src="/whatsapp-white.png" 
+                    alt="WhatsApp" 
+                    width={16} 
+                    height={16} 
+                    className="w-4 h-4 mt-0.5 flex-shrink-0"
+                  />
                   <div>
                     <p className="text-xs text-[#141c2e]/40 mb-0.5">WhatsApp</p>
-                    <p className="text-sm text-[#141c2e] group-hover:text-[#f97015] transition-colors">
+                    <p className="text-sm text-[#f97015] group-hover:text-[#e5640d] font-medium transition-colors">
                       {whatsappNumber}
                     </p>
                   </div>
@@ -159,12 +171,12 @@ export function NewFooter({
                 <li>
                   <a 
                     href={`mailto:${storeEmail}`}
-                    className="flex items-start gap-3 group"
+                    className="flex items-start gap-3 group hover:bg-[#f97015]/5 -m-2 p-2 rounded-lg transition-all duration-300"
                   >
                     <Mail size={16} className="text-[#f97015] mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-xs text-[#141c2e]/40 mb-0.5">E-mail</p>
-                      <p className="text-sm text-[#141c2e] group-hover:text-[#f97015] transition-colors">
+                      <p className="text-sm text-[#f97015] group-hover:text-[#e5640d] font-medium transition-colors">
                         {storeEmail}
                       </p>
                     </div>
