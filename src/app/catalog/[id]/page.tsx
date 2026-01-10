@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -17,12 +17,19 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
-  MessageCircle,
-  Store
+  ShoppingCart,
+  Store,
+  Minus,
+  Plus
 } from 'lucide-react'
 
 type Item = Database['public']['Tables']['items']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
+
+interface CartItem {
+  item: Item
+  quantity: number
+}
 
 interface StoreSettings {
   whatsapp_number: string
@@ -32,6 +39,9 @@ interface StoreSettings {
   store_description?: string
   store_email?: string
 }
+
+// Cart storage key - same as catalog page for consistency
+const CART_STORAGE_KEY = 'nextx-cart'
 
 export default function ProductDetailPage() {
   const params = useParams()
@@ -51,8 +61,23 @@ export default function ProductDetailPage() {
   const [currency, setCurrency] = useState<Currency>('SRD')
   const [loading, setLoading] = useState(true)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'other'>('today')
   const [quantity, setQuantity] = useState(1)
+  const [cartCount, setCartCount] = useState(0)
+  const [addedToCart, setAddedToCart] = useState(false)
+
+  // Load cart count from localStorage
+  const loadCartCount = useCallback(() => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0)
+        setCartCount(count)
+      }
+    } catch (e) {
+      console.error('Failed to load cart:', e)
+    }
+  }, [])
 
   // Load product data
   useEffect(() => {
@@ -87,7 +112,6 @@ export default function ProductDetailPage() {
         settingsRes.data.forEach((s: { key: string; value: string }) => {
           settingsMap[s.key] = s.value
         })
-        // Filter out invalid logo URLs (like /logo.png which doesn't exist)
         const logoUrl = settingsMap.store_logo_url || ''
         const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
         
@@ -107,48 +131,71 @@ export default function ProductDetailPage() {
     }
 
     loadData()
-  }, [productId])
+    loadCartCount()
+  }, [productId, loadCartCount])
 
   // Price calculation
-  const getPrice = (): number => {
+  const getPrice = useCallback((): number => {
     if (!product) return 0
     if (currency === 'USD') {
       return product.selling_price_usd || (product.selling_price_srd ? product.selling_price_srd / exchangeRate : 0)
     }
     return product.selling_price_srd || (product.selling_price_usd ? product.selling_price_usd * exchangeRate : 0)
-  }
+  }, [product, currency, exchangeRate])
 
-  // Generate WhatsApp message
-  const generateWhatsAppMessage = () => {
-    if (!product) return ''
-    
-    const price = getPrice()
-    const total = price * quantity
-    const pickupDateText = pickupDate === 'today' ? 'Vandaag' : pickupDate === 'tomorrow' ? 'Morgen' : 'Anders (neem contact op)'
-    
-    let message = `Hallo ${settings.store_name}!\n\n`
-    message += `Ik wil graag het volgende product ophalen:\n\n`
-    message += `━━━━━━━━━━━━━━━━━━\n`
-    message += `📦 Product: ${product.name}\n`
-    message += `💰 Prijs: ${formatCurrency(price, currency)}\n`
-    message += `🔢 Aantal: ${quantity}\n`
-    message += `💵 Totaal: ${formatCurrency(total, currency)}\n`
-    message += `━━━━━━━━━━━━━━━━━━\n\n`
-    message += `📍 Ophaallocatie: ${settings.store_address}\n`
-    message += `📅 Gewenste ophaaldatum: ${pickupDateText}\n\n`
-    message += `Bedankt!`
-    
-    return message
-  }
+  // Quantity handlers
+  const incrementQuantity = useCallback(() => {
+    setQuantity(q => q + 1)
+  }, [])
 
-  // Open WhatsApp
-  const handleOrderForPickup = () => {
-    const message = generateWhatsAppMessage()
-    const whatsappNumber = settings.whatsapp_number.replace(/[^0-9]/g, '')
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
-  }
+  const decrementQuantity = useCallback(() => {
+    setQuantity(q => Math.max(1, q - 1))
+  }, [])
 
-  // For demo: simulate multiple images from single image
+  // Add to cart handler
+  const handleAddToCart = useCallback(() => {
+    if (!product) return
+
+    try {
+      // Get existing cart
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      let cart: CartItem[] = savedCart ? JSON.parse(savedCart) : []
+
+      // Check if product already exists in cart
+      const existingIndex = cart.findIndex(item => item.item.id === product.id)
+
+      if (existingIndex >= 0) {
+        // Update quantity
+        cart[existingIndex].quantity += quantity
+      } else {
+        // Add new item
+        cart.push({ item: product, quantity })
+      }
+
+      // Save to localStorage
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+
+      // Update cart count
+      const newCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+      setCartCount(newCount)
+
+      // Show success feedback
+      setAddedToCart(true)
+      setTimeout(() => setAddedToCart(false), 2000)
+
+    } catch (e) {
+      console.error('Failed to add to cart:', e)
+    }
+  }, [product, quantity])
+
+  // Navigate to cart (catalog page with cart open)
+  const handleCartClick = useCallback(() => {
+    router.push('/catalog')
+  }, [router])
+
+  // Computed values
+  const unitPrice = getPrice()
+  const totalPrice = unitPrice * quantity
   const images = product?.image_url ? [product.image_url] : []
 
   // Loading state
@@ -156,7 +203,7 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm text-neutral-500">Product laden...</p>
         </div>
       </div>
@@ -173,7 +220,7 @@ export default function ProductDetailPage() {
           <p className="text-sm text-neutral-500 mb-6">Dit product bestaat niet of is niet meer beschikbaar.</p>
           <Link
             href="/catalog"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#f97015] hover:bg-[#e5640d] text-white font-medium transition-colors"
           >
             <ArrowLeft size={18} />
             Terug naar catalogus
@@ -182,9 +229,6 @@ export default function ProductDetailPage() {
       </div>
     )
   }
-
-  const price = getPrice()
-  const total = price * quantity
 
   return (
     <div className="min-h-screen bg-white">
@@ -195,16 +239,17 @@ export default function ProductDetailPage() {
         categories={categories}
         currency={currency}
         onCurrencyChange={setCurrency}
-        cartCount={0}
-        onCartClick={() => {}}
+        cartCount={cartCount}
+        onCartClick={handleCartClick}
         searchQuery=""
         onSearchChange={() => {}}
         selectedCategory=""
         onCategoryChange={() => {}}
+        onLogoClick={() => router.push('/catalog')}
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8">
+      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8 pb-40 lg:pb-8">
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
           {/* Image Gallery - Left Column */}
           <div className="relative">
@@ -221,7 +266,7 @@ export default function ProductDetailPage() {
                     unoptimized
                   />
                   
-                  {/* Image navigation arrows (for future multiple images) */}
+                  {/* Image navigation arrows */}
                   {images.length > 1 && (
                     <>
                       <button
@@ -264,7 +309,7 @@ export default function ProductDetailPage() {
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
                       className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                        idx === currentImageIndex ? 'bg-orange-500' : 'bg-neutral-400/50'
+                        idx === currentImageIndex ? 'bg-[#f97015]' : 'bg-neutral-400/50'
                       }`}
                     />
                   ))}
@@ -272,7 +317,7 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Thumbnail strip (for desktop, when multiple images) */}
+            {/* Thumbnail strip */}
             {images.length > 1 && (
               <div className="hidden lg:flex gap-3 p-4 bg-white">
                 {images.map((img, idx) => (
@@ -281,7 +326,7 @@ export default function ProductDetailPage() {
                     onClick={() => setCurrentImageIndex(idx)}
                     className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-colors ${
                       idx === currentImageIndex 
-                        ? 'border-orange-500' 
+                        ? 'border-[#f97015]' 
                         : 'border-neutral-200 hover:border-neutral-300'
                     }`}
                   >
@@ -319,11 +364,11 @@ export default function ProductDetailPage() {
               {product.name}
             </h1>
 
-            {/* Price */}
+            {/* Unit Price */}
             <div className="mb-6">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 bg-clip-text text-transparent">
-                  {formatCurrency(price, currency)}
+                <span className="text-3xl sm:text-4xl font-black text-[#f97015]">
+                  {formatCurrency(unitPrice, currency)}
                 </span>
                 {currency === 'SRD' && product.selling_price_usd && (
                   <span className="text-sm text-neutral-500">
@@ -363,158 +408,144 @@ export default function ProductDetailPage() {
             {/* Features */}
             <div className="grid grid-cols-2 gap-3 mb-8">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <MapPin size={18} className="text-orange-500" />
+                <MapPin size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Ophalen in winkel</span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Clock size={18} className="text-orange-500" />
+                <Clock size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Snel beschikbaar</span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Shield size={18} className="text-orange-500" />
+                <Shield size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Kwaliteit gegarandeerd</span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Check size={18} className="text-orange-500" />
+                <Check size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Op voorraad</span>
               </div>
             </div>
 
             {/* Order Section - Desktop */}
             <div className="hidden lg:block border-t border-neutral-200 pt-6">
-              {/* Quantity Selector */}
-              <div className="mb-4">
-                <label className="text-sm font-medium text-neutral-500 mb-2 block">Aantal</label>
-                <div className="flex items-center gap-1 w-fit p-1 rounded-xl bg-neutral-100 border border-neutral-200">
-                  <button
-                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                    className="w-11 h-11 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-white transition-colors"
-                  >
-                    -
-                  </button>
-                  <span className="w-12 text-center text-lg font-semibold text-neutral-900">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(q => q + 1)}
-                    className="w-11 h-11 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-white transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Pickup Date Selection */}
-              <div className="mb-6">
-                <label className="text-sm font-medium text-neutral-500 mb-2 block">Gewenste ophaaldatum</label>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'today', label: 'Vandaag' },
-                    { value: 'tomorrow', label: 'Morgen' },
-                    { value: 'other', label: 'Anders' }
-                  ].map((option) => (
+              {/* Quantity and Total Row */}
+              <div className="flex items-center justify-between mb-6">
+                {/* Quantity Selector */}
+                <div>
+                  <label className="text-sm font-medium text-neutral-500 mb-2 block">Aantal</label>
+                  <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
                     <button
-                      key={option.value}
-                      onClick={() => setPickupDate(option.value as typeof pickupDate)}
-                      className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-                        pickupDate === option.value
-                          ? 'bg-orange-500 text-white shadow-sm'
-                          : 'bg-neutral-100 border border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:border-neutral-300'
-                      }`}
+                      onClick={decrementQuantity}
+                      className="w-12 h-12 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+                      aria-label="Verminder aantal"
                     >
-                      {option.label}
+                      <Minus size={18} />
                     </button>
-                  ))}
+                    <span className="w-14 text-center text-lg font-semibold text-neutral-900 select-none">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={incrementQuantity}
+                      className="w-12 h-12 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+                      aria-label="Verhoog aantal"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Total Price */}
+                <div className="text-right">
+                  <p className="text-sm font-medium text-neutral-500 mb-1">Totaal</p>
+                  <p className="text-3xl font-bold text-neutral-900">
+                    {formatCurrency(totalPrice, currency)}
+                  </p>
                 </div>
               </div>
 
-              {/* Total */}
-              {quantity > 1 && (
-                <div className="flex items-center justify-between py-4 border-t border-neutral-200 mb-4">
-                  <span className="text-neutral-500">Totaal ({quantity} stuks)</span>
-                  <span className="text-2xl font-bold text-neutral-900">{formatCurrency(total, currency)}</span>
-                </div>
-              )}
-
-              {/* Order Button */}
+              {/* Add to Cart Button */}
               <button
-                onClick={handleOrderForPickup}
-                className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#22c55e] hover:to-[#10b981] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30"
+                onClick={handleAddToCart}
+                disabled={addedToCart}
+                className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg ${
+                  addedToCart
+                    ? 'bg-green-500 text-white shadow-green-500/20'
+                    : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
+                }`}
               >
-                <MessageCircle size={22} strokeWidth={2} />
-                <span>Bestellen voor ophalen via WhatsApp</span>
+                {addedToCart ? (
+                  <>
+                    <Check size={22} strokeWidth={2.5} />
+                    <span>Toegevoegd aan winkelwagen!</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart size={22} strokeWidth={2} />
+                    <span>Plaats in winkelwagen</span>
+                  </>
+                )}
               </button>
-
-              <p className="text-xs text-neutral-500 text-center mt-3">
-                Na het klikken wordt WhatsApp geopend met uw bestelling
-              </p>
             </div>
           </div>
         </div>
       </main>
 
       {/* Mobile Sticky Bottom CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-4 pb-8 safe-area-bottom">
-        {/* Quantity & Date Row */}
-        <div className="flex items-center gap-3 mb-3">
-          {/* Quantity */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 border border-neutral-200">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 pt-4 pb-6 safe-area-bottom">
+        {/* Quantity and Total Row */}
+        <div className="flex items-center justify-between mb-4">
+          {/* Quantity Selector */}
+          <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
             <button
-              onClick={() => setQuantity(q => Math.max(1, q - 1))}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-white transition-colors"
+              onClick={decrementQuantity}
+              className="w-11 h-11 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300 transition-colors"
+              aria-label="Verminder aantal"
             >
-              -
+              <Minus size={18} />
             </button>
-            <span className="w-8 text-center text-base font-semibold text-neutral-900">
+            <span className="w-10 text-center text-base font-semibold text-neutral-900 select-none">
               {quantity}
             </span>
             <button
-              onClick={() => setQuantity(q => q + 1)}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-white transition-colors"
+              onClick={incrementQuantity}
+              className="w-11 h-11 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300 transition-colors"
+              aria-label="Verhoog aantal"
             >
-              +
+              <Plus size={18} />
             </button>
           </div>
 
-          {/* Pickup Date Pills */}
-          <div className="flex gap-2 flex-1 overflow-x-auto">
-            {[
-              { value: 'today', label: 'Vandaag' },
-              { value: 'tomorrow', label: 'Morgen' }
-            ].map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setPickupDate(option.value as typeof pickupDate)}
-                className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                  pickupDate === option.value
-                    ? 'bg-orange-500 text-white shadow-sm'
-                    : 'bg-neutral-100 border border-neutral-200 text-neutral-600'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Price & Order Button */}
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex-shrink-0">
+          {/* Total Price */}
+          <div className="text-right">
             <p className="text-xs text-neutral-500">Totaal</p>
-            <p className="text-xl font-bold text-neutral-900">{formatCurrency(total, currency)}</p>
+            <p className="text-xl font-bold text-neutral-900">
+              {formatCurrency(totalPrice, currency)}
+            </p>
           </div>
-          <button
-            onClick={handleOrderForPickup}
-            className="flex-1 h-14 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#22c55e] hover:to-[#10b981] text-white font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg shadow-green-500/20 min-h-[56px]"
-          >
-            <MessageCircle size={20} strokeWidth={2} />
-            <span>Bestel via WhatsApp</span>
-          </button>
         </div>
-      </div>
 
-      {/* Bottom padding for mobile sticky CTA */}
-      <div className="lg:hidden h-30" />
+        {/* Add to Cart Button */}
+        <button
+          onClick={handleAddToCart}
+          disabled={addedToCart}
+          className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
+            addedToCart
+              ? 'bg-green-500 text-white shadow-green-500/20'
+              : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
+          }`}
+        >
+          {addedToCart ? (
+            <>
+              <Check size={20} strokeWidth={2.5} />
+              <span>Toegevoegd!</span>
+            </>
+          ) : (
+            <>
+              <ShoppingCart size={20} strokeWidth={2} />
+              <span>Plaats in winkelwagen</span>
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Footer */}
       <NewFooter
