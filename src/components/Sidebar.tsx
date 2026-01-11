@@ -62,7 +62,7 @@ export default function Sidebar() {
     {
       title: 'Store',
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { name: 'View Catalog', icon: Store, path: '/catalog', external: true },
         { name: 'Products', icon: Package, path: '/items' },
         { name: 'Stock', icon: Layers, path: '/stock' },

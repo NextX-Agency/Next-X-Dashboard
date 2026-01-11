@@ -123,7 +123,7 @@ const [imageUrl, setImageUrl] = useState<string | null>(null)
           </div>
 
           {/* Features List */}
-          <div className="mt-6 grid grid-cols-2 gap-4">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
               <div className="text-2xl mb-2">🔒</div>
               <h4 className="font-semibold text-foreground text-sm mb-1">Secure</h4>

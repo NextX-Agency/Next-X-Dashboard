@@ -18,7 +18,7 @@ export default function BottomNav() {
 
   // Context-aware navigation - show CMS nav when in CMS section
   const defaultNavItems = [
-    { name: 'Home', icon: LayoutDashboard, path: '/' },
+    { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Sales', icon: ShoppingCart, path: '/sales' },
     { name: 'Stock', icon: Package, path: '/stock' },
     { name: 'Reports', icon: BarChart3, path: '/reports' },
@@ -30,7 +30,7 @@ export default function BottomNav() {
     { name: 'Blog', icon: FileText, path: '/cms/blog' },
     { name: 'Banners', icon: Layers, path: '/cms/banners' },
     { name: 'Pages', icon: FileText, path: '/cms/pages' },
-    { name: 'Home', icon: LayoutDashboard, path: '/' },
+    { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
   ]
 
   const navItems = isCMSSection ? cmsNavItems : defaultNavItems
@@ -42,7 +42,7 @@ export default function BottomNav() {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.path || 
-            (item.path !== '/' && item.path !== '/cms' && pathname.startsWith(item.path))
+            (item.path !== '/dashboard' && item.path !== '/cms' && pathname.startsWith(item.path))
           const isExactCMS = item.path === '/cms' && pathname === '/cms'
           const isActiveState = isActive || isExactCMS
           

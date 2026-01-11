@@ -25,7 +25,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   // Public routes - these don't show admin layout (sidebar, topbar, etc.)
-  const publicRoutes = ['/login', '/catalog', '/blog', '/p/']
+  const publicRoutes = ['/login', '/catalog', '/blog', '/p/', '/faq', '/testimonials']
   const isPublicRoute = publicRoutes.some(route => 
     pathname === route || pathname.startsWith(route)
   )

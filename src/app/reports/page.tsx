@@ -495,7 +495,7 @@ export default function ReportsPage() {
                   <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">{stat.name}</h4>
                   <Badge variant="orange">{stat.sales} sales</Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-[hsl(var(--success-muted))] rounded-xl p-3.5 border border-[hsl(var(--success))]/20">
                     <div className="text-xs text-muted-foreground mb-1 font-medium">Profit ({displayCurrency})</div>
                     <div className="text-2xl font-bold text-[hsl(var(--success))]">

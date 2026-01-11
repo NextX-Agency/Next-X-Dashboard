@@ -496,7 +496,7 @@ export default function OrdersPage() {
 
       <PageContainer>
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <StatBox 
             label={`Total Orders (${displayCurrency})`}
             value={formatCurrency(getTotalOrdersInDisplayCurrency(), displayCurrency)} 

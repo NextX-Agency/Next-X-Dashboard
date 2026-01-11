@@ -115,7 +115,7 @@ export function NewHeader({
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-8">
+            <nav className="hidden lg:flex items-center gap-6">
               <button
                 onClick={() => onCategoryChange('')}
                 className={`text-sm font-medium transition-colors ${
@@ -124,34 +124,43 @@ export function NewHeader({
                     : 'text-[#141c2e]/70 hover:text-[#141c2e]'
                 }`}
               >
-                Alle Producten
+                Producten
               </button>
-              {categories.slice(0, 5).map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => onCategoryChange(cat.id)}
-                  className={`text-sm font-medium transition-colors ${
-                    selectedCategory === cat.id 
-                      ? 'text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:text-[#141c2e]'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-              {categories.length > 5 && (
+              <Link
+                href="/blog"
+                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
+              >
+                Blog
+              </Link>
+              <Link
+                href="/faq"
+                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
+              >
+                FAQ
+              </Link>
+              <Link
+                href="/testimonials"
+                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
+              >
+                Reviews
+              </Link>
+              {categories.length > 0 && (
                 <div className="relative group">
                   <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors">
-                    Meer
+                    Categorieën
                     <ChevronDown size={14} />
                   </button>
                   <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <div className="bg-white rounded-xl shadow-xl border border-neutral-200 py-2 min-w-[160px]">
-                      {categories.slice(5).map((cat) => (
+                    <div className="bg-white rounded-xl shadow-xl border border-neutral-200 py-2 min-w-[180px]">
+                      {categories.map((cat) => (
                         <button
                           key={cat.id}
                           onClick={() => onCategoryChange(cat.id)}
-                          className="w-full px-4 py-2 text-sm text-left text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e] transition-colors"
+                          className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                            selectedCategory === cat.id
+                              ? 'bg-[#f97015]/10 text-[#f97015]'
+                              : 'text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e]'
+                          }`}
                         >
                           {cat.name}
                         </button>
@@ -227,19 +236,46 @@ export function NewHeader({
         {showMobileMenu && (
           <div className="lg:hidden border-t border-neutral-100 bg-white">
             <div className="px-4 py-4 space-y-1">
-              <button
-                onClick={() => {
-                  onCategoryChange('')
-                  setShowMobileMenu(false)
-                }}
-                className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
-                  !selectedCategory 
-                    ? 'bg-[#f97015]/10 text-[#f97015]' 
-                    : 'text-[#141c2e]/70 hover:bg-neutral-50'
-                }`}
-              >
-                Alle Producten
-              </button>
+              {/* Main Pages */}
+              <div className="pb-3 mb-3 border-b border-neutral-100">
+                <button
+                  onClick={() => {
+                    onCategoryChange('')
+                    setShowMobileMenu(false)
+                  }}
+                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
+                    !selectedCategory 
+                      ? 'bg-[#f97015]/10 text-[#f97015]' 
+                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                  }`}
+                >
+                  Alle Producten
+                </button>
+                <Link
+                  href="/blog"
+                  onClick={() => setShowMobileMenu(false)}
+                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
+                >
+                  Blog
+                </Link>
+                <Link
+                  href="/faq"
+                  onClick={() => setShowMobileMenu(false)}
+                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
+                >
+                  FAQ
+                </Link>
+                <Link
+                  href="/testimonials"
+                  onClick={() => setShowMobileMenu(false)}
+                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
+                >
+                  Reviews
+                </Link>
+              </div>
+              
+              {/* Categories */}
+              <p className="px-4 py-2 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Categorieën</p>
               {categories.map((cat) => (
                 <button
                   key={cat.id}

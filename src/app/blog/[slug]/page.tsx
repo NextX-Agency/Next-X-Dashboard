@@ -8,6 +8,7 @@ import {
   ArrowLeft, Calendar, Clock, Eye, Tag, Share2, 
   Twitter, Facebook, Linkedin, Copy, Check, ChevronRight
 } from 'lucide-react'
+import { PublicLayout } from '@/components/catalog'
 
 interface BlogPost {
   id: string
@@ -41,21 +42,10 @@ interface RelatedPost {
   created_at: string
 }
 
-interface StoreSettings {
-  store_name: string
-  store_logo_url: string
-  whatsapp_number: string
-}
-
 export default function BlogPostPage() {
   const params = useParams()
   const [post, setPost] = useState<BlogPost | null>(null)
   const [relatedPosts, setRelatedPosts] = useState<RelatedPost[]>([])
-  const [settings, setSettings] = useState<StoreSettings>({ 
-    store_name: 'NextX', 
-    store_logo_url: '',
-    whatsapp_number: ''
-  })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -93,20 +83,6 @@ export default function BlogPostPage() {
 
         if (related) setRelatedPosts(related)
       }
-
-      // Load settings
-      const { data: settingsData } = await supabase.from('store_settings').select('*')
-      if (settingsData) {
-        const settingsMap: Record<string, string> = {}
-        settingsData.forEach((s: { key: string; value: string }) => {
-          settingsMap[s.key] = s.value
-        })
-        setSettings({
-          store_name: settingsMap.store_name || 'NextX',
-          store_logo_url: settingsMap.store_logo_url || '',
-          whatsapp_number: settingsMap.whatsapp_number || ''
-        })
-      }
     } catch (error) {
       console.error('Error loading post:', error)
     }
@@ -114,7 +90,7 @@ export default function BlogPostPage() {
   }
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', { 
+    return new Date(date).toLocaleDateString('nl-NL', { 
       month: 'long', day: 'numeric', year: 'numeric' 
     })
   }
@@ -152,19 +128,19 @@ export default function BlogPostPage() {
       .map((paragraph, i) => {
         // Headers
         if (paragraph.startsWith('### ')) {
-          return <h3 key={i} className="text-xl font-bold text-slate-900 mt-8 mb-4">{paragraph.slice(4)}</h3>
+          return <h3 key={i} className="text-xl font-bold text-neutral-900 mt-8 mb-4">{paragraph.slice(4)}</h3>
         }
         if (paragraph.startsWith('## ')) {
-          return <h2 key={i} className="text-2xl font-bold text-slate-900 mt-10 mb-4">{paragraph.slice(3)}</h2>
+          return <h2 key={i} className="text-2xl font-bold text-neutral-900 mt-10 mb-4">{paragraph.slice(3)}</h2>
         }
         if (paragraph.startsWith('# ')) {
-          return <h1 key={i} className="text-3xl font-bold text-slate-900 mt-10 mb-4">{paragraph.slice(2)}</h1>
+          return <h1 key={i} className="text-3xl font-bold text-neutral-900 mt-10 mb-4">{paragraph.slice(2)}</h1>
         }
         // Lists
         if (paragraph.startsWith('- ') || paragraph.startsWith('* ')) {
           const items = paragraph.split('\n').filter(line => line.startsWith('- ') || line.startsWith('* '))
           return (
-            <ul key={i} className="list-disc list-inside space-y-2 my-4 text-slate-700">
+            <ul key={i} className="list-disc list-inside space-y-2 my-4 text-neutral-700">
               {items.map((item, j) => <li key={j}>{item.slice(2)}</li>)}
             </ul>
           )
@@ -174,55 +150,40 @@ export default function BlogPostPage() {
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.*?)\*/g, '<em>$1</em>')
         
-        return <p key={i} className="text-slate-700 leading-relaxed my-4" dangerouslySetInnerHTML={{ __html: text }} />
+        return <p key={i} className="text-neutral-700 leading-relaxed my-4" dangerouslySetInnerHTML={{ __html: text }} />
       })
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-      </div>
+      <PublicLayout pageTitle="Blog">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </PublicLayout>
     )
   }
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Post not found</h1>
-          <Link href="/blog" className="text-orange-600 hover:text-orange-700">
-            ← Back to Blog
-          </Link>
+      <PublicLayout pageTitle="Blog">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-neutral-900 mb-2">Artikel niet gevonden</h1>
+            <Link href="/blog" className="text-[#f97015] hover:text-[#e5640d]">
+              ← Terug naar Blog
+            </Link>
+          </div>
         </div>
-      </div>
+      </PublicLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/blog" className="flex items-center gap-2 text-slate-600 hover:text-orange-600 transition-colors">
-              <ArrowLeft size={18} />
-              <span className="font-medium">Back to Blog</span>
-            </Link>
-            <Link href="/catalog" className="flex items-center gap-3">
-              {settings.store_logo_url ? (
-                <img src={settings.store_logo_url} alt={settings.store_name} className="h-8" />
-              ) : (
-                <span className="text-xl font-bold text-slate-900">{settings.store_name}</span>
-              )}
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <PublicLayout pageTitle="Blog">
       {/* Cover Image */}
       {post.cover_image && (
-        <div className="w-full aspect-[21/9] bg-slate-200 overflow-hidden">
+        <div className="w-full aspect-[21/9] max-h-[400px] bg-neutral-200 overflow-hidden">
           <img 
             src={post.cover_image} 
             alt={post.title}
@@ -234,14 +195,14 @@ export default function BlogPostPage() {
       {/* Article */}
       <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-          <Link href="/blog" className="hover:text-orange-600 transition-colors">Blog</Link>
+        <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-6">
+          <Link href="/blog" className="hover:text-[#f97015] transition-colors">Blog</Link>
           {post.category && (
             <>
               <ChevronRight size={14} />
               <Link 
                 href={`/blog?category=${post.category.id}`}
-                className="hover:text-orange-600 transition-colors"
+                className="hover:text-[#f97015] transition-colors"
               >
                 {post.category.name}
               </Link>
@@ -254,8 +215,8 @@ export default function BlogPostPage() {
           <span 
             className="inline-block px-3 py-1 rounded-full text-sm font-medium mb-4"
             style={{ 
-              backgroundColor: (post.category.color || '#3B82F6') + '15', 
-              color: post.category.color || '#3B82F6' 
+              backgroundColor: (post.category.color || '#f97015') + '15', 
+              color: post.category.color || '#f97015' 
             }}
           >
             {post.category.name}
@@ -263,19 +224,19 @@ export default function BlogPostPage() {
         )}
 
         {/* Title */}
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 leading-tight mb-6">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-neutral-900 leading-tight mb-6">
           {post.title}
         </h1>
 
         {/* Meta */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500 mb-8 pb-8 border-b border-slate-200">
+        <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-500 mb-8 pb-8 border-b border-neutral-200">
           <span className="flex items-center gap-1.5">
             <Calendar size={16} />
             {formatDate(post.published_at || post.created_at)}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock size={16} />
-            {estimateReadTime(post.content)} min read
+            {estimateReadTime(post.content)} min lezen
           </span>
           <span className="flex items-center gap-1.5">
             <Eye size={16} />
@@ -285,42 +246,42 @@ export default function BlogPostPage() {
 
         {/* Excerpt */}
         {post.excerpt && (
-          <p className="text-xl text-slate-600 leading-relaxed mb-8 font-medium">
+          <p className="text-xl text-neutral-600 leading-relaxed mb-8 font-medium">
             {post.excerpt}
           </p>
         )}
 
         {/* Content */}
-        <div className="prose prose-slate prose-lg max-w-none">
+        <div className="prose prose-neutral prose-lg max-w-none">
           {renderContent(post.content)}
         </div>
 
         {/* Share */}
-        <div className="mt-12 pt-8 border-t border-slate-200">
+        <div className="mt-12 pt-8 border-t border-neutral-200">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <span className="text-slate-600 font-medium flex items-center gap-2">
+            <span className="text-neutral-600 font-medium flex items-center gap-2">
               <Share2 size={18} />
-              Share this article
+              Deel dit artikel
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={shareOnTwitter}
-                className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-[#1DA1F2] hover:text-white transition-colors"
-                title="Share on Twitter"
+                className="p-2.5 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-[#1DA1F2] hover:text-white transition-colors"
+                title="Delen op Twitter"
               >
                 <Twitter size={18} />
               </button>
               <button
                 onClick={shareOnFacebook}
-                className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-[#4267B2] hover:text-white transition-colors"
-                title="Share on Facebook"
+                className="p-2.5 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-[#4267B2] hover:text-white transition-colors"
+                title="Delen op Facebook"
               >
                 <Facebook size={18} />
               </button>
               <button
                 onClick={shareOnLinkedIn}
-                className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-[#0077B5] hover:text-white transition-colors"
-                title="Share on LinkedIn"
+                className="p-2.5 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-[#0077B5] hover:text-white transition-colors"
+                title="Delen op LinkedIn"
               >
                 <Linkedin size={18} />
               </button>
@@ -329,9 +290,9 @@ export default function BlogPostPage() {
                 className={`p-2.5 rounded-xl transition-colors ${
                   copied 
                     ? 'bg-emerald-500 text-white' 
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
-                title="Copy link"
+                title="Link kopiëren"
               >
                 {copied ? <Check size={18} /> : <Copy size={18} />}
               </button>
@@ -342,17 +303,17 @@ export default function BlogPostPage() {
 
       {/* Related Posts */}
       {relatedPosts.length > 0 && (
-        <section className="bg-white border-t border-slate-200 py-16">
+        <section className="bg-neutral-50 border-t border-neutral-200 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-8">Related Articles</h2>
+            <h2 className="text-2xl font-bold text-neutral-900 mb-8">Gerelateerde artikelen</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedPosts.map((relPost) => (
                 <Link
                   key={relPost.id}
                   href={`/blog/${relPost.slug}`}
-                  className="group bg-slate-50 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300"
+                  className="group bg-white rounded-2xl border border-neutral-200 overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
-                  <div className="aspect-[16/10] bg-slate-200 overflow-hidden">
+                  <div className="aspect-[16/10] bg-neutral-200 overflow-hidden">
                     {relPost.cover_image ? (
                       <img 
                         src={relPost.cover_image} 
@@ -360,17 +321,17 @@ export default function BlogPostPage() {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-100 flex items-center justify-center">
-                        <Tag size={24} className="text-slate-300" />
+                      <div className="w-full h-full bg-gradient-to-br from-neutral-200 to-neutral-100 flex items-center justify-center">
+                        <Tag size={24} className="text-neutral-300" />
                       </div>
                     )}
                   </div>
                   <div className="p-5">
-                    <h3 className="font-semibold text-slate-900 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                    <h3 className="font-semibold text-neutral-900 line-clamp-2 group-hover:text-[#f97015] transition-colors">
                       {relPost.title}
                     </h3>
-                    <p className="text-sm text-slate-500 mt-2 line-clamp-2">
-                      {relPost.excerpt || 'Click to read more...'}
+                    <p className="text-sm text-neutral-500 mt-2 line-clamp-2">
+                      {relPost.excerpt || 'Klik om meer te lezen...'}
                     </p>
                   </div>
                 </Link>
@@ -379,25 +340,6 @@ export default function BlogPostPage() {
           </div>
         </section>
       )}
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-slate-500 text-sm">
-              © {new Date().getFullYear()} {settings.store_name}. All rights reserved.
-            </p>
-            <div className="flex gap-6">
-              <Link href="/catalog" className="text-sm text-slate-500 hover:text-orange-500 transition-colors">
-                Store
-              </Link>
-              <Link href="/blog" className="text-sm text-slate-500 hover:text-orange-500 transition-colors">
-                Blog
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicLayout>
   )
 }

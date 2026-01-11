@@ -666,7 +666,7 @@ export default function ItemsPage() {
             prefix="$"
             required
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Selling Price (SRD)"
               type="number"
@@ -841,7 +841,7 @@ export default function ItemsPage() {
           )}
           
           {/* Combo Price */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Combo Price (SRD)"
               type="number"
