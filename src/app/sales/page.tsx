@@ -838,6 +838,16 @@ export default function SalesPage() {
     setShowPreview(true)
   }
 
+  // Function to generate invoice number from sale
+  const generateInvoiceNumberFromSale = (sale: SaleWithDetails): string => {
+    const date = new Date(sale.created_at)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const shortId = sale.id.slice(-6)
+    return `INV-${year}${month}${day}-${shortId}`
+  }
+
   // Function to reprint invoice from past sale
   const handleReprintInvoice = async (sale: SaleWithDetails) => {
     try {
@@ -863,7 +873,7 @@ export default function SalesPage() {
         currency: sale.currency as Currency,
         paymentMethod: sale.payment_method || 'cash',
         total: sale.total_amount,
-        invoiceNumber: sale.invoice_number || `INV-${sale.id.slice(0, 8)}`
+        invoiceNumber: generateInvoiceNumberFromSale(sale)
       }
 
       setInvoiceData(reprintInvoiceData)
