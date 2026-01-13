@@ -3,8 +3,10 @@
 import { useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, AlertCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
+
+type StockStatus = 'in-stock' | 'low-stock' | 'out-of-stock'
 
 interface Product {
   id: string
@@ -13,6 +15,7 @@ interface Product {
   image_url?: string | null
   price: number
   isCombo?: boolean
+  stockStatus?: StockStatus
 }
 
 interface NewProductCarouselProps {
@@ -112,83 +115,117 @@ export function NewProductCarousel({
             className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-4 sm:px-0 pb-2"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            {products.map((product) => (
-              <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[220px]">
-                <article className={`group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
-                  isComboCarousel || product.isCombo
-                    ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
-                    : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
-                }`}>
-                  {/* Image */}
-                  <Link href={`/catalog/${product.id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
-                    {product.image_url ? (
-                      <Image
-                        src={product.image_url}
-                        alt={product.name}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Package size={36} className="text-neutral-200" strokeWidth={1} />
-                      </div>
-                    )}
-                    
-                    {/* Combo Badge */}
-                    {(isComboCarousel || product.isCombo) && (
-                      <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
-                        Combo Deal
-                      </span>
-                    )}
-                    
-                    {/* Desktop Hover Quick Add */}
-                    {onAddToCart && (
-                      <div className="hidden lg:block">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            onAddToCart(product.id)
-                          }}
-                          className="absolute bottom-3 right-3 w-9 h-9 rounded-xl bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] active:scale-95 shadow-lg"
-                        >
-                          <Plus size={18} strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    )}
-                  </Link>
-                  
-                  {/* Info */}
-                  <div className="p-3 flex-1 flex flex-col">
-                    <Link href={`/catalog/${product.id}`} className="block flex-1">
-                      <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-[2.5rem]">
-                        {product.name}
-                      </h3>
+            {products.map((product) => {
+              const isOutOfStock = product.stockStatus === 'out-of-stock'
+              const isLowStock = product.stockStatus === 'low-stock'
+              
+              return (
+                <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[220px]">
+                  <article className={`group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+                    isOutOfStock
+                      ? 'border border-neutral-300 opacity-75'
+                      : isComboCarousel || product.isCombo
+                        ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
+                        : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
+                  }`}>
+                    {/* Image */}
+                    <Link href={`/catalog/${product.id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
+                      {product.image_url ? (
+                        <Image
+                          src={product.image_url}
+                          alt={product.name}
+                          fill
+                          className={`object-cover transition-transform duration-500 ${isOutOfStock ? 'grayscale' : 'group-hover:scale-105'}`}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Package size={36} className="text-neutral-200" strokeWidth={1} />
+                        </div>
+                      )}
+                      
+                      {/* Out of Stock Overlay */}
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                          <span className="px-2.5 py-1 rounded-lg bg-neutral-800/90 text-white text-xs font-semibold">
+                            Uitverkocht
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Combo Badge */}
+                      {(isComboCarousel || product.isCombo) && !isOutOfStock && (
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
+                          Combo Deal
+                        </span>
+                      )}
+
+                      {/* Low Stock Badge */}
+                      {isLowStock && !isOutOfStock && (
+                        <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[9px] font-semibold shadow-sm flex items-center gap-0.5">
+                          <AlertCircle size={9} />
+                          Beperkt
+                        </span>
+                      )}
+                      
+                      {/* Desktop Hover Quick Add */}
+                      {onAddToCart && !isOutOfStock && (
+                        <div className="hidden lg:block">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              onAddToCart(product.id)
+                            }}
+                            className="absolute bottom-3 right-3 w-9 h-9 rounded-xl bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] active:scale-95 shadow-lg"
+                          >
+                            <Plus size={18} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      )}
                     </Link>
                     
-                    {/* Price and Button Row */}
-                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-100">
-                      <p className="text-base sm:text-lg font-bold text-[#141c2e]">
-                        {formatCurrency(product.price, currency)}
-                      </p>
-                      {onAddToCart && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            onAddToCart(product.id)
-                          }}
-                          className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] active:scale-95 transition-all shadow-sm"
-                          aria-label="Toevoegen aan winkelwagen"
-                        >
-                          <Plus size={16} strokeWidth={2.5} />
-                        </button>
-                      )}
+                    {/* Info */}
+                    <div className="p-3 flex-1 flex flex-col">
+                      <Link href={`/catalog/${product.id}`} className="block flex-1">
+                        <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-[2.5rem]">
+                          {product.name}
+                        </h3>
+                      </Link>
+                      
+                      {/* Price and Button Row */}
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-100">
+                        <div className="flex flex-col">
+                          <p className={`text-base sm:text-lg font-bold ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
+                            {formatCurrency(product.price, currency)}
+                          </p>
+                          {isLowStock && !isOutOfStock && (
+                            <span className="text-[9px] text-amber-600 font-medium">Beperkte voorraad</span>
+                          )}
+                        </div>
+                        {onAddToCart && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              if (!isOutOfStock) onAddToCart(product.id)
+                            }}
+                            disabled={isOutOfStock}
+                            className={`lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm ${
+                              isOutOfStock 
+                                ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' 
+                                : 'bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95'
+                            }`}
+                            aria-label={isOutOfStock ? 'Uitverkocht' : 'Toevoegen aan winkelwagen'}
+                          >
+                            <Plus size={16} strokeWidth={2.5} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              </div>
-            ))}
+                  </article>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

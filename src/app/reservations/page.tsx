@@ -115,6 +115,11 @@ export default function ReservationsPage() {
   const [reservationSearchQuery, setReservationSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all')
   
+  // Confirmation modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<'complete' | 'cancel' | null>(null)
+  const [selectedGroup, setSelectedGroup] = useState<ReservationGroup | null>(null)
+  
   // Reservation statistics
   const [reservationStats, setReservationStats] = useState<ReservationStats>({
     todayReservations: 0,
@@ -693,9 +698,35 @@ export default function ReservationsPage() {
     }
   }
 
-  const handleCancelReservationGroup = async (group: ReservationGroup) => {
-    if (!confirm(`Are you sure you want to cancel this reservation for ${group.client_name}? This will cancel ${group.items.length} item(s).`)) return
+  // Show confirmation modal for mobile-friendly experience
+  const showCompleteConfirmation = (group: ReservationGroup) => {
+    setSelectedGroup(group)
+    setConfirmAction('complete')
+    setShowConfirmModal(true)
+  }
 
+  const showCancelConfirmation = (group: ReservationGroup) => {
+    setSelectedGroup(group)
+    setConfirmAction('cancel')
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmAction = async () => {
+    if (!selectedGroup || !confirmAction) return
+    
+    setShowConfirmModal(false)
+    
+    if (confirmAction === 'complete') {
+      await executeCompleteReservation(selectedGroup)
+    } else if (confirmAction === 'cancel') {
+      await executeCancelReservation(selectedGroup)
+    }
+    
+    setSelectedGroup(null)
+    setConfirmAction(null)
+  }
+
+  const executeCancelReservation = async (group: ReservationGroup) => {
     try {
       // Cancel all reservation items in the group
       for (const item of group.items) {
@@ -725,9 +756,7 @@ export default function ReservationsPage() {
     }
   }
 
-  const handleCompleteReservationGroup = async (group: ReservationGroup) => {
-    if (!confirm(`Complete this reservation for ${group.client_name}? Stock will be reduced and a receipt will be generated for ${group.items.length} item(s).`)) return
-
+  const executeCompleteReservation = async (group: ReservationGroup) => {
     try {
       const invoiceNumber = `RES-COMP-${Date.now()}`
       
@@ -1146,7 +1175,7 @@ export default function ReservationsPage() {
 
                     <div className="flex gap-3 pt-4 border-t border-border">
                       <Button
-                        onClick={() => handleCompleteReservationGroup(group)}
+                        onClick={() => showCompleteConfirmation(group)}
                         variant="success"
                         size="lg"
                         fullWidth
@@ -1156,7 +1185,7 @@ export default function ReservationsPage() {
                         Complete & Print
                       </Button>
                       <Button
-                        onClick={() => handleCancelReservationGroup(group)}
+                        onClick={() => showCancelConfirmation(group)}
                         variant="danger"
                         size="lg"
                         fullWidth
@@ -1988,7 +2017,7 @@ export default function ReservationsPage() {
                 {group.status === 'pending' && (
                   <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
                     <Button
-                      onClick={() => handleCompleteReservationGroup(group)}
+                      onClick={() => showCompleteConfirmation(group)}
                       variant="success"
                       size="sm"
                       fullWidth
@@ -1997,7 +2026,7 @@ export default function ReservationsPage() {
                       Complete & Print Receipt
                     </Button>
                     <Button
-                      onClick={() => handleCancelReservationGroup(group)}
+                      onClick={() => showCancelConfirmation(group)}
                       variant="danger"
                       size="sm"
                       fullWidth
@@ -2030,6 +2059,104 @@ export default function ReservationsPage() {
           )}
         </div>
       </Modal>
+
+      {/* Confirmation Modal - Mobile Friendly */}
+      {showConfirmModal && selectedGroup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
+            onClick={() => {
+              setShowConfirmModal(false)
+              setSelectedGroup(null)
+              setConfirmAction(null)
+            }} 
+          />
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              {/* Icon */}
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                confirmAction === 'complete' 
+                  ? 'bg-success/10' 
+                  : 'bg-destructive/10'
+              }`}>
+                {confirmAction === 'complete' ? (
+                  <CheckCircle size={32} className="text-success" />
+                ) : (
+                  <X size={32} className="text-destructive" />
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold text-foreground text-center mb-2">
+                {confirmAction === 'complete' ? 'Complete Reservation?' : 'Cancel Reservation?'}
+              </h3>
+
+              {/* Description */}
+              <p className="text-muted-foreground text-center mb-4">
+                {confirmAction === 'complete' 
+                  ? `This will reduce stock, update wallet, create commission and generate a receipt for ${selectedGroup.client_name}.`
+                  : `Are you sure you want to cancel this reservation for ${selectedGroup.client_name}? This cannot be undone.`
+                }
+              </p>
+
+              {/* Reservation Summary */}
+              <div className="bg-muted/50 rounded-xl p-4 mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-muted-foreground">Client</span>
+                  <span className="font-semibold text-foreground">{selectedGroup.client_name}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-muted-foreground">Location</span>
+                  <span className="font-medium text-foreground">{selectedGroup.location_name}</span>
+                </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-sm text-muted-foreground">Items</span>
+                  <span className="font-medium text-foreground">{selectedGroup.items.length} item(s)</span>
+                </div>
+                <div className="flex justify-between items-center pt-3 border-t border-border">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="font-bold text-lg text-primary">{formatCurrency(selectedGroup.total_amount, 'SRD')}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    setShowConfirmModal(false)
+                    setSelectedGroup(null)
+                    setConfirmAction(null)
+                  }}
+                  variant="secondary"
+                  size="lg"
+                  fullWidth
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleConfirmAction}
+                  variant={confirmAction === 'complete' ? 'success' : 'danger'}
+                  size="lg"
+                  fullWidth
+                  className="font-semibold"
+                >
+                  {confirmAction === 'complete' ? (
+                    <>
+                      <Check size={18} />
+                      Complete & Print
+                    </>
+                  ) : (
+                    <>
+                      <X size={18} />
+                      Yes, Cancel
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

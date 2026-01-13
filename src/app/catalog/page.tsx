@@ -89,6 +89,9 @@ interface StoreSettings {
   hero_subtitle: string
 }
 
+// Stock status type for displaying availability
+type StockStatus = 'in-stock' | 'low-stock' | 'out-of-stock'
+
 export default function NewCatalogPage() {
   // Data state
   const [categories, setCategories] = useState<Category[]>([])
@@ -97,6 +100,7 @@ export default function NewCatalogPage() {
   const [locations, setLocations] = useState<Location[]>([])
   const [banners, setBanners] = useState<Banner[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
+  const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -311,6 +315,20 @@ export default function NewCatalogPage() {
           hero_subtitle: settingsMap.hero_subtitle || ''
         })
       }
+
+      // Load stock data (aggregate from all locations)
+      const { data: stockData } = await supabase
+        .from('stock')
+        .select('item_id, quantity')
+      
+      if (stockData) {
+        const map = new Map<string, number>()
+        stockData.forEach((stock: { item_id: string; quantity: number }) => {
+          const current = map.get(stock.item_id) || 0
+          map.set(stock.item_id, current + stock.quantity)
+        })
+        setStockMap(map)
+      }
     } catch (err) {
       console.error('Error loading catalog data:', err)
       setError('Er is een fout opgetreden bij het laden van de producten.')
@@ -329,6 +347,19 @@ export default function NewCatalogPage() {
       return item.selling_price_usd || (item.selling_price_srd ? item.selling_price_srd / exchangeRate : 0)
     }
     return item.selling_price_srd || (item.selling_price_usd ? item.selling_price_usd * exchangeRate : 0)
+  }
+
+  // Stock status helper - returns stock status without revealing exact numbers
+  const getStockStatus = (itemId: string): StockStatus => {
+    const totalStock = stockMap.get(itemId) || 0
+    if (totalStock <= 0) return 'out-of-stock'
+    if (totalStock <= 5) return 'low-stock'
+    return 'in-stock'
+  }
+
+  // Get approximate stock level for user - without showing exact quantity
+  const getStockLevel = (itemId: string): number => {
+    return stockMap.get(itemId) || 0
   }
 
   // Cart functions
@@ -643,6 +674,8 @@ export default function NewCatalogPage() {
                     quantity={getCartItemQuantity(item.id)}
                     onAddToCart={() => addToCart(item)}
                     onQuickView={() => setSelectedItem(item)}
+                    stockStatus={getStockStatus(item.id)}
+                    stockLevel={getStockLevel(item.id)}
                   />
                 ))}
               </NewProductGrid>
@@ -696,6 +729,8 @@ export default function NewCatalogPage() {
                         quantity: ci.quantity,
                         child_item: ci.child_item!
                       })) : undefined}
+                      stockStatus={getStockStatus(item.id)}
+                      stockLevel={getStockLevel(item.id)}
                     />
                   )
                 })}
@@ -720,7 +755,8 @@ export default function NewCatalogPage() {
                     description: combo.description,
                     image_url: combo.image_url,
                     price: comboPrice,
-                    isCombo: true
+                    isCombo: true,
+                    stockStatus: getStockStatus(combo.id)
                   }
                 })}
                 currency={currency}
@@ -735,7 +771,7 @@ export default function NewCatalogPage() {
               <NewProductCarousel
                 title="Nieuwste Producten"
                 subtitle="Recent toegevoegd aan onze collectie"
-                products={newestProducts}
+                products={newestProducts.map(p => ({ ...p, stockStatus: getStockStatus(p.id) }))}
                 currency={currency}
                 onAddToCart={addToCartById}
               />
@@ -751,7 +787,8 @@ export default function NewCatalogPage() {
                   name: ci.items!.name,
                   description: ci.items!.description,
                   image_url: ci.items!.image_url,
-                  price: getPrice(ci.items!)
+                  price: getPrice(ci.items!),
+                  stockStatus: getStockStatus(ci.items!.id)
                 })) || []
 
               if (collectionProducts.length === 0) return null
@@ -778,7 +815,8 @@ export default function NewCatalogPage() {
                   name: item.name,
                   description: item.description,
                   image_url: item.image_url,
-                  price: getPrice(item)
+                  price: getPrice(item),
+                  stockStatus: getStockStatus(item.id)
                 }))}
                 currency={currency}
                 onAddToCart={addToCartById}

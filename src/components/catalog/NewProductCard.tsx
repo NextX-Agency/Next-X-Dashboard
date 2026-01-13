@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package, Eye } from 'lucide-react'
+import { Plus, Package, Eye, AlertCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { Database } from '@/types/database.types'
 
@@ -12,6 +12,8 @@ interface ComboItem {
   quantity: number
   child_item: Item
 }
+
+type StockStatus = 'in-stock' | 'low-stock' | 'out-of-stock'
 
 interface NewProductCardProps {
   id: string
@@ -27,6 +29,8 @@ interface NewProductCardProps {
   isCombo?: boolean
   originalPrice?: number
   comboItems?: ComboItem[]
+  stockStatus?: StockStatus
+  stockLevel?: number
 }
 
 export function NewProductCard({
@@ -42,13 +46,20 @@ export function NewProductCard({
   onQuickView,
   isCombo = false,
   originalPrice,
-  comboItems
+  comboItems,
+  stockStatus = 'in-stock',
+  stockLevel = 0
 }: NewProductCardProps) {
+  const isOutOfStock = stockStatus === 'out-of-stock'
+  const isLowStock = stockStatus === 'low-stock'
+  
   return (
     <article className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
-      isCombo 
-        ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
-        : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
+      isOutOfStock
+        ? 'border border-neutral-300 opacity-75'
+        : isCombo 
+          ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
+          : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
     }`}>
       {/* Image Container */}
       <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
@@ -57,7 +68,7 @@ export function NewProductCard({
             src={imageUrl}
             alt={name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            className={`object-cover transition-transform duration-500 ${isOutOfStock ? 'grayscale' : 'group-hover:scale-105'}`}
             unoptimized
           />
         ) : (
@@ -66,48 +77,67 @@ export function NewProductCard({
           </div>
         )}
         
+        {/* Out of Stock Overlay */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+            <span className="px-3 py-1.5 rounded-lg bg-neutral-800/90 text-white text-sm font-semibold">
+              Uitverkocht
+            </span>
+          </div>
+        )}
+        
         {/* Category Badge */}
-        {categoryName && !isCombo && (
+        {categoryName && !isCombo && !isOutOfStock && (
           <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-sm text-[11px] font-medium text-[#141c2e] shadow-sm">
             {categoryName}
           </span>
         )}
         
         {/* Combo Badge */}
-        {isCombo && (
+        {isCombo && !isOutOfStock && (
           <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
             Combo Deal
           </span>
         )}
+
+        {/* Low Stock Badge */}
+        {isLowStock && !isOutOfStock && (
+          <span className="absolute bottom-2.5 left-2.5 px-2 py-1 rounded-full bg-amber-500/90 text-white text-[10px] font-semibold shadow-sm flex items-center gap-1">
+            <AlertCircle size={10} />
+            Beperkte voorraad
+          </span>
+        )}
         
         {/* Desktop Hover Actions */}
-        <div className="hidden lg:block">
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-          <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                onAddToCart()
-              }}
-              className="flex-1 h-10 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] active:scale-[0.98] transition-all shadow-lg"
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              Toevoegen
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                onQuickView()
-              }}
-              className="w-10 h-10 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 active:scale-[0.98] transition-all shadow-lg"
-            >
-              <Eye size={18} />
-            </button>
+        {!isOutOfStock && (
+          <div className="hidden lg:block">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
+            <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  onAddToCart()
+                }}
+                className="flex-1 h-10 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] active:scale-[0.98] transition-all shadow-lg"
+              >
+                <Plus size={16} strokeWidth={2.5} />
+                Toevoegen
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  onQuickView()
+                }}
+                className="w-10 h-10 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 active:scale-[0.98] transition-all shadow-lg"
+              >
+                <Eye size={18} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         
         {/* In Cart Indicator */}
-        {quantity > 0 && (
+        {quantity > 0 && !isOutOfStock && (
           <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-[#f97015] text-white text-[11px] font-bold flex items-center justify-center shadow-md">
             {quantity}
           </div>
@@ -159,9 +189,16 @@ export function NewProductCard({
                 </span>
               </>
             ) : (
-              <span className="text-base sm:text-lg font-bold text-[#141c2e]">
+              <span className={`text-base sm:text-lg font-bold ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
                 {formatCurrency(price, currency)}
               </span>
+            )}
+            {/* Stock Status Text for mobile */}
+            {isOutOfStock && (
+              <span className="text-[10px] text-neutral-500 font-medium">Uitverkocht</span>
+            )}
+            {isLowStock && !isOutOfStock && (
+              <span className="text-[10px] text-amber-600 font-medium">Beperkte voorraad</span>
             )}
           </div>
           
@@ -169,10 +206,15 @@ export function NewProductCard({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onAddToCart()
+              if (!isOutOfStock) onAddToCart()
             }}
-            className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#f97015] text-white flex items-center justify-center hover:bg-[#e5640d] active:scale-95 transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100"
-            aria-label="Toevoegen aan winkelwagen"
+            disabled={isOutOfStock}
+            className={`flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100 ${
+              isOutOfStock 
+                ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' 
+                : 'bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95'
+            }`}
+            aria-label={isOutOfStock ? 'Uitverkocht' : 'Toevoegen aan winkelwagen'}
           >
             <Plus size={18} strokeWidth={2.5} />
           </button>
