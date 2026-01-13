@@ -1339,21 +1339,27 @@ export default function ReservationsPage() {
 
         {/* Pending Reservations - Primary Focus */}
         <div className="mb-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-5">
+          <div className="flex flex-col gap-3 sm:gap-4 mb-5">
             <div>
-              <h2 className="text-xl font-bold text-foreground">Pending Reservations</h2>
-              <p className="text-sm text-muted-foreground mt-1">Complete or cancel customer reservations</p>
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">Pending Reservations</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">Complete or cancel customer reservations</p>
             </div>
-            <div className="flex gap-2 w-full lg:w-auto">
-              <Input
-                placeholder="Search by client or location..."
-                value={reservationSearchQuery}
-                onChange={(e) => setReservationSearchQuery(e.target.value)}
-                className="w-full lg:w-64"
-              />
-              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg">
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <input
+                  type="search"
+                  inputMode="search"
+                  placeholder="Search by client or location..."
+                  value={reservationSearchQuery}
+                  onChange={(e) => setReservationSearchQuery(e.target.value)}
+                  className="input-field pl-10 w-full min-h-[48px]"
+                />
+              </div>
+              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg" className="min-h-[48px] shrink-0">
                 <Plus size={18} />
-                New Reservation
+                <span className="sm:hidden">New</span>
+                <span className="hidden sm:inline">New Reservation</span>
               </Button>
             </div>
           </div>
@@ -1377,67 +1383,72 @@ export default function ReservationsPage() {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredPendingReservations.map((group) => {
                 return (
-                  <div key={group.id} className="bg-card rounded-2xl p-5 border-2 border-border hover:border-primary hover:shadow-lg transition-all group">
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={group.id} className="bg-card rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 border-border hover:border-primary active:bg-card/80 hover:shadow-lg transition-all group touch-manipulation">
+                    <div className="flex justify-between items-start gap-2 mb-3 sm:mb-4">
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-foreground text-2xl mb-2">
+                        <div className="font-bold text-foreground text-xl sm:text-2xl mb-1 sm:mb-2">
                           {formatCurrency(group.total_amount, 'SRD')}
                         </div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-2 mb-1.5">
-                          <User size={16} />
-                          <span className="font-medium">{group.client_name}</span>
+                        <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2 mb-1">
+                          <User size={14} className="shrink-0" />
+                          <span className="font-medium truncate">{group.client_name}</span>
                         </div>
-                        <div className="text-sm text-muted-foreground flex items-center gap-2">
-                          <MapPin size={16} />
-                          {group.location_name}
+                        <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-2">
+                          <MapPin size={14} className="shrink-0" />
+                          <span className="truncate">{group.location_name}</span>
                         </div>
                       </div>
-                      <Badge variant="warning" className="shrink-0 px-3 py-1.5">
-                        <Clock size={14} className="mr-1" />
+                      <Badge variant="warning" className="shrink-0 px-2 sm:px-3 py-1 sm:py-1.5 text-xs">
+                        <Clock size={12} className="mr-1" />
                         {getTimeSince(group.created_at)}
                       </Badge>
                     </div>
                     
                     {group.items && group.items.length > 0 && (
-                      <div className="mb-4 pt-4 border-t border-border">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                      <div className="mb-3 sm:mb-4 pt-3 sm:pt-4 border-t border-border">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 sm:mb-3">
                           {group.items.length} Item{group.items.length > 1 ? 's' : ''}
                         </div>
-                        <div className="space-y-2 max-h-28 overflow-y-auto pr-1">
-                          {group.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm bg-muted/50 rounded-lg px-3 py-2">
-                              <span className="text-foreground font-medium truncate">
+                        <div className="space-y-1.5 sm:space-y-2 max-h-24 sm:max-h-28 overflow-y-auto pr-1">
+                          {group.items.slice(0, 3).map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-xs sm:text-sm bg-muted/50 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
+                              <span className="text-foreground font-medium truncate max-w-[140px] sm:max-w-none">
                                 {item.item_name} <span className="text-muted-foreground">× {item.quantity}</span>
                               </span>
-                              <span className="text-foreground font-semibold shrink-0 ml-3">
+                              <span className="text-foreground font-semibold shrink-0 ml-2">
                                 {formatCurrency(item.subtotal, 'SRD')}
                               </span>
                             </div>
                           ))}
+                          {group.items.length > 3 && (
+                            <div className="text-xs text-muted-foreground text-center py-1">
+                              +{group.items.length - 3} more items
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
 
-                    <div className="flex gap-3 pt-4 border-t border-border">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-border">
                       <Button
                         onClick={() => showCompleteConfirmation(group)}
                         variant="success"
                         size="lg"
                         fullWidth
-                        className="font-semibold"
+                        className="font-semibold min-h-[48px]"
                       >
                         <Check size={18} />
-                        Complete & Print
+                        Complete
                       </Button>
                       <Button
                         onClick={() => showCancelConfirmation(group)}
                         variant="danger"
                         size="lg"
                         fullWidth
-                        className="font-semibold"
+                        className="font-semibold min-h-[48px]"
                       >
                         <X size={18} />
                         Cancel
@@ -1452,12 +1463,12 @@ export default function ReservationsPage() {
 
         {/* Recent Completed/Cancelled - Compact View */}
         <div>
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-4 sm:mb-5">
             <div>
-              <h2 className="text-xl font-bold text-foreground">Recent Activity</h2>
-              <p className="text-sm text-muted-foreground mt-1">Last 10 completed and cancelled reservations</p>
+              <h2 className="text-lg sm:text-xl font-bold text-foreground">Recent Activity</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">Last 10 completed and cancelled reservations</p>
             </div>
-            <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm">
+            <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" className="w-full sm:w-auto min-h-[40px]">
               <History size={16} />
               View All History
             </Button>
@@ -1468,32 +1479,32 @@ export default function ReservationsPage() {
               <p className="text-muted-foreground">No recent activity</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {filteredCompletedReservations.map((group) => {
                 return (
-                  <div key={group.id} className="bg-card rounded-xl p-4 border border-border hover:border-border/80 transition-all">
-                    <div className="flex items-center justify-between">
+                  <div key={group.id} className="bg-card rounded-xl p-3 sm:p-4 border border-border hover:border-border/80 transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="font-semibold text-foreground text-base">{group.client_name}</span>
-                          <Badge variant={group.status === 'completed' ? 'success' : 'danger'} className="px-2.5 py-1">
-                            {group.status === 'completed' ? '✅ Completed' : '❌ Cancelled'}
+                        <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 flex-wrap">
+                          <span className="font-semibold text-foreground text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">{group.client_name}</span>
+                          <Badge variant={group.status === 'completed' ? 'success' : 'danger'} className="px-2 py-0.5 sm:px-2.5 sm:py-1 text-xs">
+                            {group.status === 'completed' ? '✅' : '❌'} {group.status === 'completed' ? 'Done' : 'Cancelled'}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
-                            <MapPin size={14} />
-                            {group.location_name}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={12} />
+                            <span className="truncate max-w-[100px] sm:max-w-none">{group.location_name}</span>
                           </span>
-                          <span>•</span>
+                          <span className="hidden sm:inline">•</span>
                           <span>{group.items.length} item{group.items.length > 1 ? 's' : ''}</span>
                           <span>•</span>
                           <span className="font-medium text-foreground">{formatCurrency(group.total_amount, 'SRD')}</span>
                         </div>
                       </div>
-                      <div className="shrink-0 ml-4">
-                        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                          <Clock size={14} />
+                      <div className="shrink-0 self-start sm:self-center">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock size={12} />
                           {getTimeSince(group.created_at)}
                         </span>
                       </div>
@@ -1502,7 +1513,7 @@ export default function ReservationsPage() {
                 )
               })}
               {filteredCompletedReservations.length > 5 && (
-                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth>
+                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth className="min-h-[44px]">
                   View All History
                 </Button>
               )}
@@ -1525,14 +1536,15 @@ export default function ReservationsPage() {
         }} 
         title="Create New Reservation"
       >
-        <div className="space-y-5">
+        <div className="space-y-4 sm:space-y-5">
           {/* Client & Location Selection - Sticky Top */}
-          <div className="sticky top-0 z-10 bg-card pb-4 border-b border-border">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="sticky top-0 z-10 bg-card pb-3 sm:pb-4 border-b border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <Select
                 label="Select Client"
                 value={selectedClient}
                 onChange={(e) => setSelectedClient(e.target.value)}
+                className="min-h-[48px]"
               >
                 <option value="">Choose a client...</option>
                 {clients.map((client) => (
@@ -1543,6 +1555,7 @@ export default function ReservationsPage() {
                 label="Select Location"
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
+                className="min-h-[48px]"
               >
                 <option value="">Choose a location...</option>
                 {locations.map((loc) => (
@@ -1552,17 +1565,18 @@ export default function ReservationsPage() {
               {selectedClient && selectedLocation && (
                 <>
                   <div>
-                    <label className="input-label">Currency</label>
+                    <label className="input-label text-xs sm:text-sm">Currency</label>
                     <CurrencyToggle value={currency} onChange={setCurrency} />
                   </div>
                   <div className="relative">
-                    <label className="input-label">Search Items</label>
+                    <label className="input-label text-xs sm:text-sm">Search Items</label>
                     <input
-                      type="text"
+                      type="search"
+                      inputMode="search"
                       placeholder="Search..."
                       value={itemSearchQuery}
                       onChange={(e) => setItemSearchQuery(e.target.value)}
-                      className="input-field pl-9"
+                      className="input-field pl-9 min-h-[48px]"
                     />
                     <Search className="absolute left-3 top-[38px] text-muted-foreground" size={16} />
                   </div>

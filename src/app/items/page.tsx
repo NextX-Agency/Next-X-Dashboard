@@ -358,50 +358,51 @@ export default function ItemsPage() {
 
       <PageContainer>
         {/* Search and Tabs */}
-        <div className="mb-6">
-          <div className="relative mb-4">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+        <div className="mb-5 sm:mb-6">
+          <div className="relative mb-3 sm:mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
             <input
-              type="text"
+              type="search"
+              inputMode="search"
               placeholder="Search items, combos, or categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-12"
+              className="input-field pl-11 min-h-[48px]"
             />
           </div>
-          <div className="flex gap-1 p-1.5 bg-card rounded-2xl border border-border">
+          <div className="flex gap-1 p-1 sm:p-1.5 bg-card rounded-xl sm:rounded-2xl border border-border overflow-x-auto">
             <button
               onClick={() => setActiveTab('items')}
-              className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'items'
                   ? 'bg-primary text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground active:bg-muted'
               }`}
             >
-              <Package size={18} />
-              Items ({regularItems.length})
+              <Package size={16} />
+              <span className="hidden xs:inline">Items</span> ({regularItems.length})
             </button>
             <button
               onClick={() => setActiveTab('combos')}
-              className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'combos'
                   ? 'bg-primary text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground active:bg-muted'
               }`}
             >
-              <Layers size={18} />
-              Combos ({comboItemsList.length})
+              <Layers size={16} />
+              <span className="hidden xs:inline">Combos</span> ({comboItemsList.length})
             </button>
             <button
               onClick={() => setActiveTab('categories')}
-              className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'categories'
                   ? 'bg-primary text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground active:bg-muted'
               }`}
             >
-              <Tag size={18} />
-              Categories ({categories.length})
+              <Tag size={16} />
+              <span className="hidden xs:inline">Categories</span> ({categories.length})
             </button>
           </div>
         </div>
@@ -528,7 +529,7 @@ export default function ItemsPage() {
                       )}
                       
                       {/* Pricing */}
-                      <div className="flex items-center justify-between pt-3 border-t border-border">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border">
                         <div>
                           <div className="text-xs text-muted-foreground">Combo Price</div>
                           <div className="font-bold text-primary text-lg">
@@ -536,10 +537,10 @@ export default function ItemsPage() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditItem(combo)}>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditItem(combo)} className="min-h-[40px] min-w-[60px] touch-manipulation">
                             Edit
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteItem(combo.id)}>
+                          <Button variant="ghost" size="sm" className="text-destructive min-h-[40px] min-w-[60px] touch-manipulation" onClick={() => handleDeleteItem(combo.id)}>
                             Delete
                           </Button>
                         </div>
@@ -608,13 +609,14 @@ export default function ItemsPage() {
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
             placeholder="Enter category name"
+            className="min-h-[48px]"
             required
           />
-          <div className="flex gap-3">
-            <Button type="submit" variant="primary" fullWidth loading={submitting}>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button type="submit" variant="primary" fullWidth loading={submitting} className="min-h-[48px]">
               Create Category
             </Button>
-            <Button type="button" variant="secondary" fullWidth onClick={() => setShowCategoryForm(false)}>
+            <Button type="button" variant="secondary" fullWidth onClick={() => setShowCategoryForm(false)} className="min-h-[48px]">
               Cancel
             </Button>
           </div>
@@ -627,13 +629,14 @@ export default function ItemsPage() {
         onClose={resetItemForm} 
         title={editingItem ? 'Edit Item' : 'Create Item'}
       >
-        <form onSubmit={handleSubmitItem} className="space-y-4">
+        <form onSubmit={handleSubmitItem} className="space-y-4 max-h-[75vh] overflow-y-auto">
           <Input
             label="Item Name"
             type="text"
             value={itemForm.name}
             onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
             placeholder="Enter item name"
+            className="min-h-[48px]"
             required
           />
           <div>
@@ -642,7 +645,7 @@ export default function ItemsPage() {
               value={itemForm.description}
               onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
               placeholder="Enter product description for the catalog..."
-              className="input-field min-h-[80px] resize-none"
+              className="input-field min-h-[80px] resize-none text-base"
               rows={3}
             />
           </div>
@@ -650,6 +653,7 @@ export default function ItemsPage() {
             label="Category"
             value={itemForm.category_id}
             onChange={(e) => setItemForm({ ...itemForm, category_id: e.target.value })}
+            className="min-h-[48px]"
           >
             <option value="">No Category</option>
             {categories.map((cat) => (
@@ -659,31 +663,37 @@ export default function ItemsPage() {
           <Input
             label="Purchase Price (USD)"
             type="number"
+            inputMode="decimal"
             step="0.01"
             value={itemForm.purchase_price_usd}
             onChange={(e) => setItemForm({ ...itemForm, purchase_price_usd: e.target.value })}
             placeholder="0.00"
             prefix="$"
+            className="min-h-[48px]"
             required
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Selling Price (SRD)"
               type="number"
+              inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
               onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
               placeholder="0.00"
               suffix="SRD"
+              className="min-h-[48px]"
             />
             <Input
               label="Selling Price (USD)"
               type="number"
+              inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
               onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
               placeholder="0.00"
               prefix="$"
+              className="min-h-[48px]"
             />
           </div>
           <ImageUpload
@@ -695,34 +705,34 @@ export default function ItemsPage() {
           
           {/* Options */}
           <div className="space-y-3 pt-2 border-t border-border">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-h-[44px]">
               <input
                 type="checkbox"
                 id="is_public"
                 checked={itemForm.is_public}
                 onChange={(e) => setItemForm({ ...itemForm, is_public: e.target.checked })}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                className="w-5 h-5 rounded border-border text-primary focus:ring-primary touch-manipulation"
               />
-              <label htmlFor="is_public" className="text-sm font-medium text-foreground">
+              <label htmlFor="is_public" className="text-sm font-medium text-foreground flex-1">
                 Show in public catalog (webshop)
               </label>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-h-[44px]">
               <input
                 type="checkbox"
                 id="allow_custom_price"
                 checked={itemForm.allow_custom_price}
                 onChange={(e) => setItemForm({ ...itemForm, allow_custom_price: e.target.checked })}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                className="w-5 h-5 rounded border-border text-primary focus:ring-primary touch-manipulation"
               />
-              <label htmlFor="allow_custom_price" className="text-sm font-medium text-foreground flex items-center gap-2">
+              <label htmlFor="allow_custom_price" className="text-sm font-medium text-foreground flex-1 flex items-center gap-2">
                 <DollarSign size={16} className="text-warning" />
                 Allow custom price (for discounts)
               </label>
             </div>
           </div>
           
-          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting}>
+          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting} className="min-h-[48px]">
             {editingItem ? 'Update Item' : 'Create Item'}
           </Button>
         </form>
@@ -751,6 +761,7 @@ export default function ItemsPage() {
             value={itemForm.name}
             onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
             placeholder="e.g. In-Ear Monitor Starter Pack"
+            className="min-h-[48px]"
             required
           />
           
@@ -760,7 +771,7 @@ export default function ItemsPage() {
               value={itemForm.description}
               onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
               placeholder="Describe what's included and the value proposition..."
-              className="input-field min-h-[60px] resize-none"
+              className="input-field min-h-[60px] resize-none text-base"
               rows={2}
             />
           </div>
@@ -773,6 +784,7 @@ export default function ItemsPage() {
               onChange={(e) => {
                 if (e.target.value) addComboItem(e.target.value)
               }}
+              className="min-h-[48px]"
             >
               <option value="">Select an item to add...</option>
               {regularItems
@@ -794,18 +806,18 @@ export default function ItemsPage() {
                   const item = items.find(i => i.id === ci.item_id)
                   if (!item) return null
                   return (
-                    <div key={ci.item_id} className="flex items-center gap-3 bg-muted/50 p-3 rounded-xl border border-border">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
+                    <div key={ci.item_id} className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-3 rounded-xl border border-border">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{item.name}</div>
                         <div className="text-sm text-muted-foreground">
                           {formatCurrency(item.selling_price_usd || 0, 'USD')} each
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                         <button
                           type="button"
                           onClick={() => updateComboItemQuantity(ci.item_id, ci.quantity - 1)}
-                          className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center"
+                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-muted hover:bg-muted/80 active:scale-95 flex items-center justify-center touch-manipulation"
                         >
                           -
                         </button>
@@ -813,7 +825,7 @@ export default function ItemsPage() {
                         <button
                           type="button"
                           onClick={() => updateComboItemQuantity(ci.item_id, ci.quantity + 1)}
-                          className="w-8 h-8 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center"
+                          className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-muted hover:bg-muted/80 active:scale-95 flex items-center justify-center touch-manipulation"
                         >
                           +
                         </button>
@@ -821,7 +833,7 @@ export default function ItemsPage() {
                       <button
                         type="button"
                         onClick={() => removeComboItem(ci.item_id)}
-                        className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
+                        className="w-10 h-10 sm:w-8 sm:h-8 text-destructive hover:bg-destructive/10 active:scale-95 rounded-lg flex items-center justify-center touch-manipulation flex-shrink-0"
                       >
                         <X size={16} />
                       </button>
@@ -845,20 +857,24 @@ export default function ItemsPage() {
             <Input
               label="Combo Price (SRD)"
               type="number"
+              inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
               onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
               placeholder="0.00"
               suffix="SRD"
+              className="min-h-[48px]"
             />
             <Input
               label="Combo Price (USD)"
               type="number"
+              inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
               onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
               placeholder="0.00"
               prefix="$"
+              className="min-h-[48px]"
             />
           </div>
           
@@ -869,15 +885,15 @@ export default function ItemsPage() {
             label="Combo Image"
           />
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-h-[44px]">
             <input
               type="checkbox"
               id="combo_is_public"
               checked={itemForm.is_public}
               onChange={(e) => setItemForm({ ...itemForm, is_public: e.target.checked })}
-              className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+              className="w-5 h-5 rounded border-border text-primary focus:ring-primary touch-manipulation"
             />
-            <label htmlFor="combo_is_public" className="text-sm font-medium text-foreground">
+            <label htmlFor="combo_is_public" className="text-sm font-medium text-foreground flex-1">
               Show in public catalog (webshop)
             </label>
           </div>
@@ -889,6 +905,7 @@ export default function ItemsPage() {
             size="lg" 
             loading={submitting}
             disabled={comboItems.length < 2}
+            className="min-h-[48px]"
           >
             {editingItem ? 'Update Combo' : 'Create Combo Deal'}
           </Button>

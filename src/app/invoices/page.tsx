@@ -541,34 +541,35 @@ export default function InvoicesPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-card rounded-xl p-4 border border-border mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search invoices by number, location, client, or item..."
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  className="input-field pl-10 w-full"
-                />
-              </div>
+        <div className="bg-card rounded-xl p-3 sm:p-4 border border-border mb-6">
+          <div className="flex flex-col gap-3 sm:gap-4">
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <input
+                type="search"
+                inputMode="search"
+                placeholder="Search invoices..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="input-field pl-10 w-full min-h-[48px]"
+              />
             </div>
-            <div className="flex gap-3 flex-wrap">
+            {/* Filter selects - grid on mobile, flex on desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-2 sm:gap-3">
               <Select
                 value={typeFilter}
                 onChange={handleTypeFilterChange}
-                className="w-40"
+                className="w-full lg:w-40 min-h-[48px]"
               >
                 <option value="all">All Types</option>
                 <option value="sale">Sales Only</option>
-                <option value="reservation">Reservations Only</option>
+                <option value="reservation">Reservations</option>
               </Select>
               <Select
                 value={locationFilter}
                 onChange={handleLocationFilterChange}
-                className="w-48"
+                className="w-full lg:w-48 min-h-[48px]"
               >
                 <option value="">All Locations</option>
                 {locations.map((loc) => (
@@ -578,7 +579,7 @@ export default function InvoicesPage() {
               <Select
                 value={dateFilter}
                 onChange={handleDateFilterChange}
-                className="w-40"
+                className="w-full lg:w-40 min-h-[48px] col-span-2 sm:col-span-1"
               >
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -607,13 +608,14 @@ export default function InvoicesPage() {
             {filteredInvoices.map((invoice) => (
               <div 
                 key={invoice.id} 
-                className="bg-card rounded-xl p-4 border border-border hover:border-primary/30 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-card rounded-xl p-3 sm:p-4 border border-border hover:border-primary/30 active:bg-card/80 hover:shadow-md transition-all cursor-pointer group touch-manipulation"
                 onClick={() => handleViewInvoice(invoice)}
               >
-                <div className="flex items-center justify-between">
+                {/* Mobile-first layout - stacked on small screens */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                      <div className={`w-10 h-10 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 ${
                         invoice.type === 'sale' 
                           ? 'bg-blue-100 dark:bg-blue-900/30' 
                           : 'bg-green-100 dark:bg-green-900/30'
@@ -624,11 +626,11 @@ export default function InvoicesPage() {
                           <ClipboardList size={18} className="text-green-600" />
                         )}
                       </div>
-                      <div>
-                        <span className="font-bold text-foreground group-hover:text-primary transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-bold text-foreground group-hover:text-primary transition-colors block truncate">
                           {invoice.invoiceNumber}
                         </span>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <Badge variant={invoice.type === 'sale' ? 'orange' : 'success'} className="text-xs">
                             {invoice.type === 'sale' ? 'Sale' : 'Reservation'}
                           </Badge>
@@ -642,16 +644,23 @@ export default function InvoicesPage() {
                           )}
                         </div>
                       </div>
+                      {/* Price on mobile - shown in header row */}
+                      <div className="text-right sm:hidden shrink-0">
+                        <div className="text-base font-bold text-primary">
+                          {formatCurrency(invoice.total_amount, invoice.currency)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground ml-12">
+                    {/* Meta info - responsive grid on mobile */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground ml-0 sm:ml-12">
                       <span className="flex items-center gap-1.5">
                         <MapPin size={14} />
-                        {invoice.location_name}
+                        <span className="truncate max-w-[120px] sm:max-w-none">{invoice.location_name}</span>
                       </span>
                       {invoice.type === 'reservation' && (
                         <span className="flex items-center gap-1.5">
                           <User size={14} />
-                          {(invoice as ReservationGroup).client_name}
+                          <span className="truncate max-w-[100px] sm:max-w-none">{(invoice as ReservationGroup).client_name}</span>
                         </span>
                       )}
                       <span className="flex items-center gap-1.5">
@@ -661,7 +670,8 @@ export default function InvoicesPage() {
                       <span>{invoice.items.length} item{invoice.items.length > 1 ? 's' : ''}</span>
                     </div>
                   </div>
-                  <div className="text-right ml-4 shrink-0">
+                  {/* Price and actions - desktop only in sidebar */}
+                  <div className="hidden sm:block text-right ml-4 shrink-0">
                     <div className="text-lg font-bold text-primary mb-1">
                       {formatCurrency(invoice.total_amount, invoice.currency)}
                     </div>
@@ -669,6 +679,7 @@ export default function InvoicesPage() {
                       <Button 
                         variant="secondary" 
                         size="sm"
+                        className="min-h-[36px]"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleViewInvoice(invoice)
@@ -694,47 +705,48 @@ export default function InvoicesPage() {
       >
         {selectedInvoice && (
           <div className="space-y-4">
-            <div ref={invoiceRef} id="printable-invoice" className="bg-white p-6 rounded-lg" style={{ backgroundColor: 'white', color: 'black' }}>
-              <div className="invoice-header text-center mb-6 pb-4 border-b-2 border-orange-500" style={{ borderBottomColor: '#f97316', borderBottomWidth: '2px', borderBottomStyle: 'solid' }}>
-                <div className="flex justify-center mb-4">
+            <div ref={invoiceRef} id="printable-invoice" className="bg-white p-4 sm:p-6 rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', color: 'black' }}>
+              <div className="invoice-header text-center mb-4 sm:mb-6 pb-4 border-b-2 border-orange-500" style={{ borderBottomColor: '#f97316', borderBottomWidth: '2px', borderBottomStyle: 'solid' }}>
+                <div className="flex justify-center mb-3 sm:mb-4">
                   <img
                     src="/nextx-logo-light.png"
                     alt="NextX Business"
                     style={{ 
-                      width: '200px', 
+                      width: '160px', 
                       height: 'auto',
                       display: 'block',
                       margin: '0 auto'
                     }}
+                    className="sm:w-[200px]"
                   />
                 </div>
-                <div className="text-gray-700 text-sm space-y-1" style={{ color: '#374151' }}>
-                  <p className="font-semibold text-orange-600 text-base" style={{ color: '#ea580c', fontWeight: '600' }}>NextX</p>
+                <div className="text-gray-700 text-xs sm:text-sm space-y-1" style={{ color: '#374151' }}>
+                  <p className="font-semibold text-orange-600 text-sm sm:text-base" style={{ color: '#ea580c', fontWeight: '600' }}>NextX</p>
                   <p>Telefoon: +597 831-8508</p>
                   <p>Suriname</p>
                 </div>
-                <div className="mt-4">
-                  <p className="text-xl font-bold text-gray-800">
+                <div className="mt-3 sm:mt-4">
+                  <p className="text-lg sm:text-xl font-bold text-gray-800">
                     {selectedInvoice.type === 'sale' ? 'VERKOOPFACTUUR' : 'BETALINGSBEWIJS'}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs sm:text-sm text-gray-500">
                     {selectedInvoice.type === 'sale' ? 'Sales Invoice' : 'Payment Receipt'}
                   </p>
                 </div>
                 {selectedInvoice.type === 'reservation' && selectedInvoice.status === 'completed' && (
-                  <div className="mt-3 inline-block bg-green-100 border-2 border-green-600 px-6 py-2 rounded-lg">
-                    <p className="text-green-700 font-bold text-lg">✓ BETAALD / PAID</p>
+                  <div className="mt-2 sm:mt-3 inline-block bg-green-100 border-2 border-green-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg">
+                    <p className="text-green-700 font-bold text-sm sm:text-lg">✓ BETAALD / PAID</p>
                   </div>
                 )}
                 {selectedInvoice.type === 'reservation' && selectedInvoice.status === 'pending' && (
-                  <div className="mt-3 inline-block bg-orange-100 border-2 border-orange-600 px-6 py-2 rounded-lg">
-                    <p className="text-orange-700 font-bold text-lg">⏳ WACHT OP BETALING / PENDING</p>
+                  <div className="mt-2 sm:mt-3 inline-block bg-orange-100 border-2 border-orange-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg">
+                    <p className="text-orange-700 font-bold text-sm sm:text-lg">⏳ WACHT OP BETALING / PENDING</p>
                   </div>
                 )}
               </div>
               
-              <div className="invoice-details bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="invoice-details bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                   <div>
                     <span className="text-gray-600 font-medium">
                       {selectedInvoice.type === 'sale' ? 'Factuur' : 'Bon'} #:
@@ -764,65 +776,68 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
-              <table className="w-full text-sm mb-4">
-                <thead>
-                  <tr className="border-b-2 border-gray-300">
-                    <th className="text-left py-3 text-gray-700 font-semibold">Artikel</th>
-                    <th className="text-center py-3 text-gray-700 font-semibold">Aantal</th>
-                    <th className="text-right py-3 text-gray-700 font-semibold">Prijs</th>
-                    <th className="text-right py-3 text-gray-700 font-semibold">Subtotaal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedInvoice.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="py-3 font-medium text-gray-800">
-                        {item.name}
-                        {item.isCustomPrice && item.originalPrice && (
-                          <div className="text-xs text-orange-600">
-                            Was: {formatCurrency(item.originalPrice, selectedInvoice.currency)}
-                            {item.discountReason && ` - ${item.discountReason}`}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 text-center text-gray-800">{item.quantity}</td>
-                      <td className="py-3 text-right text-gray-600">
-                        {formatCurrency(item.unitPrice, selectedInvoice.currency)}
-                      </td>
-                      <td className="py-3 text-right font-medium text-gray-800">
-                        {formatCurrency(item.subtotal, selectedInvoice.currency)}
+              {/* Mobile-responsive table wrapper */}
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="w-full text-xs sm:text-sm mb-4 min-w-[320px]">
+                  <thead>
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-2 sm:py-3 text-gray-700 font-semibold">Artikel</th>
+                      <th className="text-center py-2 sm:py-3 text-gray-700 font-semibold w-16">Qty</th>
+                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Prijs</th>
+                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Totaal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedInvoice.items.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="py-2 sm:py-3 font-medium text-gray-800">
+                          <span className="line-clamp-2">{item.name}</span>
+                          {item.isCustomPrice && item.originalPrice && (
+                            <div className="text-xs text-orange-600 mt-0.5">
+                              Was: {formatCurrency(item.originalPrice, selectedInvoice.currency)}
+                              {item.discountReason && <span className="hidden sm:inline"> - {item.discountReason}</span>}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 sm:py-3 text-center text-gray-800">{item.quantity}</td>
+                        <td className="py-2 sm:py-3 text-right text-gray-600 whitespace-nowrap">
+                          {formatCurrency(item.unitPrice, selectedInvoice.currency)}
+                        </td>
+                        <td className="py-2 sm:py-3 text-right font-medium text-gray-800 whitespace-nowrap">
+                          {formatCurrency(item.subtotal, selectedInvoice.currency)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-400">
+                      <td colSpan={3} className="py-3 sm:py-4 text-right font-bold text-gray-800 text-sm sm:text-base">Totaal / Total:</td>
+                      <td className="py-3 sm:py-4 text-right font-bold text-orange-600 text-lg sm:text-xl whitespace-nowrap">
+                        {formatCurrency(selectedInvoice.total, selectedInvoice.currency)}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-400">
-                    <td colSpan={3} className="py-4 text-right font-bold text-gray-800 text-base">Totaal / Total:</td>
-                    <td className="py-4 text-right font-bold text-orange-600 text-xl">
-                      {formatCurrency(selectedInvoice.total, selectedInvoice.currency)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
 
-              <div className="footer mt-6 pt-4 border-t-2 border-gray-300">
-                <div className="text-center mb-4">
-                  <p className="text-lg font-bold text-gray-800">Bedankt voor uw aankoop!</p>
-                  <p className="text-sm text-gray-600">Thank you for your purchase!</p>
+              <div className="footer mt-4 sm:mt-6 pt-3 sm:pt-4 border-t-2 border-gray-300">
+                <div className="text-center mb-3 sm:mb-4">
+                  <p className="text-base sm:text-lg font-bold text-gray-800">Bedankt voor uw aankoop!</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Thank you for your purchase!</p>
                 </div>
                 
-                <div className="text-center mt-4 text-xs text-gray-500">
+                <div className="text-center mt-3 sm:mt-4 text-xs text-gray-500">
                   <p>NextX | Tel: +597 831-8508</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button onClick={handlePrintInvoice} variant="primary" fullWidth>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4">
+              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-[48px] order-1">
                 <Printer size={18} />
                 Print Invoice
               </Button>
-              <Button onClick={closeInvoiceModal} variant="secondary" fullWidth>
+              <Button onClick={closeInvoiceModal} variant="secondary" fullWidth className="min-h-[48px] order-2 sm:order-2">
                 Close
               </Button>
             </div>

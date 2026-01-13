@@ -223,59 +223,60 @@ export default function SettingsPage() {
 
       <PageContainer>
         {/* Tabs */}
-        <div className="flex gap-2 p-1.5 bg-card rounded-2xl border border-border mb-6 overflow-x-auto">
+        <div className="flex gap-1 sm:gap-2 p-1 sm:p-1.5 bg-card rounded-2xl border border-border mb-4 sm:mb-6 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('store')}
-            className={`flex-1 min-w-fit px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
               activeTab === 'store'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
-            <Store size={18} />
-            Store
+            <Store size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span>Store</span>
           </button>
           <button
             onClick={() => setActiveTab('webshop')}
-            className={`flex-1 min-w-fit px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
               activeTab === 'webshop'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
-            <Globe size={18} />
-            Webshop
+            <Globe size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span>Webshop</span>
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`flex-1 min-w-fit px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
               activeTab === 'users'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
-            <Users size={18} />
-            Users
+            <Users size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span>Users</span>
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex-1 min-w-fit px-4 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
               activeTab === 'security'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
-            <Shield size={18} />
-            Security
+            <Shield size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span className="hidden sm:inline">Security</span>
+            <span className="sm:hidden">Sec</span>
           </button>
         </div>
 
         {/* Store Settings Tab */}
         {activeTab === 'store' && (
-          <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-5 sm:space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-foreground mb-4">Store Information</h3>
-              <div className="grid gap-4">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4">Store Information</h3>
+              <div className="grid gap-3 sm:gap-4">
                 <Input
                   label="Store Name"
                   value={settings.store_name}
@@ -298,14 +299,16 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <Phone size={20} className="text-green-500" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <Phone size={18} className="sm:w-5 sm:h-5 text-green-500" />
                 WhatsApp Settings
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <Input
                   label="WhatsApp Number"
+                  type="tel"
+                  inputMode="tel"
                   value={settings.whatsapp_number}
                   onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
                   placeholder="+597XXXXXXXX"
@@ -328,18 +331,18 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <DollarSign size={20} className="text-primary" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <DollarSign size={18} className="sm:w-5 sm:h-5 text-primary" />
                 Currency Settings
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Default Currency</label>
                   <select
                     value={settings.store_currency}
                     onChange={(e) => setSettings({ ...settings, store_currency: e.target.value })}
-                    className="input-field"
+                    className="select-field"
                   >
                     <option value="SRD">SRD - Surinamese Dollar</option>
                     <option value="USD">USD - US Dollar</option>
@@ -348,8 +351,8 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
-              <Button onClick={saveSettings} variant="primary" loading={saving}>
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4">
+              <Button onClick={saveSettings} variant="primary" loading={saving} fullWidth className="sm:w-auto">
                 {saveSuccess ? (
                   <>
                     <Check size={20} />
@@ -368,17 +371,17 @@ export default function SettingsPage() {
 
         {/* Webshop Tab */}
         {activeTab === 'webshop' && (
-          <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-            <div className="flex items-center justify-between">
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-5 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-foreground mb-1">Webshop Content</h3>
-                <p className="text-sm text-muted-foreground">Manage the public catalog appearance</p>
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">Webshop Content</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">Manage the public catalog appearance</p>
               </div>
               <a
                 href="/catalog"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium"
+                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium min-h-[44px] px-3 bg-primary/10 rounded-lg justify-center sm:justify-start"
               >
                 <ExternalLink size={16} />
                 Preview Webshop
@@ -386,12 +389,12 @@ export default function SettingsPage() {
             </div>
 
             {/* Logo Section */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <ImageIcon size={20} className="text-primary" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <ImageIcon size={18} className="sm:w-5 sm:h-5 text-primary" />
                 Store Logo
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <ImageUpload
                   value={settings.store_logo_url}
                   onChange={(url) => setSettings({ ...settings, store_logo_url: url || '' })}
@@ -405,12 +408,12 @@ export default function SettingsPage() {
             </div>
 
             {/* Hero Section */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <Type size={20} className="text-primary" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <Type size={18} className="sm:w-5 sm:h-5 text-primary" />
                 Hero Section
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <Input
                   label="Hero Title"
                   value={settings.hero_title}
@@ -423,46 +426,46 @@ export default function SettingsPage() {
                     value={settings.hero_subtitle}
                     onChange={(e) => setSettings({ ...settings, hero_subtitle: e.target.value })}
                     placeholder="Ontdek ons assortiment van premium producten"
-                    className="input-field min-h-20 resize-y"
+                    className="input-field min-h-[80px] sm:min-h-20 resize-y"
                     rows={3}
                   />
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   The hero section is the first thing customers see when they visit your webshop.
                 </p>
               </div>
             </div>
 
             {/* Store Description */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <FileText size={20} className="text-primary" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <FileText size={18} className="sm:w-5 sm:h-5 text-primary" />
                 Store Description
               </h3>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Description</label>
                   <textarea
                     value={settings.store_description}
                     onChange={(e) => setSettings({ ...settings, store_description: e.target.value })}
                     placeholder="Tell customers about your store, products, and what makes you unique..."
-                    className="input-field min-h-[120px] resize-y"
+                    className="input-field min-h-[100px] sm:min-h-[120px] resize-y"
                     rows={4}
                   />
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   This description can appear in various places on your webshop.
                 </p>
               </div>
             </div>
 
             {/* Quick Tips */}
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <AlertCircle size={20} className="text-yellow-500" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <AlertCircle size={18} className="sm:w-5 sm:h-5 text-yellow-500" />
                 Webshop Tips
               </h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <li>• Mark items as &quot;Public&quot; in the Items page to show them on the webshop</li>
                 <li>• Add descriptions to items to help customers understand your products</li>
                 <li>• Make sure your WhatsApp number is correct for order notifications</li>
@@ -470,8 +473,8 @@ export default function SettingsPage() {
               </ul>
             </div>
 
-            <div className="flex justify-end pt-4">
-              <Button onClick={saveSettings} variant="primary" loading={saving}>
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4">
+              <Button onClick={saveSettings} variant="primary" loading={saving} fullWidth className="sm:w-auto">
                 {saveSuccess ? (
                   <>
                     <Check size={20} />
@@ -490,9 +493,9 @@ export default function SettingsPage() {
 
         {/* Users Tab */}
         {activeTab === 'users' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-foreground">Manage Users</h3>
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">Manage Users</h3>
               <Button 
                 onClick={() => {
                   setEditingUser(null)
@@ -500,6 +503,8 @@ export default function SettingsPage() {
                   setShowUserForm(true)
                 }} 
                 variant="primary"
+                fullWidth
+                className="sm:w-auto"
               >
                 Add User
               </Button>
@@ -507,17 +512,17 @@ export default function SettingsPage() {
 
             <div className="bg-card rounded-2xl border border-border divide-y divide-border">
               {users.map((user) => (
-                <div key={user.id} className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <div key={user.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <Users className="text-primary" size={20} />
                     </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{user.name || user.email}</p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-foreground truncate">{user.name || user.email}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap pl-[52px] sm:pl-0">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       user.role === 'admin' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                     }`}>
@@ -528,7 +533,7 @@ export default function SettingsPage() {
                     }`}>
                       {user.is_active ? 'Active' : 'Inactive'}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 sm:gap-2 ml-auto sm:ml-0">
                       <button
                         onClick={() => {
                           setEditingUser(user)
@@ -540,7 +545,7 @@ export default function SettingsPage() {
                           })
                           setShowUserForm(true)
                         }}
-                        className="text-primary hover:bg-primary/10 p-2 rounded-lg"
+                        className="text-primary hover:bg-primary/10 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm"
                       >
                         Edit
                       </button>
@@ -548,17 +553,17 @@ export default function SettingsPage() {
                         <>
                           <button
                             onClick={() => handleToggleUserActive(user)}
-                            className={`p-2 rounded-lg ${
+                            className={`p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm ${
                               user.is_active ? 'text-yellow-500 hover:bg-yellow-500/10' : 'text-green-500 hover:bg-green-500/10'
                             }`}
                           >
-                            {user.is_active ? 'Disable' : 'Enable'}
+                            {user.is_active ? 'Off' : 'On'}
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg"
+                            className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm"
                           >
-                            Delete
+                            Del
                           </button>
                         </>
                       )}
@@ -572,40 +577,40 @@ export default function SettingsPage() {
 
         {/* Security Tab */}
         {activeTab === 'security' && (
-          <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-5 sm:space-y-6">
             <div>
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <Key size={20} />
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <Key size={18} className="sm:w-5 sm:h-5" />
                 Protected Routes
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-xl gap-2">
                   <div>
-                    <p className="font-medium text-foreground">/catalog</p>
-                    <p className="text-sm text-muted-foreground">Public product catalog for customers</p>
+                    <p className="font-medium text-foreground text-sm sm:text-base">/catalog</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Public product catalog for customers</p>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 w-fit">
                     Public
                   </span>
                 </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-muted/50 rounded-xl gap-2">
                   <div>
-                    <p className="font-medium text-foreground">All other routes</p>
-                    <p className="text-sm text-muted-foreground">Dashboard, Sales, Stock, etc.</p>
+                    <p className="font-medium text-foreground text-sm sm:text-base">All other routes</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Dashboard, Sales, Stock, etc.</p>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary w-fit">
                     Requires Login
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-border pt-6">
-              <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <AlertCircle size={20} className="text-yellow-500" />
+            <div className="border-t border-border pt-5 sm:pt-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <AlertCircle size={18} className="sm:w-5 sm:h-5 text-yellow-500" />
                 Security Notes
               </h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
                 <li>• All admin routes require authentication</li>
                 <li>• Only the catalog page (/catalog) is publicly accessible</li>
                 <li>• User sessions are stored locally and validated on each request</li>
@@ -619,16 +624,22 @@ export default function SettingsPage() {
 
       {/* User Form Modal */}
       {showUserForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowUserForm(false)} />
-          <div className="relative bg-card rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-foreground mb-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowUserForm(false)} />
+          <div className="relative bg-card rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            {/* Drag handle for mobile */}
+            <div className="sm:hidden flex justify-center pb-2 -mt-1">
+              <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-foreground mb-4">
               {editingUser ? 'Edit User' : 'Add User'}
             </h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <Input
                 label="Email"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 value={userForm.email}
                 onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
                 required
@@ -636,12 +647,14 @@ export default function SettingsPage() {
               <Input
                 label={editingUser ? 'New Password (leave empty to keep current)' : 'Password'}
                 type="password"
+                autoComplete={editingUser ? 'new-password' : 'new-password'}
                 value={userForm.password}
                 onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
                 required={!editingUser}
               />
               <Input
                 label="Name"
+                autoComplete="name"
                 value={userForm.name}
                 onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
               />
@@ -650,13 +663,13 @@ export default function SettingsPage() {
                 <select
                   value={userForm.role}
                   onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-                  className="input-field"
+                  className="select-field"
                 >
                   <option value="staff">Staff</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <Button type="submit" variant="primary" fullWidth loading={saving}>
                   {editingUser ? 'Update User' : 'Create User'}
                 </Button>

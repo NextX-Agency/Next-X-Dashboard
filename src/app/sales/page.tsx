@@ -1015,26 +1015,26 @@ export default function SalesPage() {
             {/* Left Column - Item Selection */}
             <div className="lg:col-span-2 space-y-4">
               {/* Currency & Payment Toggle */}
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                <div className="grid grid-cols-2 gap-4 lg:gap-6">
+              <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 lg:p-5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                   <div>
-                    <label className="input-label">Currency</label>
+                    <label className="input-label text-xs sm:text-sm">Currency</label>
                     <CurrencyToggle value={currency} onChange={setCurrency} />
                   </div>
                   <div>
-                    <label className="input-label">Payment Method</label>
+                    <label className="input-label text-xs sm:text-sm">Payment Method</label>
                     <div className="currency-toggle">
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('cash')}
-                        className={`currency-toggle-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+                        className={`currency-toggle-btn min-h-[44px] ${paymentMethod === 'cash' ? 'active' : ''}`}
                       >
                         Cash
                       </button>
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('bank')}
-                        className={`currency-toggle-btn ${paymentMethod === 'bank' ? 'active' : ''}`}
+                        className={`currency-toggle-btn min-h-[44px] ${paymentMethod === 'bank' ? 'active' : ''}`}
                       >
                         Bank
                       </button>
@@ -1044,60 +1044,60 @@ export default function SalesPage() {
               </div>
 
               {/* Combo Mode Toggle */}
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 lg:p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                       comboMode ? 'bg-orange-500 text-white' : 'bg-orange-500/10 text-orange-500'
                     }`}>
-                      <Sparkles size={20} />
+                      <Sparkles size={18} />
                     </div>
-                    <div>
-                      <div className="font-semibold text-foreground">Combo Deal Mode</div>
-                      <div className="text-xs text-muted-foreground">
-                        {comboMode ? `${tempComboItems.length} items geselecteerd` : 'Selecteer meerdere items voor combo'}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-foreground text-sm sm:text-base truncate">Combo Deal Mode</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {comboMode ? `${tempComboItems.length} items selected` : 'Multi-item combo'}
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
-                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                    className={`px-3 sm:px-4 py-2 min-h-[44px] rounded-xl font-semibold transition-all shrink-0 touch-manipulation text-sm sm:text-base ${
                       comboMode 
-                        ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' 
-                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                        ? 'bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700' 
+                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
                     }`}
                   >
-                    {comboMode ? 'Annuleren' : 'Start Combo'}
+                    {comboMode ? 'Cancel' : 'Start'}
                   </button>
                 </div>
                 
                 {comboMode && tempComboItems.length >= 2 && (
-                  <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    <div className="flex items-center gap-3">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border space-y-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
                       <Input
-                        label="Combo Prijs"
+                        label="Combo Price"
                         type="number"
+                        inputMode="decimal"
                         value={quickComboPrice}
                         onChange={(e) => setQuickComboPrice(e.target.value)}
                         suffix={currency === 'SRD' ? 'SRD' : 'USD'}
                         placeholder="1400"
-                        className="flex-1"
+                        className="flex-1 min-h-[48px]"
                       />
-                      <div className="pt-6">
-                        <Button onClick={createQuickCombo} variant="success" size="lg">
-                          <Check size={18} />
-                          Maak Combo
-                        </Button>
-                      </div>
+                      <Button onClick={createQuickCombo} variant="success" size="lg" className="min-h-[48px] w-full sm:w-auto">
+                        <Check size={18} />
+                        <span className="sm:hidden">Create Combo</span>
+                        <span className="hidden sm:inline">Maak Combo</span>
+                      </Button>
                     </div>
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Originele prijs:</span>
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 sm:p-3">
+                      <div className="flex justify-between items-center text-xs sm:text-sm">
+                        <span className="text-muted-foreground">Original:</span>
                         <span className="line-through">{formatCurrency(calculateTempComboOriginalPrice(), currency)}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold text-green-700 dark:text-green-400">Klant bespaart:</span>
-                        <span className="text-lg font-bold text-green-600">
+                        <span className="font-semibold text-green-700 dark:text-green-400 text-sm">Savings:</span>
+                        <span className="text-base sm:text-lg font-bold text-green-600">
                           {formatCurrency(calculateTempComboOriginalPrice() - Number(quickComboPrice), currency)}
                         </span>
                       </div>
@@ -1107,18 +1107,18 @@ export default function SalesPage() {
               </div>
 
               {/* Available Items */}
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5">
-                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 lg:p-5">
+                <h3 className="font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <Package size={18} className={comboMode ? "text-orange-500" : "text-primary"} />
-                  {comboMode ? 'Selecteer Items voor Combo' : 'Available Items'}
-                  <span className="text-sm font-normal text-muted-foreground ml-auto">
+                  {comboMode ? 'Select Items for Combo' : 'Available Items'}
+                  <span className="text-xs sm:text-sm font-normal text-muted-foreground ml-auto">
                     {availableItems.length} items
                   </span>
                 </h3>
                 {comboMode && (
-                  <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                    <p className="text-sm text-orange-700 dark:text-orange-400">
-                      💡 Klik op items om toe te voegen aan combo. Minimaal 2 items nodig.
+                  <div className="mb-3 p-2 sm:p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                    <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400">
+                      💡 Tap items to add to combo. Minimum 2 items needed.
                     </p>
                   </div>
                 )}
@@ -1140,27 +1140,27 @@ export default function SalesPage() {
                           key={item.id}
                           onClick={() => comboMode ? addItemToCombo(item) : addToCart(item)}
                           disabled={isDisabled}
-                          className={`w-full p-3.5 rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border ${
+                          className={`w-full p-3 sm:p-3.5 min-h-[60px] rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border touch-manipulation active:scale-[0.98] ${
                             inCombo 
                               ? 'bg-orange-500/20 border-orange-500 hover:bg-orange-500/30' 
                               : comboMode
-                              ? 'bg-orange-500/5 hover:bg-orange-500/10 border-transparent hover:border-orange-500/30'
-                              : 'bg-muted/50 hover:bg-muted border-transparent hover:border-primary/20'
+                              ? 'bg-orange-500/5 hover:bg-orange-500/10 active:bg-orange-500/20 border-transparent hover:border-orange-500/30'
+                              : 'bg-muted/50 hover:bg-muted active:bg-muted/80 border-transparent hover:border-primary/20'
                           }`}
                         >
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-center gap-2">
                             <div className="min-w-0 flex-1">
-                              <div className={`font-semibold truncate transition-colors ${
+                              <div className={`font-semibold truncate transition-colors text-sm sm:text-base ${
                                 inCombo ? 'text-orange-600' : 'text-foreground group-hover:text-primary'
                               }`}>
                                 {item.name}
-                                {inCombo && <span className="ml-2 text-xs">✓ In combo</span>}
+                                {inCombo && <span className="ml-2 text-xs">✓</span>}
                               </div>
-                              <div className="text-sm text-muted-foreground mt-0.5">
+                              <div className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                                 Stock: <span className="font-medium text-foreground">{stock}</span> • {formatCurrency(price || 0, currency)}
                               </div>
                             </div>
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ml-3 ${
+                            <div className={`w-10 h-10 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
                               inCombo
                                 ? 'bg-orange-500 text-white'
                                 : comboMode
@@ -1180,8 +1180,8 @@ export default function SalesPage() {
 
             {/* Right Column - Cart */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 sticky top-24">
-                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
+              <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 lg:p-5 sticky top-24">
+                <h3 className="font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                   <ShoppingCart size={18} className="text-primary" />
                   Sales Cart
                   {(cart.length > 0 || combos.length > 0) && (
@@ -1192,10 +1192,10 @@ export default function SalesPage() {
                 </h3>
 
                 {cart.length === 0 && combos.length === 0 && tempComboItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <ShoppingCart size={40} className="mx-auto mb-3 text-muted-foreground/30" />
+                  <div className="text-center py-8 sm:py-12">
+                    <ShoppingCart size={36} className="mx-auto mb-3 text-muted-foreground/30" />
                     <p className="text-muted-foreground text-sm">Cart is empty</p>
-                    <p className="text-muted-foreground text-xs mt-1">Add items or combos to get started</p>
+                    <p className="text-muted-foreground text-xs mt-1">Add items to get started</p>
                   </div>
                 ) : (
                   <>
@@ -1370,18 +1370,18 @@ export default function SalesPage() {
                               </div>
                             )}
                             
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2">
                               <button
                                 onClick={() => updateQuantity(cartItem.item.id, -1)}
-                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 active:scale-95"
+                                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 active:bg-secondary/60 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation"
                               >
                                 <Minus size={14} />
                               </button>
-                              <span className="w-8 text-center font-bold text-foreground">{cartItem.quantity}</span>
+                              <span className="w-8 text-center font-bold text-foreground text-sm sm:text-base">{cartItem.quantity}</span>
                               <button
                                 onClick={() => updateQuantity(cartItem.item.id, 1)}
                                 disabled={cartItem.quantity >= cartItem.availableStock}
-                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 disabled:opacity-50 active:scale-95"
+                                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 active:bg-secondary/60 rounded-lg transition-all duration-200 disabled:opacity-50 active:scale-95 touch-manipulation"
                               >
                                 <Plus size={14} />
                               </button>
@@ -1392,14 +1392,14 @@ export default function SalesPage() {
                                       ? { ...c, customPrice: undefined, discountReason: undefined }
                                       : c
                                   ))}
-                                  className="text-xs text-orange-500 hover:text-orange-600 font-medium"
+                                  className="text-xs text-orange-500 hover:text-orange-600 font-medium px-2 py-1 min-h-[36px] touch-manipulation"
                                 >
                                   Reset
                                 </button>
                               )}
                               <button
                                 onClick={() => removeFromCart(cartItem.item.id)}
-                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
+                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors px-2 py-1 min-h-[36px] touch-manipulation"
                               >
                                 Remove
                               </button>
@@ -1410,10 +1410,10 @@ export default function SalesPage() {
                     </div>
 
                     {(cart.length > 0 || combos.length > 0) && (
-                      <div className="border-t border-border pt-5 mt-5 space-y-5">
+                      <div className="border-t border-border pt-4 sm:pt-5 mt-4 sm:mt-5 space-y-4 sm:space-y-5">
                         <div className="flex justify-between items-center">
-                          <span className="font-semibold text-muted-foreground text-base">Total</span>
-                          <span className="text-2xl font-bold text-primary">
+                          <span className="font-semibold text-muted-foreground text-sm sm:text-base">Total</span>
+                          <span className="text-xl sm:text-2xl font-bold text-primary">
                             {formatCurrency(calculateTotal(), currency)}
                           </span>
                         </div>
@@ -1424,9 +1424,10 @@ export default function SalesPage() {
                           variant="success"
                           size="lg"
                           fullWidth
+                          className="min-h-[52px] text-base"
                         >
                           <Check size={20} />
-                          Complete Sale & Generate Receipt
+                          Complete Sale
                         </Button>
                       </div>
                     )}
@@ -1441,34 +1442,35 @@ export default function SalesPage() {
       {/* Invoice/Receipt Modal */}
       <Modal isOpen={showInvoice} onClose={() => setShowInvoice(false)} title="Invoice / Receipt">
         {invoiceData && (
-          <div className="space-y-4">
-            <div ref={invoiceRef} id="printable-invoice" className="bg-white p-6 rounded-lg" style={{ backgroundColor: 'white', color: 'black' }}>
-              <div className="invoice-header text-center mb-6 pb-4 border-b-2 border-orange-500" style={{ borderBottomColor: '#f97316', borderBottomWidth: '2px', borderBottomStyle: 'solid' }}>
-                <div className="flex justify-center mb-4">
+          <div className="space-y-3 sm:space-y-4">
+            <div ref={invoiceRef} id="printable-invoice" className="bg-white p-4 sm:p-6 rounded-lg overflow-x-auto" style={{ backgroundColor: 'white', color: 'black' }}>
+              <div className="invoice-header text-center mb-4 sm:mb-6 pb-3 sm:pb-4 border-b-2 border-orange-500" style={{ borderBottomColor: '#f97316', borderBottomWidth: '2px', borderBottomStyle: 'solid' }}>
+                <div className="flex justify-center mb-3 sm:mb-4">
                   <img
                     src="/nextx-logo-light.png"
                     alt="NextX Business"
                     style={{ 
-                      width: '200px', 
+                      width: '160px', 
                       height: 'auto',
                       display: 'block',
                       margin: '0 auto'
                     }}
+                    className="sm:w-[200px]"
                   />
                 </div>
-                <div className="text-gray-700 text-sm space-y-1" style={{ color: '#374151' }}>
-                  <p className="font-semibold text-orange-600 text-base" style={{ color: '#ea580c', fontWeight: '600' }}>NextX</p>
+                <div className="text-gray-700 text-xs sm:text-sm space-y-1" style={{ color: '#374151' }}>
+                  <p className="font-semibold text-orange-600 text-sm sm:text-base" style={{ color: '#ea580c', fontWeight: '600' }}>NextX</p>
                   <p>Telefoon: +597 831-8508</p>
                   <p>Suriname</p>
                 </div>
-                <div className="mt-4">
-                  <p className="text-xl font-bold text-gray-800" style={{ color: '#1f2937', fontWeight: 'bold' }}>VERKOOPBON</p>
-                  <p className="text-sm text-gray-500" style={{ color: '#6b7280' }}>Sales Receipt</p>
+                <div className="mt-3 sm:mt-4">
+                  <p className="text-lg sm:text-xl font-bold text-gray-800" style={{ color: '#1f2937', fontWeight: 'bold' }}>VERKOOPBON</p>
+                  <p className="text-xs sm:text-sm text-gray-500" style={{ color: '#6b7280' }}>Sales Receipt</p>
                 </div>
               </div>
               
-              <div className="invoice-details bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb', borderWidth: '1px', borderStyle: 'solid' }}>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="invoice-details bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 mb-4" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb', borderWidth: '1px', borderStyle: 'solid' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                   <div>
                     <span className="text-gray-600 font-medium">Bon #:</span>
                     <span className="font-bold text-gray-800 ml-2">{invoiceData.invoiceNumber}</span>
@@ -1488,71 +1490,75 @@ export default function SalesPage() {
                 </div>
               </div>
 
-              <table className="w-full text-sm mb-4">
-                <thead>
-                  <tr className="border-b-2 border-gray-300">
-                    <th className="text-left py-3 text-gray-700 font-semibold">Artikel</th>
-                    <th className="text-center py-3 text-gray-700 font-semibold">Aantal</th>
-                    <th className="text-right py-3 text-gray-700 font-semibold">Prijs</th>
-                    <th className="text-right py-3 text-gray-700 font-semibold">Subtotaal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceData.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="py-3 font-medium text-gray-800">{item.name}</td>
-                      <td className="py-3 text-center text-gray-800">{item.quantity}</td>
-                      <td className="py-3 text-right text-gray-600">
-                        {formatCurrency(item.unitPrice, invoiceData.currency)}
-                      </td>
-                      <td className="py-3 text-right font-medium text-gray-800">
-                        {formatCurrency(item.subtotal, invoiceData.currency)}
+              {/* Mobile-responsive table wrapper */}
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="w-full text-xs sm:text-sm mb-4 min-w-[300px]">
+                  <thead>
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-2 sm:py-3 text-gray-700 font-semibold">Artikel</th>
+                      <th className="text-center py-2 sm:py-3 text-gray-700 font-semibold w-12">Qty</th>
+                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Prijs</th>
+                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Totaal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.items.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="py-2 sm:py-3 font-medium text-gray-800">
+                          <span className="line-clamp-2">{item.name}</span>
+                        </td>
+                        <td className="py-2 sm:py-3 text-center text-gray-800">{item.quantity}</td>
+                        <td className="py-2 sm:py-3 text-right text-gray-600 whitespace-nowrap">
+                          {formatCurrency(item.unitPrice, invoiceData.currency)}
+                        </td>
+                        <td className="py-2 sm:py-3 text-right font-medium text-gray-800 whitespace-nowrap">
+                          {formatCurrency(item.subtotal, invoiceData.currency)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-400">
+                      <td colSpan={3} className="py-3 sm:py-4 text-right font-bold text-gray-800 text-sm sm:text-base">Totaal / Total:</td>
+                      <td className="py-3 sm:py-4 text-right text-lg sm:text-xl font-bold text-orange-600 whitespace-nowrap">
+                        {formatCurrency(invoiceData.total, invoiceData.currency)}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-400">
-                    <td colSpan={3} className="py-4 text-right font-bold text-gray-800 text-base">Totaal / Total:</td>
-                    <td className="py-4 text-right text-xl font-bold text-orange-600">
-                      {formatCurrency(invoiceData.total, invoiceData.currency)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
 
-              <div className="footer mt-6 pt-4 border-t-2 border-gray-300">
-                <div className="text-center mb-4">
-                  <p className="text-lg font-bold text-gray-800">Bedankt voor uw aankoop!</p>
-                  <p className="text-sm text-gray-600">Thank you for your purchase!</p>
+              <div className="footer mt-4 sm:mt-6 pt-3 sm:pt-4 border-t-2 border-gray-300">
+                <div className="text-center mb-3 sm:mb-4">
+                  <p className="text-base sm:text-lg font-bold text-gray-800">Bedankt voor uw aankoop!</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Thank you for your purchase!</p>
                 </div>
                 
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-xs text-gray-700 space-y-2" style={{ backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderWidth: '1px', borderStyle: 'solid', color: '#374151' }}>
-                  <p className="font-semibold text-orange-800" style={{ color: '#9a3412', fontWeight: '600' }}>BELANGRIJKE INFORMATIE / IMPORTANT INFORMATION:</p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Deze bon dient als bewijs van aankoop / This receipt serves as proof of purchase</li>
-                    <li>Bewaar deze bon voor garantie / Keep this receipt for warranty</li>
-                    <li>Retour alleen bij defecten binnen 3 dagen na aankoop / Returns only for defects within 3 days after purchase</li>
-                    <li>Producten moeten onbeschadigd en in originele verpakking zijn / Products must be undamaged and in original packaging</li>
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 sm:p-4 text-xs text-gray-700 space-y-2" style={{ backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderWidth: '1px', borderStyle: 'solid', color: '#374151' }}>
+                  <p className="font-semibold text-orange-800 text-xs sm:text-sm" style={{ color: '#9a3412', fontWeight: '600' }}>IMPORTANT INFO:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-1 sm:ml-2 text-xs">
+                    <li>Keep this receipt for warranty</li>
+                    <li>Returns only for defects within 3 days</li>
+                    <li>Products must be in original packaging</li>
                   </ul>
                 </div>
                 
-                <div className="text-center mt-4 text-xs text-gray-500">
+                <div className="text-center mt-3 sm:mt-4 text-xs text-gray-500">
                   <p>NextX | Tel: +597 831-8508</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button onClick={handlePreviewInvoice} variant="secondary" fullWidth>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4">
+              <Button onClick={handlePreviewInvoice} variant="secondary" fullWidth className="min-h-[48px]">
                 <Eye size={18} />
                 Preview
               </Button>
-              <Button onClick={handlePrintInvoice} variant="primary" fullWidth>
+              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-[48px]">
                 <Printer size={18} />
                 Print Receipt
               </Button>
-              <Button onClick={() => setShowInvoice(false)} variant="secondary" fullWidth>
+              <Button onClick={() => setShowInvoice(false)} variant="secondary" fullWidth className="min-h-[48px]">
                 Close
               </Button>
             </div>
@@ -1562,7 +1568,7 @@ export default function SalesPage() {
 
       {/* Recent Sales History Modal */}
       <Modal isOpen={showHistory} onClose={() => setShowHistory(false)} title="Recent Sales">
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto -mx-1 px-1">
           {recentSales.length === 0 ? (
             <div className="text-center py-12">
               <Receipt size={40} className="mx-auto mb-3 text-muted-foreground/30" />
@@ -1570,25 +1576,25 @@ export default function SalesPage() {
             </div>
           ) : (
             recentSales.map((sale) => (
-              <div key={sale.id} className="bg-muted/50 rounded-xl p-4 border border-border/50">
-                <div className="flex justify-between items-start mb-2">
+              <div key={sale.id} className="bg-muted/50 rounded-xl p-3 sm:p-4 border border-border/50">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-0 mb-2">
                   <div>
-                    <div className="font-bold text-foreground">
+                    <div className="font-bold text-foreground text-base sm:text-lg">
                       {formatCurrency(sale.total_amount, sale.currency as Currency)}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs sm:text-sm text-muted-foreground">
                       {sale.locations?.name || 'Unknown Location'}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
-                      <CheckCircle2 size={16} className="text-success" />
+                      <CheckCircle2 size={14} className="text-success shrink-0" />
                       <Badge variant={
                         sale.payment_method === 'reservation' ? 'success' :
                         sale.payment_method === 'cash' ? 'default' : 'orange'
-                      }>
-                        {sale.payment_method === 'reservation' ? '📋 Reservation' :
-                         sale.payment_method === 'cash' ? '💵 Cash' : '🏦 Bank'}
+                      } className="text-xs">
+                        {sale.payment_method === 'reservation' ? 'Reservation' :
+                         sale.payment_method === 'cash' ? 'Cash' : 'Bank'}
                       </Badge>
                     </div>
                     <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -1602,26 +1608,31 @@ export default function SalesPage() {
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <div className="text-xs text-muted-foreground mb-2">Items:</div>
                     <div className="space-y-1">
-                      {sale.sale_items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-foreground">
+                      {sale.sale_items.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="flex justify-between text-xs sm:text-sm">
+                          <span className="text-foreground truncate max-w-[180px] sm:max-w-none">
                             {item.items?.name || 'Unknown Item'} × {item.quantity}
                           </span>
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground shrink-0 ml-2">
                             {formatCurrency(item.subtotal, sale.currency as Currency)}
                           </span>
                         </div>
                       ))}
+                      {sale.sale_items.length > 3 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{sale.sale_items.length - 3} more items
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
+                <div className="mt-3 pt-3 border-t border-border/50 flex flex-col sm:flex-row gap-2">
                   <Button
                     onClick={() => handleReprintInvoice(sale)}
                     variant="secondary"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 min-h-[44px]"
                   >
                     <Printer size={16} />
                     View Invoice
@@ -1630,7 +1641,7 @@ export default function SalesPage() {
                     onClick={() => handleUndoSale(sale)}
                     variant="danger"
                     size="sm"
-                    className="flex-1"
+                    className="flex-1 min-h-[44px]"
                   >
                     <Undo2 size={16} />
                     Undo Sale

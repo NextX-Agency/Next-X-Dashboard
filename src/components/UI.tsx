@@ -13,22 +13,22 @@ function PageHeaderComponent({
 }) {
   return (
     <div className="bg-card/95 border-b border-border lg:sticky lg:top-0 z-10 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 lg:py-6">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             {icon && (
               <div className="hidden sm:flex w-10 h-10 rounded-xl bg-[hsl(var(--primary-muted))] items-center justify-center flex-shrink-0">
                 <div className="text-primary">{icon}</div>
               </div>
             )}
-            <div className="min-w-0">
-              <h1 className="text-lg lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
               {subtitle && (
                 <p className="text-xs lg:text-sm text-muted-foreground mt-0.5 truncate hidden sm:block">{subtitle}</p>
               )}
             </div>
           </div>
-          {action && <div className="flex items-center gap-2 flex-shrink-0">{action}</div>}
+          {action && <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">{action}</div>}
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@ export const PageHeader = memo(PageHeaderComponent)
 
 function PageContainerComponent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`max-w-7xl mx-auto px-4 lg:px-8 py-6 ${className}`}>
+    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 ${className}`}>
       {children}
     </div>
   )
@@ -158,9 +158,9 @@ function ButtonComponent({
   }
 
   const sizes = {
-    sm: 'px-3 py-1.5 text-xs gap-1.5',
-    md: 'px-4 py-2.5 text-sm gap-2',
-    lg: 'px-5 py-3 text-base gap-2',
+    sm: 'px-3 py-2 text-xs gap-1.5 min-h-[36px] sm:min-h-[32px]',
+    md: 'px-4 py-2.5 text-sm gap-2 min-h-[44px] sm:min-h-[40px]',
+    lg: 'px-5 py-3 text-base gap-2 min-h-[48px] sm:min-h-[44px]',
   }
 
   const isDisabled = disabled || loading
@@ -180,6 +180,7 @@ function ButtonComponent({
         active:scale-[0.97]
         disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:shadow-sm
         focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background
+        touch-manipulation
         ${className}
       `}
     >
@@ -213,16 +214,16 @@ function InputComponent({
       {hasAdornment ? (
         <div className="relative">
           {prefix && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 text-xs font-medium pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 text-xs sm:text-sm font-medium pointer-events-none">
               {prefix}
             </span>
           )}
           <input
             {...props}
-            className={`input-field ${prefix ? 'pl-16' : ''} ${suffix ? 'pr-14' : ''} ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
+            className={`input-field ${prefix ? 'pl-14 sm:pl-16' : ''} ${suffix ? 'pr-12 sm:pr-14' : ''} ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
           />
           {suffix && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+            <span className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium pointer-events-none">
               {suffix}
             </span>
           )}
@@ -233,7 +234,7 @@ function InputComponent({
           className={`input-field ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
         />
       )}
-      {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-sm text-destructive flex items-start gap-1"><span className="text-xs mt-0.5">⚠</span> {error}</p>}
     </div>
   )
 }
@@ -261,7 +262,7 @@ function SelectComponent({
       >
         {children}
       </select>
-      {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-sm text-destructive flex items-start gap-1"><span className="text-xs mt-0.5">⚠</span> {error}</p>}
     </div>
   )
 }
@@ -283,9 +284,9 @@ function TextareaComponent({
       {label && <label className="input-label">{label}</label>}
       <textarea
         {...props}
-        className={`input-field resize-none ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
+        className={`input-field resize-none min-h-[100px] ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
       />
-      {error && <p className="mt-1.5 text-sm text-destructive">{error}</p>}
+      {error && <p className="mt-1.5 text-sm text-destructive flex items-start gap-1"><span className="text-xs mt-0.5">⚠</span> {error}</p>}
     </div>
   )
 }
@@ -306,14 +307,14 @@ function CurrencyToggleComponent({
       <button
         type="button"
         onClick={() => onChange('SRD')}
-        className={`currency-toggle-btn ${value === 'SRD' ? 'active' : ''}`}
+        className={`currency-toggle-btn min-h-[40px] sm:min-h-[36px] ${value === 'SRD' ? 'active' : ''}`}
       >
         SRD
       </button>
       <button
         type="button"
         onClick={() => onChange('USD')}
-        className={`currency-toggle-btn ${value === 'USD' ? 'active' : ''}`}
+        className={`currency-toggle-btn min-h-[40px] sm:min-h-[36px] ${value === 'USD' ? 'active' : ''}`}
       >
         USD
       </button>
@@ -333,7 +334,7 @@ function CardComponent({
   padding?: boolean
 }) {
   return (
-    <div className={`bg-card rounded-xl border border-border ${padding ? 'p-4 lg:p-6' : ''} ${className}`}>
+    <div className={`bg-card rounded-xl border border-border ${padding ? 'p-3 sm:p-4 lg:p-6' : ''} ${className}`}>
       {children}
     </div>
   )
@@ -381,18 +382,18 @@ function StatBoxComponent({
   }
 
   return (
-    <div className={`${variants[variant]} border rounded-xl p-4 lg:p-5`}>
+    <div className={`${variants[variant]} border rounded-xl p-3 sm:p-4 lg:p-5`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-muted-foreground mb-1">{label}</p>
-          <p className="text-2xl lg:text-3xl font-bold text-foreground">{value}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1">{label}</p>
+          <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">{value}</p>
           {trend && (
             <p className={`text-xs mt-1 ${trend.positive ? 'text-success' : 'text-destructive'}`}>
               {trend.positive ? '↑' : '↓'} {trend.value}
             </p>
           )}
         </div>
-        {Icon && <div>{renderIcon()}</div>}
+        {Icon && <div className="hidden sm:block">{renderIcon()}</div>}
       </div>
     </div>
   )
@@ -417,15 +418,15 @@ function ModalUIComponent({
   if (!isOpen) return null
 
   const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-2xl',
-    lg: 'max-w-[96vw]',
-    xl: 'max-w-[98vw]',
-    full: 'max-w-[99vw]'
+    sm: 'sm:max-w-md',
+    md: 'sm:max-w-2xl',
+    lg: 'sm:max-w-[96vw] lg:max-w-4xl',
+    xl: 'sm:max-w-[98vw] lg:max-w-5xl',
+    full: 'sm:max-w-[99vw] lg:max-w-6xl'
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -433,13 +434,17 @@ function ModalUIComponent({
       />
       
       {/* Modal */}
-      <div className={`relative w-full ${sizeClasses[size]} max-h-[90vh] overflow-auto bg-card rounded-2xl shadow-xl border border-border`}>
+      <div className={`relative w-full ${sizeClasses[size]} max-h-[92vh] sm:max-h-[90vh] overflow-auto bg-card rounded-t-2xl sm:rounded-2xl shadow-xl border border-border`}>
+        {/* Drag handle for mobile */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+        </div>
         {title && (
-          <div className="flex items-center justify-between p-4 lg:p-6 border-b border-border">
-            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <div className="flex items-center justify-between p-4 sm:p-4 lg:p-6 border-b border-border sticky top-0 bg-card z-10">
+            <h2 className="text-base sm:text-lg font-semibold text-foreground pr-8">{title}</h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
+              className="absolute right-3 sm:right-4 top-3 sm:top-4 p-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -448,7 +453,7 @@ function ModalUIComponent({
             </button>
           </div>
         )}
-        <div className={title ? 'p-4 lg:p-6' : 'p-4 lg:p-6'}>
+        <div className={title ? 'p-3 sm:p-4 lg:p-6' : 'p-3 sm:p-4 lg:p-6'}>
           {children}
         </div>
       </div>

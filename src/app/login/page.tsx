@@ -46,38 +46,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center bg-background p-4 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
+        <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-8">
           {/* Logo/Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-primary" />
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
-            <p className="text-muted-foreground mt-2">Sign in to access the dashboard</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Admin Login</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Sign in to access the dashboard</p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm">
-              {error}
+            <div className="mb-5 sm:mb-6 p-3 sm:p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm flex items-start gap-2">
+              <span className="text-xs mt-0.5">⚠</span>
+              <span>{error}</span>
             </div>
           )}
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Email</label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                <Mail className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
                 <input
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@example.com"
                   required
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+                  className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-base min-h-[48px]"
                 />
               </div>
             </div>
@@ -85,19 +88,20 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+                <Lock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-12 pr-12 py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+                  className="w-full pl-10 sm:pl-12 pr-12 py-3 sm:py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-base min-h-[48px]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-1"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -107,7 +111,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 sm:py-3 min-h-[48px] bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base touch-manipulation"
             >
               {loading ? (
                 <>
@@ -121,16 +125,16 @@ export default function LoginPage() {
           </form>
 
           {/* Footer */}
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-5 sm:mt-6 text-center text-sm text-muted-foreground">
             Contact admin if you need access
           </p>
         </div>
 
         {/* Public Catalog Link */}
-        <div className="mt-6 text-center">
+        <div className="mt-5 sm:mt-6 text-center">
           <Link
             href="/catalog"
-            className="text-primary hover:underline text-sm font-medium"
+            className="text-primary hover:underline text-sm font-medium inline-flex items-center gap-1 min-h-[44px] px-4"
           >
             View Public Catalog →
           </Link>
