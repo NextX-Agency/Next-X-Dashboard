@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import Image from 'next/image'
 import { formatCurrency, type Currency } from '@/lib/currency'
 
@@ -9,7 +10,7 @@ interface WalletCardProps {
   onClick: () => void
 }
 
-export function WalletCard({ personName, type, currency, balance, onClick }: WalletCardProps) {
+function WalletCardComponent({ personName, type, currency, balance, onClick }: WalletCardProps) {
   return (
     <button
       onClick={onClick}
@@ -40,6 +41,8 @@ export function WalletCard({ personName, type, currency, balance, onClick }: Wal
   )
 }
 
+export const WalletCard = memo(WalletCardComponent)
+
 interface ItemCardProps {
   name: string
   categoryName: string
@@ -51,7 +54,7 @@ interface ItemCardProps {
   onDelete: () => void
 }
 
-export function ItemCard({
+function ItemCardComponent({
   name,
   categoryName,
   purchasePrice,
@@ -116,6 +119,8 @@ export function ItemCard({
   )
 }
 
+export const ItemCard = memo(ItemCardComponent)
+
 interface LocationCardProps {
   name: string
   address?: string | null
@@ -124,7 +129,7 @@ interface LocationCardProps {
   onDelete: () => void
 }
 
-export function LocationCard({ name, address, itemCount = 0, onEdit, onDelete }: LocationCardProps) {
+function LocationCardComponent({ name, address, itemCount = 0, onEdit, onDelete }: LocationCardProps) {
   return (
     <div className="bg-card rounded-2xl p-5 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
       <div className="flex items-start justify-between mb-4">
@@ -162,6 +167,8 @@ export function LocationCard({ name, address, itemCount = 0, onEdit, onDelete }:
   )
 }
 
+export const LocationCard = memo(LocationCardComponent)
+
 interface StockCardProps {
   itemName: string
   locationName: string
@@ -170,7 +177,7 @@ interface StockCardProps {
   onRemove?: () => void
 }
 
-export function StockCard({ itemName, locationName, quantity, imageUrl, onRemove }: StockCardProps) {
+function StockCardComponent({ itemName, locationName, quantity, imageUrl, onRemove }: StockCardProps) {
   const isLowStock = quantity < 5
   const isOutOfStock = quantity === 0
   
@@ -220,6 +227,8 @@ export function StockCard({ itemName, locationName, quantity, imageUrl, onRemove
   )
 }
 
+export const StockCard = memo(StockCardComponent)
+
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
@@ -227,7 +236,7 @@ interface ModalProps {
   children: React.ReactNode
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
   if (!isOpen) return null
 
   return (
@@ -254,4 +263,6 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     </div>
   )
 }
+
+export const Modal = memo(ModalComponent)
 

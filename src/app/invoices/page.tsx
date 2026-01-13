@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Receipt, Search, Filter, Printer, Eye, Calendar, MapPin, User, Clock, ShoppingCart, ClipboardList, X, Download, FileText } from 'lucide-react'
@@ -305,7 +305,8 @@ export default function InvoicesPage() {
     loadData()
   }, [])
 
-  const getFilteredInvoices = () => {
+  // Memoize filtered invoices to prevent recalculation on every render
+  const filteredInvoices = useMemo(() => {
     let filtered = invoices
 
     // Type filter
@@ -353,9 +354,10 @@ export default function InvoicesPage() {
     }
 
     return filtered
-  }
+  }, [invoices, typeFilter, locationFilter, dateFilter, searchQuery])
 
-  const handleViewInvoice = (invoice: Invoice) => {
+  // Memoize handlers to prevent recreation on each render
+  const handleViewInvoice = useCallback((invoice: Invoice) => {
     const viewData: InvoiceViewData = {
       invoiceNumber: invoice.invoiceNumber,
       date: new Date(invoice.created_at).toLocaleString(),
@@ -380,9 +382,9 @@ export default function InvoicesPage() {
     
     setSelectedInvoice(viewData)
     setShowInvoice(true)
-  }
+  }, [])
 
-  const handlePrintInvoice = () => {
+  const handlePrintInvoice = useCallback(() => {
     if (invoiceRef.current) {
       const printContent = invoiceRef.current.innerHTML
       const printWindow = window.open('', '_blank')
@@ -425,9 +427,10 @@ export default function InvoicesPage() {
         printWindow.document.close()
       }
     }
-  }
+  }, [selectedInvoice])
 
-  const getTimeSince = (dateString: string) => {
+  // Memoize time since calculation helper
+  const getTimeSince = useCallback((dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
@@ -440,7 +443,28 @@ export default function InvoicesPage() {
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
-  }
+  }, [])
+
+  // Memoize input handlers
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
+  }, [])
+
+  const handleTypeFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setTypeFilter(e.target.value as 'all' | 'sale' | 'reservation')
+  }, [])
+
+  const handleLocationFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLocationFilter(e.target.value)
+  }, [])
+
+  const handleDateFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setDateFilter(e.target.value as 'all' | 'today' | 'week' | 'month')
+  }, [])
+
+  const closeInvoiceModal = useCallback(() => {
+    setShowInvoice(false)
+  }, [])
 
   if (loading) {
     return (
@@ -450,8 +474,6 @@ export default function InvoicesPage() {
       </div>
     )
   }
-
-  const filteredInvoices = getFilteredInvoices()
 
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
@@ -528,7 +550,7 @@ export default function InvoicesPage() {
                   type="text"
                   placeholder="Search invoices by number, location, client, or item..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchChange}
                   className="input-field pl-10 w-full"
                 />
               </div>
@@ -536,7 +558,7 @@ export default function InvoicesPage() {
             <div className="flex gap-3 flex-wrap">
               <Select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as 'all' | 'sale' | 'reservation')}
+                onChange={handleTypeFilterChange}
                 className="w-40"
               >
                 <option value="all">All Types</option>
@@ -545,7 +567,7 @@ export default function InvoicesPage() {
               </Select>
               <Select
                 value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
+                onChange={handleLocationFilterChange}
                 className="w-48"
               >
                 <option value="">All Locations</option>
@@ -555,7 +577,7 @@ export default function InvoicesPage() {
               </Select>
               <Select
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value as 'all' | 'today' | 'week' | 'month')}
+                onChange={handleDateFilterChange}
                 className="w-40"
               >
                 <option value="all">All Time</option>
@@ -667,7 +689,7 @@ export default function InvoicesPage() {
       {/* Invoice View Modal */}
       <Modal 
         isOpen={showInvoice} 
-        onClose={() => setShowInvoice(false)} 
+        onClose={closeInvoiceModal} 
         title={selectedInvoice?.type === 'sale' ? 'Sales Invoice' : 'Reservation Receipt'}
       >
         {selectedInvoice && (
@@ -800,7 +822,7 @@ export default function InvoicesPage() {
                 <Printer size={18} />
                 Print Invoice
               </Button>
-              <Button onClick={() => setShowInvoice(false)} variant="secondary" fullWidth>
+              <Button onClick={closeInvoiceModal} variant="secondary" fullWidth>
                 Close
               </Button>
             </div>

@@ -1,14 +1,14 @@
 'use client'
 
 import { Bell, Search, Menu, DollarSign, LogOut, X } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import Image from 'next/image'
 import MobileMenu from './MobileMenu'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 
-export default function TopBar() {
+function TopBarComponent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -31,13 +31,13 @@ export default function TopBar() {
     }
   }, [showMobileSearch])
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout()
     router.push('/login')
-  }
+  }, [logout, router])
 
-  // Get page title from pathname
-  const getPageTitle = () => {
+  // Memoize page title computation
+  const pageTitle = useMemo(() => {
     const path = pathname.split('/').filter(Boolean)
     if (path.length === 0) return 'Dashboard'
     if (path[0] === 'cms') {
@@ -45,7 +45,24 @@ export default function TopBar() {
       return path[1].charAt(0).toUpperCase() + path[1].slice(1)
     }
     return path[0].charAt(0).toUpperCase() + path[0].slice(1)
-  }
+  }, [pathname])
+
+  // Memoize handlers
+  const openMobileMenu = useCallback(() => setIsMobileMenuOpen(true), [])
+  const toggleMobileSearch = useCallback(() => setShowMobileSearch(prev => !prev), [])
+  const toggleUserMenu = useCallback(() => setShowUserMenu(prev => !prev), [])
+  const closeUserMenu = useCallback(() => setShowUserMenu(false), [])
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), [])
+  const setUSD = useCallback(() => setDisplayCurrency('USD'), [setDisplayCurrency])
+  const setSRD = useCallback(() => setDisplayCurrency('SRD'), [setDisplayCurrency])
+
+  // Memoize user initial
+  const userInitial = useMemo(() => 
+    user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U',
+    [user?.name, user?.email]
+  )
+
+  const userName = user?.name || user?.email || 'User'
 
   return (
     <>
@@ -54,7 +71,7 @@ export default function TopBar() {
           {/* Left Section - Mobile Menu & Logo/Title */}
           <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
             <button 
-              onClick={() => setIsMobileMenuOpen(true)}
+              onClick={openMobileMenu}
               className="lg:hidden p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
               aria-label="Open menu"
             >
@@ -74,7 +91,7 @@ export default function TopBar() {
                 />
               </div>
               <div className="w-px h-5 bg-gray-700" />
-              <span className="text-sm font-semibold text-gray-300 truncate">{getPageTitle()}</span>
+              <span className="text-sm font-semibold text-gray-300 truncate">{pageTitle}</span>
             </div>
 
             {/* Search Bar - Desktop */}
@@ -84,7 +101,7 @@ export default function TopBar() {
                 type="text"
                 placeholder="Search anything..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
                 className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-500 w-full font-medium"
               />
             </div>
@@ -95,7 +112,7 @@ export default function TopBar() {
             {/* Currency Toggle */}
             <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-lg p-0.5 border border-gray-700/50">
               <button
-                onClick={() => setDisplayCurrency('USD')}
+                onClick={setUSD}
                 className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'USD'
                     ? 'bg-orange-500 text-white shadow-sm'
@@ -106,7 +123,7 @@ export default function TopBar() {
                 <span className="hidden sm:inline">USD</span>
               </button>
               <button
-                onClick={() => setDisplayCurrency('SRD')}
+                onClick={setSRD}
                 className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'SRD'
                     ? 'bg-orange-500 text-white shadow-sm'
@@ -125,7 +142,7 @@ export default function TopBar() {
 
             {/* Search Icon - Mobile */}
             <button 
-              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              onClick={toggleMobileSearch}
               className="lg:hidden p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
               aria-label="Search"
             >
@@ -145,15 +162,15 @@ export default function TopBar() {
             {/* User Profile */}
             <div className="relative">
               <button 
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={toggleUserMenu}
                 className="flex items-center gap-2 p-1 lg:px-2 lg:py-1.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
               >
                 <div className="hidden md:flex flex-col items-end">
-                  <span className="text-sm font-semibold text-white">{user?.name || user?.email || 'User'}</span>
+                  <span className="text-sm font-semibold text-white">{userName}</span>
                   <span className="text-xs text-gray-400 capitalize">{user?.role || 'Admin'}</span>
                 </div>
                 <div className="w-8 h-8 lg:w-9 lg:h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/25">
-                  {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+                  {userInitial}
                 </div>
               </button>
               
@@ -162,7 +179,7 @@ export default function TopBar() {
                 <>
                   <div 
                     className="fixed inset-0 z-40" 
-                    onClick={() => setShowUserMenu(false)}
+                    onClick={closeUserMenu}
                   />
                   <div className="absolute right-0 mt-2 w-56 bg-gray-800 rounded-xl shadow-xl border border-gray-700 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="px-4 py-3 border-b border-gray-700">
@@ -193,7 +210,7 @@ export default function TopBar() {
                 type="text"
                 placeholder="Search..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
                 className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-500 w-full font-medium"
               />
               {searchQuery && (
@@ -214,4 +231,7 @@ export default function TopBar() {
     </>
   )
 }
+
+const TopBar = memo(TopBarComponent)
+export default TopBar
 

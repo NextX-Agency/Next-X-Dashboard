@@ -1,5 +1,5 @@
 import { LucideIcon } from 'lucide-react'
-import { ReactNode } from 'react'
+import { ReactNode, memo } from 'react'
 
 interface StatCardProps {
   title: string
@@ -12,7 +12,7 @@ interface StatCardProps {
   color?: 'orange' | 'blue' | 'green' | 'purple' | 'red'
 }
 
-export function StatCard({ title, value, icon: Icon, trend, color = 'orange' }: StatCardProps) {
+function StatCardComponent({ title, value, icon: Icon, trend, color = 'orange' }: StatCardProps) {
   const iconBgClasses = {
     orange: 'bg-gradient-to-br from-orange-500/15 to-orange-600/10 border border-orange-500/25',
     blue: 'bg-gradient-to-br from-blue-500/15 to-blue-600/10 border border-blue-500/25',
@@ -55,6 +55,8 @@ export function StatCard({ title, value, icon: Icon, trend, color = 'orange' }: 
   )
 }
 
+export const StatCard = memo(StatCardComponent)
+
 interface ChartCardProps {
   title: string
   subtitle?: string
@@ -63,7 +65,7 @@ interface ChartCardProps {
   icon?: ReactNode
 }
 
-export function ChartCard({ title, subtitle, children, action, icon }: ChartCardProps) {
+function ChartCardComponent({ title, subtitle, children, action, icon }: ChartCardProps) {
   return (
     <div className="bg-card rounded-2xl p-5 lg:p-6 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-lg transition-all duration-300">
       <div className="flex items-start justify-between mb-5 lg:mb-6">
@@ -85,6 +87,8 @@ export function ChartCard({ title, subtitle, children, action, icon }: ChartCard
   )
 }
 
+export const ChartCard = memo(ChartCardComponent)
+
 interface QuickActionCardProps {
   title: string
   icon: LucideIcon
@@ -92,7 +96,7 @@ interface QuickActionCardProps {
   color?: 'orange' | 'blue' | 'green' | 'purple' | 'red' | 'teal' | 'indigo'
 }
 
-export function QuickActionCard({ title, icon: Icon, onClick, color = 'orange' }: QuickActionCardProps) {
+function QuickActionCardComponent({ title, icon: Icon, onClick, color = 'orange' }: QuickActionCardProps) {
   const colorClasses = {
     orange: 'from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 shadow-orange-500/25 hover:shadow-orange-500/40',
     blue: 'from-blue-500 via-blue-600 to-blue-700 hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 shadow-blue-500/25 hover:shadow-blue-500/40',
@@ -121,6 +125,8 @@ export function QuickActionCard({ title, icon: Icon, onClick, color = 'orange' }
   )
 }
 
+export const QuickActionCard = memo(QuickActionCardComponent)
+
 interface ActivityItemProps {
   icon: LucideIcon
   title: string
@@ -128,7 +134,7 @@ interface ActivityItemProps {
   color?: 'orange' | 'blue' | 'green' | 'purple'
 }
 
-export function ActivityItem({ icon: Icon, title, time, color = 'orange' }: ActivityItemProps) {
+function ActivityItemComponent({ icon: Icon, title, time, color = 'orange' }: ActivityItemProps) {
   const colorClasses = {
     orange: 'bg-orange-950/50 text-orange-400 border border-orange-800/50',
     blue: 'bg-blue-950/50 text-blue-400 border border-blue-800/50',
@@ -148,4 +154,6 @@ export function ActivityItem({ icon: Icon, title, time, color = 'orange' }: Acti
     </div>
   )
 }
+
+export const ActivityItem = memo(ActivityItemComponent)
 

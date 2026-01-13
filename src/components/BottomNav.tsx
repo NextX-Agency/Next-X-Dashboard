@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -12,28 +13,33 @@ import {
   Plus
 } from 'lucide-react'
 
-export default function BottomNav() {
+// Define nav items outside component to prevent recreation
+const DEFAULT_NAV_ITEMS = [
+  { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
+  { name: 'Sales', icon: ShoppingCart, path: '/sales' },
+  { name: 'Stock', icon: Package, path: '/stock' },
+  { name: 'Reports', icon: BarChart3, path: '/reports' },
+  { name: 'CMS', icon: FileText, path: '/cms' },
+]
+
+const CMS_NAV_ITEMS = [
+  { name: 'CMS Hub', icon: FileText, path: '/cms' },
+  { name: 'Blog', icon: FileText, path: '/cms/blog' },
+  { name: 'Banners', icon: Layers, path: '/cms/banners' },
+  { name: 'Pages', icon: FileText, path: '/cms/pages' },
+  { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
+]
+
+function BottomNavComponent() {
   const pathname = usePathname()
-  const isCMSSection = pathname.startsWith('/cms')
-
-  // Context-aware navigation - show CMS nav when in CMS section
-  const defaultNavItems = [
-    { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
-    { name: 'Sales', icon: ShoppingCart, path: '/sales' },
-    { name: 'Stock', icon: Package, path: '/stock' },
-    { name: 'Reports', icon: BarChart3, path: '/reports' },
-    { name: 'CMS', icon: FileText, path: '/cms' },
-  ]
-
-  const cmsNavItems = [
-    { name: 'CMS Hub', icon: FileText, path: '/cms' },
-    { name: 'Blog', icon: FileText, path: '/cms/blog' },
-    { name: 'Banners', icon: Layers, path: '/cms/banners' },
-    { name: 'Pages', icon: FileText, path: '/cms/pages' },
-    { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
-  ]
-
-  const navItems = isCMSSection ? cmsNavItems : defaultNavItems
+  
+  const { navItems, isCMSSection } = useMemo(() => {
+    const isCMS = pathname.startsWith('/cms')
+    return {
+      navItems: isCMS ? CMS_NAV_ITEMS : DEFAULT_NAV_ITEMS,
+      isCMSSection: isCMS
+    }
+  }, [pathname])
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900/98 backdrop-blur-xl border-t border-gray-800/80 z-50">
@@ -76,4 +82,7 @@ export default function BottomNav() {
     </nav>
   )
 }
+
+const BottomNav = memo(BottomNavComponent)
+export default BottomNav
 

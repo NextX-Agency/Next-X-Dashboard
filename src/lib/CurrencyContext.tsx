@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { type Currency } from '@/lib/currency'
 
@@ -64,7 +64,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   /**
    * Convert an amount from its original currency to the display currency
    */
-  const convertToDisplay = (amount: number, fromCurrency: Currency): number => {
+  const convertToDisplay = useCallback((amount: number, fromCurrency: Currency): number => {
     if (fromCurrency === displayCurrency) {
       return amount
     }
@@ -76,40 +76,40 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       // Convert USD to SRD
       return amount * exchangeRate
     }
-  }
+  }, [displayCurrency, exchangeRate])
 
   /**
    * Convert any amount to USD
    */
-  const convertToUSD = (amount: number, fromCurrency: Currency): number => {
+  const convertToUSD = useCallback((amount: number, fromCurrency: Currency): number => {
     if (fromCurrency === 'USD') {
       return amount
     }
     return amount / exchangeRate
-  }
+  }, [exchangeRate])
 
   /**
    * Convert any amount to SRD
    */
-  const convertToSRD = (amount: number, fromCurrency: Currency): number => {
+  const convertToSRD = useCallback((amount: number, fromCurrency: Currency): number => {
     if (fromCurrency === 'SRD') {
       return amount
     }
     return amount * exchangeRate
-  }
+  }, [exchangeRate])
+
+  const contextValue = useMemo(() => ({
+    displayCurrency,
+    setDisplayCurrency,
+    exchangeRate,
+    isLoading,
+    convertToDisplay,
+    convertToUSD,
+    convertToSRD,
+  }), [displayCurrency, exchangeRate, isLoading, convertToDisplay, convertToUSD, convertToSRD])
 
   return (
-    <CurrencyContext.Provider
-      value={{
-        displayCurrency,
-        setDisplayCurrency,
-        exchangeRate,
-        isLoading,
-        convertToDisplay,
-        convertToUSD,
-        convertToSRD,
-      }}
-    >
+    <CurrencyContext.Provider value={contextValue}>
       {children}
     </CurrencyContext.Provider>
   )

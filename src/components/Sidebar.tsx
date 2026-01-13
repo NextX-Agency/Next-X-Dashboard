@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useCallback, useMemo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { 
@@ -58,7 +59,8 @@ export default function Sidebar() {
     'System': true,
   })
 
-  const navSections: NavSection[] = [
+  // Memoize navigation sections to prevent recreation on each render
+  const navSections: NavSection[] = useMemo(() => [
     {
       title: 'Store',
       items: [
@@ -113,11 +115,23 @@ export default function Sidebar() {
         { name: 'Settings', icon: Settings, path: '/settings' },
       ],
     },
-  ]
+  ], [])
 
-  const toggleSection = (title: string) => {
+  const toggleSection = useCallback((title: string) => {
     setExpandedSections(prev => ({ ...prev, [title]: !prev[title] }))
-  }
+  }, [])
+
+  const handleNavigation = useCallback((path: string, isExternal?: boolean) => {
+    if (isExternal) {
+      window.open(path, '_blank')
+    } else {
+      router.push(path)
+    }
+  }, [router])
+
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev)
+  }, [])
 
   return (
     <aside 
@@ -186,13 +200,7 @@ export default function Sidebar() {
                     return (
                       <button
                         key={item.path}
-                        onClick={() => {
-                          if (isExternal) {
-                            window.open(item.path, '_blank')
-                          } else {
-                            router.push(item.path)
-                          }
-                        }}
+                        onClick={() => handleNavigation(item.path, isExternal)}
                         className={`relative w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group overflow-hidden ${
                           isActive 
                             ? 'bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' 
@@ -239,7 +247,7 @@ export default function Sidebar() {
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-gray-800/50">
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={toggleCollapse}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800/60 hover:text-white transition-all"
         >
           {isCollapsed ? <Menu size={18} /> : <X size={18} />}
@@ -249,4 +257,6 @@ export default function Sidebar() {
     </aside>
   )
 }
+
+export const MemoizedSidebar = memo(Sidebar)
 

@@ -1,4 +1,6 @@
-export function PageHeader({ 
+import { memo, forwardRef } from 'react'
+
+function PageHeaderComponent({ 
   title, 
   subtitle, 
   action,
@@ -33,7 +35,9 @@ export function PageHeader({
   )
 }
 
-export function PageContainer({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export const PageHeader = memo(PageHeaderComponent)
+
+function PageContainerComponent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`max-w-7xl mx-auto px-4 lg:px-8 py-6 ${className}`}>
       {children}
@@ -41,7 +45,9 @@ export function PageContainer({ children, className = '' }: { children: React.Re
   )
 }
 
-export function EmptyState({ 
+export const PageContainer = memo(PageContainerComponent)
+
+function EmptyStateComponent({ 
   icon: Icon, 
   title, 
   description,
@@ -64,7 +70,9 @@ export function EmptyState({
   )
 }
 
-export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+export const EmptyState = memo(EmptyStateComponent)
+
+function LoadingSpinnerComponent({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
     sm: 'w-4 h-4 border-2',
     md: 'w-8 h-8 border-2',
@@ -78,7 +86,9 @@ export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   )
 }
 
-export function LoadingCard() {
+export const LoadingSpinner = memo(LoadingSpinnerComponent)
+
+function LoadingCardComponent() {
   return (
     <div className="bg-card rounded-xl p-6 border border-border">
       <div className="shimmer h-4 w-24 rounded mb-3" />
@@ -88,7 +98,9 @@ export function LoadingCard() {
   )
 }
 
-export function Badge({ 
+export const LoadingCard = memo(LoadingCardComponent)
+
+function BadgeComponent({ 
   children, 
   variant = 'default',
   className = ''
@@ -113,7 +125,9 @@ export function Badge({
   )
 }
 
-export function Button({ 
+export const Badge = memo(BadgeComponent)
+
+function ButtonComponent({ 
   children, 
   variant = 'primary',
   size = 'md',
@@ -175,7 +189,9 @@ export function Button({
   )
 }
 
-export function Input({
+export const Button = memo(ButtonComponent)
+
+function InputComponent({
   label,
   error,
   prefix,
@@ -222,7 +238,9 @@ export function Input({
   )
 }
 
-export function Select({
+export const Input = memo(InputComponent)
+
+function SelectComponent({
   label,
   error,
   children,
@@ -248,7 +266,9 @@ export function Select({
   )
 }
 
-export function Textarea({
+export const Select = memo(SelectComponent)
+
+function TextareaComponent({
   label,
   error,
   className = '',
@@ -270,7 +290,9 @@ export function Textarea({
   )
 }
 
-export function CurrencyToggle({
+export const Textarea = memo(TextareaComponent)
+
+function CurrencyToggleComponent({
   value,
   onChange,
   className = ''
@@ -299,7 +321,9 @@ export function CurrencyToggle({
   )
 }
 
-export function Card({
+export const CurrencyToggle = memo(CurrencyToggleComponent)
+
+function CardComponent({
   children,
   className = '',
   padding = true
@@ -315,7 +339,9 @@ export function Card({
   )
 }
 
-export function StatBox({
+export const Card = memo(CardComponent)
+
+function StatBoxComponent({
   label,
   value,
   icon: Icon,
@@ -372,8 +398,10 @@ export function StatBox({
   )
 }
 
+export const StatBox = memo(StatBoxComponent)
+
 // Modal component
-export function Modal({ 
+function ModalUIComponent({ 
   isOpen, 
   onClose, 
   title, 
@@ -427,4 +455,6 @@ export function Modal({
     </div>
   )
 }
+
+export const Modal = memo(ModalUIComponent)
 

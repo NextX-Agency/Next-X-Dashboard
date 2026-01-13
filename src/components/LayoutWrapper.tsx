@@ -1,5 +1,6 @@
 'use client'
 
+import { memo, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/AuthContext'
 import { AuthGuard } from './AuthGuard'
@@ -8,7 +9,10 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { Loader2 } from 'lucide-react'
 
-export function LayoutWrapper({ children }: { children: React.ReactNode }) {
+// Public routes - defined outside component to prevent re-creation
+const PUBLIC_ROUTES = ['/login', '/catalog', '/blog', '/p/', '/faq', '/testimonials']
+
+function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { loading } = useAuth()
 
@@ -24,10 +28,10 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Public routes - these don't show admin layout (sidebar, topbar, etc.)
-  const publicRoutes = ['/login', '/catalog', '/blog', '/p/', '/faq', '/testimonials']
-  const isPublicRoute = publicRoutes.some(route => 
-    pathname === route || pathname.startsWith(route)
+  // Memoize the public route check
+  const isPublicRoute = useMemo(() => 
+    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route)),
+    [pathname]
   )
   
   if (isPublicRoute) {
@@ -60,3 +64,5 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     </AuthGuard>
   )
 }
+
+export const LayoutWrapper = memo(LayoutWrapperComponent)
