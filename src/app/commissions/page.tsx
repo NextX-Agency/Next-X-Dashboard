@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Percent } from 'lucide-react'
+import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Percent, Trash2 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, EmptyState, LoadingSpinner, Badge, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -203,6 +203,30 @@ export default function CommissionsPage() {
     
     await loadData()
     setPayingCommission(null)
+  }
+
+  const handleDeleteCommission = async (commissionId: string) => {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return
+    
+    const currency = (commission.sales?.currency || 'USD') as Currency
+    const confirmMsg = `Delete commission ${formatCurrency(commission.commission_amount, currency)} for ${commission.locations?.seller_name || commission.locations?.name}?`
+    if (!confirm(confirmMsg)) return
+    
+    await supabase
+      .from('commissions')
+      .delete()
+      .eq('id', commissionId)
+    
+    await logActivity({
+      action: 'delete',
+      entityType: 'commission',
+      entityId: commissionId,
+      entityName: commission?.locations?.name || 'Unknown',
+      details: `Deleted commission: ${formatCurrency(commission?.commission_amount || 0, currency)} for ${commission?.locations?.seller_name || commission?.locations?.name}`
+    })
+    
+    await loadData()
   }
 
   const handlePayAllUnpaid = async () => {
@@ -689,25 +713,35 @@ export default function CommissionsPage() {
                         <span>{new Date(commission.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <div className="text-right ml-4">
-                      <div className="text-lg font-bold text-[hsl(var(--success))] mb-2">
+                    <div className="text-right ml-4 flex flex-col items-end gap-2">
+                      <div className="text-lg font-bold text-[hsl(var(--success))]">
                         {formatCurrency(commission.commission_amount, (commission.sales?.currency || 'USD') as Currency)}
                       </div>
-                      {commission.paid ? (
-                        <Badge variant="success">
-                          <CheckCircle size={14} />
-                          Paid
-                        </Badge>
-                      ) : (
+                      <div className="flex items-center gap-2">
+                        {commission.paid ? (
+                          <Badge variant="success">
+                            <CheckCircle size={14} />
+                            Paid
+                          </Badge>
+                        ) : (
+                          <Button
+                            onClick={() => handleMarkPaid(commission.id)}
+                            variant="primary"
+                            size="sm"
+                            loading={payingCommission === commission.id}
+                          >
+                            Mark Paid
+                          </Button>
+                        )}
                         <Button
-                          onClick={() => handleMarkPaid(commission.id)}
-                          variant="primary"
+                          onClick={() => handleDeleteCommission(commission.id)}
+                          variant="ghost"
                           size="sm"
-                          loading={payingCommission === commission.id}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
                         >
-                          Mark Paid
+                          <Trash2 size={16} />
                         </Button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>

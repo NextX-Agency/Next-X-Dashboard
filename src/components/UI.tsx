@@ -127,7 +127,7 @@ export function Button({
   children: React.ReactNode
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'success'
   size?: 'sm' | 'md' | 'lg'
-  onClick?: () => void
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
   loading?: boolean

@@ -71,6 +71,18 @@ interface ReservationGroup {
     quantity: number
     unit_price: number
     subtotal: number
+    combo_id?: string | null
+    combo_price?: number | null
+  }>
+  combos?: Array<{
+    combo_id: string
+    combo_price: number
+    items: Array<{
+      id: string
+      item_id: string
+      item_name: string
+      quantity: number
+    }>
   }>
 }
 
@@ -133,6 +145,7 @@ export default function ReservationsPage() {
   const loadData = async () => {
     try {
       setLoading(true)
+      // Load all initial data in parallel for better performance
       const [clientsRes, itemsRes, locationsRes] = await Promise.all([
         supabase.from('clients').select('*').order('name'),
         supabase.from('items').select('*').order('name'),
@@ -143,8 +156,11 @@ export default function ReservationsPage() {
       if (itemsRes.data) setItems(itemsRes.data)
       if (locationsRes.data) setLocations(locationsRes.data)
       
-      await loadRecentReservations()
-      await loadReservationStats()
+      // Load reservations and stats in parallel
+      await Promise.all([
+        loadRecentReservations(),
+        loadReservationStats()
+      ])
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -157,28 +173,18 @@ export default function ReservationsPage() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
     
-    // Get today's reservations
-    const { data: todayData } = await supabase
-      .from('reservations')
-      .select('*, items(*)')
-      .gte('created_at', todayStart)
+    // Load all stats data in parallel for better performance
+    const [todayDataRes, weekDataRes, pendingDataRes, completedDataRes] = await Promise.all([
+      supabase.from('reservations').select('*, items(*)').gte('created_at', todayStart),
+      supabase.from('reservations').select('*, items(*)').gte('created_at', weekStart),
+      supabase.from('reservations').select('id').eq('status', 'pending'),
+      supabase.from('reservations').select('id').eq('status', 'completed')
+    ])
     
-    // Get week's reservations
-    const { data: weekData } = await supabase
-      .from('reservations')
-      .select('*, items(*)')
-      .gte('created_at', weekStart)
-    
-    // Get pending and completed counts
-    const { data: pendingData } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('status', 'pending')
-    
-    const { data: completedData } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('status', 'completed')
+    const todayData = todayDataRes.data
+    const weekData = weekDataRes.data
+    const pendingData = pendingDataRes.data
+    const completedData = completedDataRes.data
     
     let todayTotal = 0
     let weekTotal = 0
@@ -222,11 +228,24 @@ export default function ReservationsPage() {
       const groupedMap = new Map<string, ReservationGroup>()
       const comboTracker = new Map<string, Set<string>>() // Track which combos we've already counted per group
       const comboPrices = new Map<string, number>() // Store combo prices we find
+      const comboItemsMap = new Map<string, Array<{ id: string; item_id: string; item_name: string; quantity: number }>>() // Store combo items
       
-      // First pass: collect combo prices
+      // First pass: collect combo prices and items
       reservationsData.forEach((res) => {
-        if (res.combo_id && res.combo_price !== null && res.combo_price !== undefined) {
-          comboPrices.set(res.combo_id, res.combo_price)
+        if (res.combo_id) {
+          if (res.combo_price !== null && res.combo_price !== undefined) {
+            comboPrices.set(res.combo_id, res.combo_price)
+          }
+          // Collect combo items
+          if (!comboItemsMap.has(res.combo_id)) {
+            comboItemsMap.set(res.combo_id, [])
+          }
+          comboItemsMap.get(res.combo_id)!.push({
+            id: res.id,
+            item_id: res.item_id,
+            item_name: res.items?.name || 'Unknown Item',
+            quantity: res.quantity
+          })
         }
       })
       
@@ -271,11 +290,23 @@ export default function ReservationsPage() {
             item_name: res.items?.name || 'Unknown Item',
             quantity: res.quantity,
             unit_price: price,
-            subtotal
+            subtotal,
+            combo_id: comboId,
+            combo_price: res.combo_price
           })
           group.total_amount += priceToAdd
+          
+          // Add combo info if this is the first item of a combo we see
+          if (comboId && !group.combos?.find(c => c.combo_id === comboId)) {
+            if (!group.combos) group.combos = []
+            group.combos.push({
+              combo_id: comboId,
+              combo_price: comboPrices.get(comboId) || 0,
+              items: comboItemsMap.get(comboId) || []
+            })
+          }
         } else {
-          groupedMap.set(groupKey, {
+          const newGroup: ReservationGroup = {
             id: groupKey,
             client_id: res.client_id,
             location_id: res.location_id,
@@ -290,9 +321,23 @@ export default function ReservationsPage() {
               item_name: res.items?.name || 'Unknown Item',
               quantity: res.quantity,
               unit_price: price,
-              subtotal
+              subtotal,
+              combo_id: comboId,
+              combo_price: res.combo_price
+            }],
+            combos: []
+          }
+          
+          // Add combo info if this item is part of a combo
+          if (comboId) {
+            newGroup.combos = [{
+              combo_id: comboId,
+              combo_price: comboPrices.get(comboId) || 0,
+              items: comboItemsMap.get(comboId) || []
             }]
-          })
+          }
+          
+          groupedMap.set(groupKey, newGroup)
         }
       })
       
@@ -760,29 +805,41 @@ export default function ReservationsPage() {
     try {
       const invoiceNumber = `RES-COMP-${Date.now()}`
       
-      // Update all reservation items to completed and reduce stock
+      // Update all reservation items to completed in one batch query
+      const reservationIds = group.items.map(item => item.id)
+      await supabase
+        .from('reservations')
+        .update({ status: 'completed' })
+        .in('id', reservationIds)
+      
+      // Get all stock records for items in this location at once
+      const itemIds = group.items.map(item => item.item_id)
+      const { data: stockRecords } = await supabase
+        .from('stock')
+        .select('*')
+        .eq('location_id', group.location_id)
+        .in('item_id', itemIds)
+      
+      // Build stock updates map
+      const stockUpdates: Array<{ id: string; quantity: number }> = []
+      const stockMap = new Map(stockRecords?.map(s => [s.item_id, s]) || [])
+      
       for (const item of group.items) {
-        // Update reservation status
-        await supabase
-          .from('reservations')
-          .update({ status: 'completed' })
-          .eq('id', item.id)
-        
-        // Update stock
-        const { data: stock } = await supabase
-          .from('stock')
-          .select('*')
-          .eq('item_id', item.item_id)
-          .eq('location_id', group.location_id)
-          .single()
-
+        const stock = stockMap.get(item.item_id)
         if (stock) {
-          await supabase
-            .from('stock')
-            .update({ quantity: stock.quantity - item.quantity })
-            .eq('id', stock.id)
+          stockUpdates.push({
+            id: stock.id,
+            quantity: stock.quantity - item.quantity
+          })
         }
       }
+      
+      // Update all stock records (unfortunately Supabase doesn't support batch updates, so we do them in parallel)
+      await Promise.all(
+        stockUpdates.map(update => 
+          supabase.from('stock').update({ quantity: update.quantity }).eq('id', update.id)
+        )
+      )
 
       // Find matching wallet for this location
       const { data: wallets } = await supabase
@@ -809,18 +866,52 @@ export default function ReservationsPage() {
         .single()
 
       if (saleData) {
-        // Create sale item records
-        for (const item of group.items) {
-          await supabase
-            .from('sale_items')
-            .insert({
-              sale_id: saleData.id,
-              item_id: item.item_id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              subtotal: item.subtotal
-            })
-        }
+        // Separate items into combo and non-combo
+        const comboItems = group.items.filter(item => item.combo_id)
+        const regularItems = group.items.filter(item => !item.combo_id)
+        const processedCombos = new Set<string>()
+        
+        // Pre-calculate all sale items to insert in batch
+        const saleItemsToInsert = group.items.map(item => {
+          let unitPrice = item.unit_price
+          let subtotal = item.subtotal
+          
+          // If this is a combo item, calculate proportional price from combo total
+          if (item.combo_id && item.combo_price) {
+            const comboItemsForThisCombo = comboItems.filter(i => i.combo_id === item.combo_id)
+            const totalQuantityInCombo = comboItemsForThisCombo.reduce((sum, i) => sum + i.quantity, 0)
+            unitPrice = item.combo_price / totalQuantityInCombo
+            subtotal = unitPrice * item.quantity
+          } else if (item.combo_id && !item.combo_price) {
+            const primaryItem = comboItems.find(i => i.combo_id === item.combo_id && i.combo_price)
+            if (primaryItem) {
+              const comboItemsForThisCombo = comboItems.filter(i => i.combo_id === item.combo_id)
+              const totalQuantityInCombo = comboItemsForThisCombo.reduce((sum, i) => sum + i.quantity, 0)
+              unitPrice = (primaryItem.combo_price || 0) / totalQuantityInCombo
+              subtotal = unitPrice * item.quantity
+            }
+          }
+          
+          return {
+            sale_id: saleData.id,
+            item_id: item.item_id,
+            quantity: item.quantity,
+            unit_price: unitPrice,
+            subtotal: subtotal
+          }
+        })
+        
+        // Insert all sale items in one batch
+        await supabase.from('sale_items').insert(saleItemsToInsert)
+
+        // Get all item category info at once for commission calculation
+        const allItemIds = group.items.map(i => i.item_id)
+        const { data: itemsData } = await supabase
+          .from('items')
+          .select('id, category_id')
+          .in('id', allItemIds)
+        
+        const itemCategoryMap = new Map(itemsData?.map(i => [i.id, i.category_id]) || [])
 
         // Create commission for sellers at this location
         const { data: sellers } = await supabase
@@ -830,58 +921,110 @@ export default function ReservationsPage() {
 
         if (sellers && sellers.length > 0) {
           for (const seller of sellers) {
-            // Group items by category for commission calculation
-            const itemsByCategory = new Map<string, Array<{ item_id: string; quantity: number; unit_price: number; subtotal: number; category_id?: string }>>()
+            // Get all category rates for this seller at once
+            const { data: allCategoryRates } = await supabase
+              .from('seller_category_rates')
+              .select('category_id, commission_rate')
+              .eq('seller_id', seller.id)
             
-            for (const item of group.items) {
-              // Get the item details to find category
-              const { data: itemData } = await supabase
-                .from('items')
-                .select('category_id')
-                .eq('id', item.item_id)
-                .single()
+            const categoryRateMap = new Map(allCategoryRates?.map(r => [r.category_id, r.commission_rate]) || [])
+            
+            // FIRST: Process regular (non-combo) items - group by category
+            if (regularItems.length > 0) {
+              const itemsByCategory = new Map<string, Array<{ item_id: string; quantity: number; unit_price: number; subtotal: number; category_id?: string }>>()
               
-              const categoryId = itemData?.category_id || 'uncategorized'
-              if (!itemsByCategory.has(categoryId)) {
-                itemsByCategory.set(categoryId, [])
+              for (const item of regularItems) {
+                const categoryId = itemCategoryMap.get(item.item_id) || 'uncategorized'
+                if (!itemsByCategory.has(categoryId)) {
+                  itemsByCategory.set(categoryId, [])
+                }
+                itemsByCategory.get(categoryId)!.push({ ...item, category_id: categoryId })
               }
-              itemsByCategory.get(categoryId)!.push({ ...item, category_id: categoryId })
-            }
 
-            // Create one commission entry per category
-            for (const [categoryId, categoryItems] of itemsByCategory) {
-              let categoryCommission = 0
-              let rateToUse = seller.commission_rate
+              // Create commission entries for regular items
+              const commissionsToInsert: Array<{
+                seller_id: string
+                location_id: string
+                category_id: string | null
+                sale_id: string
+                commission_amount: number
+                paid: boolean
+              }> = []
+              
+              for (const [categoryId, categoryItems] of itemsByCategory) {
+                const rateToUse = (categoryId !== 'uncategorized' && categoryRateMap.has(categoryId)) 
+                  ? categoryRateMap.get(categoryId)! 
+                  : seller.commission_rate
 
-              // Get category-specific rate if available
-              if (categoryId !== 'uncategorized') {
-                const { data: categoryRate } = await supabase
-                  .from('seller_category_rates')
-                  .select('commission_rate')
-                  .eq('seller_id', seller.id)
-                  .eq('category_id', categoryId)
-                  .single()
+                let categoryCommission = 0
+                for (const item of categoryItems) {
+                  categoryCommission += item.subtotal * (rateToUse / 100)
+                }
 
-                if (categoryRate) {
-                  rateToUse = categoryRate.commission_rate
+                if (categoryCommission > 0) {
+                  commissionsToInsert.push({
+                    seller_id: seller.id,
+                    location_id: group.location_id,
+                    category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                    sale_id: saleData.id,
+                    commission_amount: categoryCommission,
+                    paid: false
+                  })
                 }
               }
-
-              // Calculate commission for this category - use subtotal which is already price * quantity
-              for (const item of categoryItems) {
-                categoryCommission += item.subtotal * (rateToUse / 100)
+              
+              // Insert all regular item commissions in batch
+              if (commissionsToInsert.length > 0) {
+                await supabase.from('commissions').insert(commissionsToInsert)
               }
+            }
 
-              if (categoryCommission > 0) {
-                await supabase.from('commissions').insert({
+            // SECOND: Process combo items - ONE commission per combo based on combo price
+            const comboCommissionsToInsert: Array<{
+              seller_id: string
+              location_id: string
+              category_id: string | null
+              sale_id: string
+              commission_amount: number
+              paid: boolean
+            }> = []
+            const comboIdsProcessed = new Set<string>()
+            
+            for (const item of comboItems) {
+              if (!item.combo_id || comboIdsProcessed.has(item.combo_id)) continue
+              comboIdsProcessed.add(item.combo_id)
+              
+              // Find the combo price (from the item that has it)
+              const comboItemWithPrice = comboItems.find(i => i.combo_id === item.combo_id && i.combo_price)
+              const comboPrice = comboItemWithPrice?.combo_price || 0
+              
+              if (comboPrice <= 0) continue
+              
+              // Get the first item's category to determine the rate (use pre-fetched data)
+              const firstItemCategoryId = itemCategoryMap.get(item.item_id)
+              
+              let comboRate = seller.commission_rate
+              if (firstItemCategoryId && categoryRateMap.has(firstItemCategoryId)) {
+                comboRate = categoryRateMap.get(firstItemCategoryId)!
+              }
+              
+              const comboCommission = comboPrice * (comboRate / 100)
+              
+              if (comboCommission > 0) {
+                comboCommissionsToInsert.push({
                   seller_id: seller.id,
                   location_id: group.location_id,
-                  category_id: categoryId !== 'uncategorized' ? categoryId : null,
+                  category_id: null, // Combos are not tied to a single category
                   sale_id: saleData.id,
-                  commission_amount: categoryCommission,
+                  commission_amount: comboCommission,
                   paid: false
                 })
               }
+            }
+            
+            // Insert all combo commissions in batch
+            if (comboCommissionsToInsert.length > 0) {
+              await supabase.from('commissions').insert(comboCommissionsToInsert)
             }
           }
         }
@@ -906,17 +1049,49 @@ export default function ReservationsPage() {
         }
       }
 
-      // Generate receipt
+      // Generate receipt - show combos correctly
+      const invoiceItems: InvoiceData['items'] = []
+      const processedComboIds = new Set<string>()
+      
+      // First add regular items
+      for (const item of group.items) {
+        if (!item.combo_id) {
+          invoiceItems.push({
+            name: item.item_name,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            subtotal: item.subtotal,
+            isCombo: false
+          })
+        }
+      }
+      
+      // Then add combos as grouped items
+      for (const item of group.items) {
+        if (item.combo_id && !processedComboIds.has(item.combo_id)) {
+          processedComboIds.add(item.combo_id)
+          
+          // Find all items in this combo
+          const comboGroupItems = group.items.filter(i => i.combo_id === item.combo_id)
+          const comboItemNames = comboGroupItems.map(i => `${i.item_name} x${i.quantity}`).join(', ')
+          const comboPriceItem = comboGroupItems.find(i => i.combo_price)
+          const comboPrice = comboPriceItem?.combo_price || 0
+          
+          invoiceItems.push({
+            name: `🎁 Combo Deal: ${comboItemNames}`,
+            quantity: 1,
+            unitPrice: comboPrice,
+            subtotal: comboPrice,
+            isCombo: true
+          })
+        }
+      }
+      
       setInvoiceData({
         date: new Date().toLocaleString(),
         client: group.client_name,
         location: group.location_name,
-        items: group.items.map(item => ({
-          name: item.item_name,
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          subtotal: item.subtotal
-        })),
+        items: invoiceItems,
         currency: 'SRD',
         total: group.total_amount,
         invoiceNumber: invoiceNumber,

@@ -87,6 +87,7 @@ export default function Sidebar() {
         { name: 'Orders', icon: ClipboardList, path: '/orders' },
         { name: 'Sales', icon: ShoppingCart, path: '/sales' },
         { name: 'Reservations', icon: Calendar, path: '/reservations' },
+        { name: 'Invoices', icon: Receipt, path: '/invoices' },
       ],
     },
     {
