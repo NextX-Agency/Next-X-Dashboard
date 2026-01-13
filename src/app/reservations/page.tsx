@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
@@ -173,31 +173,29 @@ export default function ReservationsPage() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
     
-    // Load all stats data in parallel for better performance
+    // Load all stats data in parallel - only select needed fields for better performance
     const [todayDataRes, weekDataRes, pendingDataRes, completedDataRes] = await Promise.all([
-      supabase.from('reservations').select('*, items(*)').gte('created_at', todayStart),
-      supabase.from('reservations').select('*, items(*)').gte('created_at', weekStart),
-      supabase.from('reservations').select('id').eq('status', 'pending'),
-      supabase.from('reservations').select('id').eq('status', 'completed')
+      supabase.from('reservations').select('quantity, items(selling_price_srd)').gte('created_at', todayStart),
+      supabase.from('reservations').select('quantity, items(selling_price_srd)').gte('created_at', weekStart),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('status', 'completed')
     ])
     
     const todayData = todayDataRes.data
     const weekData = weekDataRes.data
-    const pendingData = pendingDataRes.data
-    const completedData = completedDataRes.data
     
     let todayTotal = 0
     let weekTotal = 0
     
     if (todayData) {
-      todayData.forEach(res => {
+      todayData.forEach((res: any) => {
         const price = res.items?.selling_price_srd || 0
         todayTotal += price * res.quantity
       })
     }
     
     if (weekData) {
-      weekData.forEach(res => {
+      weekData.forEach((res: any) => {
         const price = res.items?.selling_price_srd || 0
         weekTotal += price * res.quantity
       })
@@ -208,19 +206,19 @@ export default function ReservationsPage() {
       todayTotal,
       weekReservations: weekData?.length || 0,
       weekTotal,
-      pendingCount: pendingData?.length || 0,
-      completedCount: completedData?.length || 0
+      pendingCount: pendingDataRes.count || 0,
+      completedCount: completedDataRes.count || 0
     })
   }
 
   const loadRecentReservations = async () => {
     try {
-      // Get all reservations with their related data
+      // Get all reservations with their related data - limit to 20 for better performance
       const { data: reservationsData } = await supabase
         .from('reservations')
         .select('*, clients(*), items(*), locations(*)')
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(20)
       
       if (!reservationsData) return
       
@@ -387,12 +385,37 @@ export default function ReservationsPage() {
     loadData()
   }, [])
 
+  // Debounce location change to prevent excessive API calls
   useEffect(() => {
-    if (selectedLocation) {
+    if (!selectedLocation) return
+    
+    const timeoutId = setTimeout(() => {
       loadStock(selectedLocation)
       loadReservations(selectedLocation)
-    }
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
   }, [selectedLocation])
+
+  // Memoize filtered reservations for better performance
+  const filteredPendingReservations = useMemo(() => {
+    return recentReservations
+      .filter(g => g.status === 'pending')
+      .filter(g => {
+        if (!reservationSearchQuery) return true
+        const query = reservationSearchQuery.toLowerCase()
+        return (
+          g.client_name.toLowerCase().includes(query) ||
+          g.location_name.toLowerCase().includes(query)
+        )
+      })
+  }, [recentReservations, reservationSearchQuery])
+
+  const filteredCompletedReservations = useMemo(() => {
+    return recentReservations
+      .filter(g => g.status !== 'pending')
+      .slice(0, 10)
+  }, [recentReservations])
 
   const getAvailableStock = (itemId: string) => {
     const totalStock = stockMap.get(itemId) || 0
@@ -1335,16 +1358,7 @@ export default function ReservationsPage() {
             </div>
           </div>
           
-          {recentReservations
-            .filter(g => g.status === 'pending')
-            .filter(g => {
-              if (!reservationSearchQuery) return true
-              const query = reservationSearchQuery.toLowerCase()
-              return (
-                g.client_name.toLowerCase().includes(query) ||
-                g.location_name.toLowerCase().includes(query)
-              )
-            }).length === 0 ? (
+          {filteredPendingReservations.length === 0 ? (
             <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-12 border-2 border-dashed border-border text-center">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock size={40} className="text-primary" />
@@ -1364,17 +1378,7 @@ export default function ReservationsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {recentReservations
-                .filter(g => g.status === 'pending')
-                .filter(g => {
-                  if (!reservationSearchQuery) return true
-                  const query = reservationSearchQuery.toLowerCase()
-                  return (
-                    g.client_name.toLowerCase().includes(query) ||
-                    g.location_name.toLowerCase().includes(query)
-                  )
-                })
-                .map((group) => {
+              {filteredPendingReservations.map((group) => {
                 return (
                   <div key={group.id} className="bg-card rounded-2xl p-5 border-2 border-border hover:border-primary hover:shadow-lg transition-all group">
                     <div className="flex justify-between items-start mb-4">
@@ -1458,14 +1462,14 @@ export default function ReservationsPage() {
               View All History
             </Button>
           </div>
-          {recentReservations.filter(g => g.status !== 'pending').length === 0 ? (
+          {filteredCompletedReservations.length === 0 ? (
             <div className="bg-card rounded-xl p-8 border border-border text-center">
               <History size={40} className="mx-auto mb-3 text-muted-foreground/30" />
               <p className="text-muted-foreground">No recent activity</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {recentReservations.filter(g => g.status !== 'pending').slice(0, 10).map((group) => {
+              {filteredCompletedReservations.map((group) => {
                 return (
                   <div key={group.id} className="bg-card rounded-xl p-4 border border-border hover:border-border/80 transition-all">
                     <div className="flex items-center justify-between">
@@ -1497,7 +1501,7 @@ export default function ReservationsPage() {
                   </div>
                 )
               })}
-              {recentReservations.filter(g => g.status !== 'pending').length > 5 && (
+              {filteredCompletedReservations.length > 5 && (
                 <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth>
                   View All History
                 </Button>
