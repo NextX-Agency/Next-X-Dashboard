@@ -573,6 +573,35 @@ export default function ReservationsPage() {
     }
   }
 
+  // Function to reprint invoice/receipt from past reservation
+  const handleReprintReceipt = async (reservationGroup: ReservationGroup) => {
+    try {
+      // Create invoice data from past reservation
+      const reprintInvoiceData: InvoiceData = {
+        date: new Date(reservationGroup.created_at).toLocaleDateString(),
+        client: reservationGroup.client_name,
+        location: reservationGroup.location_name,
+        items: reservationGroup.items.map(item => ({
+          name: item.item_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          subtotal: item.subtotal,
+          isCombo: !!item.combo_id
+        })),
+        currency: 'SRD',
+        total: reservationGroup.total_amount,
+        invoiceNumber: `RES-${reservationGroup.id.slice(0, 8)}`,
+        isPaid: reservationGroup.status === 'completed'
+      }
+
+      setInvoiceData(reprintInvoiceData)
+      setShowInvoice(true)
+    } catch (error) {
+      console.error('Error loading receipt data:', error)
+      alert('Error loading receipt data')
+    }
+  }
+
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -2190,21 +2219,30 @@ export default function ReservationsPage() {
                 )}
 
                 {group.status === 'pending' && (
-                  <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
+                  <div className="mt-3 pt-3 border-t border-border/50 flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleReprintReceipt(group)}
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 min-w-[120px]"
+                    >
+                      <Printer size={16} />
+                      View Invoice
+                    </Button>
                     <Button
                       onClick={() => showCompleteConfirmation(group)}
                       variant="success"
                       size="sm"
-                      fullWidth
+                      className="flex-1 min-w-[120px]"
                     >
                       <Check size={16} />
-                      Complete & Print Receipt
+                      Complete
                     </Button>
                     <Button
                       onClick={() => showCancelConfirmation(group)}
                       variant="danger"
                       size="sm"
-                      fullWidth
+                      className="flex-1 min-w-[100px]"
                     >
                       <X size={16} />
                       Cancel
@@ -2214,19 +2252,29 @@ export default function ReservationsPage() {
                 
                 {group.status === 'completed' && (
                   <div className="mt-3 pt-3 border-t border-border/50">
-                    <div className="flex items-center gap-2 text-sm text-success">
-                      <CheckCircle size={16} />
-                      <span className="font-medium">Completed - Items picked up</span>
-                    </div>
+                    <Button
+                      onClick={() => handleReprintReceipt(group)}
+                      variant="secondary"
+                      size="sm"
+                      fullWidth
+                    >
+                      <Printer size={16} />
+                      View Receipt
+                    </Button>
                   </div>
                 )}
                 
                 {group.status === 'cancelled' && (
                   <div className="mt-3 pt-3 border-t border-border/50">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <X size={16} />
-                      <span className="font-medium">Cancelled</span>
-                    </div>
+                    <Button
+                      onClick={() => handleReprintReceipt(group)}
+                      variant="secondary"
+                      size="sm"
+                      fullWidth
+                    >
+                      <Printer size={16} />
+                      View Invoice
+                    </Button>
                   </div>
                 )}
               </div>

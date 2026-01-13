@@ -838,6 +838,42 @@ export default function SalesPage() {
     setShowPreview(true)
   }
 
+  // Function to reprint invoice from past sale
+  const handleReprintInvoice = async (sale: SaleWithDetails) => {
+    try {
+      // Load full sale details including items
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('*, items(*)')
+        .eq('sale_id', sale.id)
+
+      // Create invoice data from past sale
+      const reprintInvoiceData: InvoiceData = {
+        saleId: sale.id,
+        date: new Date(sale.created_at).toLocaleDateString(),
+        location: sale.locations?.name || 'Unknown Location',
+        items: (saleItems || []).map(item => ({
+          name: item.items?.name || 'Unknown Item',
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          subtotal: item.subtotal,
+          originalPrice: item.original_price || undefined,
+          discountReason: item.discount_reason || undefined
+        })),
+        currency: sale.currency as Currency,
+        paymentMethod: sale.payment_method || 'cash',
+        total: sale.total_amount,
+        invoiceNumber: sale.invoice_number || `INV-${sale.id.slice(0, 8)}`
+      }
+
+      setInvoiceData(reprintInvoiceData)
+      setShowInvoice(true)
+    } catch (error) {
+      console.error('Error loading invoice data:', error)
+      alert('Error loading invoice data')
+    }
+  }
+
   const getTimeSince = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -1570,15 +1606,24 @@ export default function SalesPage() {
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="mt-3 pt-3 border-t border-border/50 flex gap-2">
+                  <Button
+                    onClick={() => handleReprintInvoice(sale)}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <Printer size={16} />
+                    View Invoice
+                  </Button>
                   <Button
                     onClick={() => handleUndoSale(sale)}
                     variant="danger"
                     size="sm"
-                    fullWidth
+                    className="flex-1"
                   >
                     <Undo2 size={16} />
-                    Undo Sale & Restore Stock
+                    Undo Sale
                   </Button>
                 </div>
               </div>
