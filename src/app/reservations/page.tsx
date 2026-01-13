@@ -576,18 +576,58 @@ export default function ReservationsPage() {
   // Function to reprint invoice/receipt from past reservation
   const handleReprintReceipt = async (reservationGroup: ReservationGroup) => {
     try {
+      const invoiceItems: InvoiceData['items'] = []
+      
+      // If there are combos, display them as combo items
+      if (reservationGroup.combos && reservationGroup.combos.length > 0) {
+        // Add combos first
+        reservationGroup.combos.forEach(combo => {
+          const comboItemNames = combo.items.map(i => `${i.item_name} x${i.quantity}`).join(', ')
+          invoiceItems.push({
+            name: `🎁 Combo: ${comboItemNames}`,
+            quantity: 1,
+            unitPrice: combo.combo_price,
+            subtotal: combo.combo_price,
+            isCombo: true
+          })
+        })
+        
+        // Add standalone items (items not part of any combo)
+        const comboItemIds = new Set<string>()
+        reservationGroup.combos.forEach(combo => {
+          combo.items.forEach(item => comboItemIds.add(item.id))
+        })
+        
+        reservationGroup.items.forEach(item => {
+          if (!comboItemIds.has(item.id)) {
+            invoiceItems.push({
+              name: item.item_name,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              subtotal: item.subtotal,
+              isCombo: false
+            })
+          }
+        })
+      } else {
+        // No combos, just add all items
+        reservationGroup.items.forEach(item => {
+          invoiceItems.push({
+            name: item.item_name,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            subtotal: item.subtotal,
+            isCombo: !!item.combo_id
+          })
+        })
+      }
+      
       // Create invoice data from past reservation
       const reprintInvoiceData: InvoiceData = {
         date: new Date(reservationGroup.created_at).toLocaleDateString(),
         client: reservationGroup.client_name,
         location: reservationGroup.location_name,
-        items: reservationGroup.items.map(item => ({
-          name: item.item_name,
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          subtotal: item.subtotal,
-          isCombo: !!item.combo_id
-        })),
+        items: invoiceItems,
         currency: 'SRD',
         total: reservationGroup.total_amount,
         invoiceNumber: `RES-${reservationGroup.id.slice(0, 8)}`,
