@@ -3,10 +3,12 @@
 import { useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, AlertCircle, Bell } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { getStockBadgeText, type StockStatus } from '@/lib/stockUtils'
 
-type StockStatus = 'in-stock' | 'low-stock' | 'out-of-stock'
+// Re-export for backwards compatibility
+export type { StockStatus }
 
 interface Product {
   id: string
@@ -16,6 +18,7 @@ interface Product {
   price: number
   isCombo?: boolean
   stockStatus?: StockStatus
+  stockLevel?: number // Add stock level for exact count display
 }
 
 interface NewProductCarouselProps {
@@ -118,6 +121,9 @@ export function NewProductCarousel({
             {products.map((product) => {
               const isOutOfStock = product.stockStatus === 'out-of-stock'
               const isLowStock = product.stockStatus === 'low-stock'
+              const stockBadgeText = isLowStock && product.stockLevel && product.stockLevel > 0
+                ? `Nog ${product.stockLevel}`
+                : getStockBadgeText(product.stockStatus || 'in-stock')
               
               return (
                 <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[220px]">
@@ -160,11 +166,11 @@ export function NewProductCarousel({
                         </span>
                       )}
 
-                      {/* Low Stock Badge */}
-                      {isLowStock && !isOutOfStock && (
-                        <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-[9px] font-semibold shadow-sm flex items-center gap-0.5">
+                      {/* Low Stock Badge - Shows exact count */}
+                      {isLowStock && !isOutOfStock && stockBadgeText && (
+                        <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full bg-amber-500/95 text-white text-[9px] font-bold shadow-md flex items-center gap-0.5 animate-pulse">
                           <AlertCircle size={9} />
-                          Beperkt
+                          {stockBadgeText}
                         </span>
                       )}
                       
@@ -198,33 +204,41 @@ export function NewProductCarousel({
                           <p className={`text-base sm:text-lg font-bold ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
                             {formatCurrency(product.price, currency)}
                           </p>
+                          {isOutOfStock && (
+                            <span className="text-[9px] text-red-500 font-semibold">Uitverkocht</span>
+                          )}
                           {isLowStock && !isOutOfStock && (
-                            <span className="text-[9px] text-amber-600 font-medium">Beperkte voorraad</span>
+                            <span className="text-[9px] text-amber-600 font-semibold">
+                              {product.stockLevel && product.stockLevel > 0 
+                                ? `Nog ${product.stockLevel} beschikbaar` 
+                                : 'Beperkte voorraad'}
+                            </span>
                           )}
                         </div>
                         {onAddToCart && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              if (!isOutOfStock) onAddToCart(product.id)
-                            }}
-                            disabled={isOutOfStock}
-                            className={`lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm ${
-                              isOutOfStock 
-                                ? 'bg-neutral-200 text-neutral-400 cursor-not-allowed' 
-                                : 'bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95'
-                            }`}
-                            aria-label={isOutOfStock ? 'Uitverkocht' : 'Toevoegen aan winkelwagen'}
-                          >
-                            <Plus size={16} strokeWidth={2.5} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                </div>
-              )
+                          isOutOfStock ? (
+                            /* Notify button for out of stock */
+                            <Link
+                              href={`/catalog/${product.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-500"
+                              aria-label="Bekijk product"
+                            >
+                              <Bell size={14} />
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                onAddToCart(product.id)
+                              }}
+                              className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
+                              aria-label="Toevoegen aan winkelwagen"
+                            >
+                              <Plus size={16} strokeWidth={2.5} />
+                            </button>
+                          )
             })}
           </div>
         </div>

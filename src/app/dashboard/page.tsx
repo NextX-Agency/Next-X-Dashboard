@@ -16,17 +16,21 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
-  Activity
+  Activity,
+  AlertCircle
 } from 'lucide-react'
 import { StatCard, ChartCard, QuickActionCard, ActivityItem } from '@/components/Cards'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { STOCK_THRESHOLDS } from '@/lib/stockUtils'
 
 type DashboardStats = {
   totalSalesUSD: number
   totalSalesSRD: number
   activeOrders: number
   stockItems: number
+  lowStockItems: number
+  outOfStockItems: number
   totalRevenue: number
   todaysSalesUSD: number
   todaysSalesSRD: number
@@ -47,6 +51,8 @@ export default function Home() {
     totalSalesSRD: 0,
     activeOrders: 0,
     stockItems: 0,
+    lowStockItems: 0,
+    outOfStockItems: 0,
     totalRevenue: 0,
     todaysSalesUSD: 0,
     todaysSalesSRD: 0,
@@ -113,6 +119,21 @@ export default function Home() {
 
       // Stock items with quantity > 0
       const stockItemsCount = stock.filter(s => s.quantity > 0).length
+      
+      // Count low stock and out of stock items using centralized thresholds
+      // First, aggregate stock by item_id
+      const stockByItem: Record<string, number> = {}
+      stock.forEach(s => {
+        stockByItem[s.item_id] = (stockByItem[s.item_id] || 0) + (s.quantity || 0)
+      })
+      
+      const lowStockCount = Object.values(stockByItem).filter(
+        qty => qty <= STOCK_THRESHOLDS.LOW_STOCK && qty > STOCK_THRESHOLDS.OUT_OF_STOCK
+      ).length
+      
+      const outOfStockCount = Object.values(stockByItem).filter(
+        qty => qty <= STOCK_THRESHOLDS.OUT_OF_STOCK
+      ).length
 
       // Total revenue (all sales converted to USD)
       const srdToUSD = totalSRD / rate
@@ -142,6 +163,8 @@ export default function Home() {
         totalSalesSRD: totalSRD,
         activeOrders: reservations.length,
         stockItems: stockItemsCount,
+        lowStockItems: lowStockCount,
+        outOfStockItems: outOfStockCount,
         totalRevenue,
         todaysSalesUSD: todaysUSD,
         todaysSalesSRD: todaysSRD,
@@ -261,8 +284,13 @@ export default function Home() {
             title="Stock Items" 
             value={stats.stockItems.toString()}
             icon={Package}
-            trend={{ value: "In Stock", isPositive: true }}
-            color="green"
+            trend={{ 
+              value: stats.lowStockItems > 0 
+                ? `${stats.lowStockItems} low stock` 
+                : "In Stock", 
+              isPositive: stats.lowStockItems === 0 
+            }}
+            color={stats.lowStockItems > 0 ? "orange" : "green"}
           />
           <StatCard 
             title={`Total Revenue (${displayCurrency})`}
@@ -369,14 +397,28 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-xl border border-blue-500/20 hover:border-blue-500/40 transition-all duration-200">
+                  <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
+                    stats.lowStockItems > 0 
+                      ? 'bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40' 
+                      : 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500/40'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-                        <Package className="text-white" size={20} />
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-lg ${
+                        stats.lowStockItems > 0 
+                          ? 'bg-amber-500 shadow-amber-500/25' 
+                          : 'bg-blue-500 shadow-blue-500/25'
+                      }`}>
+                        {stats.lowStockItems > 0 
+                          ? <AlertCircle className="text-white" size={20} />
+                          : <Package className="text-white" size={20} />
+                        }
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground font-medium">Stock Items</p>
                         <p className="text-xl font-bold text-foreground">{stats.stockItems}</p>
+                        {stats.lowStockItems > 0 && (
+                          <p className="text-xs text-amber-600 font-medium">{stats.lowStockItems} low stock</p>
+                        )}
                       </div>
                     </div>
                   </div>

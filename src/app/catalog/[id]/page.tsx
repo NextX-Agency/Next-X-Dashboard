@@ -9,6 +9,12 @@ import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { NewHeader, NewFooter, NewCartDrawer } from '@/components/catalog'
 import { 
+  getItemStockStatus, 
+  getItemStockLevel, 
+  getStockStatusText,
+  type StockStatus 
+} from '@/lib/stockUtils'
+import { 
   ArrowLeft, 
   Package, 
   MapPin, 
@@ -20,7 +26,9 @@ import {
   ShoppingCart,
   Store,
   Minus,
-  Plus
+  Plus,
+  AlertCircle,
+  Bell
 } from 'lucide-react'
 
 type Item = Database['public']['Tables']['items']['Row']
@@ -62,6 +70,7 @@ export default function ProductDetailPage() {
   const [category, setCategory] = useState<Category | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<Location[]>([])
+  const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -104,12 +113,13 @@ export default function ProductDetailPage() {
     const loadData = async () => {
       setLoading(true)
       
-      const [productRes, rateRes, settingsRes, categoriesRes, locationsRes] = await Promise.all([
+      const [productRes, rateRes, settingsRes, categoriesRes, locationsRes, stockRes] = await Promise.all([
         supabase.from('items').select('*').eq('id', productId).single(),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
         supabase.from('store_settings').select('*'),
         supabase.from('categories').select('*').eq('is_active', true).order('name'),
-        supabase.from('locations').select('*').eq('is_active', true).order('name')
+        supabase.from('locations').select('*').eq('is_active', true).order('name'),
+        supabase.from('stock').select('item_id, quantity')
       ])
 
       if (productRes.data) {
@@ -124,6 +134,16 @@ export default function ProductDetailPage() {
             .single()
           if (categoryRes.data) setCategory(categoryRes.data)
         }
+      }
+
+      // Build stock map
+      if (stockRes.data) {
+        const map = new Map<string, number>()
+        stockRes.data.forEach((stock: { item_id: string; quantity: number }) => {
+          const current = map.get(stock.item_id) || 0
+          map.set(stock.item_id, current + stock.quantity)
+        })
+        setStockMap(map)
       }
 
       if (rateRes.data) setExchangeRate(rateRes.data.usd_to_srd)
@@ -169,18 +189,51 @@ export default function ProductDetailPage() {
     return product.selling_price_srd || (product.selling_price_usd ? product.selling_price_usd * exchangeRate : 0)
   }, [product, currency, exchangeRate])
 
-  // Quantity handlers
+  // Stock status helpers
+  const stockStatus = product ? getItemStockStatus(product.id, stockMap) : 'in-stock'
+  const stockLevel = product ? getItemStockLevel(product.id, stockMap) : 0
+  const isOutOfStock = stockStatus === 'out-of-stock'
+  const isLowStock = stockStatus === 'low-stock'
+
+  // Get current cart quantity for this product
+  const getCartQuantityForProduct = useCallback((): number => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        const item = cart.find(c => c.item.id === productId)
+        return item?.quantity || 0
+      }
+    } catch (e) {
+      console.error('Failed to get cart quantity:', e)
+    }
+    return 0
+  }, [productId])
+
+  // Max quantity available (stock - already in cart)
+  const maxAvailable = Math.max(0, stockLevel - getCartQuantityForProduct())
+
+  // Quantity handlers with stock validation
   const incrementQuantity = useCallback(() => {
-    setQuantity(q => q + 1)
-  }, [])
+    setQuantity(q => Math.min(q + 1, maxAvailable))
+  }, [maxAvailable])
 
   const decrementQuantity = useCallback(() => {
     setQuantity(q => Math.max(1, q - 1))
   }, [])
 
-  // Add to cart handler
+  // Reset quantity if it exceeds available stock
+  useEffect(() => {
+    if (quantity > maxAvailable && maxAvailable > 0) {
+      setQuantity(maxAvailable)
+    } else if (maxAvailable === 0 && !isOutOfStock) {
+      setQuantity(1)
+    }
+  }, [quantity, maxAvailable, isOutOfStock])
+
+  // Add to cart handler with stock validation
   const handleAddToCart = useCallback(() => {
-    if (!product) return
+    if (!product || isOutOfStock || quantity > maxAvailable) return
 
     try {
       // Get existing cart
@@ -190,15 +243,29 @@ export default function ProductDetailPage() {
       // Check if product already exists in cart
       const existingIndex = cart.findIndex(item => item.item.id === product.id)
 
-      if (existingIndex >= 0) {
-        // Update quantity
-        cart[existingIndex].quantity += quantity
+      // Calculate total quantity after adding
+      const currentInCart = existingIndex >= 0 ? cart[existingIndex].quantity : 0
+      const newTotal = currentInCart + quantity
+      
+      // Validate against stock
+      if (newTotal > stockLevel) {
+        const canAdd = Math.max(0, stockLevel - currentInCart)
+        if (canAdd <= 0) return
+        // Only add what's available
+        if (existingIndex >= 0) {
+          cart[existingIndex].quantity = stockLevel
+        } else {
+          cart.push({ item: product, quantity: canAdd })
+        }
       } else {
-        // Add new item
-        cart.push({ item: product, quantity })
-      }
-
-      // Save to localStorage
+        if (existingIndex >= 0) {
+          // Update quantity
+          cart[existingIndex].quantity = newTotal
+        } else {
+          // Add new item
+          cart.push({ item: product, quantity })
+        }
+      }      // Save to localStorage
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
 
       // Update cart count
@@ -485,13 +552,33 @@ export default function ProductDetailPage() {
             {/* Unit Price */}
             <div className="mb-6">
               <div className="flex items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl font-black text-[#f97015]">
+                <span className={`text-3xl sm:text-4xl font-black ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
                   {formatCurrency(unitPrice, currency)}
                 </span>
                 {currency === 'SRD' && product.selling_price_usd && (
                   <span className="text-sm text-neutral-500">
                     (≈ {formatCurrency(product.selling_price_usd, 'USD')})
                   </span>
+                )}
+              </div>
+              
+              {/* Stock Status Indicator */}
+              <div className="mt-3">
+                {isOutOfStock ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-100 text-red-700">
+                    <AlertCircle size={16} />
+                    <span className="text-sm font-semibold">Uitverkocht</span>
+                  </div>
+                ) : isLowStock ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 animate-pulse">
+                    <AlertCircle size={16} />
+                    <span className="text-sm font-semibold">Nog {stockLevel} beschikbaar</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-100 text-green-700">
+                    <Check size={16} />
+                    <span className="text-sm font-semibold">Op voorraad</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -537,9 +624,29 @@ export default function ProductDetailPage() {
                 <Shield size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Kwaliteit gegarandeerd</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Check size={18} className="text-[#f97015]" />
-                <span className="text-sm text-neutral-700">Op voorraad</span>
+              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                isOutOfStock 
+                  ? 'bg-red-50 border-red-200' 
+                  : isLowStock 
+                    ? 'bg-amber-50 border-amber-200' 
+                    : 'bg-green-50 border-green-200'
+              }`}>
+                {isOutOfStock ? (
+                  <AlertCircle size={18} className="text-red-500" />
+                ) : isLowStock ? (
+                  <AlertCircle size={18} className="text-amber-500" />
+                ) : (
+                  <Check size={18} className="text-green-500" />
+                )}
+                <span className={`text-sm font-medium ${
+                  isOutOfStock 
+                    ? 'text-red-700' 
+                    : isLowStock 
+                      ? 'text-amber-700' 
+                      : 'text-green-700'
+                }`}>
+                  {getStockStatusText(stockStatus)}
+                </span>
               </div>
             </div>
 
@@ -553,7 +660,12 @@ export default function ProductDetailPage() {
                   <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
                     <button
                       onClick={decrementQuantity}
-                      className="w-12 h-12 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+                      disabled={quantity <= 1}
+                      className={`w-12 h-12 flex items-center justify-center transition-colors ${
+                        quantity <= 1
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200'
+                      }`}
                       aria-label="Verminder aantal"
                     >
                       <Minus size={18} />
@@ -563,12 +675,20 @@ export default function ProductDetailPage() {
                     </span>
                     <button
                       onClick={incrementQuantity}
-                      className="w-12 h-12 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors"
+                      disabled={quantity >= maxAvailable || isOutOfStock}
+                      className={`w-12 h-12 flex items-center justify-center transition-colors ${
+                        quantity >= maxAvailable || isOutOfStock
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200'
+                      }`}
                       aria-label="Verhoog aantal"
                     >
                       <Plus size={18} />
                     </button>
                   </div>
+                  {quantity >= maxAvailable && !isOutOfStock && (
+                    <p className="text-xs text-amber-600 mt-1">Maximum bereikt</p>
+                  )}
                 </div>
 
                 {/* Total Price */}
@@ -581,26 +701,37 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Add to Cart Button */}
-              <button
-                onClick={handleAddToCart}
-                disabled={addedToCart}
-                className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
-                  addedToCart
-                    ? 'bg-green-500 text-white shadow-green-500/20'
-                    : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
-                }`}
-              >
-                {addedToCart ? (
-                  <>
-                    <Check size={22} strokeWidth={2.5} />
-                    <span>Toegevoegd aan winkelwagen!</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={22} strokeWidth={2} />
-                    <span>Plaats in winkelwagen</span>
-                  </>
-                )}
+              {isOutOfStock ? (
+                <button
+                  className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-6"
+                  disabled
+                >
+                  <AlertCircle size={22} strokeWidth={2} />
+                  <span>Uitverkocht</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addedToCart}
+                  className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
+                    addedToCart
+                      ? 'bg-green-500 text-white shadow-green-500/20'
+                      : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
+                  }`}
+                >
+                  {addedToCart ? (
+                    <>
+                      <Check size={22} strokeWidth={2.5} />
+                      <span>Toegevoegd aan winkelwagen!</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={22} strokeWidth={2} />
+                      <span>Plaats in winkelwagen</span>
+                    </>
+                  )}
+                </button>
+              )}
               </button>
             </div>
           </div>
@@ -612,24 +743,39 @@ export default function ProductDetailPage() {
         {/* Quantity and Total Row */}
         <div className="flex items-center justify-between mb-4">
           {/* Quantity Selector */}
-          <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
-            <button
-              onClick={decrementQuantity}
-              className="w-11 h-11 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300 transition-colors"
-              aria-label="Verminder aantal"
-            >
-              <Minus size={18} />
-            </button>
-            <span className="w-10 text-center text-base font-semibold text-neutral-900 select-none">
-              {quantity}
-            </span>
-            <button
-              onClick={incrementQuantity}
-              className="w-11 h-11 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300 transition-colors"
-              aria-label="Verhoog aantal"
-            >
-              <Plus size={18} />
-            </button>
+          <div>
+            <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
+              <button
+                onClick={decrementQuantity}
+                disabled={quantity <= 1}
+                className={`w-11 h-11 flex items-center justify-center transition-colors ${
+                  quantity <= 1
+                    ? 'text-neutral-300 cursor-not-allowed'
+                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
+                }`}
+                aria-label="Verminder aantal"
+              >
+                <Minus size={18} />
+              </button>
+              <span className="w-10 text-center text-base font-semibold text-neutral-900 select-none">
+                {quantity}
+              </span>
+              <button
+                onClick={incrementQuantity}
+                disabled={quantity >= maxAvailable || isOutOfStock}
+                className={`w-11 h-11 flex items-center justify-center transition-colors ${
+                  quantity >= maxAvailable || isOutOfStock
+                    ? 'text-neutral-300 cursor-not-allowed'
+                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
+                }`}
+                aria-label="Verhoog aantal"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            {quantity >= maxAvailable && !isOutOfStock && (
+              <p className="text-xs text-amber-600 mt-1">Max</p>
+            )}
           </div>
 
           {/* Total Price */}
@@ -642,27 +788,37 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Add to Cart Button */}
-        <button
-          onClick={handleAddToCart}
-          disabled={addedToCart}
-          className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg mb-4 ${
-            addedToCart
-              ? 'bg-green-500 text-white shadow-green-500/20'
-              : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
-          }`}
-        >
-          {addedToCart ? (
-            <>
-              <Check size={20} strokeWidth={2.5} />
-              <span>Toegevoegd!</span>
-            </>
-          ) : (
-            <>
-              <ShoppingCart size={20} strokeWidth={2} />
-              <span>Plaats in winkelwagen</span>
-            </>
-          )}
-        </button>
+        {isOutOfStock ? (
+          <button
+            className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-4"
+            disabled
+          >
+            <AlertCircle size={20} strokeWidth={2} />
+            <span>Uitverkocht</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleAddToCart}
+            disabled={addedToCart}
+            className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg mb-4 ${
+              addedToCart
+                ? 'bg-green-500 text-white shadow-green-500/20'
+                : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
+            }`}
+          >
+            {addedToCart ? (
+              <>
+                <Check size={20} strokeWidth={2.5} />
+                <span>Toegevoegd!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={20} strokeWidth={2} />
+                <span>Plaats in winkelwagen</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Footer */}
@@ -702,6 +858,7 @@ export default function ProductDetailPage() {
         customerNotes={customerNotes}
         onCustomerNotesChange={setCustomerNotes}
         onSubmitOrder={handleSubmitOrder}
+        stockMap={stockMap}
       />
     </div>
   )

@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
+import { 
+  getItemStockStatus, 
+  getItemStockLevel, 
+  canAddToCart, 
+  validateCartItem,
+  getComboStockStatus,
+  type StockStatus 
+} from '@/lib/stockUtils'
 
 import {
   NewHeader,
@@ -89,8 +97,10 @@ interface StoreSettings {
   hero_subtitle: string
 }
 
-// Stock status type for displaying availability
-type StockStatus = 'in-stock' | 'low-stock' | 'out-of-stock'
+// Stock update timestamp for displaying freshness
+interface StockMetadata {
+  lastUpdated: Date
+}
 
 export default function NewCatalogPage() {
   // Data state
@@ -101,6 +111,7 @@ export default function NewCatalogPage() {
   const [banners, setBanners] = useState<Banner[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
+  const [stockMetadata, setStockMetadata] = useState<StockMetadata>({ lastUpdated: new Date() })
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -328,6 +339,7 @@ export default function NewCatalogPage() {
           map.set(stock.item_id, current + stock.quantity)
         })
         setStockMap(map)
+        setStockMetadata({ lastUpdated: new Date() })
       }
     } catch (err) {
       console.error('Error loading catalog data:', err)
@@ -337,9 +349,36 @@ export default function NewCatalogPage() {
     }
   }
 
+  // Refresh stock data periodically (every 30 seconds) for real-time accuracy
+  const refreshStock = useCallback(async () => {
+    try {
+      const { data: stockData } = await supabase
+        .from('stock')
+        .select('item_id, quantity')
+      
+      if (stockData) {
+        const map = new Map<string, number>()
+        stockData.forEach((stock: { item_id: string; quantity: number }) => {
+          const current = map.get(stock.item_id) || 0
+          map.set(stock.item_id, current + stock.quantity)
+        })
+        setStockMap(map)
+        setStockMetadata({ lastUpdated: new Date() })
+      }
+    } catch (err) {
+      console.error('Error refreshing stock:', err)
+    }
+  }, [])
+
   useEffect(() => {
     loadData()
   }, [])
+
+  // Periodic stock refresh for real-time accuracy
+  useEffect(() => {
+    const interval = setInterval(refreshStock, 30000) // Refresh every 30 seconds
+    return () => clearInterval(interval)
+  }, [refreshStock])
 
   // Price calculation
   const getPrice = (item: Item): number => {
@@ -349,21 +388,53 @@ export default function NewCatalogPage() {
     return item.selling_price_srd || (item.selling_price_usd ? item.selling_price_usd * exchangeRate : 0)
   }
 
-  // Stock status helper - returns stock status without revealing exact numbers
-  const getStockStatus = (itemId: string): StockStatus => {
-    const totalStock = stockMap.get(itemId) || 0
-    if (totalStock <= 0) return 'out-of-stock'
-    if (totalStock <= 5) return 'low-stock'
-    return 'in-stock'
-  }
+  // Stock status helper - uses centralized utility for consistency
+  const getStockStatus = useCallback((itemId: string): StockStatus => {
+    return getItemStockStatus(itemId, stockMap)
+  }, [stockMap])
 
-  // Get approximate stock level for user - without showing exact quantity
-  const getStockLevel = (itemId: string): number => {
-    return stockMap.get(itemId) || 0
-  }
+  // Get stock level for user display
+  const getStockLevel = useCallback((itemId: string): number => {
+    return getItemStockLevel(itemId, stockMap)
+  }, [stockMap])
 
-  // Cart functions
-  const addToCart = (item: Item | ItemWithCombo) => {
+  // Check if item can be added to cart (stock validation)
+  const canAddItemToCart = useCallback((itemId: string, additionalQuantity: number = 1): boolean => {
+    const currentCartQuantity = cart.find(c => c.item.id === itemId)?.quantity || 0
+    return canAddToCart(itemId, stockMap, currentCartQuantity + additionalQuantity)
+  }, [cart, stockMap])
+
+  // Get combo stock status - combo is only available if all components are in stock
+  const getComboStockInfo = useCallback((combo: ItemWithCombo): { status: StockStatus; available: number } => {
+    if (!combo.combo_items || combo.combo_items.length === 0) {
+      return { status: 'in-stock', available: 999 }
+    }
+    const result = getComboStockStatus(
+      combo.combo_items.map(ci => ({ child_item_id: ci.child_item_id, quantity: ci.quantity })),
+      stockMap
+    )
+    return { status: result.status, available: result.limitingFactor }
+  }, [stockMap])
+
+  // Cart functions with stock validation
+  const addToCart = useCallback((item: Item | ItemWithCombo) => {
+    // Check stock before adding
+    const itemWithCombo = item as ItemWithCombo
+    
+    // For combo items, check component stock
+    if (itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0) {
+      const comboStock = getComboStockInfo(itemWithCombo)
+      const currentCartQuantity = cart.find(c => c.item.id === item.id)?.quantity || 0
+      if (comboStock.available <= currentCartQuantity) {
+        return // Don't add if not enough combo components available
+      }
+    } else {
+      // For regular items, check direct stock
+      if (!canAddItemToCart(item.id, 1)) {
+        return // Don't add if out of stock
+      }
+    }
+
     // Convert ItemWithCombo to Item format for cart storage
     const cartItem: Item = {
       id: item.id,
@@ -388,9 +459,19 @@ export default function NewCatalogPage() {
       }
       return [...prev, { item: cartItem, quantity: 1 }]
     })
-  }
+  }, [cart, canAddItemToCart, getComboStockInfo])
 
-  const addToCartWithQuantity = (item: Item, quantity: number) => {
+  const addToCartWithQuantity = useCallback((item: Item, quantity: number) => {
+    // Check stock before adding
+    if (!canAddItemToCart(item.id, quantity)) {
+      // Only add what's available
+      const available = getStockLevel(item.id)
+      const currentInCart = cart.find(c => c.item.id === item.id)?.quantity || 0
+      const canAdd = Math.max(0, available - currentInCart)
+      if (canAdd <= 0) return
+      quantity = canAdd
+    }
+
     setCart(prev => {
       const existing = prev.find(c => c.item.id === item.id)
       if (existing) {
@@ -398,20 +479,23 @@ export default function NewCatalogPage() {
       }
       return [...prev, { item, quantity }]
     })
-  }
+  }, [cart, canAddItemToCart, getStockLevel])
 
-  const addToCartById = (itemId: string) => {
+  const addToCartById = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId) || comboItems.find(i => i.id === itemId)
     if (item) addToCart(item)
-  }
+  }, [items, comboItems, addToCart])
 
-  const updateCartQuantity = (itemId: string, quantity: number) => {
+  const updateCartQuantity = useCallback((itemId: string, quantity: number) => {
     if (quantity <= 0) {
       setCart(prev => prev.filter(c => c.item.id !== itemId))
     } else {
-      setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, quantity } : c))
+      // Validate against stock before increasing
+      const available = getStockLevel(itemId)
+      const newQuantity = Math.min(quantity, available)
+      setCart(prev => prev.map(c => c.item.id === itemId ? { ...c, quantity: newQuantity } : c))
     }
-  }
+  }, [getStockLevel])
 
   const getCartCount = () => cart.reduce((sum, c) => sum + c.quantity, 0)
   const getCartTotal = () => cart.reduce((sum, c) => sum + (getPrice(c.item) * c.quantity), 0)
@@ -906,6 +990,7 @@ export default function NewCatalogPage() {
         customerNotes={customerNotes}
         onCustomerNotesChange={setCustomerNotes}
         onSubmitOrder={sendWhatsAppOrder}
+        stockMap={stockMap}
       />
 
       {/* Quick View Modal */}
@@ -926,6 +1011,8 @@ export default function NewCatalogPage() {
           onAddToCart={(quantity) => {
             addToCartWithQuantity(selectedItem, quantity)
           }}
+          stockLevel={getStockLevel(selectedItem.id)}
+          stockStatus={getStockStatus(selectedItem.id)}
         />
       )}
     </div>

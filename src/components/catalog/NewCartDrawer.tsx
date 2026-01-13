@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { X, Plus, Minus, Package, MessageCircle, ShoppingBag, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Plus, Minus, Package, MessageCircle, ShoppingBag, MapPin, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { getItemStockStatus, getItemStockLevel, STOCK_THRESHOLDS } from '@/lib/stockUtils'
 
 interface CartItem {
   id: string
@@ -43,6 +44,7 @@ interface NewCartDrawerProps {
   customerNotes: string
   onCustomerNotesChange: (notes: string) => void
   onSubmitOrder: () => void
+  stockMap?: Record<string, number>
 }
 
 export function NewCartDrawer({
@@ -67,13 +69,30 @@ export function NewCartDrawer({
   onCustomerPhoneChange,
   customerNotes,
   onCustomerNotesChange,
-  onSubmitOrder
+  onSubmitOrder,
+  stockMap = {}
 }: NewCartDrawerProps) {
   // Toggle state for checkout form visibility
   const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false)
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  
+  // Check if any items exceed available stock
+  const getItemStockInfo = (itemId: string, currentQuantity: number) => {
+    const stockLevel = stockMap[itemId] ?? Infinity
+    const isOverStock = currentQuantity > stockLevel
+    const isOutOfStock = stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
+    const isLowStock = stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock
+    const canIncrement = currentQuantity < stockLevel
+    return { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement }
+  }
+  
+  // Check if cart has any stock issues
+  const hasStockIssues = items.some(item => {
+    const stockLevel = stockMap[item.id] ?? Infinity
+    return item.quantity > stockLevel || stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
+  })
 
   if (!isOpen) return null
 
@@ -137,69 +156,115 @@ export function NewCartDrawer({
                 {totalItems} {totalItems === 1 ? 'item' : 'items'} in je winkelwagen
               </div>
               
-              {items.map((item) => (
-                <div 
-                  key={item.id}
-                  className="flex gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100"
-                >
-                  {/* Image - Smaller on mobile */}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-white overflow-hidden flex-shrink-0 border border-neutral-100">
-                    {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.name}
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package size={20} className="text-neutral-300" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Info - Compact layout */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <h4 className="font-medium text-[#141c2e] text-sm leading-tight line-clamp-2">
-                        {item.name}
-                      </h4>
-                      <p className="text-sm font-bold text-[#f97015] mt-0.5">
-                        {formatCurrency(item.price, currency)}
-                      </p>
+              {/* Stock warning banner */}
+              {hasStockIssues && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
+                  <AlertCircle size={16} className="flex-shrink-0" />
+                  <span className="text-xs font-medium">Sommige artikelen hebben beperkte voorraad. Pas je bestelling aan.</span>
+                </div>
+              )}
+              
+              {items.map((item) => {
+                const { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement } = getItemStockInfo(item.id, item.quantity)
+                
+                return (
+                  <div 
+                    key={item.id}
+                    className={`flex gap-3 p-3 rounded-xl border ${
+                      isOutOfStock 
+                        ? 'bg-red-50 border-red-200' 
+                        : isOverStock 
+                          ? 'bg-amber-50 border-amber-200'
+                          : 'bg-neutral-50 border-neutral-100'
+                    }`}
+                  >
+                    {/* Image - Smaller on mobile */}
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-white overflow-hidden flex-shrink-0 border border-neutral-100 relative">
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          width={80}
+                          height={80}
+                          className={`w-full h-full object-cover ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package size={20} className="text-neutral-300" />
+                        </div>
+                      )}
+                      {isOutOfStock && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <span className="text-[8px] font-bold text-white uppercase">Uitverkocht</span>
+                        </div>
+                      )}
                     </div>
                     
-                    {/* Quantity controls - Compact */}
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center rounded-lg border border-neutral-200 bg-white">
+                    {/* Info - Compact layout */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <h4 className={`font-medium text-sm leading-tight line-clamp-2 ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
+                          {item.name}
+                        </h4>
+                        <p className={`text-sm font-bold mt-0.5 ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
+                          {formatCurrency(item.price, currency)}
+                        </p>
+                        {/* Stock warning for this item */}
+                        {isOutOfStock && (
+                          <p className="text-[10px] text-red-600 font-medium mt-1">Niet meer beschikbaar</p>
+                        )}
+                        {isOverStock && !isOutOfStock && (
+                          <p className="text-[10px] text-amber-600 font-medium mt-1">
+                            Slechts {stockLevel} beschikbaar
+                          </p>
+                        )}
+                        {isLowStock && !isOverStock && (
+                          <p className="text-[10px] text-amber-600 mt-1">
+                            Nog {stockLevel} op voorraad
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Quantity controls - Compact */}
+                      <div className="flex items-center justify-between mt-2">
+                        <div className={`flex items-center rounded-lg border bg-white ${
+                          isOverStock ? 'border-amber-300' : 'border-neutral-200'
+                        }`}>
+                          <button
+                            onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                            className="w-7 h-7 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100 transition-colors"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className={`w-7 text-center text-xs font-semibold ${
+                            isOverStock ? 'text-amber-600' : 'text-[#141c2e]'
+                          }`}>
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => canIncrement && onAddOne(item.id)}
+                            disabled={!canIncrement}
+                            className={`w-7 h-7 flex items-center justify-center transition-colors ${
+                              canIncrement
+                                ? 'text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100'
+                                : 'text-neutral-300 cursor-not-allowed'
+                            }`}
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
                         <button
-                          onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100 transition-colors"
+                          onClick={() => onUpdateQuantity(item.id, 0)}
+                          className="text-[11px] text-[#141c2e]/40 hover:text-red-500 active:text-red-600 transition-colors px-2 py-1"
                         >
-                          <Minus size={12} />
-                        </button>
-                        <span className="w-7 text-center text-xs font-semibold text-[#141c2e]">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => onAddOne(item.id)}
-                          className="w-7 h-7 flex items-center justify-center text-[#141c2e]/50 hover:text-[#141c2e] active:bg-neutral-100 transition-colors"
-                        >
-                          <Plus size={12} />
+                          Verwijder
                         </button>
                       </div>
-                      <button
-                        onClick={() => onUpdateQuantity(item.id, 0)}
-                        className="text-[11px] text-[#141c2e]/40 hover:text-red-500 active:text-red-600 transition-colors px-2 py-1"
-                      >
-                        Verwijder
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
