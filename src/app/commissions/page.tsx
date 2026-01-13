@@ -121,20 +121,26 @@ export default function CommissionsPage() {
   }
 
   // Group commissions by location
+  // Uses historical exchange rates when available for accurate totals
+  const currentRate = parseFloat(String(exchangeRate))
   const locationSummaries: LocationCommissionSummary[] = locations
     .filter(loc => !filterLocation || loc.id === filterLocation)
     .map(location => {
       const locationCommissions = commissions.filter(c => c.location_id === location.id)
-      // Convert all to SRD for accurate totals
+      // Convert all to SRD for accurate totals using historical exchange rates
       const totalUnpaid = locationCommissions.filter(c => !c.paid).reduce((sum, c) => {
         const amount = c.commission_amount
         const currency = c.sales?.currency || 'SRD'
-        return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+        // Use historical exchange rate from sale if available
+        const saleRate = c.sales?.exchange_rate ? Number(c.sales.exchange_rate) : currentRate
+        return sum + (currency === 'USD' ? amount * saleRate : amount)
       }, 0)
       const totalPaid = locationCommissions.filter(c => c.paid).reduce((sum, c) => {
         const amount = c.commission_amount
         const currency = c.sales?.currency || 'SRD'
-        return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+        // Use historical exchange rate from sale if available
+        const saleRate = c.sales?.exchange_rate ? Number(c.sales.exchange_rate) : currentRate
+        return sum + (currency === 'USD' ? amount * saleRate : amount)
       }, 0)
       return {
         location,
@@ -158,21 +164,25 @@ export default function CommissionsPage() {
     return matchesLocation && matchesStatus && matchesSearch
   })
 
-  // Totals - convert all to SRD using exchange rate
+  // Totals - convert all to SRD using historical exchange rates for accuracy
   const totalUnpaidAll = commissions.filter(c => !c.paid).reduce((sum, c) => {
     const amount = c.commission_amount
     const currency = c.sales?.currency || 'SRD'
-    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+    // Use historical exchange rate from sale if available
+    const saleRate = c.sales?.exchange_rate ? Number(c.sales.exchange_rate) : currentRate
+    return sum + (currency === 'USD' ? amount * saleRate : amount)
   }, 0)
   const totalPaidAll = commissions.filter(c => c.paid).reduce((sum, c) => {
     const amount = c.commission_amount
     const currency = c.sales?.currency || 'SRD'
-    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+    // Use historical exchange rate from sale if available
+    const saleRate = c.sales?.exchange_rate ? Number(c.sales.exchange_rate) : currentRate
+    return sum + (currency === 'USD' ? amount * saleRate : amount)
   }, 0)
   
-  // Calculate USD equivalents
-  const totalUnpaidUSD = totalUnpaidAll / exchangeRate
-  const totalPaidUSD = totalPaidAll / exchangeRate
+  // Calculate USD equivalents using current rate for display purposes
+  const totalUnpaidUSD = totalUnpaidAll / currentRate
+  const totalPaidUSD = totalPaidAll / currentRate
   const hasMixedCurrency = new Set(commissions.map(c => c.sales?.currency)).size > 1
 
   const clearFilters = () => {
@@ -245,14 +255,15 @@ export default function CommissionsPage() {
       const amount = c.commission_amount
       const commissionCurrency = c.sales?.currency || 'SRD'
       const walletCurrency = wallet.currency
+      const rate = parseFloat(String(exchangeRate))
       
       // Convert if currencies don't match
       if (commissionCurrency === walletCurrency) {
         return sum + amount
       } else if (commissionCurrency === 'USD' && walletCurrency === 'SRD') {
-        return sum + (amount * exchangeRate)
+        return sum + (amount * rate)
       } else if (commissionCurrency === 'SRD' && walletCurrency === 'USD') {
-        return sum + (amount / exchangeRate)
+        return sum + (amount / rate)
       }
       return sum + amount
     }, 0)
@@ -421,7 +432,8 @@ export default function CommissionsPage() {
   const unpaidAmountForSelectedLocation = unpaidCommissionsForLocation.reduce((sum, c) => {
     const amount = c.commission_amount
     const currency = c.sales?.currency || 'SRD'
-    return sum + (currency === 'USD' ? amount * exchangeRate : amount)
+    const rate = parseFloat(String(exchangeRate))
+    return sum + (currency === 'USD' ? amount * rate : amount)
   }, 0)
 
   return (

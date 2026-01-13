@@ -15,6 +15,7 @@ import {
   Target,
   BarChart3,
   ArrowUpRight,
+  ArrowDownRight,
   Activity
 } from 'lucide-react'
 import { StatCard, ChartCard, QuickActionCard, ActivityItem } from '@/components/Cards'
@@ -105,7 +106,10 @@ export default function Home() {
       const yesterdaysSRD = yesterdaySales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + Number(s.total_amount), 0)
       const yesterdaysTotalInUSD = yesterdaysUSD + (yesterdaysSRD / rate)
       
-      const trend = yesterdaysTotalInUSD > 0 ? ((todaysTotalInUSD - yesterdaysTotalInUSD) / yesterdaysTotalInUSD) * 100 : 0
+      // Calculate trend: positive = growth, negative = decline, preserve the sign
+      const trend = yesterdaysTotalInUSD > 0 
+        ? ((todaysTotalInUSD - yesterdaysTotalInUSD) / yesterdaysTotalInUSD) * 100 
+        : (todaysTotalInUSD > 0 ? 100 : 0) // If no sales yesterday but sales today, show 100% growth
 
       // Stock items with quantity > 0
       const stockItemsCount = stock.filter(s => s.quantity > 0).length
@@ -141,7 +145,7 @@ export default function Home() {
         totalRevenue,
         todaysSalesUSD: todaysUSD,
         todaysSalesSRD: todaysSRD,
-        salesTrend: Math.abs(trend),
+        salesTrend: trend, // Preserve sign for accurate trend display
         recentActivity: activity.slice(0, 4)
       })
     } catch (error) {
@@ -217,7 +221,7 @@ export default function Home() {
                   )}
                 </div>
                 <div className="text-xs text-orange-200 mt-2 flex items-center gap-1">
-                  <ArrowUpRight size={12} />
+                  {stats.salesTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                   <span className="font-medium">{stats.salesTrend > 0 ? '+' : ''}{stats.salesTrend.toFixed(1)}% vs yesterday</span>
                 </div>
               </div>

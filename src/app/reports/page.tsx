@@ -27,8 +27,20 @@ interface ItemWithCombo extends Item {
   is_combo: boolean
 }
 
+// Helper to convert exchange rate values to primitive number
+const toNum = (val: unknown): number => {
+  if (typeof val === 'number') return val
+  if (typeof val === 'string') return parseFloat(val) || 0
+  return 0
+}
+
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
+  
+  // Convert exchange rate to primitive number once (avoids TypeScript Number vs number issues)
+  // Using double cast to ensure we get a primitive number type
+  const rate = (exchangeRate as unknown as number) || 40
+  
   const [sales, setSales] = useState<SaleWithItems[]>([])
   const [items, setItems] = useState<ItemWithCombo[]>([])
   const [stocks, setStocks] = useState<Stock[]>([])
@@ -79,32 +91,40 @@ export default function ReportsPage() {
   // Get total sales converted to display currency (including combos)
   const getTotalSalesInDisplayCurrency = () => {
     const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
+    const currentRate = rate
     
     const totalUSD = filteredSales.filter(s => s.currency === 'USD').reduce((sum, s) => sum + s.total_amount, 0)
     const totalSRD = filteredSales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + s.total_amount, 0)
     
     if (displayCurrency === 'USD') {
-      return totalUSD + (totalSRD / exchangeRate)
+      return totalUSD + (totalSRD / currentRate)
     }
-    return totalSRD + (totalUSD * exchangeRate)
+    return totalSRD + (totalUSD * currentRate)
   }
 
   // Get combo stats - now counts items marked as combos from sale_items
+  // Uses historical exchange rates for accurate revenue calculations
   const getComboStats = () => {
     const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
     let totalCombos = 0
     let totalComboRevenue = 0
     
     filteredSales.forEach(sale => {
+      // Use historical exchange rate for accurate conversion
+      let saleExchangeRate = rate
+      if (sale.exchange_rate) {
+        saleExchangeRate = sale.exchange_rate as number
+      }
+      
       (sale.sale_items || []).forEach(saleItem => {
         const item = items.find(i => i.id === saleItem.item_id)
         if (item?.is_combo) {
           totalCombos += 1
-          // Convert based on sale currency
+          // Convert based on sale currency using historical rate
           if (displayCurrency === 'USD') {
-            totalComboRevenue += sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / exchangeRate
+            totalComboRevenue += sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / saleExchangeRate
           } else {
-            totalComboRevenue += sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * exchangeRate
+            totalComboRevenue += sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * rate
           }
         }
       })
@@ -114,18 +134,23 @@ export default function ReportsPage() {
   }
 
   // Get top selling combos - items marked as combos
+  // Uses historical exchange rates for accurate revenue calculations
   const getTopSellingCombos = () => {
     const comboSalesMap = new Map<string, { name: string; count: number; revenue: number }>()
+    const currentRate = rate
     
     sales
       .filter(s => !selectedLocation || s.location_id === selectedLocation)
       .forEach(sale => {
+        // Use historical exchange rate for accurate conversion
+        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
+        
         (sale.sale_items || []).forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item?.is_combo) {
             const revenueInDisplayCurrency = displayCurrency === 'USD'
-              ? (sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / exchangeRate)
-              : (sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * exchangeRate)
+              ? (sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / saleExchangeRate)
+              : (sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * currentRate)
             
             const existing = comboSalesMap.get(item.id)
             if (existing) {
@@ -148,12 +173,18 @@ export default function ReportsPage() {
   }
 
   // Calculate profit in USD (base currency for cost)
+  // Uses historical exchange rate stored with sale when available for accurate profit calculation
   const getTotalProfitUSD = () => {
     let profitUSD = 0
+    const currentRate = rate
     
     sales
       .filter(s => !selectedLocation || s.location_id === selectedLocation)
       .forEach(sale => {
+        // Use the exchange rate that was active at time of sale for accurate profit calculation
+        // Fall back to current rate if historical rate not stored
+        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
+        
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item && item.purchase_price_usd) {
@@ -163,9 +194,9 @@ export default function ReportsPage() {
             const costInUSD = purchasePrice * saleItem.quantity
             let revenueInUSD = saleItem.subtotal
             
-            // Convert SRD revenue to USD using actual exchange rate
+            // Convert SRD revenue to USD using the sale's historical exchange rate
             if (sale.currency === 'SRD') {
-              revenueInUSD = saleItem.subtotal / exchangeRate
+              revenueInUSD = saleItem.subtotal / saleExchangeRate
             }
             
             profitUSD += revenueInUSD - costInUSD
@@ -178,25 +209,30 @@ export default function ReportsPage() {
   // Get profit in display currency
   const getTotalProfit = () => {
     const profitUSD = getTotalProfitUSD()
+    const currentRate = rate
     if (displayCurrency === 'USD') {
       return profitUSD
     }
-    return profitUSD * exchangeRate
+    return profitUSD * currentRate
   }
 
   const getTopSellingItems = () => {
     const itemSales = new Map<string, { name: string; quantity: number; revenueUSD: number }>()
+    const currentRate = rate
     
     sales
       .filter(s => !selectedLocation || s.location_id === selectedLocation)
       .forEach(sale => {
+        // Use historical exchange rate for accurate revenue calculation
+        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
+        
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item) {
-            // Convert revenue to USD for consistent comparison
+            // Convert revenue to USD using the sale's historical exchange rate
             const revenueUSD = sale.currency === 'USD' 
               ? saleItem.subtotal 
-              : saleItem.subtotal / exchangeRate
+              : saleItem.subtotal / saleExchangeRate
             
             const existing = itemSales.get(saleItem.item_id)
             if (existing) {
@@ -218,7 +254,7 @@ export default function ReportsPage() {
       .slice(0, 5)
       .map(item => ({
         ...item,
-        revenue: displayCurrency === 'USD' ? item.revenueUSD : item.revenueUSD * exchangeRate
+        revenue: displayCurrency === 'USD' ? item.revenueUSD : item.revenueUSD * currentRate
       }))
   }
 
@@ -240,18 +276,24 @@ export default function ReportsPage() {
 
   const getStockValue = (locationId?: string) => {
     const valueUSD = getStockValueUSD(locationId)
+    const currentRate = rate
     if (displayCurrency === 'USD') {
       return valueUSD
     }
-    return valueUSD * exchangeRate
+    return valueUSD * currentRate
   }
 
   const getProfitByLocation = () => {
+    const currentRate = rate
+    
     return locations.map(location => {
       const locationSales = sales.filter(s => s.location_id === location.id)
       let profitUSD = 0
       
       locationSales.forEach(sale => {
+        // Use historical exchange rate for accurate profit calculation
+        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
+        
         sale.sale_items?.forEach(saleItem => {
           const item = items.find(i => i.id === saleItem.item_id)
           if (item && item.purchase_price_usd) {
@@ -261,9 +303,9 @@ export default function ReportsPage() {
             const costInUSD = purchasePrice * saleItem.quantity
             let revenueInUSD = saleItem.subtotal
             
-            // Convert SRD revenue to USD using actual exchange rate
+            // Convert SRD revenue to USD using the sale's historical exchange rate
             if (sale.currency === 'SRD') {
-              revenueInUSD = saleItem.subtotal / exchangeRate
+              revenueInUSD = saleItem.subtotal / saleExchangeRate
             }
             
             profitUSD += revenueInUSD - costInUSD
@@ -275,9 +317,9 @@ export default function ReportsPage() {
 
       return {
         name: location.name,
-        profit: displayCurrency === 'USD' ? profitUSD : profitUSD * exchangeRate,
+        profit: displayCurrency === 'USD' ? profitUSD : profitUSD * currentRate,
         sales: locationSales.length,
-        stockValue: displayCurrency === 'USD' ? stockValueUSD : stockValueUSD * exchangeRate
+        stockValue: displayCurrency === 'USD' ? stockValueUSD : stockValueUSD * currentRate
       }
     })
   }
