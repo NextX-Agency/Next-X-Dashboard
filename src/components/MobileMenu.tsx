@@ -80,7 +80,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     {
       title: 'Store',
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
+        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
         { name: 'View Catalog', icon: Store, path: '/catalog', external: true },
         { name: 'Products', icon: Package, path: '/items' },
         { name: 'Stock', icon: Layers, path: '/stock' },
@@ -225,7 +225,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   <div className="space-y-0.5 py-1">
                     {section.items.map((item) => {
                       const Icon = item.icon
-                      const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path))
+                      const isActive = pathname === item.path || (item.path !== '/dashboard' && item.path !== '/catalog' && pathname.startsWith(item.path))
                       
                       return (
                         <button

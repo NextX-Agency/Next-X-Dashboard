@@ -1,50 +1,40 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/AuthContext'
+import { isPublicRoute, isAdminRoute, getLoginRedirect, getAccessDeniedRedirect } from '@/lib/routes'
 import { Loader2, ShieldX, ArrowLeft } from 'lucide-react'
 
-// Routes that don't require authentication
-const publicRoutes = ['/login', '/catalog']
-
-// Admin-only routes that require admin role
-const adminOnlyRoutes = [
-  '/',           // Dashboard
-  '/items',
-  '/stock',
-  '/orders',
-  '/sales',
-  '/expenses',
-  '/budgets',
-  '/wallets',
-  '/commissions',
-  '/exchange',
-  '/locations',
-  '/reports',
-  '/settings',
-  '/activity',
-  '/reservations',
-  '/upload-example',
-  '/migrate'
-]
+// Use useLayoutEffect on client to prevent flash
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading, user } = useAuth()
+  const { isAuthenticated, loading, user, isAdmin } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
 
-  const isPublicRoute = publicRoutes.includes(pathname)
-  const isAdminRoute = adminOnlyRoutes.includes(pathname)
-  const isAdmin = user?.role === 'admin'
+  const isPublic = isPublicRoute(pathname)
+  const requiresAdmin = isAdminRoute(pathname)
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated && !isPublicRoute) {
-      router.push('/login')
+  // Handle redirects with useLayoutEffect to prevent UI flash
+  useIsomorphicLayoutEffect(() => {
+    if (loading) return
+
+    // If not authenticated and trying to access protected route
+    if (!isAuthenticated && !isPublic) {
+      router.replace(getLoginRedirect())
+      return
     }
-  }, [isAuthenticated, loading, pathname, router, isPublicRoute])
 
-  // Show loading state
+    // If authenticated but not admin, trying to access admin route
+    if (isAuthenticated && requiresAdmin && !isAdmin) {
+      router.replace(getAccessDeniedRedirect())
+      return
+    }
+  }, [isAuthenticated, loading, pathname, router, isPublic, requiresAdmin, isAdmin])
+
+  // Show loading state while checking auth
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -54,7 +44,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // If on a public route, always show content
-  if (isPublicRoute) {
+  if (isPublic) {
     return <>{children}</>
   }
 
@@ -67,8 +57,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // Check admin access for admin-only routes
-  if (isAdminRoute && !isAdmin) {
+  // CRITICAL: Block non-admin access to admin routes completely
+  // This check runs BEFORE any admin content can render
+  if (requiresAdmin && !isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-4">
         <div className="max-w-md w-full text-center">
@@ -97,7 +88,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => router.push('/catalog')}
+              onClick={() => router.push('/')}
               className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold transition-all"
             >
               Go to Catalog

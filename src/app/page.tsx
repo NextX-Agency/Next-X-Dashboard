@@ -1,19 +1,7 @@
 ﻿'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+// The index page "/" serves the catalog - the public storefront
+// This is the landing page for all users including guests
 
-// Redirect home page to catalog - the public storefront
-export default function Home() {
-  const router = useRouter()
-
-  useEffect(() => {
-    router.replace('/catalog')
-  }, [router])
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="w-8 h-8 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
-}
+// Re-export the catalog page component directly
+export { default } from './catalog/page'

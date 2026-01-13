@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import { BLOB_CONFIG, type BlobUploadResponse, type BlobErrorResponse } from '@/types/blob.types'
+import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 
 export async function POST(request: NextRequest): Promise<NextResponse<BlobUploadResponse | BlobErrorResponse>> {
+  // Verify admin authentication
+  const authResult = await requireAdmin(request)
+  if (isAuthError(authResult)) {
+    return authResult as NextResponse<BlobErrorResponse>
+  }
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File

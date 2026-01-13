@@ -732,7 +732,6 @@ export default function ProductDetailPage() {
                   )}
                 </button>
               )}
-              </button>
             </div>
           </div>
         </div>
@@ -858,7 +857,7 @@ export default function ProductDetailPage() {
         customerNotes={customerNotes}
         onCustomerNotesChange={setCustomerNotes}
         onSubmitOrder={handleSubmitOrder}
-        stockMap={stockMap}
+        stockMap={Object.fromEntries(stockMap)}
       />
     </div>
   )

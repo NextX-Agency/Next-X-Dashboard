@@ -40,13 +40,13 @@ export function NewQuickViewModal({
   storeName = '',
   onAddToCart,
   stockLevel = Infinity,
-  stockStatus = 'in_stock'
+  stockStatus = 'in-stock'
 }: NewQuickViewModalProps) {
   const [quantity, setQuantity] = useState(1)
   
   // Stock state derived from props
-  const isOutOfStock = stockStatus === 'out_of_stock' || stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
-  const isLowStock = stockStatus === 'low_stock' || (stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock)
+  const isOutOfStock = stockStatus === 'out-of-stock' || stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
+  const isLowStock = stockStatus === 'low-stock' || (stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock)
   const maxQuantity = isOutOfStock ? 0 : stockLevel
   const canIncrement = quantity < maxQuantity
 

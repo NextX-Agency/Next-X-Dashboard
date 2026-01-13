@@ -1,25 +1,35 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/AuthContext'
+import { getDefaultRedirect } from '@/lib/routes'
 import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
-  const { login, isAuthenticated, loading: authLoading } = useAuth()
+  const searchParams = useSearchParams()
+  const { login, isAuthenticated, loading: authLoading, isAdmin } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/')
+      // Check if there's a 'from' parameter to return to
+      const from = searchParams.get('from')
+      // Only use 'from' if user is admin, otherwise redirect based on role
+      if (from && isAdmin) {
+        router.replace(from)
+      } else {
+        router.replace(getDefaultRedirect(isAdmin))
+      }
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isAdmin, router, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,7 +39,8 @@ export default function LoginPage() {
     const result = await login(email, password)
     
     if (result.success) {
-      router.push('/')
+      // Use the redirectTo from login result for proper role-based redirect
+      router.replace(result.redirectTo || '/')
     } else {
       setError(result.error || 'Login failed')
     }
@@ -54,8 +65,8 @@ export default function LoginPage() {
             <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
               <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Admin Login</h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Sign in to access the dashboard</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Welcome Back</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Sign in to continue</p>
           </div>
 
           {/* Error Message */}
@@ -141,5 +152,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

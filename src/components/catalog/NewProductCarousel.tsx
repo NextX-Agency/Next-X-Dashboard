@@ -239,6 +239,12 @@ export function NewProductCarousel({
                               <Plus size={16} strokeWidth={2.5} />
                             </button>
                           )
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                </div>
+              )
             })}
           </div>
         </div>

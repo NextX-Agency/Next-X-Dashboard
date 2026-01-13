@@ -990,7 +990,7 @@ export default function NewCatalogPage() {
         customerNotes={customerNotes}
         onCustomerNotesChange={setCustomerNotes}
         onSubmitOrder={sendWhatsAppOrder}
-        stockMap={stockMap}
+        stockMap={Object.fromEntries(stockMap)}
       />
 
       {/* Quick View Modal */}

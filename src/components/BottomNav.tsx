@@ -3,6 +3,7 @@
 import { memo, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/lib/AuthContext'
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -32,6 +33,13 @@ const CMS_NAV_ITEMS = [
 
 function BottomNavComponent() {
   const pathname = usePathname()
+  const { isAdmin } = useAuth()
+  
+  // Don't render bottom nav for non-admin users
+  // (LayoutWrapper should handle this, but this is a safety check)
+  if (!isAdmin) {
+    return null
+  }
   
   const { navItems, isCMSSection } = useMemo(() => {
     const isCMS = pathname.startsWith('/cms')

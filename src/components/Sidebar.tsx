@@ -194,7 +194,7 @@ export default function Sidebar() {
                 <div className="space-y-1">
                   {section.items.map((item) => {
                     const Icon = item.icon
-                    const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path))
+                    const isActive = pathname === item.path || (item.path !== '/dashboard' && item.path !== '/catalog' && pathname.startsWith(item.path))
                     const isExternal = item.external
                     
                     return (
