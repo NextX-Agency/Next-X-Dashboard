@@ -753,23 +753,12 @@ export default function NewCatalogPage() {
         }}
       />
 
+      {/* Hidden H1 for SEO */}
+      <h1 className="sr-only">{SEO_CONTENT.defaultTitle}</h1>
+
       {/* Hero - Only on homepage */}
       {showHomepage && (
         <>
-          {/* SEO Intro Section with H1 */}
-          <SEOIntro
-            title={SEO_CONTENT.defaultTitle}
-            description={SEO_CONTENT.defaultDescription}
-            showFeatures={true}
-          />
-
-          {/* Breadcrumbs */}
-          <div className="bg-[#f8f7f4] border-b border-neutral-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-              <Breadcrumbs items={getBreadcrumbItems()} />
-            </div>
-          </div>
-
           {/* Show Banner Slider if banners exist, otherwise show default hero */}
           {banners.length > 0 ? (
             <BannerSlider 
@@ -815,14 +804,6 @@ export default function NewCatalogPage() {
         {showSearchResults && (
           <section className="py-10 bg-[#f8f7f4]" aria-labelledby="search-results-heading">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {/* Breadcrumbs for search */}
-              <div className="mb-4">
-                <Breadcrumbs items={[
-                  { label: 'Home', href: '/' },
-                  { label: 'Catalog', href: '/catalog' },
-                  { label: `Search: "${searchQuery}"` }
-                ]} />
-              </div>
               <h2 id="search-results-heading" className="text-2xl font-bold text-[#141c2e] mb-2">
                 Zoekresultaten voor &ldquo;{searchQuery}&rdquo;
               </h2>
@@ -865,17 +846,15 @@ export default function NewCatalogPage() {
         {showCategoryProducts && (
           <section className="py-10 bg-[#f8f7f4]" aria-labelledby="category-heading">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              {/* Breadcrumbs */}
-              <div className="mb-4">
-                <Breadcrumbs items={getBreadcrumbItems()} />
-              </div>
-              
-              {/* Category Header with H2 */}
-              <CategorySEOHeader
-                categoryName={getCategoryName(selectedCategory) || 'Producten'}
-                productCount={filteredItems.length}
-                description={`Shop ${getCategoryName(selectedCategory)?.toLowerCase() || 'products'} at NextX Suriname. Quality audio gear with local pickup available.`}
+              <ProductSectionHeader
+                title={getCategoryName(selectedCategory) || 'Producten'}
+                count={filteredItems.length}
+                variant="dark"
               />
+              {/* Hidden category description for SEO */}
+              <p className="sr-only">
+                Shop {getCategoryName(selectedCategory)?.toLowerCase() || 'products'} at NextX Suriname. Quality audio gear with local pickup available.
+              </p>
               
               <NewProductGrid 
                 isEmpty={filteredItems.length === 0}
