@@ -651,10 +651,10 @@ export default function NewCatalogPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-[#141c2e] flex items-center justify-center px-6">
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
         <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-white mb-2">Er ging iets mis</h2>
-          <p className="text-white/60 mb-6">{error}</p>
+          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Er ging iets mis</h2>
+          <p className="text-neutral-600 mb-6">{error}</p>
           <button
             onClick={loadData}
             className="px-6 py-3 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-colors"
@@ -696,7 +696,7 @@ export default function NewCatalogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#141c2e]">
+    <div className="min-h-screen bg-white">
       {/* Structured Data for SEO */}
       <LocalBusinessSchema
         storeName={settings.store_name}
