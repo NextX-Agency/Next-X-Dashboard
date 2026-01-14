@@ -751,22 +751,23 @@ export default function NewCatalogPage() {
                   const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
                   
                   return (
-                  <NewProductCard
-                    key={item.id}
-                    id={item.id}
-                    name={item.name}
-                    description={item.description}
-                    imageUrl={item.image_url}
-                    price={getPrice(item)}
-                    currency={currency}
-                    categoryName={getCategoryName(item.category_id)}
-                    quantity={getCartItemQuantity(item.id)}
-                    onAddToCart={() => addToCart(item)}
-                    onQuickView={() => setSelectedItem(item)}
-                    stockStatus={stockInfo.status}
-                    stockLevel={stockInfo.available}
-                  />
-                ))}
+                    <NewProductCard
+                      key={item.id}
+                      id={item.id}
+                      name={item.name}
+                      description={item.description}
+                      imageUrl={item.image_url}
+                      price={getPrice(item)}
+                      currency={currency}
+                      categoryName={getCategoryName(item.category_id)}
+                      quantity={getCartItemQuantity(item.id)}
+                      onAddToCart={() => addToCart(item)}
+                      onQuickView={() => setSelectedItem(item)}
+                      stockStatus={stockInfo.status}
+                      stockLevel={stockInfo.available}
+                    />
+                  )
+                })}
               </NewProductGrid>
             </div>
           </section>
