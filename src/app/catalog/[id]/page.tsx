@@ -12,6 +12,7 @@ import {
   getItemStockStatus, 
   getItemStockLevel, 
   getStockStatusText,
+  getComboStockStatus,
   type StockStatus 
 } from '@/lib/stockUtils'
 import { 
@@ -35,8 +36,20 @@ type Item = Database['public']['Tables']['items']['Row']
 type Category = Database['public']['Tables']['categories']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 
+interface ComboItem {
+  id: string
+  parent_item_id: string
+  child_item_id: string
+  quantity: number
+  child_item?: Item
+}
+
+interface ItemWithCombo extends Item {
+  combo_items?: ComboItem[]
+}
+
 interface CartItem {
-  item: Item
+  item: Item | ItemWithCombo
   quantity: number
 }
 
@@ -47,6 +60,8 @@ interface DrawerCartItem {
   imageUrl?: string | null
   price: number
   quantity: number
+  isCombo?: boolean
+  comboItems?: Array<{ child_item_id: string; quantity: number }>
 }
 
 interface StoreSettings {
@@ -66,7 +81,7 @@ export default function ProductDetailPage() {
   const router = useRouter()
   const productId = params.id as string
 
-  const [product, setProduct] = useState<Item | null>(null)
+  const [product, setProduct] = useState<ItemWithCombo | null>(null)
   const [category, setCategory] = useState<Category | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -123,7 +138,35 @@ export default function ProductDetailPage() {
       ])
 
       if (productRes.data) {
-        setProduct(productRes.data)
+        let productWithCombo: ItemWithCombo = productRes.data
+        
+        // If this is a combo product, load combo_items with child items
+        if (productRes.data.is_combo) {
+          const comboItemsRes = await supabase
+            .from('combo_items')
+            .select('*')
+            .eq('parent_item_id', productId)
+          
+          if (comboItemsRes.data && comboItemsRes.data.length > 0) {
+            // Load all child items
+            const childItemIds = comboItemsRes.data.map(ci => ci.child_item_id)
+            const childItemsRes = await supabase
+              .from('items')
+              .select('*')
+              .in('id', childItemIds)
+            
+            // Map child items to combo_items
+            productWithCombo = {
+              ...productRes.data,
+              combo_items: comboItemsRes.data.map(ci => ({
+                ...ci,
+                child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id)
+              }))
+            }
+          }
+        }
+        
+        setProduct(productWithCombo)
         
         // Load category if exists
         if (productRes.data.category_id) {
@@ -189,11 +232,30 @@ export default function ProductDetailPage() {
     return product.selling_price_srd || (product.selling_price_usd ? product.selling_price_usd * exchangeRate : 0)
   }, [product, currency, exchangeRate])
 
-  // Stock status helpers
-  const stockStatus = product ? getItemStockStatus(product.id, stockMap) : 'in-stock'
-  const stockLevel = product ? getItemStockLevel(product.id, stockMap) : 0
+  // Stock status helpers - handles both regular items and combos
+  const getProductStockInfo = useCallback((): { status: StockStatus; level: number } => {
+    if (!product) return { status: 'out-of-stock', level: 0 }
+    
+    // For combo products, calculate based on component availability
+    if (product.is_combo && product.combo_items && product.combo_items.length > 0) {
+      const comboStock = getComboStockStatus(
+        product.combo_items.map(ci => ({ child_item_id: ci.child_item_id, quantity: ci.quantity })),
+        stockMap
+      )
+      return { status: comboStock.status, level: comboStock.limitingFactor }
+    }
+    
+    // For regular items, use direct stock lookup
+    return {
+      status: getItemStockStatus(product.id, stockMap),
+      level: getItemStockLevel(product.id, stockMap)
+    }
+  }, [product, stockMap])
+  
+  const { status: stockStatus, level: stockLevel } = getProductStockInfo()
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
+  const isCombo = product?.is_combo && product?.combo_items && product.combo_items.length > 0
 
   // Get current cart quantity for this product
   const getCartQuantityForProduct = useCallback((): number => {
@@ -247,13 +309,15 @@ export default function ProductDetailPage() {
       const currentInCart = existingIndex >= 0 ? cart[existingIndex].quantity : 0
       const newTotal = currentInCart + quantity
       
-      // Validate against stock
-      if (newTotal > stockLevel) {
-        const canAdd = Math.max(0, stockLevel - currentInCart)
+      // Validate against stock (for combos, stockLevel is the limiting factor)
+      const effectiveStockLevel = stockLevel
+      
+      if (newTotal > effectiveStockLevel) {
+        const canAdd = Math.max(0, effectiveStockLevel - currentInCart)
         if (canAdd <= 0) return
         // Only add what's available
         if (existingIndex >= 0) {
-          cart[existingIndex].quantity = stockLevel
+          cart[existingIndex].quantity = effectiveStockLevel
         } else {
           cart.push({ item: product, quantity: canAdd })
         }
@@ -279,7 +343,7 @@ export default function ProductDetailPage() {
     } catch (e) {
       console.error('Failed to add to cart:', e)
     }
-  }, [product, quantity])
+  }, [product, quantity, isOutOfStock, maxAvailable, stockLevel])
 
   // Open cart drawer
   const handleCartClick = useCallback(() => {
@@ -292,22 +356,43 @@ export default function ProductDetailPage() {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY)
       if (savedCart) {
         const cart: CartItem[] = JSON.parse(savedCart)
-        return cart.map(cartItem => ({
-          id: cartItem.item.id,
-          name: cartItem.item.name,
-          imageUrl: cartItem.item.image_url,
-          price: currency === 'USD' 
-            ? cartItem.item.selling_price_usd || (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : 0)
-            : cartItem.item.selling_price_srd || (cartItem.item.selling_price_usd ? cartItem.item.selling_price_usd * exchangeRate : 0),
-          quantity: cartItem.quantity
-        }))
+        return cart.map(cartItem => {
+          const itemWithCombo = cartItem.item as ItemWithCombo
+          const hasComboItems = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+          
+          // If this is the current product and it's a combo, use its combo_items
+          let comboItemsData: Array<{ child_item_id: string; quantity: number }> | undefined
+          if (cartItem.item.id === productId && isCombo && product?.combo_items) {
+            comboItemsData = product.combo_items.map(ci => ({
+              child_item_id: ci.child_item_id,
+              quantity: ci.quantity
+            }))
+          } else if (hasComboItems && itemWithCombo.combo_items) {
+            comboItemsData = itemWithCombo.combo_items.map(ci => ({
+              child_item_id: ci.child_item_id,
+              quantity: ci.quantity
+            }))
+          }
+          
+          return {
+            id: cartItem.item.id,
+            name: cartItem.item.name,
+            imageUrl: cartItem.item.image_url,
+            price: currency === 'USD' 
+              ? cartItem.item.selling_price_usd || (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : 0)
+              : cartItem.item.selling_price_srd || (cartItem.item.selling_price_usd ? cartItem.item.selling_price_usd * exchangeRate : 0),
+            quantity: cartItem.quantity,
+            isCombo: cartItem.item.is_combo || (cartItem.item.id === productId && isCombo),
+            comboItems: comboItemsData
+          }
+        })
       }
       return []
     } catch (e) {
       console.error('Failed to load cart items:', e)
       return []
     }
-  }, [currency, exchangeRate])
+  }, [currency, exchangeRate, productId, isCombo, product])
 
   // Update cart quantity
   const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
@@ -607,6 +692,63 @@ export default function ProductDetailPage() {
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
                 </p>
+              </div>
+            )}
+
+            {/* Combo Items - Show what's included if this is a combo */}
+            {isCombo && product.combo_items && product.combo_items.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+                  Inbegrepen in dit combo
+                </h2>
+                <div className="space-y-2">
+                  {product.combo_items.map((ci) => {
+                    const itemStock = stockMap.get(ci.child_item_id) || 0
+                    const itemOutOfStock = itemStock <= 0
+                    return (
+                      <div
+                        key={ci.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border ${
+                          itemOutOfStock
+                            ? 'bg-red-50 border-red-200'
+                            : 'bg-neutral-50 border-neutral-200'
+                        }`}
+                      >
+                        {ci.child_item?.image_url ? (
+                          <Image
+                            src={ci.child_item.image_url}
+                            alt={ci.child_item.name}
+                            width={40}
+                            height={40}
+                            className={`rounded-lg object-cover ${itemOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">
+                            <Package size={16} className="text-neutral-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${itemOutOfStock ? 'text-red-700' : 'text-neutral-900'}`}>
+                            {ci.child_item?.name || 'Onbekend product'}
+                          </p>
+                          <p className={`text-xs ${itemOutOfStock ? 'text-red-600' : 'text-neutral-500'}`}>
+                            {itemOutOfStock ? 'Uitverkocht' : `${ci.quantity}x`}
+                          </p>
+                        </div>
+                        {itemOutOfStock && (
+                          <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {isOutOfStock && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    Dit combo is niet beschikbaar omdat één of meer onderdelen uitverkocht zijn.
+                  </p>
+                )}
               </div>
             )}
 

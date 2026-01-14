@@ -851,7 +851,8 @@ export default function NewCatalogPage() {
                     image_url: combo.image_url,
                     price: comboPrice,
                     isCombo: true,
-                    stockStatus: comboStock.status
+                    stockStatus: comboStock.status,
+                    stockLevel: comboStock.available
                   }
                 })}
                 currency={currency}
@@ -866,7 +867,11 @@ export default function NewCatalogPage() {
               <NewProductCarousel
                 title="Nieuwste Producten"
                 subtitle="Recent toegevoegd aan onze collectie"
-                products={newestProducts.map(p => ({ ...p, stockStatus: getStockStatus(p.id) }))}
+                products={newestProducts.map(p => ({ 
+                  ...p, 
+                  stockStatus: getStockStatus(p.id),
+                  stockLevel: getStockLevel(p.id) 
+                }))}
                 currency={currency}
                 onAddToCart={addToCartById}
               />
@@ -880,14 +885,17 @@ export default function NewCatalogPage() {
                 .map(ci => {
                   const item = ci.items as ItemWithCombo
                   const isCombo = item.is_combo && item.combo_items && item.combo_items.length > 0
-                  const stockInfo = isCombo ? getComboStockInfo(item) : { status: getStockStatus(item.id) }
+                  const stockInfo = isCombo 
+                    ? getComboStockInfo(item) 
+                    : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
                   return {
                     id: item.id,
                     name: item.name,
                     description: item.description,
                     image_url: item.image_url,
                     price: getPrice(item),
-                    stockStatus: stockInfo.status
+                    stockStatus: stockInfo.status,
+                    stockLevel: stockInfo.available
                   }
                 }) || []
 
@@ -913,14 +921,17 @@ export default function NewCatalogPage() {
                 products={products.slice(0, 10).map(item => {
                   const itemWithCombo = item as ItemWithCombo
                   const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
-                  const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(item.id) }
+                  const stockInfo = isCombo 
+                    ? getComboStockInfo(itemWithCombo) 
+                    : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
                   return {
                     id: item.id,
                     name: item.name,
                     description: item.description,
                     image_url: item.image_url,
                     price: getPrice(item),
-                    stockStatus: stockInfo.status
+                    stockStatus: stockInfo.status,
+                    stockLevel: stockInfo.available
                   }
                 })}
                 currency={currency}
@@ -981,13 +992,26 @@ export default function NewCatalogPage() {
       <NewCartDrawer
         isOpen={showCart}
         onClose={() => setShowCart(false)}
-        items={cart.map(c => ({
-          id: c.item.id,
-          name: c.item.name,
-          imageUrl: c.item.image_url,
-          price: getPrice(c.item),
-          quantity: c.quantity
-        }))}
+        items={cart.map(c => {
+          // Check if this is a combo item
+          const comboItem = comboItems.find(ci => ci.id === c.item.id)
+          const isCombo = comboItem && comboItem.combo_items && comboItem.combo_items.length > 0
+          
+          return {
+            id: c.item.id,
+            name: c.item.name,
+            imageUrl: c.item.image_url,
+            price: getPrice(c.item),
+            quantity: c.quantity,
+            isCombo: isCombo || c.item.is_combo,
+            comboItems: isCombo 
+              ? comboItem!.combo_items!.map(ci => ({ 
+                  child_item_id: ci.child_item_id, 
+                  quantity: ci.quantity 
+                }))
+              : undefined
+          }
+        })}
         currency={currency}
         storeName={settings.store_name}
         whatsappNumber={settings.whatsapp_number}

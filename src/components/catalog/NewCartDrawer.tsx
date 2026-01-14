@@ -1,10 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Image from 'next/image'
 import { X, Plus, Minus, Package, MessageCircle, ShoppingBag, MapPin, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { getItemStockStatus, getItemStockLevel, STOCK_THRESHOLDS } from '@/lib/stockUtils'
+import { getItemStockStatus, getItemStockLevel, STOCK_THRESHOLDS, getComboStockStatusFromRecord } from '@/lib/stockUtils'
+
+interface ComboItemInfo {
+  child_item_id: string
+  quantity: number
+}
 
 interface CartItem {
   id: string
@@ -12,6 +17,8 @@ interface CartItem {
   imageUrl?: string | null
   price: number
   quantity: number
+  isCombo?: boolean
+  comboItems?: ComboItemInfo[]
 }
 
 interface Location {
@@ -78,21 +85,37 @@ export function NewCartDrawer({
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   
-  // Check if any items exceed available stock
-  const getItemStockInfo = (itemId: string, currentQuantity: number) => {
-    const stockLevel = stockMap[itemId] ?? Infinity
+  // Check if any items exceed available stock (handles both regular and combo items)
+  const getItemStockInfo = (item: CartItem) => {
+    const { id, quantity: currentQuantity, isCombo, comboItems } = item
+    
+    // For combo items, calculate based on component availability
+    if (isCombo && comboItems && comboItems.length > 0) {
+      const comboStock = getComboStockStatusFromRecord(comboItems, stockMap)
+      const stockLevel = comboStock.limitingFactor
+      const isOverStock = currentQuantity > stockLevel
+      const isOutOfStock = stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
+      const isLowStock = stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock
+      const canIncrement = currentQuantity < stockLevel
+      return { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement, isCombo: true }
+    }
+    
+    // For regular items, use direct stock lookup
+    const stockLevel = stockMap[id] ?? Infinity
     const isOverStock = currentQuantity > stockLevel
     const isOutOfStock = stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
     const isLowStock = stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock
     const canIncrement = currentQuantity < stockLevel
-    return { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement }
+    return { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement, isCombo: false }
   }
   
-  // Check if cart has any stock issues
-  const hasStockIssues = items.some(item => {
-    const stockLevel = stockMap[item.id] ?? Infinity
-    return item.quantity > stockLevel || stockLevel <= STOCK_THRESHOLDS.OUT_OF_STOCK
-  })
+  // Check if cart has any stock issues (handles both regular and combo items)
+  const hasStockIssues = useMemo(() => {
+    return items.some(item => {
+      const stockInfo = getItemStockInfo(item)
+      return stockInfo.isOverStock || stockInfo.isOutOfStock
+    })
+  }, [items, stockMap])
 
   if (!isOpen) return null
 
@@ -165,7 +188,7 @@ export function NewCartDrawer({
               )}
               
               {items.map((item) => {
-                const { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement } = getItemStockInfo(item.id, item.quantity)
+                const { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement, isCombo } = getItemStockInfo(item)
                 
                 return (
                   <div 
@@ -199,6 +222,12 @@ export function NewCartDrawer({
                           <span className="text-[8px] font-bold text-white uppercase">Uitverkocht</span>
                         </div>
                       )}
+                      {/* Combo badge */}
+                      {isCombo && !isOutOfStock && (
+                        <div className="absolute top-1 left-1 bg-[#f97015] text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                          COMBO
+                        </div>
+                      )}
                     </div>
                     
                     {/* Info - Compact layout */}
@@ -212,7 +241,9 @@ export function NewCartDrawer({
                         </p>
                         {/* Stock warning for this item */}
                         {isOutOfStock && (
-                          <p className="text-[10px] text-red-600 font-medium mt-1">Niet meer beschikbaar</p>
+                          <p className="text-[10px] text-red-600 font-medium mt-1">
+                            {isCombo ? 'Combo niet beschikbaar (onderdelen uitverkocht)' : 'Niet meer beschikbaar'}
+                          </p>
                         )}
                         {isOverStock && !isOutOfStock && (
                           <p className="text-[10px] text-amber-600 font-medium mt-1">

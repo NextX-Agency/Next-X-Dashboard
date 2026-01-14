@@ -112,25 +112,131 @@ export function getStockBadgeText(status: StockStatus, quantity?: number): strin
 /**
  * Calculates combo stock status based on component items
  * A combo is only in stock if ALL its components are in stock
+ * This is the SINGLE SOURCE OF TRUTH for combo availability
  */
 export function getComboStockStatus(
   comboItems: Array<{ child_item_id: string; quantity: number }>,
   stockMap: Map<string, number>
-): { status: StockStatus; limitingFactor: number } {
+): { status: StockStatus; limitingFactor: number; limitingItem?: string } {
+  if (!comboItems || comboItems.length === 0) {
+    return { status: 'out-of-stock', limitingFactor: 0, limitingItem: undefined }
+  }
+  
   let minAvailable = Infinity
+  let limitingItem: string | undefined
   
   for (const item of comboItems) {
     const availableStock = stockMap.get(item.child_item_id) || 0
     const combosAvailable = Math.floor(availableStock / item.quantity)
-    minAvailable = Math.min(minAvailable, combosAvailable)
+    
+    if (combosAvailable < minAvailable) {
+      minAvailable = combosAvailable
+      limitingItem = item.child_item_id
+    }
   }
   
   if (minAvailable === Infinity) minAvailable = 0
   
   return {
     status: getStockStatus(minAvailable),
-    limitingFactor: minAvailable
+    limitingFactor: minAvailable,
+    limitingItem
   }
+}
+
+/**
+ * Gets combo stock status from a record-based stock map (for cart drawer compatibility)
+ */
+export function getComboStockStatusFromRecord(
+  comboItems: Array<{ child_item_id: string; quantity: number }>,
+  stockMap: Record<string, number>
+): { status: StockStatus; limitingFactor: number; limitingItem?: string } {
+  const mapVersion = new Map<string, number>(Object.entries(stockMap))
+  return getComboStockStatus(comboItems, mapVersion)
+}
+
+/**
+ * Validates if a combo can be added to cart
+ * Checks all component items against available stock
+ */
+export function canAddComboToCart(
+  comboItems: Array<{ child_item_id: string; quantity: number }>,
+  stockMap: Map<string, number>,
+  requestedQuantity: number = 1
+): boolean {
+  const { limitingFactor } = getComboStockStatus(comboItems, stockMap)
+  return limitingFactor >= requestedQuantity
+}
+
+/**
+ * Gets the maximum quantity of a combo that can be added to cart
+ * based on the stock of all component items
+ */
+export function getMaxComboQuantity(
+  comboItems: Array<{ child_item_id: string; quantity: number }>,
+  stockMap: Map<string, number>,
+  currentCartQuantity: number = 0
+): number {
+  const { limitingFactor } = getComboStockStatus(comboItems, stockMap)
+  return Math.max(0, limitingFactor - currentCartQuantity)
+}
+
+/**
+ * Interface for combo items stored in cart (includes combo info)
+ */
+export interface ComboCartInfo {
+  isCombo: boolean
+  comboItems?: Array<{ child_item_id: string; quantity: number }>
+}
+
+/**
+ * Validates cart items including combo stock validation
+ * Returns issues for both regular items and combos
+ */
+export function validateCartWithCombos(
+  cartItems: Array<{ 
+    itemId: string; 
+    quantity: number; 
+    isCombo?: boolean;
+    comboItems?: Array<{ child_item_id: string; quantity: number }>
+  }>,
+  stockMap: Map<string, number>
+): StockValidationResult[] {
+  const issues: StockValidationResult[] = []
+  
+  for (const cartItem of cartItems) {
+    if (cartItem.isCombo && cartItem.comboItems && cartItem.comboItems.length > 0) {
+      // Validate combo based on component stock
+      const comboStatus = getComboStockStatus(cartItem.comboItems, stockMap)
+      const isValid = comboStatus.limitingFactor >= cartItem.quantity
+      
+      if (!isValid) {
+        let message = ''
+        if (comboStatus.limitingFactor <= 0) {
+          message = 'Dit combo is uitverkocht (één of meer onderdelen niet op voorraad)'
+        } else {
+          message = `Slechts ${comboStatus.limitingFactor} combo(s) beschikbaar`
+        }
+        
+        issues.push({
+          isValid: false,
+          itemId: cartItem.itemId,
+          requestedQuantity: cartItem.quantity,
+          availableQuantity: comboStatus.limitingFactor,
+          status: comboStatus.status,
+          message
+        })
+      }
+    } else {
+      // Validate regular item
+      const result = validateCartItem(cartItem.itemId, cartItem.quantity, stockMap)
+      if (!result.isValid) {
+        issues.push(result)
+      }
+    }
+  }
+  
+  return issues
 }
 
 /**
