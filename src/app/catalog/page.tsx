@@ -833,6 +833,7 @@ export default function NewCatalogPage() {
                 subtitle="Bespaar meer met onze speciale combinaties"
                 products={comboItems.map((combo) => {
                   const comboPrice = getPrice(combo)
+                  const comboStock = getComboStockInfo(combo)
                   return {
                     id: combo.id,
                     name: combo.name,
@@ -840,7 +841,7 @@ export default function NewCatalogPage() {
                     image_url: combo.image_url,
                     price: comboPrice,
                     isCombo: true,
-                    stockStatus: getStockStatus(combo.id)
+                    stockStatus: comboStock.status
                   }
                 })}
                 currency={currency}
