@@ -255,24 +255,26 @@ export function LocalBusinessSchema({
       "@type": "Country",
       "name": "Suriname"
     },
+    "alternateName": "NextX Suriname",
+    "slogan": "NextX Suriname - Premium Audio Gear",
     "hasOfferCatalog": {
       "@type": "OfferCatalog",
-      "name": "Audio Accessories Catalog",
+      "name": "NextX Suriname Audio Catalog",
       "itemListElement": [
         {
           "@type": "OfferCatalog",
           "name": "In-Ear Monitors",
-          "description": "Premium IEM headphones and earphones"
+          "description": "Premium IEM headphones and earphones at NextX Suriname"
         },
         {
           "@type": "OfferCatalog",
           "name": "Audio Accessories",
-          "description": "Cables, cases, and audio gear"
+          "description": "Cables, cases, and audio gear at NextX Suriname"
         },
         {
           "@type": "OfferCatalog",
           "name": "Combo Deals",
-          "description": "Special bundle offers"
+          "description": "Special bundle offers at NextX Suriname"
         }
       ]
     }
@@ -348,27 +350,30 @@ export function WebsiteSchema({ storeName, storeUrl, storeDescription }: Website
 // SEO DEFAULT CONTENT
 // ===========================================
 export const SEO_CONTENT = {
-  defaultTitle: "In-Ear Monitors & Audio Accessories in Suriname",
-  defaultDescription: `Discover premium quality in-ear monitors and audio accessories at NextX Suriname. 
+  defaultTitle: "NextX Suriname | Premium In-Ear Monitors & Audio Accessories",
+  defaultDescription: `Welcome to NextX Suriname - your trusted source for premium in-ear monitors and audio accessories. 
 We offer a curated selection of KZ earphones, IEM headphones, audio cables, and exclusive combo deals. 
-All products are available for local pickup in Commewijne with easy WhatsApp ordering. 
-Whether you're an audiophile or just looking for reliable earbuds, find the perfect audio gear at competitive prices in Suriname.`,
+All products available for local pickup in Commewijne with easy WhatsApp ordering. 
+NextX Suriname delivers quality audio gear at competitive prices.`,
   
   categoryDescriptions: {
-    'in-ear-monitors': 'Browse our collection of premium in-ear monitors (IEMs) from top brands like KZ. Professional audio quality, comfortable fit, and exceptional value for audiophiles in Suriname.',
-    'accessories': 'Essential audio accessories including cables, ear tips, cases, and more. Enhance your listening experience with quality add-ons available in Suriname.',
-    'combos': 'Save more with our exclusive combo deals. Get complete audio setups at discounted prices, perfect for beginners and enthusiasts alike.'
+    'in-ear-monitors': 'Browse premium in-ear monitors (IEMs) at NextX Suriname. Professional audio quality, comfortable fit, and exceptional value from top brands like KZ.',
+    'accessories': 'Essential audio accessories at NextX Suriname. Cables, ear tips, cases, and more to enhance your listening experience.',
+    'combos': 'Exclusive combo deals at NextX Suriname. Complete audio setups at discounted prices, perfect for beginners and enthusiasts alike.'
   },
 
   keywords: [
+    'NextX Suriname',
+    'NextX',
     'in-ear monitors Suriname',
-    'IEM headphones',
-    'KZ earphones',
+    'IEM headphones Suriname',
+    'KZ earphones Suriname',
     'audio accessories Suriname',
     'buy earphones Suriname',
-    'KZ ZSN Pro',
+    'KZ ZSN Pro Suriname',
     'audiophile Suriname',
     'earbuds Suriname',
-    'headphones Commewijne'
+    'headphones Commewijne',
+    'audio shop Suriname'
   ]
 } as const
