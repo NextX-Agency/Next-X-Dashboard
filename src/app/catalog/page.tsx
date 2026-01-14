@@ -866,12 +866,7 @@ export default function NewCatalogPage() {
               <NewProductCarousel
                 title="Nieuwste Producten"
                 subtitle="Recent toegevoegd aan onze collectie"
-                products={newestProducts.map(p => {
-                  const itemWithCombo = p as ItemWithCombo
-                  const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
-                  const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(p.id) }
-                  return { ...p, stockStatus: stockInfo.status }
-                })}
+                products={newestProducts.map(p => ({ ...p, stockStatus: getStockStatus(p.id) }))}
                 currency={currency}
                 onAddToCart={addToCartById}
               />
