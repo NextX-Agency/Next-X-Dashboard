@@ -14,6 +14,12 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { loading, isAdmin, isAuthenticated } = useAuth()
 
+  // Check if this is a public route (must be called before any conditional returns)
+  const isPublic = useMemo(() => isPublicRoute(pathname), [pathname])
+  
+  // Check if this is an admin route (must be called before any conditional returns)
+  const requiresAdmin = useMemo(() => isAdminRoute(pathname), [pathname])
+
   // Show loading state while checking auth
   if (loading) {
     return (
@@ -25,12 +31,6 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-
-  // Check if this is a public route
-  const isPublic = useMemo(() => isPublicRoute(pathname), [pathname])
-  
-  // Check if this is an admin route
-  const requiresAdmin = useMemo(() => isAdminRoute(pathname), [pathname])
   
   // Public routes: render without any admin layout
   if (isPublic) {
