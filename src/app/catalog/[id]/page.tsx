@@ -468,6 +468,69 @@ export default function ProductDetailPage() {
   const images = product?.image_url ? [product.image_url] : []
   const cartItems = loadCartItems()
 
+  // Generate product structured data for SEO
+  const productSchema = product ? {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description || `${product.name} - Available at ${settings.store_name} in Suriname`,
+    "image": product.image_url || "",
+    "sku": product.id,
+    "brand": {
+      "@type": "Brand",
+      "name": settings.store_name
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": typeof window !== 'undefined' ? window.location.href : '',
+      "priceCurrency": currency,
+      "price": unitPrice,
+      "availability": stockStatus === 'out-of-stock' 
+        ? "https://schema.org/OutOfStock" 
+        : "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": settings.store_name
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Suriname"
+      }
+    },
+    "category": category?.name || "Audio Accessories"
+  } : null
+
+  // Breadcrumb schema
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/` : '/'
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Catalog",
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/catalog` : '/catalog'
+      },
+      ...(category ? [{
+        "@type": "ListItem",
+        "position": 3,
+        "name": category.name,
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/catalog?category=${category.id}` : `/catalog?category=${category.id}`
+      }] : []),
+      {
+        "@type": "ListItem",
+        "position": category ? 4 : 3,
+        "name": product?.name || "Product"
+      }
+    ]
+  }
+
   // Loading state
   if (loading) {
     return (
@@ -502,6 +565,18 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Structured Data for SEO */}
+      {productSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+
       {/* Header */}
       <NewHeader
         storeName={settings.store_name}
@@ -519,7 +594,42 @@ export default function ProductDetailPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8 pb-40 lg:pb-8">
+      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8 pb-40 lg:pb-8" itemScope itemType="https://schema.org/Product">
+        {/* Breadcrumbs */}
+        <nav aria-label="Breadcrumb" className="px-4 lg:px-8 mb-4">
+          <ol className="flex items-center text-sm flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <Link href="/" className="text-[#f97015] hover:underline" itemProp="item">
+                <span itemProp="name">Home</span>
+              </Link>
+              <meta itemProp="position" content="1" />
+            </li>
+            <li className="mx-1.5 text-neutral-400">/</li>
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <Link href="/catalog" className="text-[#f97015] hover:underline" itemProp="item">
+                <span itemProp="name">Catalog</span>
+              </Link>
+              <meta itemProp="position" content="2" />
+            </li>
+            {category && (
+              <>
+                <li className="mx-1.5 text-neutral-400">/</li>
+                <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+                  <Link href={`/catalog?category=${category.id}`} className="text-[#f97015] hover:underline" itemProp="item">
+                    <span itemProp="name">{category.name}</span>
+                  </Link>
+                  <meta itemProp="position" content="3" />
+                </li>
+              </>
+            )}
+            <li className="mx-1.5 text-neutral-400">/</li>
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <span className="text-neutral-600" itemProp="name">{product.name}</span>
+              <meta itemProp="position" content={category ? "4" : "3"} />
+            </li>
+          </ol>
+        </nav>
+
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
           {/* Image Gallery - Left Column */}
           <div className="relative">
@@ -529,11 +639,12 @@ export default function ProductDetailPage() {
                 <>
                   <Image
                     src={images[currentImageIndex]}
-                    alt={product.name}
+                    alt={`${product.name}${category ? ` ${category.name.toLowerCase()}` : ''} - buy at NextX Suriname`}
                     fill
                     className="object-cover"
                     priority
                     unoptimized
+                    itemProp="image"
                   />
                   
                   {/* Image navigation arrows */}
@@ -616,23 +727,18 @@ export default function ProductDetailPage() {
 
           {/* Product Info - Right Column */}
           <div className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-4">
-              <Link href="/catalog" className="hover:text-neutral-900 transition-colors">
-                Catalogus
-              </Link>
-              {category && (
-                <>
-                  <span>/</span>
-                  <span className="text-neutral-700">{category.name}</span>
-                </>
-              )}
-            </nav>
-
             {/* Product Title */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
               {product.name}
             </h1>
+
+            {/* Hidden SEO metadata */}
+            {product.description && <meta itemProp="description" content={product.description} />}
+            <span itemProp="offers" itemScope itemType="https://schema.org/Offer" className="hidden">
+              <meta itemProp="priceCurrency" content={currency} />
+              <meta itemProp="price" content={String(unitPrice)} />
+              <link itemProp="availability" href={stockStatus === 'out-of-stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock'} />
+            </span>
 
             {/* Unit Price */}
             <div className="mb-6">

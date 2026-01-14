@@ -24,3 +24,15 @@ export { NewCartDrawer } from './NewCartDrawer'
 export { NewQuickViewModal } from './NewQuickViewModal'
 export { BannerSlider } from './BannerSlider'
 export { PublicLayout } from './PublicLayout'
+
+// SEO Components
+export { 
+  Breadcrumbs, 
+  SEOIntro, 
+  CategorySEOHeader,
+  ProductListSchema,
+  LocalBusinessSchema,
+  BreadcrumbSchema,
+  WebsiteSchema,
+  SEO_CONTENT 
+} from './SEOComponents'

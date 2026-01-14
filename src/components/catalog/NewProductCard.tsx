@@ -36,6 +36,18 @@ interface NewProductCardProps {
   showExactStock?: boolean // Whether to show exact "X left" count
 }
 
+// Generate SEO-friendly alt text for product images
+function generateAltText(name: string, categoryName?: string | null, isCombo?: boolean): string {
+  const cleanName = name.trim()
+  if (isCombo) {
+    return `${cleanName} combo deal bundle`
+  }
+  if (categoryName) {
+    return `${cleanName} ${categoryName.toLowerCase()} - available in Suriname`
+  }
+  return `${cleanName} - buy at NextX Suriname`
+}
+
 export function NewProductCard({
   id,
   name,
@@ -61,24 +73,46 @@ export function NewProductCard({
   const stockBadgeText = isLowStock && showExactStock && stockLevel > 0
     ? `Nog ${stockLevel}`
     : getStockBadgeText(stockStatus)
+
+  // Generate SEO-friendly alt text
+  const altText = generateAltText(name, categoryName, isCombo)
+  
+  // Stock availability for schema
+  const stockAvailability = isOutOfStock ? 'OutOfStock' : 'InStock'
   
   return (
-    <article className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
-      isOutOfStock
-        ? 'border border-neutral-300 opacity-75'
-        : isCombo 
-          ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
-          : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
-    }`}>
+    <article 
+      className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+        isOutOfStock
+          ? 'border border-neutral-300 opacity-75'
+          : isCombo 
+            ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
+            : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
+      }`}
+      itemScope 
+      itemType="https://schema.org/Product"
+    >
+      {/* Hidden SEO metadata */}
+      <meta itemProp="name" content={name} />
+      {description && <meta itemProp="description" content={description} />}
+      <span itemProp="offers" itemScope itemType="https://schema.org/Offer" className="hidden">
+        <meta itemProp="priceCurrency" content={currency} />
+        <meta itemProp="price" content={String(price)} />
+        <link itemProp="availability" href={`https://schema.org/${stockAvailability}`} />
+      </span>
+
       {/* Image Container */}
-      <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
+      <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden" itemProp="url">
         {imageUrl ? (
           <Image
             src={imageUrl}
-            alt={name}
+            alt={altText}
             fill
             className={`object-cover transition-transform duration-500 ${isOutOfStock ? 'grayscale' : 'group-hover:scale-105'}`}
             unoptimized
+            itemProp="image"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            loading="lazy"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

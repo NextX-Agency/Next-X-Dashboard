@@ -27,7 +27,14 @@ import {
   NewFooter,
   NewCartDrawer,
   NewQuickViewModal,
-  BannerSlider
+  BannerSlider,
+  Breadcrumbs,
+  SEOIntro,
+  CategorySEOHeader,
+  ProductListSchema,
+  LocalBusinessSchema,
+  WebsiteSchema,
+  SEO_CONTENT
 } from '@/components/catalog'
 
 // CMS Types
@@ -613,8 +620,16 @@ export default function NewCatalogPage() {
     if (!selectedCategory) return []
     const regularItems = items.filter(item => item.category_id === selectedCategory)
     const combosInCategory = comboItems.filter(combo => combo.category_id === selectedCategory)
-    return [...regularItems, ...combosInCategory]
-  }, [items, comboItems, selectedCategory])
+    // Sort: in-stock items first, then low-stock, then out-of-stock
+    const allItems = [...regularItems, ...combosInCategory]
+    return allItems.sort((a, b) => {
+      const stockA = stockMap.get(a.id) || 0
+      const stockB = stockMap.get(b.id) || 0
+      if (stockA === 0 && stockB > 0) return 1
+      if (stockB === 0 && stockA > 0) return -1
+      return 0
+    })
+  }, [items, comboItems, selectedCategory, stockMap])
 
   // Determine view
   const showSearchResults = searchQuery.trim().length > 0
@@ -651,8 +666,60 @@ export default function NewCatalogPage() {
     )
   }
 
+  // Build store URL for structured data
+  const storeUrl = typeof window !== 'undefined' ? window.location.origin : 'https://nextx.sr'
+
+  // Prepare products for structured data
+  const productsForSchema = items.slice(0, 20).map(item => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    image_url: item.image_url,
+    selling_price_srd: item.selling_price_srd,
+    selling_price_usd: item.selling_price_usd,
+    stockStatus: getStockStatus(item.id)
+  }))
+
+  // Get breadcrumb items based on current view
+  const getBreadcrumbItems = (): Array<{ label: string; href?: string }> => {
+    const base: Array<{ label: string; href?: string }> = [
+      { label: 'Home', href: '/' }, 
+      { label: 'Catalog', href: '/catalog' }
+    ]
+    if (selectedCategory) {
+      const categoryName = getCategoryName(selectedCategory)
+      if (categoryName) {
+        base.push({ label: categoryName })
+      }
+    }
+    return base
+  }
+
   return (
     <div className="min-h-screen bg-[#141c2e]">
+      {/* Structured Data for SEO */}
+      <LocalBusinessSchema
+        storeName={settings.store_name}
+        storeDescription={settings.store_description || SEO_CONTENT.defaultDescription}
+        storeAddress={settings.store_address}
+        whatsappNumber={settings.whatsapp_number}
+        storeEmail={settings.store_email}
+        storeUrl={storeUrl}
+        logoUrl={settings.store_logo_url}
+      />
+      <WebsiteSchema
+        storeName={settings.store_name}
+        storeUrl={storeUrl}
+        storeDescription={settings.store_description || SEO_CONTENT.defaultDescription}
+      />
+      {items.length > 0 && (
+        <ProductListSchema
+          products={productsForSchema}
+          storeName={settings.store_name}
+          storeUrl={storeUrl}
+        />
+      )}
+
       {/* Header */}
       <NewHeader
         storeName={settings.store_name}
@@ -689,6 +756,20 @@ export default function NewCatalogPage() {
       {/* Hero - Only on homepage */}
       {showHomepage && (
         <>
+          {/* SEO Intro Section with H1 */}
+          <SEOIntro
+            title={SEO_CONTENT.defaultTitle}
+            description={SEO_CONTENT.defaultDescription}
+            showFeatures={true}
+          />
+
+          {/* Breadcrumbs */}
+          <div className="bg-[#f8f7f4] border-b border-neutral-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+              <Breadcrumbs items={getBreadcrumbItems()} />
+            </div>
+          </div>
+
           {/* Show Banner Slider if banners exist, otherwise show default hero */}
           {banners.length > 0 ? (
             <BannerSlider 
@@ -732,13 +813,20 @@ export default function NewCatalogPage() {
       <div ref={productsRef}>
         {/* Search Results */}
         {showSearchResults && (
-          <section className="py-10 bg-[#f8f7f4]">
+          <section className="py-10 bg-[#f8f7f4]" aria-labelledby="search-results-heading">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <ProductSectionHeader
-                title={`Zoekresultaten voor "${searchQuery}"`}
-                count={searchResults.length}
-                variant="dark"
-              />
+              {/* Breadcrumbs for search */}
+              <div className="mb-4">
+                <Breadcrumbs items={[
+                  { label: 'Home', href: '/' },
+                  { label: 'Catalog', href: '/catalog' },
+                  { label: `Search: "${searchQuery}"` }
+                ]} />
+              </div>
+              <h2 id="search-results-heading" className="text-2xl font-bold text-[#141c2e] mb-2">
+                Zoekresultaten voor &ldquo;{searchQuery}&rdquo;
+              </h2>
+              <p className="text-neutral-600 mb-6">{searchResults.length} producten gevonden in Suriname</p>
               <NewProductGrid 
                 isEmpty={searchResults.length === 0}
                 onClearFilters={() => setSearchQuery('')}
@@ -775,13 +863,20 @@ export default function NewCatalogPage() {
 
         {/* Category Products */}
         {showCategoryProducts && (
-          <section className="py-10 bg-[#f8f7f4]">
+          <section className="py-10 bg-[#f8f7f4]" aria-labelledby="category-heading">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <ProductSectionHeader
-                title={getCategoryName(selectedCategory) || 'Producten'}
-                count={filteredItems.length}
-                variant="dark"
+              {/* Breadcrumbs */}
+              <div className="mb-4">
+                <Breadcrumbs items={getBreadcrumbItems()} />
+              </div>
+              
+              {/* Category Header with H2 */}
+              <CategorySEOHeader
+                categoryName={getCategoryName(selectedCategory) || 'Producten'}
+                productCount={filteredItems.length}
+                description={`Shop ${getCategoryName(selectedCategory)?.toLowerCase() || 'products'} at NextX Suriname. Quality audio gear with local pickup available.`}
               />
+              
               <NewProductGrid 
                 isEmpty={filteredItems.length === 0}
                 onClearFilters={() => setSelectedCategory('')}
