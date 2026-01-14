@@ -1496,16 +1496,19 @@ export default function SalesPage() {
                   <thead>
                     <tr className="border-b-2 border-gray-300">
                       <th className="text-left py-2 sm:py-3 text-gray-700 font-semibold">Artikel</th>
-                      <th className="text-center py-2 sm:py-3 text-gray-700 font-semibold w-12">Qty</th>
+                      <th className="text-center py-2 sm:py-3 text-gray-700 font-semibold w-12">Aantal</th>
                       <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Prijs</th>
-                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Totaal</th>
+                      <th className="text-right py-2 sm:py-3 text-gray-700 font-semibold">Subtotaal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {invoiceData.items.map((item, index) => (
-                      <tr key={index} className="border-b border-gray-200">
+                      <tr key={index} className={`border-b border-gray-200 ${item.isCombo ? 'bg-orange-50' : ''}`}>
                         <td className="py-2 sm:py-3 font-medium text-gray-800">
-                          <span className="line-clamp-2">{item.name}</span>
+                          <span className="line-clamp-2">
+                            {item.isCombo && <span className="mr-1">🎁</span>}
+                            {item.name}
+                          </span>
                         </td>
                         <td className="py-2 sm:py-3 text-center text-gray-800">{item.quantity}</td>
                         <td className="py-2 sm:py-3 text-right text-gray-600 whitespace-nowrap">
@@ -1714,7 +1717,10 @@ export default function SalesPage() {
               <tbody>
                 {invoiceData.items.map((item, index) => (
                   <tr key={index} className={`border-b border-gray-200 ${item.isCombo ? 'bg-orange-50' : ''}`}>
-                    <td className="py-3 font-medium text-gray-800">{item.name}</td>
+                    <td className="py-3 font-medium text-gray-800">
+                      {item.isCombo && <span className="mr-1">🎁</span>}
+                      {item.name}
+                    </td>
                     <td className="py-3 text-center text-gray-800">{item.quantity}</td>
                     <td className="py-3 text-right text-gray-600">
                       {formatCurrency(item.unitPrice, invoiceData.currency)}

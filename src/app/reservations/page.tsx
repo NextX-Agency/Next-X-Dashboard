@@ -2152,8 +2152,11 @@ export default function ReservationsPage() {
                 </thead>
                 <tbody>
                   {invoiceData.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="py-3 font-medium text-gray-800">{item.name}</td>
+                    <tr key={index} className={`border-b border-gray-200 ${item.isCombo ? 'bg-orange-50' : ''}`}>
+                      <td className="py-3 font-medium text-gray-800">
+                        {item.isCombo && <span className="mr-1">🎁</span>}
+                        {item.name}
+                      </td>
                       <td className="py-3 text-center text-gray-800">{item.quantity}</td>
                       <td className="py-3 text-right text-gray-600">{formatCurrency(item.unitPrice, invoiceData.currency)}</td>
                       <td className="py-3 text-right font-medium text-gray-800">{formatCurrency(item.subtotal, invoiceData.currency)}</td>

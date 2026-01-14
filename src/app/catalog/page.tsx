@@ -745,7 +745,12 @@ export default function NewCatalogPage() {
                 emptyMessage="Geen producten gevonden voor deze zoekopdracht"
                 variant="dark"
               >
-                {searchResults.map((item) => (
+                {searchResults.map((item) => {
+                  const itemWithCombo = item as ItemWithCombo
+                  const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+                  const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
+                  
+                  return (
                   <NewProductCard
                     key={item.id}
                     id={item.id}
@@ -758,8 +763,8 @@ export default function NewCatalogPage() {
                     quantity={getCartItemQuantity(item.id)}
                     onAddToCart={() => addToCart(item)}
                     onQuickView={() => setSelectedItem(item)}
-                    stockStatus={getStockStatus(item.id)}
-                    stockLevel={getStockLevel(item.id)}
+                    stockStatus={stockInfo.status}
+                    stockLevel={stockInfo.available}
                   />
                 ))}
               </NewProductGrid>
@@ -793,6 +798,10 @@ export default function NewCatalogPage() {
                     }
                     return sum
                   }, 0) : undefined
+                  
+                  const stockInfo = isCombo && item.combo_items && item.combo_items.length > 0
+                    ? getComboStockInfo(item)
+                    : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
 
                   return (
                     <NewProductCard
@@ -813,8 +822,8 @@ export default function NewCatalogPage() {
                         quantity: ci.quantity,
                         child_item: ci.child_item!
                       })) : undefined}
-                      stockStatus={getStockStatus(item.id)}
-                      stockLevel={getStockLevel(item.id)}
+                      stockStatus={stockInfo.status}
+                      stockLevel={stockInfo.available}
                     />
                   )
                 })}
@@ -856,7 +865,12 @@ export default function NewCatalogPage() {
               <NewProductCarousel
                 title="Nieuwste Producten"
                 subtitle="Recent toegevoegd aan onze collectie"
-                products={newestProducts.map(p => ({ ...p, stockStatus: getStockStatus(p.id) }))}
+                products={newestProducts.map(p => {
+                  const itemWithCombo = p as ItemWithCombo
+                  const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+                  const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(p.id) }
+                  return { ...p, stockStatus: stockInfo.status }
+                })}
                 currency={currency}
                 onAddToCart={addToCartById}
               />
@@ -867,14 +881,19 @@ export default function NewCatalogPage() {
               const collectionProducts = collection.collection_items
                 ?.sort((a, b) => a.sort_order - b.sort_order)
                 .filter(ci => ci.items)
-                .map(ci => ({
-                  id: ci.items!.id,
-                  name: ci.items!.name,
-                  description: ci.items!.description,
-                  image_url: ci.items!.image_url,
-                  price: getPrice(ci.items!),
-                  stockStatus: getStockStatus(ci.items!.id)
-                })) || []
+                .map(ci => {
+                  const item = ci.items as ItemWithCombo
+                  const isCombo = item.is_combo && item.combo_items && item.combo_items.length > 0
+                  const stockInfo = isCombo ? getComboStockInfo(item) : { status: getStockStatus(item.id) }
+                  return {
+                    id: item.id,
+                    name: item.name,
+                    description: item.description,
+                    image_url: item.image_url,
+                    price: getPrice(item),
+                    stockStatus: stockInfo.status
+                  }
+                }) || []
 
               if (collectionProducts.length === 0) return null
 
@@ -895,14 +914,19 @@ export default function NewCatalogPage() {
               <NewProductCarousel
                 key={category.id}
                 title={category.name}
-                products={products.slice(0, 10).map(item => ({
-                  id: item.id,
-                  name: item.name,
-                  description: item.description,
-                  image_url: item.image_url,
-                  price: getPrice(item),
-                  stockStatus: getStockStatus(item.id)
-                }))}
+                products={products.slice(0, 10).map(item => {
+                  const itemWithCombo = item as ItemWithCombo
+                  const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+                  const stockInfo = isCombo ? getComboStockInfo(itemWithCombo) : { status: getStockStatus(item.id) }
+                  return {
+                    id: item.id,
+                    name: item.name,
+                    description: item.description,
+                    image_url: item.image_url,
+                    price: getPrice(item),
+                    stockStatus: stockInfo.status
+                  }
+                })}
                 currency={currency}
                 onAddToCart={addToCartById}
                 viewAllClick={() => {
