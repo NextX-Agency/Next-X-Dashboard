@@ -527,29 +527,60 @@ export default function WalletsPage() {
                     {location.wallets.map((wallet) => (
                       <div 
                         key={wallet.id} 
-                        className={`p-4 rounded-xl border transition-all group ${
+                        className={`p-4 rounded-xl border transition-all group active:scale-[0.98] ${
                           wallet.type === 'cash' 
                             ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
                             : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                             wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
                           }`}>
-                            {wallet.type === 'cash' ? <Banknote size={16} /> : <CreditCard size={16} />}
+                            {wallet.type === 'cash' ? <Banknote size={18} /> : <CreditCard size={18} />}
                           </div>
                           <div>
-                            <p className="font-medium text-sm capitalize">{wallet.type}</p>
+                            <p className="font-semibold text-sm capitalize">{wallet.type}</p>
                             <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
                           </div>
                         </div>
                         
-                        <div className="text-2xl font-bold text-foreground mb-3">
+                        <div className="text-2xl font-bold text-foreground mb-4">
                           {formatCurrency(wallet.balance, wallet.currency as Currency)}
                         </div>
                         
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Mobile: Always visible buttons with better spacing */}
+                        <div className="flex flex-col gap-2 lg:hidden">
+                          <button
+                            onClick={() => {
+                              setSelectedWallet(wallet as WalletWithLocation)
+                              setShowTransactionForm(true)
+                            }}
+                            className="w-full py-3 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+                          >
+                            <DollarSign size={16} />
+                            Add/Remove Money
+                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleEditWallet(wallet as WalletWithLocation)}
+                              className="flex-1 py-2.5 px-3 rounded-lg bg-secondary hover:bg-secondary/80 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
+                            >
+                              <Edit size={14} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
+                              className="flex-1 py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
+                            >
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Desktop: Hover effect buttons */}
+                        <div className="hidden lg:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => {
                               setSelectedWallet(wallet as WalletWithLocation)
@@ -619,7 +650,7 @@ export default function WalletsPage() {
             {wallets.map((wallet) => (
               <div 
                 key={wallet.id} 
-                className={`p-5 rounded-xl border transition-all group ${
+                className={`p-5 rounded-xl border transition-all group active:scale-[0.98] ${
                   wallet.type === 'cash' 
                     ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
                     : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
@@ -633,11 +664,12 @@ export default function WalletsPage() {
                       {wallet.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
                     </div>
                     <div>
-                      <p className="font-medium capitalize">{wallet.type} {wallet.currency}</p>
+                      <p className="font-semibold capitalize">{wallet.type} {wallet.currency}</p>
                       <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Desktop: Hover action buttons */}
+                  <div className="hidden lg:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => handleEditWallet(wallet)}
                       className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
@@ -657,6 +689,37 @@ export default function WalletsPage() {
                   {formatCurrency(wallet.balance, wallet.currency as Currency)}
                 </div>
                 
+                {/* Mobile: Always visible buttons */}
+                <div className="flex flex-col gap-2 lg:hidden">
+                  <button
+                    onClick={() => {
+                      setSelectedWallet(wallet)
+                      setShowTransactionForm(true)
+                    }}
+                    className="w-full py-3 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <DollarSign size={16} />
+                    Add / Remove Money
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditWallet(wallet)}
+                      className="flex-1 py-2.5 px-3 rounded-lg bg-secondary hover:bg-secondary/80 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteWallet(wallet)}
+                      className="flex-1 py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Desktop: Original button */}
                 <Button
                   onClick={() => {
                     setSelectedWallet(wallet)
@@ -665,6 +728,7 @@ export default function WalletsPage() {
                   variant="secondary"
                   size="sm"
                   fullWidth
+                  className="hidden lg:flex"
                 >
                   <DollarSign size={16} />
                   Add / Remove Money
@@ -677,7 +741,7 @@ export default function WalletsPage() {
 
       {/* Create/Edit Wallet Modal */}
       <Modal isOpen={showForm} onClose={resetForm} title={editingWallet ? 'Edit Wallet' : 'New Wallet'}>
-        <form onSubmit={handleSubmitWallet} className="space-y-4">
+        <form onSubmit={handleSubmitWallet} className="space-y-4 lg:space-y-4">
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-4">
             <p className="text-sm text-muted-foreground">
               <strong className="text-foreground">Each location can have 4 wallets:</strong><br />
@@ -690,6 +754,7 @@ export default function WalletsPage() {
             value={walletForm.location_id}
             onChange={(e) => setWalletForm({ ...walletForm, location_id: e.target.value })}
             required
+            className="h-12 lg:h-10 text-base"
           >
             <option value="">Select location...</option>
             {locations.map(loc => (
@@ -702,6 +767,7 @@ export default function WalletsPage() {
               label="Type"
               value={walletForm.type}
               onChange={(e) => setWalletForm({ ...walletForm, type: e.target.value as 'cash' | 'bank' })}
+              className="h-12 lg:h-10 text-base"
             >
               <option value="cash">💵 Cash</option>
               <option value="bank">🏦 Bank</option>
@@ -711,6 +777,7 @@ export default function WalletsPage() {
               label="Currency"
               value={walletForm.currency}
               onChange={(e) => setWalletForm({ ...walletForm, currency: e.target.value as Currency })}
+              className="h-12 lg:h-10 text-base"
             >
               <option value="SRD">SRD</option>
               <option value="USD">USD</option>
@@ -724,13 +791,14 @@ export default function WalletsPage() {
             value={walletForm.balance}
             onChange={(e) => setWalletForm({ ...walletForm, balance: e.target.value })}
             placeholder="0.00"
+            className="h-12 lg:h-10 text-lg lg:text-base"
           />
           
-          <div className="flex gap-2 pt-2">
-            <Button type="button" onClick={resetForm} variant="secondary" fullWidth>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <Button type="button" onClick={resetForm} variant="secondary" fullWidth className="h-12 lg:h-10 text-base font-semibold">
               Cancel
             </Button>
-            <Button type="submit" variant="primary" fullWidth loading={submitting}>
+            <Button type="submit" variant="primary" fullWidth loading={submitting} className="h-12 lg:h-10 text-base font-semibold">
               {editingWallet ? 'Update' : 'Create'} Wallet
             </Button>
           </div>
@@ -749,51 +817,52 @@ export default function WalletsPage() {
       >
         {selectedWallet && (
           <form onSubmit={handleTransaction} className="space-y-4">
-            <div className="bg-muted rounded-xl p-4 text-center">
-              <p className="text-sm text-muted-foreground mb-1">
+            <div className="bg-muted rounded-xl p-5 lg:p-4 text-center border-2 border-border">
+              <p className="text-sm lg:text-xs text-muted-foreground mb-2 font-medium">
                 {selectedWallet.locations?.name} - {selectedWallet.type} {selectedWallet.currency}
               </p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-xs text-muted-foreground mb-1">Current Balance</p>
+              <p className="text-3xl lg:text-2xl font-bold text-foreground">
                 {formatCurrency(selectedWallet.balance, selectedWallet.currency as Currency)}
               </p>
             </div>
             
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 lg:gap-3">
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'add' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                className={`p-4 lg:p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
                   transactionForm.type === 'add'
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500 shadow-md shadow-emerald-500/20'
                     : 'border-border hover:border-emerald-500/50'
                 }`}
               >
-                <ArrowDownLeft size={20} />
-                <span className="text-xs">Add</span>
+                <ArrowDownLeft size={22} className="lg:w-5 lg:h-5" />
+                <span className="text-sm font-semibold lg:text-xs">Add</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'remove' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                className={`p-4 lg:p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
                   transactionForm.type === 'remove'
-                    ? 'border-destructive bg-destructive/10 text-destructive'
+                    ? 'border-destructive bg-destructive/10 text-destructive shadow-md shadow-destructive/20'
                     : 'border-border hover:border-destructive/50'
                 }`}
               >
-                <ArrowUpRight size={20} />
-                <span className="text-xs">Remove</span>
+                <ArrowUpRight size={22} className="lg:w-5 lg:h-5" />
+                <span className="text-sm font-semibold lg:text-xs">Remove</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'correct' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 ${
+                className={`p-4 lg:p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 active:scale-95 ${
                   transactionForm.type === 'correct'
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-500 shadow-md shadow-blue-500/20'
                     : 'border-border hover:border-blue-500/50'
                 }`}
               >
-                <Edit size={20} />
-                <span className="text-xs">Correct</span>
+                <Edit size={22} className="lg:w-5 lg:h-5" />
+                <span className="text-sm font-semibold lg:text-xs">Correct</span>
               </button>
             </div>
 
@@ -805,32 +874,37 @@ export default function WalletsPage() {
               </div>
             )}
             
-            <Input
-              label={transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
-              type="number"
-              step="0.01"
-              min="0"
-              value={transactionForm.amount}
-              onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-              placeholder={transactionForm.type === 'correct' ? 'Enter correct balance' : '0.00'}
-              required
-            />
-            
-            <Input
-              label="Description (optional)"
-              type="text"
-              value={transactionForm.description}
-              onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
-              placeholder="e.g. Cash from drawer"
-            />
+            <div className="space-y-4">
+              <Input
+                label={transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
+                type="number"
+                step="0.01"
+                min="0"
+                value={transactionForm.amount}
+                onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
+                placeholder={transactionForm.type === 'correct' ? 'Enter correct balance' : '0.00'}
+                required
+                className="text-lg lg:text-base h-12 lg:h-10"
+              />
+              
+              <Input
+                label="Description (optional)"
+                type="text"
+                value={transactionForm.description}
+                onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
+                placeholder="e.g. Cash from drawer"
+                className="h-12 lg:h-10"
+              />
+            </div>
             
             <Button 
               type="submit" 
               variant={transactionForm.type === 'add' ? 'primary' : 'danger'} 
               fullWidth 
               loading={submitting}
+              className="h-12 lg:h-10 text-base font-semibold"
             >
-              {transactionForm.type === 'add' ? 'Add' : 'Remove'} {transactionForm.amount ? formatCurrency(parseFloat(transactionForm.amount), selectedWallet.currency as Currency) : 'Money'}
+              {transactionForm.type === 'add' ? 'Add' : transactionForm.type === 'remove' ? 'Remove' : 'Correct'} {transactionForm.amount ? formatCurrency(parseFloat(transactionForm.amount), selectedWallet.currency as Currency) : 'Money'}
             </Button>
           </form>
         )}
@@ -907,6 +981,7 @@ export default function WalletsPage() {
             value={transferForm.fromWalletId}
             onChange={(e) => setTransferForm({ ...transferForm, fromWalletId: e.target.value, toWalletId: '' })}
             required
+            className="h-12 lg:h-10 text-base"
           >
             <option value="">Select source wallet...</option>
             {wallets.map(wallet => (
@@ -917,8 +992,8 @@ export default function WalletsPage() {
           </Select>
           
           <div className="flex justify-center">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <ArrowDownLeft size={20} className="text-primary" />
+            <div className="w-12 h-12 lg:w-10 lg:h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowDownLeft size={22} className="lg:w-5 lg:h-5 text-primary" />
             </div>
           </div>
           
@@ -927,6 +1002,7 @@ export default function WalletsPage() {
             value={transferForm.toWalletId}
             onChange={(e) => setTransferForm({ ...transferForm, toWalletId: e.target.value })}
             required
+            className="h-12 lg:h-10 text-base"
           >
             <option value="">Select destination wallet...</option>
             {wallets
@@ -951,10 +1027,11 @@ export default function WalletsPage() {
             onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
             placeholder="0.00"
             required
+            className="h-12 lg:h-10 text-lg lg:text-base"
           />
           
           {transferForm.fromWalletId && transferForm.amount && (
-            <div className="bg-muted rounded-lg p-3 text-sm">
+            <div className="bg-muted rounded-lg p-4 lg:p-3 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Current balance:</span>
                 <span>{formatCurrency(wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
@@ -972,6 +1049,7 @@ export default function WalletsPage() {
             value={transferForm.description}
             onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
             placeholder="e.g. Moving to bank account"
+            className="h-12 lg:h-10"
           />
           
           <Button 
@@ -980,6 +1058,7 @@ export default function WalletsPage() {
             fullWidth 
             loading={submitting}
             disabled={!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount}
+            className="h-12 lg:h-10 text-base font-semibold"
           >
             <ArrowRightLeft size={18} />
             Transfer {transferForm.amount ? formatCurrency(parseFloat(transferForm.amount) || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency) : 'Money'}
