@@ -39,7 +39,7 @@ export const PageHeader = memo(PageHeaderComponent)
 
 function PageContainerComponent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 ${className}`}>
+    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-6 ${className}`}>
       {children}
     </div>
   )

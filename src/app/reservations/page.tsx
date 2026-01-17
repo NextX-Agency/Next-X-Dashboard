@@ -1536,262 +1536,148 @@ export default function ReservationsPage() {
         }} 
         title="Create New Reservation"
       >
-        <div className="space-y-4 sm:space-y-5">
-          {/* Client & Location Selection - Sticky Top */}
-          <div className="sticky top-0 z-10 bg-card pb-3 sm:pb-4 border-b border-border">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <Select
-                label="Select Client"
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="min-h-[48px]"
-              >
-                <option value="">Choose a client...</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
-                ))}
-              </Select>
-              <Select
-                label="Select Location"
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="min-h-[48px]"
-              >
-                <option value="">Choose a location...</option>
-                {locations.map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </Select>
-              {selectedClient && selectedLocation && (
-                <>
-                  <div>
-                    <label className="input-label text-xs sm:text-sm">Currency</label>
-                    <CurrencyToggle value={currency} onChange={setCurrency} />
-                  </div>
-                  <div className="relative">
-                    <label className="input-label text-xs sm:text-sm">Search Items</label>
-                    <input
-                      type="search"
-                      inputMode="search"
-                      placeholder="Search..."
-                      value={itemSearchQuery}
-                      onChange={(e) => setItemSearchQuery(e.target.value)}
-                      className="input-field pl-9 min-h-[48px]"
-                    />
-                    <Search className="absolute left-3 top-[38px] text-muted-foreground" size={16} />
-                  </div>
-                </>
-              )}
-            </div>
+        <div>
+          {/* Client Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Select Client</label>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">Choose a client...</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>{client.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Location Selection */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Select Location</label>
+            <select
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">Choose a location...</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </select>
           </div>
 
+          {selectedClient && selectedLocation && (
+            <>
+              {/* Currency Selection */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
+                <CurrencyToggle value={currency} onChange={setCurrency} />
+              </div>
+              
+              {/* Search Items */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">Search Items</label>
+                <div className="relative">
+                  <input
+                    type="search"
+                    inputMode="search"
+                    placeholder="Search items..."
+                    value={itemSearchQuery}
+                    onChange={(e) => setItemSearchQuery(e.target.value)}
+                    className="w-full h-12 px-3 pl-10 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                </div>
+              </div>
+            </>
+          )}
+
           {!selectedClient || !selectedLocation ? (
-            <div className="text-center py-16">
-              <MapPin size={48} className="mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground font-medium">Select client and location to continue</p>
+            <div className="text-center py-10">
+              <MapPin size={40} className="mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground font-medium text-sm">Select client and location to continue</p>
             </div>
           ) : (
-<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column - Item Selection */}
-              <div className="lg:col-span-2 space-y-4">
-
+            <div className="space-y-4">
               {/* Combo Mode Toggle */}
-                <div className="bg-card rounded-xl border border-border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                        comboMode ? 'bg-orange-500 text-white' : 'bg-orange-500/10 text-orange-500'
-                      }`}>
-                        <Sparkles size={18} />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-foreground text-sm">Combo Mode</div>
-                        <div className="text-xs text-muted-foreground">
-                          {comboMode ? `${tempComboItems.length} items` : 'Build custom combo'}
-                        </div>
+              <div className="bg-muted/50 rounded-xl p-3 border border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      comboMode ? 'bg-orange-500 text-white' : 'bg-orange-500/10 text-orange-500'
+                    }`}>
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <div className="font-medium text-foreground text-sm">Combo Mode</div>
+                      <div className="text-xs text-muted-foreground">
+                        {comboMode ? `${tempComboItems.length} items` : 'Build custom combo'}
                       </div>
                     </div>
-                    <button
-                      onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                        comboMode 
-                          ? 'bg-gray-200 hover:bg-gray-300 text-gray-700' 
-                          : 'bg-orange-500 hover:bg-orange-600 text-white'
-                      }`}
-                    >
-                      {comboMode ? 'Cancel' : 'Start'}
-                    </button>
                   </div>
-                
-                  {comboMode && tempComboItems.length >= 2 && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <div className="flex items-center gap-4">
-                        <Input
-                          label="Combo Price"
+                  <button
+                    onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      comboMode 
+                        ? 'bg-muted hover:bg-muted/80 text-foreground' 
+                        : 'bg-orange-500 hover:bg-orange-600 text-white'
+                    }`}
+                  >
+                    {comboMode ? 'Cancel' : 'Start'}
+                  </button>
+                </div>
+              
+                {comboMode && tempComboItems.length >= 2 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="mb-3">
+                      <label className="block text-xs font-medium text-foreground mb-1">Combo Price ({currency})</label>
+                      <input
                         type="number"
                         value={quickComboPrice}
                         onChange={(e) => setQuickComboPrice(e.target.value)}
-                        suffix={currency === 'SRD' ? 'SRD' : 'USD'}
                         placeholder="1400"
-                        className="flex-1"
+                        className="w-full h-10 px-3 rounded-lg border border-border bg-input text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
-                      <div className="pt-6">
-                        <Button onClick={createQuickCombo} variant="success" size="lg">
-                          <Check size={18} />
-                          Maak Combo
-                        </Button>
-                      </div>
                     </div>
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Originele prijs:</span>
+                    <button
+                      onClick={createQuickCombo}
+                      className="w-full py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white text-sm font-semibold flex items-center justify-center gap-2"
+                    >
+                      <Check size={16} />
+                      Create Combo
+                    </button>
+                    <div className="mt-2 p-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Original price:</span>
                         <span className="line-through">{formatCurrency(calculateTempComboOriginalPrice(), currency)}</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-green-700 dark:text-green-400">Klant bespaart:</span>
-                        <span className="text-lg font-bold text-green-600">
-                          {formatCurrency(calculateTempComboOriginalPrice() - Number(quickComboPrice), currency)}
-                        </span>
+                      <div className="flex justify-between text-green-600 font-medium">
+                        <span>Customer saves:</span>
+                        <span>{formatCurrency(calculateTempComboOriginalPrice() - Number(quickComboPrice), currency)}</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Mode Toggle */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => setComboMode(false)}
-                  variant={!comboMode ? 'primary' : 'secondary'}
-                  size="sm"
-                >
-                  <Package size={16} />
-                  Individual Items
-                </Button>
-                <Button
-                  onClick={() => setComboMode(true)}
-                  variant={comboMode ? 'primary' : 'secondary'}
-                  size="sm"
-                >
-                  <Layers size={16} />
-                  Create Combo
-                </Button>
-              </div>
-
-              {/* Available Items or Combo Builder */}
-              {comboMode ? (
-                <div className="bg-card rounded-2xl border border-orange-500/30 p-4 lg:p-5">
-                  <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Layers size={18} className="text-orange-500" />
-                    Build Quick Combo
-                    <span className="text-sm font-normal text-muted-foreground ml-auto">
-                      {tempComboItems.length} items selected
-                    </span>
-                  </h3>
-                  
-                  {comboMode && (
-                    <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                      <p className="text-sm text-orange-700 dark:text-orange-400">
-                        💡 Klik op items om toe te voegen aan combo. Minimaal 2 items nodig.
-                      </p>
-                    </div>
-                  )}
-                  {/* Combo Items Selected */}
-                  {tempComboItems.length > 0 && (
-                    <div className="mb-5 p-4 bg-primary/5 rounded-xl border border-primary/20">
-                      <div className="text-sm font-medium text-foreground mb-3">Selected Items:</div>
-                      <div className="space-y-2.5">
-                        {tempComboItems.map((item) => (
-                          <div key={item.item.id} className="flex items-center justify-between bg-background/50 rounded-lg p-3">
-                            <span className="text-sm font-medium">{item.item.name}</span>
-                            <div className="flex items-center gap-2.5">
-                              <button
-                                onClick={() => updateComboItemQuantity(item.item.id, -1)}
-                                className="w-7 h-7 flex items-center justify-center bg-secondary rounded-lg text-xs hover:bg-secondary/80 transition-colors"
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span className="w-7 text-center text-sm font-bold">{item.quantity}</span>
-                              <button
-                                onClick={() => updateComboItemQuantity(item.item.id, 1)}
-                                className="w-7 h-7 flex items-center justify-center bg-secondary rounded-lg text-xs hover:bg-secondary/80 transition-colors"
-                              >
-                                <Plus size={14} />
-                              </button>
-                              <button
-                                onClick={() => removeFromCombo(item.item.id)}
-                                className="text-destructive text-sm ml-2 hover:text-destructive/80 font-medium transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 flex gap-3">
-                        <Input
-                          label="Combo Price"
-                          type="number"
-                          value={quickComboPrice}
-                          onChange={(e) => setQuickComboPrice(e.target.value)}
-                          placeholder="Enter combo price"
-                        />
-                      </div>
-                      <Button
-                        onClick={createQuickCombo}
-                        variant="primary"
-                        size="sm"
-                        fullWidth
-                        className="mt-4"
-                      >
-                        <Check size={16} />
-                        Add Combo to Cart
-                      </Button>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    {availableItems.filter(item => !item.is_combo).map((item) => {
-                      const stock = getAvailableStock(item.id)
-                      const inCombo = tempComboItems.find(c => c.item.id === item.id)
-                      
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => addItemToCombo(item)}
-                          disabled={inCombo && inCombo.quantity >= stock}
-                          className="w-full p-4 bg-muted/50 hover:bg-muted rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent hover:border-primary/20"
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium text-foreground truncate">{item.name}</div>
-                              <div className="text-sm text-muted-foreground mt-0.5">Stock: {stock}</div>
-                            </div>
-                            <div className="w-8 h-8 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-white flex items-center justify-center transition-all ml-3">
-                              <Plus size={16} className="text-primary group-hover:text-white" />
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+              {/* Available Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-foreground text-sm flex items-center gap-2">
+                    <Package size={16} className="text-primary" />
+                    Available Items
+                  </h4>
+                  <span className="text-xs text-muted-foreground">{availableItems.length} items</span>
                 </div>
-              ) : (
-                <div className="bg-card rounded-2xl border border-border p-5 lg:p-6">
-                  <h3 className="font-bold text-foreground mb-5 flex items-center gap-2">
-                    <Package size={18} className={comboMode ? "text-orange-500" : "text-primary"} />
-                    {comboMode ? 'Selecteer Items voor Combo' : 'Available Items'}
-                    <span className="text-sm font-normal text-muted-foreground ml-auto">
-                      {availableItems.length} items
-                    </span>
-                  </h3>
-                  {availableItems.length === 0 ? (
-                    <p className="text-muted-foreground text-sm text-center py-12">
-                      No items available at this location
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {availableItems
+                
+                {availableItems.length === 0 ? (
+                  <p className="text-muted-foreground text-xs text-center py-8 bg-muted/30 rounded-xl">
+                    No items available at this location
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {availableItems
                       .filter(item => !itemSearchQuery || item.name.toLowerCase().includes(itemSearchQuery.toLowerCase()))
                       .map((item) => {
                         const stock = getAvailableStock(item.id)
@@ -1805,225 +1691,152 @@ export default function ReservationsPage() {
                             key={item.id}
                             onClick={() => comboMode ? addItemToCombo(item) : addToCart(item)}
                             disabled={isDisabled}
-                            className={`w-full p-3.5 rounded-xl text-left transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group border ${
+                            className={`w-full p-3 rounded-xl text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed border ${
                               inCombo 
-                                ? 'bg-orange-500/20 border-orange-500 hover:bg-orange-500/30' 
-                                : comboMode
-                                ? 'bg-orange-500/5 hover:bg-orange-500/10 border-transparent hover:border-orange-500/30'
-                                : 'bg-muted/50 hover:bg-muted border-transparent hover:border-primary/20'
+                                ? 'bg-orange-500/20 border-orange-500' 
+                                : 'bg-muted/30 hover:bg-muted/50 border-transparent'
                             }`}
                           >
                             <div className="flex justify-between items-center">
                               <div className="min-w-0 flex-1">
-                                <div className={`font-semibold truncate transition-colors ${
-                                  inCombo ? 'text-orange-600' : 'text-foreground group-hover:text-primary'
-                                }`}>
+                                <div className={`font-medium text-sm truncate ${inCombo ? 'text-orange-600' : 'text-foreground'}`}>
                                   {item.name}
-                                  {inCombo && <span className="ml-2 text-xs">✓ In combo</span>}
+                                  {inCombo && <span className="ml-1 text-xs">✓</span>}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-0.5">
-                                  Stock: <span className="font-medium text-foreground">{stock}</span> • {formatCurrency(price || 0, currency)}
+                                <div className="text-xs text-muted-foreground">
+                                  Stock: {stock} • {formatCurrency(price || 0, currency)}
                                 </div>
                               </div>
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ml-3 ${
-                                inCombo
-                                  ? 'bg-orange-500 text-white'
-                                  : comboMode
-                                  ? 'bg-orange-500/10 group-hover:bg-orange-500 text-orange-500 group-hover:text-white'
-                                  : 'bg-primary/10 group-hover:bg-primary text-primary group-hover:text-white'
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                                inCombo ? 'bg-orange-500 text-white' : 'bg-primary/10 text-primary'
                               }`}>
-                                <Plus size={16} />
+                                <Plus size={14} />
                               </div>
                             </div>
                           </button>
                         )
                       })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
 
-            {/* Right Column - Cart */}
-            <div className="lg:col-span-1">
-              <div className="bg-card rounded-2xl border border-border p-5 lg:p-6 sticky top-24">
-                <h3 className="font-bold text-foreground mb-5 flex items-center gap-2">
-                  <ShoppingCart size={18} className="text-primary" />
-                  Reservation Cart
+              {/* Cart */}
+              <div className="bg-muted/30 rounded-xl p-3 border border-border">
+                <h4 className="font-medium text-foreground text-sm flex items-center gap-2 mb-3">
+                  <ShoppingCart size={16} className="text-primary" />
+                  Cart
                   {(cart.length > 0 || combos.length > 0) && (
-                    <span className="ml-auto bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    <span className="ml-auto bg-primary text-white text-xs font-bold px-1.5 py-0.5 rounded-full">
                       {cart.length + combos.length}
                     </span>
                   )}
-                </h3>
+                </h4>
 
-                {cart.length === 0 && combos.length === 0 ? (
-                  <div className="text-center py-12">
-                    <ShoppingCart size={40} className="mx-auto mb-3 text-muted-foreground/30" />
-                    <p className="text-muted-foreground text-sm">Cart is empty</p>
-                    <p className="text-muted-foreground text-xs mt-1">Add items or combos to reserve</p>
+                {cart.length === 0 && combos.length === 0 && !comboMode ? (
+                  <div className="text-center py-6">
+                    <ShoppingCart size={24} className="mx-auto mb-2 text-muted-foreground/30" />
+                    <p className="text-muted-foreground text-xs">Cart is empty</p>
                   </div>
                 ) : (
-                  <>
-                    <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
-                      {/* Temp Combo Items (when in combo mode) */}
-                      {comboMode && tempComboItems.length > 0 && (
-                        <div className="p-3.5 bg-orange-500/10 rounded-xl border-2 border-dashed border-orange-500">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Sparkles size={14} className="text-orange-500" />
-                              <span className="font-semibold text-orange-600">Nieuwe Combo (wordt aangemaakt)</span>
-                            </div>
-                          </div>
-                          <div className="space-y-1.5">
-                            {tempComboItems.map((item) => (
-                              <div key={item.item.id} className="flex items-center justify-between text-sm">
-                                <span className="text-foreground">{item.item.name} × {item.quantity}</span>
-                                <button
-                                  onClick={() => removeFromCombo(item.item.id)}
-                                  className="w-5 h-5 flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 rounded text-destructive transition-colors"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
+                  <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                    {/* Temp Combo Items */}
+                    {comboMode && tempComboItems.length > 0 && (
+                      <div className="p-2.5 bg-orange-500/10 rounded-lg border border-dashed border-orange-500">
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Sparkles size={12} className="text-orange-500" />
+                          <span className="font-medium text-orange-600 text-xs">New Combo</span>
                         </div>
-                      )}
-                      
-                      {/* Combo Deals */}
-                      {combos.map((combo) => (
-                        <div key={combo.id} className="p-3.5 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-xl border border-orange-500/30">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-foreground truncate flex items-center gap-2">
-                                <Sparkles size={14} className="text-orange-500" />
-                                {combo.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                {combo.items.map((item, idx) => (
-                                  <div key={idx}>{item.item.name} × {item.quantity}</div>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="text-right ml-3">
-                              <div className="text-xs text-muted-foreground line-through">
-                                {formatCurrency(combo.originalPrice, currency)}
-                              </div>
-                              <div className="font-bold text-orange-500">
-                                {formatCurrency(combo.comboPrice, currency)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-orange-500/20">
-                            <Badge variant="success" className="text-xs">
-                              Bespaar {formatCurrency(combo.originalPrice - combo.comboPrice, currency)}
-                            </Badge>
+                        {tempComboItems.map((item) => (
+                          <div key={item.item.id} className="flex items-center justify-between text-xs py-1">
+                            <span className="text-foreground">{item.item.name} × {item.quantity}</span>
                             <button
-                              onClick={() => removeCombo(combo.id)}
-                              className="text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
+                              onClick={() => removeFromCombo(item.item.id)}
+                              className="w-5 h-5 flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 rounded text-destructive"
                             >
-                              Remove
+                              <X size={10} />
                             </button>
                           </div>
-                        </div>
-                      ))}
-                      
-                      {/* Regular Cart Items */}
-                      {cart.map((cartItem) => {
-                        const price = currency === 'SRD' 
-                          ? (cartItem.item.selling_price_srd || 0)
-                          : (cartItem.item.selling_price_usd || 0)
-                        
-                        return (
-                          <div key={cartItem.item.id} className="p-3.5 bg-muted/50 rounded-xl border border-border/50">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-foreground truncate">{cartItem.item.name}</div>
-                                <div className="text-sm text-muted-foreground mt-0.5">
-                                  {formatCurrency(price, currency)} × {cartItem.quantity}
-                                </div>
-                              </div>
-                              <div className="font-bold text-foreground ml-3 text-right">
-                                {formatCurrency(price * cartItem.quantity, currency)}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => updateQuantity(cartItem.item.id, -1)}
-                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 active:scale-95"
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span className="w-8 text-center font-bold text-foreground">{cartItem.quantity}</span>
-                              <button
-                                onClick={() => updateQuantity(cartItem.item.id, 1)}
-                                disabled={cartItem.quantity >= cartItem.availableStock}
-                                className="w-8 h-8 flex items-center justify-center bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 disabled:opacity-50 active:scale-95"
-                              >
-                                <Plus size={14} />
-                              </button>
-                              <button
-                                onClick={() => removeFromCart(cartItem.item.id)}
-                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {(cart.length > 0 || combos.length > 0) && (
-                      <div className="border-t border-border pt-5 mt-5 space-y-5">
-                        {/* Total */}
-                        <div className="flex justify-between items-center mb-5">
-                          <span className="font-semibold text-muted-foreground text-base">Total</span>
-                          <span className="text-2xl font-bold text-primary">
-                            {formatCurrency(calculateTotal(), currency)}
-                          </span>
-                        </div>
-
-                        {/* Payment Status Toggle */}
-                        <div>
-                          <label className="input-label mb-3">Payment Status</label>
-                          <div className="currency-toggle">
-                            <button
-                              type="button"
-                              onClick={() => setPaymentStatus('unpaid')}
-                              className={`currency-toggle-btn ${paymentStatus === 'unpaid' ? 'active' : ''}`}
-                            >
-                              📄 Unpaid (Invoice)
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPaymentStatus('paid')}
-                              className={`currency-toggle-btn ${paymentStatus === 'paid' ? 'active' : ''}`}
-                            >
-                              ✅ Paid (Receipt)
-                            </button>
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={handleCreateReservation}
-                          disabled={submitting || (cart.length === 0 && combos.length === 0)}
-                          loading={submitting}
-                          variant="primary"
-                        size="lg"
-                        fullWidth
-                      >
-                        <Check size={20} />
-                        Create Reservation & Generate {paymentStatus === 'paid' ? 'Receipt' : 'Invoice'}
-                      </Button>
-                    </div>
+                        ))}
+                      </div>
                     )}
-                  </>
+                    
+                    {/* Combos */}
+                    {combos.map((combo) => (
+                      <div key={combo.id} className="p-2.5 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-1.5">
+                            <Sparkles size={12} className="text-orange-500" />
+                            <span className="font-medium text-foreground text-xs">{combo.name}</span>
+                          </div>
+                          <button
+                            onClick={() => removeCombo(combo.id)}
+                            className="w-5 h-5 flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 rounded text-destructive"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {combo.items.length} items • {formatCurrency(combo.comboPrice, currency)}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Individual Items */}
+                    {cart.map((cartItem) => (
+                      <div key={cartItem.item.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-foreground text-xs truncate">{cartItem.item.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatCurrency((currency === 'SRD' ? cartItem.item.selling_price_srd : cartItem.item.selling_price_usd) || 0, currency)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, -1)}
+                            className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="w-5 text-center text-xs font-bold">{cartItem.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, 1)}
+                            disabled={cartItem.quantity >= cartItem.availableStock}
+                            className="w-6 h-6 flex items-center justify-center bg-secondary rounded text-xs disabled:opacity-50"
+                          >
+                            <Plus size={12} />
+                          </button>
+                          <button
+                            onClick={() => removeFromCart(cartItem.item.id)}
+                            className="w-6 h-6 flex items-center justify-center bg-destructive/10 text-destructive rounded ml-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
+
+              {/* Total & Submit */}
+              {(cart.length > 0 || combos.length > 0) && (
+                <div className="bg-primary/5 rounded-xl p-3 border border-primary/20">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-medium text-foreground text-sm">Total</span>
+                    <span className="text-lg font-bold text-primary">{formatCurrency(calculateTotal(), currency)}</span>
+                  </div>
+                  <Button
+                    onClick={handleCreateReservation}
+                    variant="primary"
+                    fullWidth
+                    loading={submitting}
+                  >
+                    <Check size={18} />
+                    Create Reservation
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
           )}
         </div>
       </Modal>
