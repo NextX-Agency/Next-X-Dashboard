@@ -741,64 +741,72 @@ export default function WalletsPage() {
 
       {/* Create/Edit Wallet Modal */}
       <Modal isOpen={showForm} onClose={resetForm} title={editingWallet ? 'Edit Wallet' : 'New Wallet'}>
-        <form onSubmit={handleSubmitWallet} className="space-y-3 sm:space-y-4">
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              <strong className="text-foreground">Each location can have 4 wallets:</strong><br />
+        <form onSubmit={handleSubmitWallet}>
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4">
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground text-sm">Each location can have 4 wallets:</strong><br />
               Cash SRD, Cash USD, Bank SRD, Bank USD. Sales auto-credit and expenses auto-debit these wallets.
             </p>
           </div>
           
-          <Select
-            label="Location"
-            value={walletForm.location_id}
-            onChange={(e) => setWalletForm({ ...walletForm, location_id: e.target.value })}
-            required
-            className="h-12 text-base"
-          >
-            <option value="">Select location...</option>
-            {locations.map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </Select>
-          
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <Select
-              label="Type"
-              value={walletForm.type}
-              onChange={(e) => setWalletForm({ ...walletForm, type: e.target.value as 'cash' | 'bank' })}
-              className="h-12 text-base"
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Location</label>
+            <select
+              value={walletForm.location_id}
+              onChange={(e) => setWalletForm({ ...walletForm, location_id: e.target.value })}
+              required
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             >
-              <option value="cash">💵 Cash</option>
-              <option value="bank">🏦 Bank</option>
-            </Select>
-            
-            <Select
-              label="Currency"
-              value={walletForm.currency}
-              onChange={(e) => setWalletForm({ ...walletForm, currency: e.target.value as Currency })}
-              className="h-12 text-base"
-            >
-              <option value="SRD">SRD</option>
-              <option value="USD">USD</option>
-            </Select>
+              <option value="">Select location...</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </select>
           </div>
           
-          <Input
-            label="Initial Balance"
-            type="number"
-            step="0.01"
-            value={walletForm.balance}
-            onChange={(e) => setWalletForm({ ...walletForm, balance: e.target.value })}
-            placeholder="0.00"
-            className="h-12 text-base"
-          />
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Type</label>
+              <select
+                value={walletForm.type}
+                onChange={(e) => setWalletForm({ ...walletForm, type: e.target.value as 'cash' | 'bank' })}
+                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="cash">💵 Cash</option>
+                <option value="bank">🏦 Bank</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
+              <select
+                value={walletForm.currency}
+                onChange={(e) => setWalletForm({ ...walletForm, currency: e.target.value as Currency })}
+                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="SRD">SRD</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+          </div>
           
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sm:pt-4">
-            <Button type="button" onClick={resetForm} variant="secondary" fullWidth className="h-12 text-base font-semibold">
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-foreground mb-2">Initial Balance</label>
+            <input
+              type="number"
+              step="0.01"
+              value={walletForm.balance}
+              onChange={(e) => setWalletForm({ ...walletForm, balance: e.target.value })}
+              placeholder="0.00"
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
+          
+          <div className="flex gap-3">
+            <Button type="button" onClick={resetForm} variant="secondary" fullWidth>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" fullWidth loading={submitting} className="h-12 text-base font-semibold">
+            <Button type="submit" variant="primary" fullWidth loading={submitting}>
               {editingWallet ? 'Update' : 'Create'} Wallet
             </Button>
           </div>
@@ -816,67 +824,72 @@ export default function WalletsPage() {
         title="Wallet Transaction"
       >
         {selectedWallet && (
-          <form onSubmit={handleTransaction} className="space-y-3 sm:space-y-4">
-            <div className="bg-muted rounded-xl p-4 sm:p-5 text-center border-2 border-border">
-              <p className="text-xs sm:text-sm text-muted-foreground mb-2 font-medium">
+          <form onSubmit={handleTransaction}>
+            {/* Current Balance Display */}
+            <div className="bg-muted rounded-xl p-4 text-center border border-border mb-4">
+              <p className="text-xs text-muted-foreground mb-1">
                 {selectedWallet.locations?.name} - {selectedWallet.type} {selectedWallet.currency}
               </p>
-              <p className="text-xs text-muted-foreground mb-1">Current Balance</p>
-              <p className="text-2xl sm:text-3xl font-bold text-foreground">
+              <p className="text-xs text-muted-foreground">Current Balance</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
                 {formatCurrency(selectedWallet.balance, selectedWallet.currency as Currency)}
               </p>
             </div>
             
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {/* Transaction Type Buttons */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'add' })}
-                className={`p-3 sm:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 sm:gap-2 active:scale-95 ${
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                   transactionForm.type === 'add'
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500 shadow-md shadow-emerald-500/20'
-                    : 'border-border hover:border-emerald-500/50'
+                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
+                    : 'border-border hover:border-emerald-500/50 text-muted-foreground'
                 }`}
               >
-                <ArrowDownLeft size={20} className="sm:w-[22px] sm:h-[22px]" />
-                <span className="text-xs sm:text-sm font-semibold">Add</span>
+                <ArrowDownLeft size={20} />
+                <span className="text-xs font-semibold">Add</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'remove' })}
-                className={`p-3 sm:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 sm:gap-2 active:scale-95 ${
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                   transactionForm.type === 'remove'
-                    ? 'border-destructive bg-destructive/10 text-destructive shadow-md shadow-destructive/20'
-                    : 'border-border hover:border-destructive/50'
+                    ? 'border-destructive bg-destructive/10 text-destructive'
+                    : 'border-border hover:border-destructive/50 text-muted-foreground'
                 }`}
               >
-                <ArrowUpRight size={20} className="sm:w-[22px] sm:h-[22px]" />
-                <span className="text-xs sm:text-sm font-semibold">Remove</span>
+                <ArrowUpRight size={20} />
+                <span className="text-xs font-semibold">Remove</span>
               </button>
               <button
                 type="button"
                 onClick={() => setTransactionForm({ ...transactionForm, type: 'correct' })}
-                className={`p-3 sm:p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 sm:gap-2 active:scale-95 ${
+                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
                   transactionForm.type === 'correct'
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-500 shadow-md shadow-blue-500/20'
-                    : 'border-border hover:border-blue-500/50'
+                    ? 'border-blue-500 bg-blue-500/10 text-blue-500'
+                    : 'border-border hover:border-blue-500/50 text-muted-foreground'
                 }`}
               >
-                <Edit size={20} className="sm:w-[22px] sm:h-[22px]" />
-                <span className="text-xs sm:text-sm font-semibold">Correct</span>
+                <Edit size={20} />
+                <span className="text-xs font-semibold">Correct</span>
               </button>
             </div>
 
             {transactionForm.type === 'correct' && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
-                <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">
-                  💡 Correct Balance: Enter the exact amount the wallet should have. This will adjust the balance to match.
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mb-4">
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  💡 Enter the exact amount the wallet should have.
                 </p>
               </div>
             )}
             
-            <div className="space-y-3 sm:space-y-4">
-              <Input
-                label={transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
+            {/* Amount Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                {transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
+              </label>
+              <input
                 type="number"
                 step="0.01"
                 min="0"
@@ -884,25 +897,28 @@ export default function WalletsPage() {
                 onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
                 placeholder={transactionForm.type === 'correct' ? 'Enter correct balance' : '0.00'}
                 required
-                className="h-12 text-base"
+                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
-              
-              <Input
-                label="Description (optional)"
+            </div>
+            
+            {/* Description Input */}
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-foreground mb-2">Description (optional)</label>
+              <input
                 type="text"
                 value={transactionForm.description}
                 onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
                 placeholder="e.g. Cash from drawer"
-                className="h-12 text-base"
+                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
             
+            {/* Submit Button */}
             <Button 
               type="submit" 
-              variant={transactionForm.type === 'add' ? 'primary' : 'danger'} 
+              variant={transactionForm.type === 'remove' ? 'danger' : 'primary'} 
               fullWidth 
               loading={submitting}
-              className="h-12 text-base font-semibold"
             >
               {transactionForm.type === 'add' ? 'Add' : transactionForm.type === 'remove' ? 'Remove' : 'Correct'} {transactionForm.amount ? formatCurrency(parseFloat(transactionForm.amount), selectedWallet.currency as Currency) : 'Money'}
             </Button>
@@ -965,73 +981,79 @@ export default function WalletsPage() {
         }} 
         title="Transfer Between Wallets"
       >
-        <form onSubmit={handleTransfer} className="space-y-3 sm:space-y-4">
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 sm:p-4">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <ArrowRightLeft size={18} />
-              <span className="font-semibold text-sm sm:text-base">Wallet Transfer</span>
+        <form onSubmit={handleTransfer}>
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-2 text-primary mb-1">
+              <ArrowRightLeft size={16} />
+              <span className="font-semibold text-sm">Wallet Transfer</span>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Transfer money between wallets of the same currency. Perfect for moving funds between locations or from cash to bank.
+            <p className="text-xs text-muted-foreground">
+              Transfer money between wallets of the same currency.
             </p>
           </div>
           
-          <Select
-            label="From Wallet"
-            value={transferForm.fromWalletId}
-            onChange={(e) => setTransferForm({ ...transferForm, fromWalletId: e.target.value, toWalletId: '' })}
-            required
-            className="h-12 text-base"
-          >
-            <option value="">Select source wallet...</option>
-            {wallets.map(wallet => (
-              <option key={wallet.id} value={wallet.id}>
-                {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
-              </option>
-            ))}
-          </Select>
-          
-          <div className="flex justify-center py-1">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <ArrowDownLeft size={20} className="text-primary" />
-            </div>
-          </div>
-          
-          <Select
-            label="To Wallet"
-            value={transferForm.toWalletId}
-            onChange={(e) => setTransferForm({ ...transferForm, toWalletId: e.target.value })}
-            required
-            className="h-12 text-base"
-          >
-            <option value="">Select destination wallet...</option>
-            {wallets
-              .filter(w => {
-                if (!transferForm.fromWalletId) return true
-                const fromWallet = wallets.find(fw => fw.id === transferForm.fromWalletId)
-                return w.id !== transferForm.fromWalletId && w.currency === fromWallet?.currency
-              })
-              .map(wallet => (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">From Wallet</label>
+            <select
+              value={transferForm.fromWalletId}
+              onChange={(e) => setTransferForm({ ...transferForm, fromWalletId: e.target.value, toWalletId: '' })}
+              required
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">Select source wallet...</option>
+              {wallets.map(wallet => (
                 <option key={wallet.id} value={wallet.id}>
                   {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
                 </option>
               ))}
-          </Select>
+            </select>
+          </div>
           
-          <Input
-            label="Amount"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={transferForm.amount}
-            onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
-            placeholder="0.00"
-            required
-            className="h-12 text-base"
-          />
+          <div className="flex justify-center py-2">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <ArrowDownLeft size={16} className="text-primary" />
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">To Wallet</label>
+            <select
+              value={transferForm.toWalletId}
+              onChange={(e) => setTransferForm({ ...transferForm, toWalletId: e.target.value })}
+              required
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">Select destination wallet...</option>
+              {wallets
+                .filter(w => {
+                  if (!transferForm.fromWalletId) return true
+                  const fromWallet = wallets.find(fw => fw.id === transferForm.fromWalletId)
+                  return w.id !== transferForm.fromWalletId && w.currency === fromWallet?.currency
+                })
+                .map(wallet => (
+                  <option key={wallet.id} value={wallet.id}>
+                    {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                  </option>
+                ))}
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={transferForm.amount}
+              onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+              placeholder="0.00"
+              required
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
           
           {transferForm.fromWalletId && transferForm.amount && (
-            <div className="bg-muted rounded-lg p-3 text-xs sm:text-sm">
+            <div className="bg-muted rounded-lg p-3 text-xs mb-4">
               <div className="flex justify-between text-muted-foreground">
                 <span>Current balance:</span>
                 <span>{formatCurrency(wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
@@ -1043,14 +1065,16 @@ export default function WalletsPage() {
             </div>
           )}
           
-          <Input
-            label="Description (optional)"
-            type="text"
-            value={transferForm.description}
-            onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-            placeholder="e.g. Moving to bank account"
-            className="h-12 text-base"
-          />
+          <div className="mb-5">
+            <label className="block text-sm font-medium text-foreground mb-2">Description (optional)</label>
+            <input
+              type="text"
+              value={transferForm.description}
+              onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
+              placeholder="e.g. Moving to bank account"
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
           
           <Button 
             type="submit" 
@@ -1058,7 +1082,6 @@ export default function WalletsPage() {
             fullWidth 
             loading={submitting}
             disabled={!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount}
-            className="h-12 text-base font-semibold"
           >
             <ArrowRightLeft size={18} />
             Transfer {transferForm.amount ? formatCurrency(parseFloat(transferForm.amount) || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency) : 'Money'}

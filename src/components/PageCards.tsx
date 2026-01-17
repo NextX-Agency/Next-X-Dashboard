@@ -240,31 +240,27 @@ function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
-      <div className="relative bg-card rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-6xl w-full max-h-[85vh] sm:max-h-[90vh] overflow-hidden border border-border animate-in slide-in-from-bottom-4 sm:fade-in sm:zoom-in-95 duration-300 flex flex-col mb-0 sm:mb-0">
-        {/* Drag handle for mobile */}
-        <div className="sm:hidden flex justify-center pt-3 pb-2">
-          <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full" />
-        </div>
-        <div className="bg-card border-b border-border px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-lg sm:text-xl font-bold text-foreground pr-10">{title}</h2>
+      <div className="relative bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+        {/* Header */}
+        <div className="bg-card border-b border-border px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold text-foreground">{title}</h2>
           <button
             onClick={onClose}
-            className="absolute right-3 sm:right-4 top-3 sm:top-4 w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-muted/50 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             aria-label="Close modal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
             </svg>
           </button>
         </div>
-        <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-y-auto flex-1 overscroll-contain">{children}</div>
-        {/* Safe area padding for iOS home indicator */}
-        <div className="sm:hidden h-2 flex-shrink-0 bg-card" />
+        {/* Scrollable content */}
+        <div className="px-4 sm:px-5 py-4 overflow-y-auto flex-1 overscroll-contain">{children}</div>
       </div>
     </div>
   )
