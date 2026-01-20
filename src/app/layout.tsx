@@ -87,11 +87,9 @@ export const metadata: Metadata = {
     site: '@nextxsuriname',
   },
   
-  // Icons
+  // Icons - Next.js will automatically use /app/icon.svg
   icons: {
-    icon: '/nextx-logo.svg',
     apple: '/nextx-logo-light.png',
-    shortcut: '/nextx-logo.svg',
   },
   
   // Verification (add your verification codes)
