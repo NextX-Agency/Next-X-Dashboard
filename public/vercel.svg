@@ -1,28 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
-  <!-- Orange gradient background -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#f7931e;stop-opacity:1" />
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b35"/>
+      <stop offset="100%" style="stop-color:#f7931e"/>
     </linearGradient>
   </defs>
   
-  <!-- Background -->
-  <rect width="200" height="200" fill="#fff"/>
+  <!-- Clean rounded square background -->
+  <rect width="512" height="512" rx="80" fill="url(#grad)"/>
   
-  <!-- Border -->
-  <rect x="10" y="10" width="180" height="180" fill="none" stroke="url(#orangeGradient)" stroke-width="6" rx="4"/>
-  
-  <!-- X Shape -->
-  <path d="M 140 50 L 180 50 L 180 90 L 160 110 L 180 130 L 180 170 L 140 170 L 100 130 L 60 170 L 20 170 L 20 130 L 40 110 L 20 90 L 20 50 L 60 50 L 100 90 Z" fill="url(#orangeGradient)"/>
-  
-  <!-- Small decorative dots scattered around -->
-  <circle cx="40" cy="40" r="3" fill="url(#orangeGradient)" opacity="0.6"/>
-  <circle cx="160" cy="45" r="3" fill="url(#orangeGradient)" opacity="0.6"/>
-  <circle cx="70" cy="50" r="2" fill="url(#orangeGradient)" opacity="0.4"/>
-  <circle cx="130" cy="55" r="2" fill="url(#orangeGradient)" opacity="0.4"/>
-  <circle cx="155" cy="165" r="3" fill="url(#orangeGradient)" opacity="0.6"/>
-  <circle cx="90" cy="165" r="2" fill="url(#orangeGradient)" opacity="0.5"/>
-  <circle cx="115" cy="45" r="4" fill="url(#orangeGradient)" opacity="0.3"/>
-  <circle cx="125" cy="48" r="4" fill="url(#orangeGradient)" opacity="0.3"/>
+  <!-- Modern bold X with clean lines -->
+  <path d="M 140 120 L 230 120 L 256 146 L 282 120 L 372 120 L 300 210 L 380 300 L 380 390 L 290 390 L 256 356 L 222 390 L 132 390 L 132 300 L 212 210 Z" 
+        fill="white" 
+        stroke="white" 
+        stroke-width="4" 
+        stroke-linejoin="round"/>
 </svg>
