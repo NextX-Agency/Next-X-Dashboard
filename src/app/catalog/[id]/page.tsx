@@ -149,8 +149,8 @@ export default function ProductDetailPage() {
             .eq('combo_id', productId)
           
           if (comboItemsRes.data && comboItemsRes.data.length > 0) {
-            // Load all child items
-            const childItemIds = comboItemsRes.data.map(ci => ci.child_item_id)
+            // Load all child items - use item_id from database
+            const childItemIds = comboItemsRes.data.map(ci => ci.item_id)
             const childItemsRes = await supabase
               .from('items')
               .select('*')
@@ -161,8 +161,8 @@ export default function ProductDetailPage() {
               ...productRes.data,
               combo_items: comboItemsRes.data.map(ci => ({
                 ...ci,
-                child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id),
-                child_item_id: ci.child_item_id
+                child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
+                child_item_id: ci.item_id  // Map for compatibility
               }))
             }
           }
