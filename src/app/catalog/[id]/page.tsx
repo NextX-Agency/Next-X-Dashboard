@@ -165,6 +165,9 @@ export default function ProductDetailPage() {
                 child_item_id: ci.item_id  // Map for compatibility
               }))
             }
+            
+            // Debug logging
+            console.log('Combo items loaded:', productWithCombo.combo_items)
           }
         }
         
@@ -188,6 +191,7 @@ export default function ProductDetailPage() {
           const current = map.get(stock.item_id) || 0
           map.set(stock.item_id, current + stock.quantity)
         })
+        console.log('Stock map built:', Object.fromEntries(map))
         setStockMap(map)
       }
 
@@ -813,6 +817,7 @@ export default function ProductDetailPage() {
                   {product.combo_items.map((ci) => {
                     const itemStock = stockMap.get(ci.child_item_id) || 0
                     const itemOutOfStock = itemStock <= 0
+                    console.log(`Combo item: ${ci.child_item?.name}, child_item_id: ${ci.child_item_id}, stock: ${itemStock}`)
                     return (
                       <Link
                         key={ci.id}
