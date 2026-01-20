@@ -240,29 +240,27 @@ function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div 
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
-      <div className="relative bg-card rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-6xl w-full max-h-[92vh] sm:max-h-[95vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200">
-        {/* Drag handle for mobile */}
-        <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
-        </div>
-        <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-4 sm:px-6 py-3 sm:py-5 flex items-center justify-between">
-          <h2 className="text-base sm:text-xl font-bold text-foreground pr-8">{title}</h2>
+      <div className="relative bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+        {/* Header */}
+        <div className="bg-card border-b border-border px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-lg sm:text-xl font-bold text-foreground">{title}</h2>
           <button
             onClick={onClose}
-            className="absolute right-3 sm:right-4 top-3 sm:top-4 w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px]"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-muted/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             aria-label="Close modal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
             </svg>
           </button>
         </div>
-        <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(92vh-4rem)] sm:max-h-[calc(95vh-5rem)]">{children}</div>
+        {/* Scrollable content */}
+        <div className="px-4 sm:px-5 py-4 overflow-y-auto flex-1 overscroll-contain">{children}</div>
       </div>
     </div>
   )
