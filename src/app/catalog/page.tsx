@@ -78,8 +78,9 @@ type Location = Database['public']['Tables']['locations']['Row']
 
 interface ComboItem {
   id: string
-  parent_item_id: string
-  child_item_id: string
+  combo_id: string
+  item_id: string
+  child_item_id?: string  // For compatibility
   quantity: number
   child_item?: Item
 }
@@ -271,10 +272,10 @@ export default function NewCatalogPage() {
         const comboItemsRes = await supabase
           .from('combo_items')
           .select('*')
-          .in('parent_item_id', combosRes.data.map(c => c.id))
+          .in('combo_id', combosRes.data.map(c => c.id))
         
         // Load all child items
-        const childItemIds = comboItemsRes.data?.map(ci => ci.child_item_id) || []
+        const childItemIds = comboItemsRes.data?.map(ci => ci.item_id) || []
         const childItemsRes = await supabase
           .from('items')
           .select('*')
@@ -283,13 +284,14 @@ export default function NewCatalogPage() {
         // Map child items to combo_items
         const comboItemsWithChildren = comboItemsRes.data?.map(ci => ({
           ...ci,
-          child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id)
+          child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
+          child_item_id: ci.item_id  // Add mapping for compatibility
         })) || []
         
         // Merge combo_items into combos
         const combosWithItems: ItemWithCombo[] = combosRes.data.map(combo => ({
           ...combo,
-          combo_items: comboItemsWithChildren.filter(ci => ci.parent_item_id === combo.id)
+          combo_items: comboItemsWithChildren.filter(ci => ci.combo_id === combo.id)
         }))
         
         console.log('Combo Items loaded:', combosWithItems.length, combosWithItems)

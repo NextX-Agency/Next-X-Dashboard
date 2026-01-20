@@ -38,8 +38,9 @@ type Location = Database['public']['Tables']['locations']['Row']
 
 interface ComboItem {
   id: string
-  parent_item_id: string
-  child_item_id: string
+  combo_id: string
+  item_id: string
+  child_item_id?: string  // For compatibility
   quantity: number
   child_item?: Item
 }
@@ -145,7 +146,7 @@ export default function ProductDetailPage() {
           const comboItemsRes = await supabase
             .from('combo_items')
             .select('*')
-            .eq('parent_item_id', productId)
+            .eq('combo_id', productId)
           
           if (comboItemsRes.data && comboItemsRes.data.length > 0) {
             // Load all child items
@@ -160,7 +161,8 @@ export default function ProductDetailPage() {
               ...productRes.data,
               combo_items: comboItemsRes.data.map(ci => ({
                 ...ci,
-                child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id)
+                child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
+                child_item_id: ci.item_id  // Add mapping for compatibility
               }))
             }
           }
