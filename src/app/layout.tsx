@@ -89,9 +89,9 @@ export const metadata: Metadata = {
   
   // Icons
   icons: {
-    icon: '/favicon.ico',
+    icon: '/nextx-logo.svg',
     apple: '/nextx-logo-light.png',
-    shortcut: '/favicon.ico',
+    shortcut: '/nextx-logo.svg',
   },
   
   // Verification (add your verification codes)
