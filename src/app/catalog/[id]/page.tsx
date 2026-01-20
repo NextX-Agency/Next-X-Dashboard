@@ -161,8 +161,8 @@ export default function ProductDetailPage() {
               ...productRes.data,
               combo_items: comboItemsRes.data.map(ci => ({
                 ...ci,
-                child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
-                child_item_id: ci.item_id  // Add mapping for compatibility
+                child_item: childItemsRes.data?.find(item => item.id === ci.child_item_id),
+                child_item_id: ci.child_item_id
               }))
             }
           }
@@ -814,12 +814,13 @@ export default function ProductDetailPage() {
                     const itemStock = stockMap.get(ci.child_item_id) || 0
                     const itemOutOfStock = itemStock <= 0
                     return (
-                      <div
+                      <Link
                         key={ci.id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border ${
+                        href={`/catalog/${ci.child_item_id}`}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
                           itemOutOfStock
-                            ? 'bg-red-50 border-red-200'
-                            : 'bg-neutral-50 border-neutral-200'
+                            ? 'bg-red-50 border-red-200 hover:bg-red-100'
+                            : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100'
                         }`}
                       >
                         {ci.child_item?.image_url ? (
@@ -847,7 +848,7 @@ export default function ProductDetailPage() {
                         {itemOutOfStock && (
                           <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
                         )}
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
