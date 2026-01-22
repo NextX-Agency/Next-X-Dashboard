@@ -82,14 +82,19 @@ export default function Home() {
       const currentRate = exchangeRes.data
       const rate = currentRate?.usd_to_srd || 40
 
-      // Calculate monthly sales for chart (normalized to USD)
+      // Calculate monthly sales for chart (normalized to USD) - current year only
+      const currentYear = new Date().getFullYear()
       const monthlyData = Array(12).fill(0)
       sales.forEach(sale => {
-        const month = new Date(sale.created_at).getMonth()
-        const amountInUSD = sale.currency === 'USD' 
-          ? Number(sale.total_amount) 
-          : Number(sale.total_amount) / rate
-        monthlyData[month] += amountInUSD
+        const saleDate = new Date(sale.created_at)
+        // Only include sales from the current year
+        if (saleDate.getFullYear() === currentYear) {
+          const month = saleDate.getMonth()
+          const amountInUSD = sale.currency === 'USD' 
+            ? Number(sale.total_amount) 
+            : Number(sale.total_amount) / rate
+          monthlyData[month] += amountInUSD
+        }
       })
       setMonthlySales(monthlyData)
 
@@ -332,7 +337,7 @@ export default function Home() {
           {/* Chart Section */}
           <div className="lg:col-span-2 space-y-6">
             <ChartCard 
-              title={`Monthly Sales (${displayCurrency})`}
+              title={`Monthly Sales ${new Date().getFullYear()} (${displayCurrency})`}
               subtitle="Sales trends throughout the year"
               action={
                 <button 
@@ -343,36 +348,110 @@ export default function Home() {
                 </button>
               }
             >
-              <div className="h-64 lg:h-80 flex items-end justify-between gap-2 lg:gap-4 px-2">
-                {monthlySales.map((amount, i) => {
-                  const displayAmount = displayCurrency === 'USD' ? amount : amount * exchangeRate
-                  const displayAmounts = monthlySales.map(a => displayCurrency === 'USD' ? a : a * exchangeRate)
-                  // Only use actual data for scaling - no arbitrary minimum
-                  const maxSale = Math.max(...displayAmounts)
-                  // Calculate height based on actual data proportion, with minimum visibility for non-zero values
-                  const heightPercent = maxSale > 0 ? (displayAmount / maxSale) * 100 : 0
-                  const height = displayAmount > 0 ? Math.max(heightPercent, 5) : 2
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                      <div className="relative w-full h-full flex items-end">
-                        <div 
-                          className={`w-full rounded-t-lg transition-all cursor-pointer ${
-                            displayAmount > 0 
-                              ? 'bg-gradient-to-t from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500' 
-                              : 'bg-muted/50'
-                          }`}
-                          style={{ height: `${height}%`, minHeight: displayAmount > 0 ? '12px' : '4px' }}
-                          title={`${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}: ${formatCurrency(displayAmount, displayCurrency)}`}
-                        ></div>
-                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card text-foreground text-xs font-bold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap shadow-lg border border-border z-10">
-                          {formatCurrency(displayAmount, displayCurrency)}
-                        </div>
+              {(() => {
+                const displayAmounts = monthlySales.map(a => displayCurrency === 'USD' ? a : a * exchangeRate)
+                const maxSale = Math.max(...displayAmounts, 1)
+                const totalYearSales = displayAmounts.reduce((sum, a) => sum + a, 0)
+                const currentMonth = new Date().getMonth()
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                
+                return (
+                  <div className="space-y-4">
+                    {/* Year Total Summary */}
+                    <div className="flex items-center justify-between px-1 pb-2 border-b border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        <span className="text-sm text-muted-foreground">Year Total</span>
                       </div>
-                      <span className="text-xs text-muted-foreground hidden lg:block font-medium">{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i]}</span>
+                      <span className="text-lg font-bold text-foreground">{formatCurrency(totalYearSales, displayCurrency)}</span>
                     </div>
-                  )
-                })}
-              </div>
+                    
+                    {/* Chart Area */}
+                    <div className="relative h-48 lg:h-56">
+                      {/* Y-axis grid lines */}
+                      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                        {[0, 1, 2, 3].map((_, i) => (
+                          <div key={i} className="flex items-center gap-2 w-full">
+                            <span className="text-[10px] text-muted-foreground w-12 text-right shrink-0">
+                              {formatCurrency(maxSale * (1 - i/3), displayCurrency).replace(/\.\d+/, '')}
+                            </span>
+                            <div className="flex-1 border-b border-dashed border-border/40" />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Bars Container */}
+                      <div className="absolute inset-0 pl-14 flex items-end gap-1 pb-6">
+                        {displayAmounts.map((displayAmount, i) => {
+                          const heightPercent = maxSale > 0 ? (displayAmount / maxSale) * 100 : 0
+                          const isCurrentMonth = i === currentMonth
+                          const hasSales = displayAmount > 0
+                          
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center group relative h-full">
+                              {/* Bar */}
+                              <div className="relative w-full h-full flex items-end justify-center">
+                                <div 
+                                  className={`w-full max-w-[32px] rounded-t-md transition-all duration-300 cursor-pointer relative overflow-hidden ${
+                                    hasSales 
+                                      ? isCurrentMonth
+                                        ? 'bg-gradient-to-t from-primary to-primary/80 shadow-lg shadow-primary/20'
+                                        : 'bg-gradient-to-t from-primary/70 to-primary/50 hover:from-primary hover:to-primary/80'
+                                      : 'bg-muted/30'
+                                  }`}
+                                  style={{ 
+                                    height: hasSales ? `${Math.max(heightPercent, 4)}%` : '2px',
+                                  }}
+                                >
+                                  {/* Shine effect on current month */}
+                                  {isCurrentMonth && hasSales && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                                  )}
+                                </div>
+                                
+                                {/* Tooltip */}
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card border border-border shadow-xl rounded-lg px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 pointer-events-none">
+                                  <div className="text-[10px] text-muted-foreground text-center">{months[i]}</div>
+                                  <div className="text-xs font-bold text-foreground whitespace-nowrap">
+                                    {formatCurrency(displayAmount, displayCurrency)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* X-axis labels */}
+                      <div className="absolute bottom-0 left-14 right-0 flex justify-between">
+                        {months.map((month, i) => (
+                          <div key={month} className="flex-1 text-center">
+                            <span className={`text-[10px] font-medium ${
+                              i === currentMonth 
+                                ? 'text-primary' 
+                                : 'text-muted-foreground'
+                            }`}>
+                              {month.substring(0, 1)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Legend */}
+                    <div className="flex items-center justify-center gap-4 pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm bg-gradient-to-t from-primary to-primary/80 shadow-sm" />
+                        <span className="text-xs text-muted-foreground">Current Month</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-sm bg-gradient-to-t from-primary/70 to-primary/50" />
+                        <span className="text-xs text-muted-foreground">Other Months</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
             </ChartCard>
 
             {/* Quick Stats - Desktop Only */}
