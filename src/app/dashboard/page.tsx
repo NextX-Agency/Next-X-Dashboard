@@ -35,6 +35,7 @@ type DashboardStats = {
   todaysSalesUSD: number
   todaysSalesSRD: number
   salesTrend: number
+  totalSalesTrend: number
   recentActivity: Array<{
     icon: typeof ShoppingCart
     title: string
@@ -57,6 +58,7 @@ export default function Home() {
     todaysSalesUSD: 0,
     todaysSalesSRD: 0,
     salesTrend: 0,
+    totalSalesTrend: 0,
     recentActivity: []
   })
   const [loading, setLoading] = useState(true)
@@ -122,6 +124,29 @@ export default function Home() {
         ? ((todaysTotalInUSD - yesterdaysTotalInUSD) / yesterdaysTotalInUSD) * 100 
         : (todaysTotalInUSD > 0 ? 100 : 0) // If no sales yesterday but sales today, show 100% growth
 
+      // Calculate Total Sales trend (this month vs last month)
+      const now = new Date()
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+
+      const thisMonthSales = sales.filter(s => new Date(s.created_at) >= thisMonthStart)
+      const thisMonthUSD = thisMonthSales.filter(s => s.currency === 'USD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const thisMonthSRD = thisMonthSales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const thisMonthTotalInUSD = thisMonthUSD + (thisMonthSRD / rate)
+
+      const lastMonthSales = sales.filter(s => {
+        const date = new Date(s.created_at)
+        return date >= lastMonthStart && date <= lastMonthEnd
+      })
+      const lastMonthUSD = lastMonthSales.filter(s => s.currency === 'USD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const lastMonthSRD = lastMonthSales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + Number(s.total_amount), 0)
+      const lastMonthTotalInUSD = lastMonthUSD + (lastMonthSRD / rate)
+
+      const totalSalesTrend = lastMonthTotalInUSD > 0
+        ? ((thisMonthTotalInUSD - lastMonthTotalInUSD) / lastMonthTotalInUSD) * 100
+        : (thisMonthTotalInUSD > 0 ? 100 : 0)
+
       // Stock items with quantity > 0
       const stockItemsCount = stock.filter(s => s.quantity > 0).length
       
@@ -174,6 +199,7 @@ export default function Home() {
         todaysSalesUSD: todaysUSD,
         todaysSalesSRD: todaysSRD,
         salesTrend: trend, // Preserve sign for accurate trend display
+        totalSalesTrend: totalSalesTrend, // Last 30 days vs previous 30 days
         recentActivity: activity.slice(0, 4)
       })
     } catch (error) {
@@ -229,7 +255,7 @@ export default function Home() {
                 <span className="text-sm font-bold text-white tracking-wide">Live Dashboard</span>
               </div>
               <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
-                Welcome back ≡ƒæï
+                Welcome Back Admin
               </h1>
               <p className="text-orange-100/90 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
                 Here&apos;s what&apos;s happening with your business today. All metrics are updated in real-time.
@@ -275,7 +301,7 @@ export default function Home() {
               displayCurrency
             )}
             icon={DollarSign}
-            trend={{ value: `${stats.salesTrend.toFixed(1)}%`, isPositive: stats.salesTrend >= 0 }}
+            trend={{ value: `${stats.totalSalesTrend > 0 ? '+' : ''}${stats.totalSalesTrend.toFixed(1)}%`, isPositive: stats.totalSalesTrend >= 0 }}
             color="orange"
           />
           <StatCard 
