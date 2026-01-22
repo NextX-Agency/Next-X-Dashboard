@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     description: 'NextX Suriname - Your trusted source for premium in-ear monitors, KZ earphones, and audio accessories in Suriname. Local pickup, WhatsApp ordering.',
     images: [
       {
-        url: '/og-image.png',
+        url: `${BASE_URL}/og-image.png`,
         width: 1200,
         height: 630,
         alt: 'NextX Suriname - Premium Audio Shop',
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'NextX Suriname | Premium Audio & In-Ear Monitors',
     description: 'Your trusted source for premium in-ear monitors and audio accessories in Suriname. Local pickup, WhatsApp ordering.',
-    images: ['/og-image.png'],
+    images: [`${BASE_URL}/og-image.png`],
     creator: '@nextxsuriname',
     site: '@nextxsuriname',
   },
