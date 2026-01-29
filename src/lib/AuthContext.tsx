@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from './supabase'
 import { getDefaultRedirect, getAccessDeniedRedirect } from './routes'
 
 // User roles enum for type safety
@@ -39,26 +38,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check for existing session
+    // Check for existing session using API route (bypasses RLS)
     const checkSession = async () => {
       const sessionData = localStorage.getItem('auth_session')
       if (sessionData) {
         try {
           const session = JSON.parse(sessionData)
-          // Verify session is still valid
-          const { data } = await supabase
-            .from('users')
-            .select('id, email, name, role, is_active')
-            .eq('id', session.userId)
-            .eq('is_active', true)
-            .single()
+          // Verify session via API route
+          const response = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: session.userId })
+          })
           
-          if (data) {
+          const result = await response.json()
+          
+          if (result.success && result.user) {
             setUser({
-              id: data.id,
-              email: data.email,
-              name: data.name,
-              role: data.role as UserRole
+              id: result.user.id,
+              email: result.user.email,
+              name: result.user.name,
+              role: result.user.role as UserRole
             })
           } else {
             localStorage.removeItem('auth_session')
@@ -75,32 +75,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {
-      // Fetch user by email
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('id, email, name, role, password_hash, is_active')
-        .eq('email', email.toLowerCase())
-        .single()
+      // Use API route for login (bypasses RLS)
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
       
-      if (error || !userData) {
-        return { success: false, error: 'Invalid email or password' }
+      const result = await response.json()
+      
+      if (!result.success) {
+        return { success: false, error: result.error || 'Login failed' }
       }
 
-      if (!userData.is_active) {
-        return { success: false, error: 'Account is disabled' }
-      }
-
-      // Simple password check (in production, use proper hashing like bcrypt)
-      // For now, we'll store passwords as plain text but you should implement proper hashing
-      if (userData.password_hash !== password) {
-        return { success: false, error: 'Invalid email or password' }
-      }
-
-      // Update last login
-      await supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', userData.id)
+      const userData = result.user
 
       // Set user state
       const userInfo: User = {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { fetchCatalogData } from '@/lib/catalogApi'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import FloatingWhatsApp from '@/components/FloatingWhatsApp'
@@ -222,133 +223,194 @@ export default function NewCatalogPage() {
     }
   }, [items, comboItems, cart])
 
-  // Load data
+  // Load data - Use API route that bypasses RLS, with Supabase fallback
   const loadData = async () => {
     setLoading(true)
     setError(null)
     try {
-      const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).order('created_at', { ascending: false }),
-        supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
-        supabase.from('store_settings').select('*'),
-        supabase.from('locations').select('*').eq('is_active', true).order('name'),
-        // Load active banners sorted by order
-        supabase.from('banners').select('*').eq('is_active', true).order('position'),
-        // Load featured collections with their items
-        supabase.from('collections')
-          .select(`
-            *,
-            collection_items (
-              id,
-              collection_id,
-              item_id,
-              sort_order,
-              items (*)
-            )
-          `)
-          .eq('is_active', true)
-          .eq('is_featured', true)
-          .order('created_at', { ascending: false })
-      ])
+      // Try API route first (uses Prisma, bypasses RLS)
+      const apiData = await fetchCatalogData()
       
-      if (categoriesRes.error) throw categoriesRes.error
-      if (itemsRes.error) throw itemsRes.error
-      
-      if (categoriesRes.data) setCategories(categoriesRes.data)
-      if (itemsRes.data) {
-        setItems(itemsRes.data)
-      }
-      
-      // Load combos separately
-      const combosRes = await supabase
-        .from('items')
-        .select('*')
-        .eq('is_public', true)
-        .eq('is_combo', true)
-      
-      if (combosRes.data && combosRes.data.length > 0) {
-        // Load combo_items for each combo
-        const comboItemsRes = await supabase
-          .from('combo_items')
-          .select('*')
-          .in('combo_id', combosRes.data.map(c => c.id))
+      // Check if we got data from the API
+      if (apiData.categories.length > 0 || apiData.items.length > 0) {
+        console.log('Using API data (Prisma)')
         
-        // Load all child items
-        const childItemIds = comboItemsRes.data?.map(ci => ci.item_id) || []
-        const childItemsRes = await supabase
+        // Set categories
+        if (apiData.categories.length > 0) {
+          setCategories(apiData.categories as Category[])
+        }
+        
+        // Set items
+        if (apiData.items.length > 0) {
+          setItems(apiData.items as ItemWithCombo[])
+        }
+        
+        // Set combos
+        if (apiData.combos.length > 0) {
+          setComboItems(apiData.combos as ItemWithCombo[])
+        }
+        
+        // Set locations
+        if (apiData.locations.length > 0) {
+          setLocations(apiData.locations as Location[])
+          if (!selectedLocation && apiData.locations.length > 0) {
+            setSelectedLocation((apiData.locations[0] as Location).id)
+          }
+        }
+        
+        // Set exchange rate
+        if (apiData.exchangeRate) {
+          setExchangeRate((apiData.exchangeRate as { usd_to_srd: number }).usd_to_srd)
+        }
+        
+        // Set banners
+        if (apiData.banners.length > 0) {
+          setBanners(apiData.banners as Banner[])
+        }
+        
+        // Set collections
+        if (apiData.collections.length > 0) {
+          setCollections(apiData.collections as Collection[])
+        }
+        
+        // Set settings
+        if (Object.keys(apiData.settings).length > 0) {
+          const settingsMap = apiData.settings
+          const logoUrl = settingsMap.store_logo_url || ''
+          const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
+          
+          setSettings({
+            whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
+            store_name: settingsMap.store_name || 'NextX',
+            store_description: settingsMap.store_description || '',
+            store_address: settingsMap.store_address || 'Commewijne, Noord',
+            store_email: settingsMap.store_email || '',
+            store_logo_url: validLogoUrl,
+            hero_title: settingsMap.hero_title || 'Welkom',
+            hero_subtitle: settingsMap.hero_subtitle || ''
+          })
+        }
+        
+        // Set stock
+        if (apiData.stock.length > 0) {
+          const map = new Map<string, number>()
+          apiData.stock.forEach((stock: unknown) => {
+            const s = stock as { item_id: string; quantity: number }
+            const current = map.get(s.item_id) || 0
+            map.set(s.item_id, current + s.quantity)
+          })
+          setStockMap(map)
+          setStockMetadata({ lastUpdated: new Date() })
+        }
+      } else {
+        // Fallback to Supabase (in case API fails)
+        console.log('Falling back to Supabase')
+        const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
+          supabase.from('categories').select('*').order('name'),
+          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).order('created_at', { ascending: false }),
+          supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
+          supabase.from('store_settings').select('*'),
+          supabase.from('locations').select('*').eq('is_active', true).order('name'),
+          supabase.from('banners').select('*').eq('is_active', true).order('position'),
+          supabase.from('collections')
+            .select(`
+              *,
+              collection_items (
+                id,
+                collection_id,
+                item_id,
+                sort_order,
+                items (*)
+              )
+            `)
+            .eq('is_active', true)
+            .eq('is_featured', true)
+            .order('created_at', { ascending: false })
+        ])
+        
+        if (categoriesRes.error) throw categoriesRes.error
+        if (itemsRes.error) throw itemsRes.error
+        
+        if (categoriesRes.data) setCategories(categoriesRes.data)
+        if (itemsRes.data) {
+          setItems(itemsRes.data)
+        }
+        
+        // Load combos separately
+        const combosRes = await supabase
           .from('items')
           .select('*')
-          .in('id', childItemIds)
+          .eq('is_public', true)
+          .eq('is_combo', true)
         
-        // Map child items to combo_items
-        const comboItemsWithChildren = comboItemsRes.data?.map(ci => ({
-          ...ci,
-          child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
-          child_item_id: ci.item_id  // Add mapping for compatibility
-        })) || []
-        
-        // Merge combo_items into combos
-        const combosWithItems: ItemWithCombo[] = combosRes.data.map(combo => ({
-          ...combo,
-          combo_items: comboItemsWithChildren.filter(ci => ci.combo_id === combo.id)
-        }))
-        
-        console.log('Combo Items loaded:', combosWithItems.length, combosWithItems)
-        setComboItems(combosWithItems)
-      } else {
-        console.log('No combos found')
-      }
-      
-      if (locationsRes.data) {
-        setLocations(locationsRes.data)
-        if (!selectedLocation && locationsRes.data.length > 0) {
-          setSelectedLocation(locationsRes.data[0].id)
+        if (combosRes.data && combosRes.data.length > 0) {
+          const comboItemsRes = await supabase
+            .from('combo_items')
+            .select('*')
+            .in('combo_id', combosRes.data.map(c => c.id))
+          
+          const childItemIds = comboItemsRes.data?.map(ci => ci.item_id) || []
+          const childItemsRes = await supabase
+            .from('items')
+            .select('*')
+            .in('id', childItemIds)
+          
+          const comboItemsWithChildren = comboItemsRes.data?.map(ci => ({
+            ...ci,
+            child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
+            child_item_id: ci.item_id
+          })) || []
+          
+          const combosWithItems: ItemWithCombo[] = combosRes.data.map(combo => ({
+            ...combo,
+            combo_items: comboItemsWithChildren.filter(ci => ci.combo_id === combo.id)
+          }))
+          
+          setComboItems(combosWithItems)
         }
-      }
-      // Set banners
-      if (bannersRes.data) {
-        setBanners(bannersRes.data as Banner[])
-      }
-      // Set collections
-      if (collectionsRes.data) {
-        setCollections(collectionsRes.data as Collection[])
-      }
-      if (rateRes.data) setExchangeRate(rateRes.data.usd_to_srd)
-      if (settingsRes.data) {
-        const settingsMap: Record<string, string> = {}
-        settingsRes.data.forEach((s: { key: string; value: string }) => {
-          settingsMap[s.key] = s.value
-        })
-        // Filter out invalid logo URLs (like /logo.png which doesn't exist)
-        const logoUrl = settingsMap.store_logo_url || ''
-        const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
         
-        setSettings({
-          whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
-          store_name: settingsMap.store_name || 'NextX',
-          store_description: settingsMap.store_description || '',
-          store_address: settingsMap.store_address || 'Commewijne, Noord',
-          store_email: settingsMap.store_email || '',
-          store_logo_url: validLogoUrl,
-          hero_title: settingsMap.hero_title || 'Welkom',
-          hero_subtitle: settingsMap.hero_subtitle || ''
-        })
-      }
+        if (locationsRes.data) {
+          setLocations(locationsRes.data)
+          if (!selectedLocation && locationsRes.data.length > 0) {
+            setSelectedLocation(locationsRes.data[0].id)
+          }
+        }
+        if (bannersRes.data) setBanners(bannersRes.data as Banner[])
+        if (collectionsRes.data) setCollections(collectionsRes.data as Collection[])
+        if (rateRes.data) setExchangeRate(rateRes.data.usd_to_srd)
+        if (settingsRes.data) {
+          const settingsMap: Record<string, string> = {}
+          settingsRes.data.forEach((s: { key: string; value: string }) => {
+            settingsMap[s.key] = s.value
+          })
+          const logoUrl = settingsMap.store_logo_url || ''
+          const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
+          
+          setSettings({
+            whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
+            store_name: settingsMap.store_name || 'NextX',
+            store_description: settingsMap.store_description || '',
+            store_address: settingsMap.store_address || 'Commewijne, Noord',
+            store_email: settingsMap.store_email || '',
+            store_logo_url: validLogoUrl,
+            hero_title: settingsMap.hero_title || 'Welkom',
+            hero_subtitle: settingsMap.hero_subtitle || ''
+          })
+        }
 
-      // Load stock data (aggregate from all locations)
-      const { data: stockData } = await supabase
-        .from('stock')
-        .select('item_id, quantity')
-      
-      if (stockData) {
-        const map = new Map<string, number>()
-        stockData.forEach((stock: { item_id: string; quantity: number }) => {
-          const current = map.get(stock.item_id) || 0
-          map.set(stock.item_id, current + stock.quantity)
-        })
-        setStockMap(map)
-        setStockMetadata({ lastUpdated: new Date() })
+        const { data: stockData } = await supabase
+          .from('stock')
+          .select('item_id, quantity')
+        
+        if (stockData) {
+          const map = new Map<string, number>()
+          stockData.forEach((stock: { item_id: string; quantity: number }) => {
+            const current = map.get(stock.item_id) || 0
+            map.set(stock.item_id, current + stock.quantity)
+          })
+          setStockMap(map)
+          setStockMetadata({ lastUpdated: new Date() })
+        }
       }
     } catch (err) {
       console.error('Error loading catalog data:', err)
@@ -361,6 +423,23 @@ export default function NewCatalogPage() {
   // Refresh stock data periodically (every 30 seconds) for real-time accuracy
   const refreshStock = useCallback(async () => {
     try {
+      // Try API first
+      const response = await fetch('/api/catalog?type=stock')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.stock && data.stock.length > 0) {
+          const map = new Map<string, number>()
+          data.stock.forEach((stock: { itemId: string; quantity: number }) => {
+            const current = map.get(stock.itemId) || 0
+            map.set(stock.itemId, current + stock.quantity)
+          })
+          setStockMap(map)
+          setStockMetadata({ lastUpdated: new Date() })
+          return
+        }
+      }
+      
+      // Fallback to Supabase
       const { data: stockData } = await supabase
         .from('stock')
         .select('item_id, quantity')

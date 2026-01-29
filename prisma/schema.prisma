@@ -8,90 +8,106 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// User model for authentication
 model User {
-  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email         String    @unique
-  passwordHash  String    @map("password_hash")
-  name          String?
-  role          String    @default("admin") // admin, staff
-  isActive      Boolean   @default(true) @map("is_active")
-  lastLoginAt   DateTime? @map("last_login_at") @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String?
+  role         String    @default("admin")
+  isActive     Boolean?  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@index([email], map: "idx_users_email")
   @@map("users")
 }
 
-// Activity log for tracking all changes
 model ActivityLog {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  action      String   // create, update, delete, transfer, complete, cancel, pay
-  entityType  String   @map("entity_type")
-  entityId    String?  @map("entity_id")
-  entityName  String?  @map("entity_name")
-  details     String?
-  userId      String?  @map("user_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  action     String
+  entityType String    @map("entity_type")
+  entityId   String?   @map("entity_id")
+  entityName String?   @map("entity_name")
+  details    String?
+  userId     String?   @map("user_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@index([action], map: "idx_activity_logs_action")
+  @@index([createdAt(sort: Desc)], map: "idx_activity_logs_created")
+  @@index([entityType], map: "idx_activity_logs_entity")
   @@map("activity_logs")
 }
 
-// Store settings for webshop and store configuration
 model StoreSetting {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  key       String   @unique
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key       String    @unique
   value     String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("store_settings")
 }
 
 model Category {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name       String
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  items      Item[]
+  id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                  String
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  commissions           Commission[]
+  items                 Item[]
+  seller_category_rates seller_category_rates[]
 
   @@map("categories")
 }
 
 model Item {
-  id                  String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                String
-  description         String?
-  categoryId          String?             @map("category_id") @db.Uuid
-  purchasePriceUsd    Decimal             @map("purchase_price_usd") @db.Decimal(10, 2)
-  sellingPriceSrd     Decimal?            @map("selling_price_srd") @db.Decimal(10, 2)
-  sellingPriceUsd     Decimal?            @map("selling_price_usd") @db.Decimal(10, 2)
-  imageUrl            String?             @map("image_url")
-  isPublic            Boolean             @default(true) @map("is_public")
-  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  category            Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  stock               Stock[]
-  saleItems           SaleItem[]
-  reservations        Reservation[]
-  stockTransfers      StockTransfer[]
-  purchaseOrderItems  PurchaseOrderItem[]
+  id                                      String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                                    String
+  categoryId                              String?             @map("category_id") @db.Uuid
+  purchasePriceUsd                        Decimal             @map("purchase_price_usd") @db.Decimal(10, 2)
+  sellingPriceSrd                         Decimal?            @map("selling_price_srd") @db.Decimal(10, 2)
+  sellingPriceUsd                         Decimal?            @map("selling_price_usd") @db.Decimal(10, 2)
+  imageUrl                                String?             @map("image_url")
+  createdAt                               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                               DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  description                             String?
+  isPublic                                Boolean?            @default(true) @map("is_public")
+  is_combo                                Boolean?            @default(false)
+  allow_custom_price                      Boolean?            @default(false)
+  combo_items_combo_items_combo_idToitems combo_items[]       @relation("combo_items_combo_idToitems")
+  combo_items_combo_items_item_idToitems  combo_items[]       @relation("combo_items_item_idToitems")
+  category                                Category?           @relation(fields: [categoryId], references: [id])
+  purchaseOrderItems                      PurchaseOrderItem[]
+  reservations                            Reservation[]
+  saleItems                               SaleItem[]
+  stock                                   Stock[]
+  stockTransfers                          StockTransfer[]
 
   @@map("items")
 }
 
 model Location {
-  id              String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name            String
   address         String?
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  stock           Stock[]
-  sales           Sale[]
-  reservations    Reservation[]
-  transfersFrom   StockTransfer[]  @relation("FromLocation")
-  transfersTo     StockTransfer[]  @relation("ToLocation")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  seller_name     String?
+  seller_phone    String?
+  commission_rate Decimal?        @default(0) @db.Decimal(5, 2)
+  is_active       Boolean?        @default(true)
+  clients         Client[]
+  commissions     Commission[]
+  expenses        Expense[]
   purchaseOrders  PurchaseOrder[]
+  reservations    Reservation[]
+  sales           Sale[]
+  sellers         Seller[]
+  stock           Stock[]
+  transfersFrom   StockTransfer[] @relation("FromLocation")
+  transfersTo     StockTransfer[] @relation("ToLocation")
+  wallets         Wallet[]
 
   @@map("locations")
 }
@@ -118,96 +134,114 @@ model StockTransfer {
   quantity       Int
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   fromLocation   Location @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Cascade)
+  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   toLocation     Location @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Cascade)
 
   @@map("stock_transfers")
 }
 
 model ExchangeRate {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  usdToSrd  Decimal  @map("usd_to_srd") @db.Decimal(10, 4)
-  setAt     DateTime @default(now()) @map("set_at") @db.Timestamptz(6)
-  isActive  Boolean  @default(true) @map("is_active")
+  id       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  usdToSrd Decimal  @map("usd_to_srd") @db.Decimal(10, 4)
+  setAt    DateTime @default(now()) @map("set_at") @db.Timestamptz(6)
+  isActive Boolean  @default(true) @map("is_active")
 
   @@map("exchange_rates")
 }
 
 model Client {
-  id           String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name         String
-  phone        String?
-  email        String?
-  notes        String?
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  reservations Reservation[]
+  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String
+  phone           String?
+  email           String?
+  notes           String?
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location_id     String?         @db.Uuid
+  locations       Location?       @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  purchase_orders PurchaseOrder[]
+  reservations    Reservation[]
 
+  @@index([location_id], map: "idx_clients_location")
   @@map("clients")
 }
 
 model Reservation {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  clientId   String   @map("client_id") @db.Uuid
-  itemId     String   @map("item_id") @db.Uuid
-  locationId String   @map("location_id") @db.Uuid
-  quantity   Int
-  status     String   @default("pending")
-  notes      String?
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  id             String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  clientId       String   @map("client_id") @db.Uuid
+  itemId         String   @map("item_id") @db.Uuid
+  locationId     String   @map("location_id") @db.Uuid
+  quantity       Int
+  status         String   @default("pending")
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  combo_id       String?
+  combo_price    Decimal? @db.Decimal(10, 2)
+  original_price Decimal? @db.Decimal(10, 2)
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location       Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@map("reservations")
 }
 
 model Sale {
-  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  locationId    String     @map("location_id") @db.Uuid
-  sellerId      String?    @map("seller_id") @db.Uuid
-  currency      String
-  exchangeRate  Decimal?   @map("exchange_rate") @db.Decimal(10, 4)
-  totalAmount   Decimal    @map("total_amount") @db.Decimal(10, 2)
-  paymentMethod String?    @map("payment_method")
-  notes         String?
-  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  location      Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  seller        Seller?    @relation(fields: [sellerId], references: [id])
-  saleItems     SaleItem[]
-  commissions   Commission[]
+  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  locationId          String                @map("location_id") @db.Uuid
+  sellerId            String?               @map("seller_id") @db.Uuid
+  currency            String
+  exchangeRate        Decimal?              @map("exchange_rate") @db.Decimal(10, 4)
+  totalAmount         Decimal               @map("total_amount") @db.Decimal(10, 2)
+  paymentMethod       String?               @map("payment_method")
+  notes               String?
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  wallet_id           String?               @db.Uuid
+  commissions         Commission[]
+  saleItems           SaleItem[]
+  location            Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  seller              Seller?               @relation(fields: [sellerId], references: [id])
+  wallets             Wallet?               @relation(fields: [wallet_id], references: [id], onUpdate: NoAction)
+  wallet_transactions wallet_transactions[]
 
   @@map("sales")
 }
 
 model SaleItem {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  saleId    String   @map("sale_id") @db.Uuid
-  itemId    String   @map("item_id") @db.Uuid
-  quantity  Int
-  unitPrice Decimal  @map("unit_price") @db.Decimal(10, 2)
-  subtotal  Decimal  @db.Decimal(10, 2)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  saleId          String   @map("sale_id") @db.Uuid
+  itemId          String   @map("item_id") @db.Uuid
+  quantity        Int
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(10, 2)
+  subtotal        Decimal  @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  is_custom_price Boolean? @default(false)
+  original_price  Decimal? @db.Decimal(10, 2)
+  discount_reason String?
+  item            Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  sale            Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
   @@map("sale_items")
 }
 
 model Wallet {
-  id             String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  personName     String          @map("person_name")
-  type           String
-  currency       String
-  balance        Decimal         @default(0) @db.Decimal(10, 2)
-  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  expenses       Expense[]
-  purchaseOrders PurchaseOrder[]
+  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  personName          String                @map("person_name")
+  type                String
+  currency            String
+  balance             Decimal               @default(0) @db.Decimal(10, 2)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location_id         String?               @db.Uuid
+  expenses            Expense[]
+  purchaseOrders      PurchaseOrder[]
+  sales               Sale[]
+  wallet_transactions wallet_transactions[]
+  locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
 
   @@unique([personName, type, currency])
+  @@index([location_id], map: "idx_wallets_location")
   @@map("wallets")
 }
 
@@ -221,41 +255,56 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id          String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  categoryId  String?          @map("category_id") @db.Uuid
-  walletId    String           @map("wallet_id") @db.Uuid
-  amount      Decimal          @db.Decimal(10, 2)
-  currency    String
-  description String?
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  category    ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  wallet      Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  categoryId          String?               @map("category_id") @db.Uuid
+  walletId            String                @map("wallet_id") @db.Uuid
+  amount              Decimal               @db.Decimal(10, 2)
+  currency            String
+  description         String?
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  location_id         String?               @db.Uuid
+  category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
+  locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  wallet_transactions wallet_transactions[]
 
+  @@index([location_id], map: "idx_expenses_location")
   @@map("expenses")
 }
 
 model Seller {
-  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name           String
-  commissionRate Decimal      @default(0) @map("commission_rate") @db.Decimal(5, 2)
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sales          Sale[]
-  commissions    Commission[]
+  id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                  String
+  commissionRate        Decimal                 @default(0) @map("commission_rate") @db.Decimal(5, 2)
+  createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location_id           String?                 @db.Uuid
+  commissions           Commission[]
+  sales                 Sale[]
+  seller_category_rates seller_category_rates[]
+  locations             Location?               @relation(fields: [location_id], references: [id], onUpdate: NoAction)
 
+  @@index([location_id], map: "idx_sellers_location")
   @@map("sellers")
 }
 
 model Commission {
-  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  sellerId         String   @map("seller_id") @db.Uuid
-  saleId           String   @map("sale_id") @db.Uuid
-  commissionAmount Decimal  @map("commission_amount") @db.Decimal(10, 2)
-  paid             Boolean  @default(false)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  seller           Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  sale             Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sellerId         String    @map("seller_id") @db.Uuid
+  saleId           String    @map("sale_id") @db.Uuid
+  commissionAmount Decimal   @map("commission_amount") @db.Decimal(10, 2)
+  paid             Boolean   @default(false)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  location_id      String?   @db.Uuid
+  commission_rate  Decimal?  @default(0) @db.Decimal(5, 2)
+  category_id      String?   @db.Uuid
+  categories       Category? @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  locations        Location? @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  sale             Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  seller           Seller    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
+  @@index([category_id], map: "idx_commissions_category")
+  @@index([location_id], map: "idx_commissions_location")
   @@map("commissions")
 }
 
@@ -297,62 +346,70 @@ model Goal {
 }
 
 model PurchaseOrder {
-  id            String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  walletId      String              @map("wallet_id") @db.Uuid
-  locationId    String              @map("location_id") @db.Uuid
-  status        String              @default("pending") // pending, shipped, delivered, cancelled
-  totalAmount   Decimal             @map("total_amount") @db.Decimal(10, 2)
-  currency      String              @default("USD")
-  supplier      String?
-  notes         String?
-  expectedDate  DateTime?           @map("expected_date") @db.Date
-  deliveredAt   DateTime?           @map("delivered_at") @db.Timestamptz(6)
-  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  wallet        Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  location      Location            @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  items         PurchaseOrderItem[]
+  id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  walletId             String              @map("wallet_id") @db.Uuid
+  locationId           String              @map("location_id") @db.Uuid
+  supplier_id          String?             @db.Uuid
+  totalAmount          Decimal             @default(0) @map("total_amount") @db.Decimal(10, 2)
+  currency             String              @default("USD") @db.VarChar(10)
+  exchange_rate        Decimal?            @db.Decimal(10, 4)
+  status               String              @default("pending") @db.VarChar(50)
+  notes                String?
+  expected_arrival     DateTime?           @db.Timestamptz(6)
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  purchase_order_items PurchaseOrderItem[]
+  location             Location            @relation(fields: [locationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients              Client?             @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  wallet               Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([createdAt], map: "idx_purchase_orders_created_at")
+  @@index([locationId], map: "idx_purchase_orders_location_id")
+  @@index([status], map: "idx_purchase_orders_status")
+  @@index([walletId], map: "idx_purchase_orders_wallet_id")
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
-  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  purchaseOrderId String        @map("purchase_order_id") @db.Uuid
-  itemId          String        @map("item_id") @db.Uuid
-  quantity        Int
-  unitPrice       Decimal       @map("unit_price") @db.Decimal(10, 2)
-  subtotal        Decimal       @db.Decimal(10, 2)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  item            Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  order_id          String        @db.Uuid
+  itemId            String        @map("item_id") @db.Uuid
+  quantity          Int           @default(1)
+  unit_cost         Decimal       @default(0) @db.Decimal(10, 2)
+  subtotal          Decimal       @default(0) @db.Decimal(10, 2)
+  quantity_received Int           @default(0)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  item              Item          @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_orders   PurchaseOrder @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([itemId], map: "idx_purchase_order_items_item_id")
+  @@index([order_id], map: "idx_purchase_order_items_order_id")
   @@map("purchase_order_items")
 }
 
-// ==================== CMS & CONTENT MODELS ====================
-
-// Blog posts for content marketing
 model BlogPost {
-  id            String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  title         String
-  slug          String        @unique
-  excerpt       String?
-  content       String        @db.Text
-  coverImage    String?       @map("cover_image")
-  authorId      String?       @map("author_id") @db.Uuid
-  categoryId    String?       @map("category_id") @db.Uuid
-  status        String        @default("draft") // draft, published, archived
-  isFeatured    Boolean       @default(false) @map("is_featured")
-  metaTitle     String?       @map("meta_title")
-  metaDesc      String?       @map("meta_description")
-  viewCount     Int           @default(0) @map("view_count")
-  publishedAt   DateTime?     @map("published_at") @db.Timestamptz(6)
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  category      BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  tags          BlogPostTag[]
+  id          String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     String
+  coverImage  String?       @map("cover_image")
+  authorId    String?       @map("author_id") @db.Uuid
+  categoryId  String?       @map("category_id") @db.Uuid
+  status      String?       @default("draft")
+  isFeatured  Boolean?      @default(false) @map("is_featured")
+  metaTitle   String?       @map("meta_title")
+  metaDesc    String?       @map("meta_description")
+  viewCount   Int?          @default(0) @map("view_count")
+  publishedAt DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime?     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tags        BlogPostTag[]
+  category    BlogCategory? @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
 
+  @@index([publishedAt], map: "idx_blog_posts_published_at")
+  @@index([slug], map: "idx_blog_posts_slug")
+  @@index([status], map: "idx_blog_posts_status")
   @@map("blog_posts")
 }
 
@@ -361,8 +418,8 @@ model BlogCategory {
   name        String
   slug        String     @unique
   description String?
-  color       String?    // For UI display
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  color       String?
+  createdAt   DateTime?  @default(now()) @map("created_at") @db.Timestamptz(6)
   posts       BlogPost[]
 
   @@map("blog_categories")
@@ -372,98 +429,100 @@ model BlogTag {
   id        String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name      String        @unique
   slug      String        @unique
-  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt DateTime?     @default(now()) @map("created_at") @db.Timestamptz(6)
   posts     BlogPostTag[]
 
   @@map("blog_tags")
 }
 
 model BlogPostTag {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  postId    String   @map("post_id") @db.Uuid
-  tagId     String   @map("tag_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag       BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  postId    String    @map("post_id") @db.Uuid
+  tagId     String    @map("tag_id") @db.Uuid
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  post      BlogPost  @relation(fields: [postId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       BlogTag   @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([postId, tagId])
   @@map("blog_post_tags")
 }
 
-// Homepage banners/sliders
 model Banner {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   title       String
   subtitle    String?
-  imageUrl    String   @map("image_url")
-  mobileImage String?  @map("mobile_image")
-  linkUrl     String?  @map("link_url")
-  linkText    String?  @map("link_text")
-  position    Int      @default(0) // For ordering
-  isActive    Boolean  @default(true) @map("is_active")
+  imageUrl    String    @map("image_url")
+  mobileImage String?   @map("mobile_image")
+  linkUrl     String?   @map("link_url")
+  linkText    String?   @map("link_text")
+  position    Int?      @default(0)
+  isActive    Boolean?  @default(true) @map("is_active")
   startDate   DateTime? @map("start_date") @db.Timestamptz(6)
   endDate     DateTime? @map("end_date") @db.Timestamptz(6)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sort_order  Int?      @default(0)
+  button_text String?
 
+  @@index([isActive], map: "idx_banners_active")
   @@map("banners")
 }
 
-// Static pages (About, FAQ, Terms, etc.)
 model Page {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   title       String
-  slug        String   @unique
-  content     String   @db.Text
-  metaTitle   String?  @map("meta_title")
-  metaDesc    String?  @map("meta_description")
-  isPublished Boolean  @default(false) @map("is_published")
-  template    String   @default("default") // default, full-width, landing
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  slug        String    @unique
+  content     String
+  metaTitle   String?   @map("meta_title")
+  metaDesc    String?   @map("meta_description")
+  isPublished Boolean?  @default(false) @map("is_published")
+  template    String?   @default("default")
+  createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  @@index([slug], map: "idx_pages_slug")
   @@map("pages")
 }
 
-// Product images gallery (multiple images per item)
 model ItemImage {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  itemId    String   @map("item_id") @db.Uuid
-  imageUrl  String   @map("image_url")
-  altText   String?  @map("alt_text")
-  position  Int      @default(0)
-  isPrimary Boolean  @default(false) @map("is_primary")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  itemId    String    @map("item_id") @db.Uuid
+  imageUrl  String    @map("image_url")
+  altText   String?   @map("alt_text")
+  position  Int?      @default(0)
+  isPrimary Boolean?  @default(false) @map("is_primary")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@index([itemId], map: "idx_item_images_item_id")
   @@map("item_images")
 }
 
-// Product specifications/features
 model ItemFeature {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  itemId    String   @map("item_id") @db.Uuid
-  name      String   // e.g., "Screen Size", "Battery Life"
-  value     String   // e.g., "6.5 inches", "5000mAh"
-  position  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  itemId    String    @map("item_id") @db.Uuid
+  name      String
+  value     String
+  position  Int?      @default(0)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@index([itemId], map: "idx_item_features_item_id")
   @@map("item_features")
 }
 
-// Promotional/featured collections
 model Collection {
   id          String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String
   slug        String           @unique
   description String?
   imageUrl    String?          @map("image_url")
-  isActive    Boolean          @default(true) @map("is_active")
-  isFeatured  Boolean          @default(false) @map("is_featured")
-  position    Int              @default(0)
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isActive    Boolean?         @default(true) @map("is_active")
+  isFeatured  Boolean?         @default(false) @map("is_featured")
+  position    Int?             @default(0)
+  createdAt   DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime?        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   items       CollectionItem[]
 
+  @@index([slug], map: "idx_collections_slug")
   @@map("collections")
 }
 
@@ -471,65 +530,124 @@ model CollectionItem {
   id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   collectionId String     @map("collection_id") @db.Uuid
   itemId       String     @map("item_id") @db.Uuid
-  position     Int        @default(0)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  position     Int?       @default(0)
+  createdAt    DateTime?  @default(now()) @map("created_at") @db.Timestamptz(6)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([collectionId, itemId])
   @@map("collection_items")
 }
 
-// Customer reviews
 model Review {
-  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  itemId     String   @map("item_id") @db.Uuid
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  itemId     String    @map("item_id") @db.Uuid
   name       String
   email      String?
-  rating     Int      // 1-5
+  rating     Int
   title      String?
-  content    String?  @db.Text
-  isVerified Boolean  @default(false) @map("is_verified")
-  isApproved Boolean  @default(false) @map("is_approved")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  content    String?
+  isVerified Boolean?  @default(false) @map("is_verified")
+  isApproved Boolean?  @default(false) @map("is_approved")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  @@index([itemId], map: "idx_reviews_item_id")
   @@map("reviews")
 }
 
-// Newsletter subscribers
 model Subscriber {
-  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email        String   @unique
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email        String    @unique
   name         String?
-  isActive     Boolean  @default(true) @map("is_active")
-  subscribedAt DateTime @default(now()) @map("subscribed_at") @db.Timestamptz(6)
+  isActive     Boolean?  @default(true) @map("is_active")
+  subscribedAt DateTime? @default(now()) @map("subscribed_at") @db.Timestamptz(6)
 
   @@map("subscribers")
 }
 
-// FAQ entries
 model FAQ {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  question  String
-  answer    String   @db.Text
-  category  String?
-  position  Int      @default(0)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  question   String
+  answer     String
+  category   String?
+  position   Int?      @default(0)
+  isActive   Boolean?  @default(true) @map("is_active")
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  sort_order Int?      @default(0)
 
+  @@index([category], map: "idx_faqs_category")
   @@map("faqs")
 }
 
-// Testimonials/social proof
 model Testimonial {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name      String
-  role      String?  // e.g., "Verified Buyer", "Tech Enthusiast"
-  content   String   @db.Text
-  avatarUrl String?  @map("avatar_url")
-  rating    Int?     // 1-5
-  isActive  Boolean  @default(true) @map("is_active")
-  position  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name               String
+  role               String?
+  content            String
+  avatarUrl          String?   @map("avatar_url")
+  rating             Int?
+  isActive           Boolean?  @default(true) @map("is_active")
+  position           Int?      @default(0)
+  createdAt          DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  customer_name      String
+  customer_title     String?
+  customer_image_url String?
+  is_featured        Boolean?  @default(false)
 
   @@map("testimonials")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model combo_items {
+  id                                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  combo_id                          String    @db.Uuid
+  item_id                           String    @db.Uuid
+  quantity                          Int       @default(1)
+  created_at                        DateTime? @default(now()) @db.Timestamptz(6)
+  items_combo_items_combo_idToitems Item      @relation("combo_items_combo_idToitems", fields: [combo_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items_combo_items_item_idToitems  Item      @relation("combo_items_item_idToitems", fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([combo_id, item_id])
+  @@index([combo_id], map: "idx_combo_items_combo")
+  @@index([item_id], map: "idx_combo_items_item")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model seller_category_rates {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  seller_id       String    @db.Uuid
+  category_id     String    @db.Uuid
+  commission_rate Decimal   @db.Decimal(5, 2)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  categories      Category  @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sellers         Seller    @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([seller_id, category_id])
+  @@index([category_id], map: "idx_seller_category_rates_category")
+  @@index([seller_id], map: "idx_seller_category_rates_seller")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model wallet_transactions {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  wallet_id      String    @db.Uuid
+  sale_id        String?   @db.Uuid
+  type           String
+  amount         Decimal   @db.Decimal(10, 2)
+  balance_before Decimal   @db.Decimal(10, 2)
+  balance_after  Decimal   @db.Decimal(10, 2)
+  description    String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  expense_id     String?   @db.Uuid
+  currency       String?   @default("SRD")
+  reference_type String?
+  reference_id   String?   @db.Uuid
+  expenses       Expense?  @relation(fields: [expense_id], references: [id], onUpdate: NoAction)
+  sales          Sale?     @relation(fields: [sale_id], references: [id], onUpdate: NoAction)
+  wallets        Wallet    @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_wallet_transactions_created")
+  @@index([expense_id], map: "idx_wallet_transactions_expense")
+  @@index([reference_type], map: "idx_wallet_transactions_reference_type")
+  @@index([sale_id], map: "idx_wallet_transactions_sale")
+  @@index([wallet_id], map: "idx_wallet_transactions_wallet")
 }
