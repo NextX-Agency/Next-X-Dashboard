@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { BarChart3, TrendingUp, Package, DollarSign, MapPin, Award, Layers, Sparkles } from 'lucide-react'
-import { PageHeader, Badge, StatBox } from '@/components/UI'
+import { BarChart3, TrendingUp, Package, DollarSign, Calendar, Award, ShoppingBag, Wallet } from 'lucide-react'
+import { PageHeader, Badge } from '@/components/UI'
 import { ChartCard } from '@/components/Cards'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -12,7 +12,9 @@ import { useCurrency } from '@/lib/CurrencyContext'
 type Sale = Database['public']['Tables']['sales']['Row']
 type Item = Database['public']['Tables']['items']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
+type Expense = Database['public']['Tables']['expenses']['Row']
+type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
+type Commission = Database['public']['Tables']['commissions']['Row']
 
 interface SaleWithItems extends Sale {
   sale_items?: Array<{
@@ -23,8 +25,21 @@ interface SaleWithItems extends Sale {
   }>
 }
 
-interface ItemWithCombo extends Item {
-  is_combo: boolean
+interface ExpenseWithCategory extends Expense {
+  expense_categories?: ExpenseCategory
+}
+
+interface MonthlySales {
+  month: string
+  year: number
+  totalSales: number
+  totalProfit: number
+  salesCount: number
+}
+
+interface MonthlyExpense {
+  categoryName: string
+  amount: number
 }
 
 // Helper to convert exchange rate values to primitive number
@@ -36,539 +51,589 @@ const toNum = (val: unknown): number => {
 
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
-  
-  // Convert exchange rate to primitive number once (avoids TypeScript Number vs number issues)
-  // Using double cast to ensure we get a primitive number type
   const rate = (exchangeRate as unknown as number) || 40
   
-  const [sales, setSales] = useState<SaleWithItems[]>([])
-  const [items, setItems] = useState<ItemWithCombo[]>([])
+  const [allSales, setAllSales] = useState<SaleWithItems[]>([])
+  const [currentMonthSales, setCurrentMonthSales] = useState<SaleWithItems[]>([])
+  const [items, setItems] = useState<Item[]>([])
   const [stocks, setStocks] = useState<Stock[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
-  const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily')
-  const [selectedLocation, setSelectedLocation] = useState<string>('')
+  const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([])
+  const [currentMonthCommissions, setCurrentMonthCommissions] = useState<Commission[]>([])
+  const [monthlySalesHistory, setMonthlySalesHistory] = useState<MonthlySales[]>([])
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])
 
   const loadData = async () => {
+    // Get current month date range
     const now = new Date()
-    const startDate = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-    switch (period) {
-      case 'daily':
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'weekly':
-        startDate.setDate(now.getDate() - 7)
-        break
-      case 'monthly':
-        startDate.setMonth(now.getMonth() - 1)
-        break
-      case 'yearly':
-        startDate.setFullYear(now.getFullYear() - 1)
-        break
-    }
-
-    const [salesRes, itemsRes, stocksRes, locationsRes] = await Promise.all([
+    // Load all data
+    const [allSalesRes, currentSalesRes, itemsRes, stocksRes, expensesRes, commissionsRes] = await Promise.all([
       supabase
         .from('sales')
         .select('*, sale_items(*)')
-        .gte('created_at', startDate.toISOString()),
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('sales')
+        .select('*, sale_items(*)')
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString()),
       supabase.from('items').select('*'),
       supabase.from('stock').select('*'),
-      supabase.from('locations').select('*')
+      supabase
+        .from('expenses')
+        .select('*, expense_categories(*)')
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString()),
+      supabase
+        .from('commissions')
+        .select('*')
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString())
     ])
 
-    if (salesRes.data) setSales(salesRes.data as SaleWithItems[])
-    if (itemsRes.data) setItems(itemsRes.data as ItemWithCombo[])
+    if (allSalesRes.data) {
+      setAllSales(allSalesRes.data as SaleWithItems[])
+      calculateMonthlySalesHistory(allSalesRes.data as SaleWithItems[], itemsRes.data as Item[])
+    }
+    if (currentSalesRes.data) setCurrentMonthSales(currentSalesRes.data as SaleWithItems[])
+    if (itemsRes.data) setItems(itemsRes.data)
     if (stocksRes.data) setStocks(stocksRes.data)
-    if (locationsRes.data) setLocations(locationsRes.data)
+    if (expensesRes.data) {
+      setExpenses(expensesRes.data as ExpenseWithCategory[])
+      calculateMonthlyExpenses(expensesRes.data as ExpenseWithCategory[])
+    }
+    if (commissionsRes.data) setCurrentMonthCommissions(commissionsRes.data as Commission[])
+  }
+
+  const calculateMonthlySalesHistory = (sales: SaleWithItems[], itemsList: Item[]) => {
+    const monthlyData = new Map<string, MonthlySales>()
+
+    sales.forEach(sale => {
+      const saleDate = new Date(sale.created_at)
+      const monthKey = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`
+      const monthName = saleDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, {
+          month: monthName,
+          year: saleDate.getFullYear(),
+          totalSales: 0,
+          totalProfit: 0,
+          salesCount: 0
+        })
+      }
+
+      const data = monthlyData.get(monthKey)!
+      const saleExchangeRate = (sale.exchange_rate as number) || rate
+
+      // Convert sales to display currency
+      let saleAmount = sale.total_amount
+      if (displayCurrency === 'USD') {
+        saleAmount = sale.currency === 'USD' ? sale.total_amount : sale.total_amount / saleExchangeRate
+      } else {
+        saleAmount = sale.currency === 'SRD' ? sale.total_amount : sale.total_amount * rate
+      }
+
+      data.totalSales += saleAmount
+      data.salesCount += 1
+
+      // Calculate profit
+      sale.sale_items?.forEach(saleItem => {
+        const item = itemsList.find(i => i.id === saleItem.item_id)
+        if (item && item.purchase_price_usd) {
+          const purchasePrice = typeof item.purchase_price_usd === 'string'
+            ? parseFloat(item.purchase_price_usd)
+            : item.purchase_price_usd
+          const costInUSD = purchasePrice * saleItem.quantity
+          let revenueInUSD = saleItem.subtotal
+          
+          if (sale.currency === 'SRD') {
+            revenueInUSD = saleItem.subtotal / saleExchangeRate
+          }
+          
+          const profitUSD = revenueInUSD - costInUSD
+          const profitInDisplayCurrency = displayCurrency === 'USD' ? profitUSD : profitUSD * rate
+          data.totalProfit += profitInDisplayCurrency
+        }
+      })
+    })
+
+    const sortedHistory = Array.from(monthlyData.values())
+      .sort((a, b) => {
+        const dateA = new Date(a.year, new Date(Date.parse(a.month + " 1")).getMonth())
+        const dateB = new Date(b.year, new Date(Date.parse(b.month + " 1")).getMonth())
+        return dateB.getTime() - dateA.getTime()
+      })
+      .slice(0, 12) // Last 12 months
+
+    setMonthlySalesHistory(sortedHistory)
+  }
+
+  const calculateMonthlyExpenses = (expensesList: ExpenseWithCategory[]) => {
+    const categoryMap = new Map<string, number>()
+
+    expensesList.forEach(expense => {
+      const categoryName = expense.expense_categories?.name || 'Uncategorized'
+      const currentRate = rate
+
+      // Convert to display currency
+      let amount = expense.amount
+      if (displayCurrency === 'USD') {
+        amount = expense.currency === 'USD' ? expense.amount : expense.amount / currentRate
+      } else {
+        amount = expense.currency === 'SRD' ? expense.amount : expense.amount * currentRate
+      }
+
+      categoryMap.set(categoryName, (categoryMap.get(categoryName) || 0) + amount)
+    })
+
+    const sortedExpenses = Array.from(categoryMap.entries())
+      .map(([categoryName, amount]) => ({ categoryName, amount }))
+      .sort((a, b) => b.amount - a.amount)
+
+    setMonthlyExpenses(sortedExpenses)
   }
 
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period])
+  }, [displayCurrency])
 
-  // Get total sales converted to display currency (including combos)
-  const getTotalSalesInDisplayCurrency = () => {
-    const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
-    const currentRate = rate
-    
-    const totalUSD = filteredSales.filter(s => s.currency === 'USD').reduce((sum, s) => sum + s.total_amount, 0)
-    const totalSRD = filteredSales.filter(s => s.currency === 'SRD').reduce((sum, s) => sum + s.total_amount, 0)
-    
-    if (displayCurrency === 'USD') {
-      return totalUSD + (totalSRD / currentRate)
-    }
-    return totalSRD + (totalUSD * currentRate)
-  }
-
-  // Get combo stats - now counts items marked as combos from sale_items
-  // Uses historical exchange rates for accurate revenue calculations
-  const getComboStats = () => {
-    const filteredSales = sales.filter(s => !selectedLocation || s.location_id === selectedLocation)
-    let totalCombos = 0
-    let totalComboRevenue = 0
-    
-    filteredSales.forEach(sale => {
-      // Use historical exchange rate for accurate conversion
-      let saleExchangeRate = rate
-      if (sale.exchange_rate) {
-        saleExchangeRate = sale.exchange_rate as number
+  // Current month metrics
+  const getCurrentMonthTotal = () => {
+    return currentMonthSales.reduce((sum, sale) => {
+      const saleExchangeRate = (sale.exchange_rate as number) || rate
+      let amount = sale.total_amount
+      if (displayCurrency === 'USD') {
+        amount = sale.currency === 'USD' ? sale.total_amount : sale.total_amount / saleExchangeRate
+      } else {
+        amount = sale.currency === 'SRD' ? sale.total_amount : sale.total_amount * rate
       }
-      
-      (sale.sale_items || []).forEach(saleItem => {
-        const item = items.find(i => i.id === saleItem.item_id)
-        if (item?.is_combo) {
-          totalCombos += 1
-          // Convert based on sale currency using historical rate
-          if (displayCurrency === 'USD') {
-            totalComboRevenue += sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / saleExchangeRate
-          } else {
-            totalComboRevenue += sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * rate
-          }
-        }
-      })
-    })
-    
-    return { totalCombos, totalComboRevenue, totalSavings: 0 }
+      return sum + amount
+    }, 0)
   }
 
-  // Get top selling combos - items marked as combos
-  // Uses historical exchange rates for accurate revenue calculations
-  const getTopSellingCombos = () => {
-    const comboSalesMap = new Map<string, { name: string; count: number; revenue: number }>()
-    const currentRate = rate
-    
-    sales
-      .filter(s => !selectedLocation || s.location_id === selectedLocation)
-      .forEach(sale => {
-        // Use historical exchange rate for accurate conversion
-        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
-        
-        (sale.sale_items || []).forEach(saleItem => {
-          const item = items.find(i => i.id === saleItem.item_id)
-          if (item?.is_combo) {
-            const revenueInDisplayCurrency = displayCurrency === 'USD'
-              ? (sale.currency === 'USD' ? saleItem.subtotal : saleItem.subtotal / saleExchangeRate)
-              : (sale.currency === 'SRD' ? saleItem.subtotal : saleItem.subtotal * currentRate)
-            
-            const existing = comboSalesMap.get(item.id)
-            if (existing) {
-              existing.count += saleItem.quantity
-              existing.revenue += revenueInDisplayCurrency
-            } else {
-              comboSalesMap.set(item.id, {
-                name: item.name,
-                count: saleItem.quantity,
-                revenue: revenueInDisplayCurrency
-              })
-            }
-          }
-        })
-      })
-
-    return Array.from(comboSalesMap.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
-  }
-
-  // Calculate profit in USD (base currency for cost)
-  // Uses historical exchange rate stored with sale when available for accurate profit calculation
-  const getTotalProfitUSD = () => {
+  const getCurrentMonthProfit = () => {
     let profitUSD = 0
-    const currentRate = rate
     
-    sales
-      .filter(s => !selectedLocation || s.location_id === selectedLocation)
-      .forEach(sale => {
-        // Use the exchange rate that was active at time of sale for accurate profit calculation
-        // Fall back to current rate if historical rate not stored
-        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
-        
-        sale.sale_items?.forEach(saleItem => {
-          const item = items.find(i => i.id === saleItem.item_id)
-          if (item && item.purchase_price_usd) {
-            const purchasePrice = typeof item.purchase_price_usd === 'string'
-              ? parseFloat(item.purchase_price_usd)
-              : item.purchase_price_usd
-            const costInUSD = purchasePrice * saleItem.quantity
-            let revenueInUSD = saleItem.subtotal
-            
-            // Convert SRD revenue to USD using the sale's historical exchange rate
-            if (sale.currency === 'SRD') {
-              revenueInUSD = saleItem.subtotal / saleExchangeRate
-            }
-            
-            profitUSD += revenueInUSD - costInUSD
-          }
-        })
-      })
-    return profitUSD
-  }
-
-  // Get profit in display currency
-  const getTotalProfit = () => {
-    const profitUSD = getTotalProfitUSD()
-    const currentRate = rate
-    if (displayCurrency === 'USD') {
-      return profitUSD
-    }
-    return profitUSD * currentRate
-  }
-
-  const getTopSellingItems = () => {
-    const itemSales = new Map<string, { name: string; quantity: number; revenueUSD: number }>()
-    const currentRate = rate
-    
-    sales
-      .filter(s => !selectedLocation || s.location_id === selectedLocation)
-      .forEach(sale => {
-        // Use historical exchange rate for accurate revenue calculation
-        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
-        
-        sale.sale_items?.forEach(saleItem => {
-          const item = items.find(i => i.id === saleItem.item_id)
-          if (item) {
-            // Convert revenue to USD using the sale's historical exchange rate
-            const revenueUSD = sale.currency === 'USD' 
-              ? saleItem.subtotal 
-              : saleItem.subtotal / saleExchangeRate
-            
-            const existing = itemSales.get(saleItem.item_id)
-            if (existing) {
-              existing.quantity += saleItem.quantity
-              existing.revenueUSD += revenueUSD
-            } else {
-              itemSales.set(saleItem.item_id, {
-                name: item.name,
-                quantity: saleItem.quantity,
-                revenueUSD: revenueUSD
-              })
-            }
-          }
-        })
-      })
-
-    return Array.from(itemSales.values())
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5)
-      .map(item => ({
-        ...item,
-        revenue: displayCurrency === 'USD' ? item.revenueUSD : item.revenueUSD * currentRate
-      }))
-  }
-
-  // Get stock value in USD (base), then convert to display currency
-  const getStockValueUSD = (locationId?: string) => {
-    return stocks
-      .filter(s => !locationId || s.location_id === locationId)
-      .reduce((sum, stock) => {
-        const item = items.find(i => i.id === stock.item_id)
-        if (item && item.purchase_price_usd) {
-          const purchasePrice = typeof item.purchase_price_usd === 'string' 
-            ? parseFloat(item.purchase_price_usd) 
-            : item.purchase_price_usd
-          return sum + (purchasePrice * stock.quantity)
-        }
-        return sum
-      }, 0)
-  }
-
-  const getStockValue = (locationId?: string) => {
-    const valueUSD = getStockValueUSD(locationId)
-    const currentRate = rate
-    if (displayCurrency === 'USD') {
-      return valueUSD
-    }
-    return valueUSD * currentRate
-  }
-
-  const getProfitByLocation = () => {
-    const currentRate = rate
-    
-    return locations.map(location => {
-      const locationSales = sales.filter(s => s.location_id === location.id)
-      let profitUSD = 0
+    currentMonthSales.forEach(sale => {
+      const saleExchangeRate = (sale.exchange_rate as number) || rate
       
-      locationSales.forEach(sale => {
-        // Use historical exchange rate for accurate profit calculation
-        let saleExchangeRate = currentRate; if (sale.exchange_rate) { saleExchangeRate = sale.exchange_rate as number }
-        
-        sale.sale_items?.forEach(saleItem => {
-          const item = items.find(i => i.id === saleItem.item_id)
-          if (item && item.purchase_price_usd) {
-            const purchasePrice = typeof item.purchase_price_usd === 'string'
-              ? parseFloat(item.purchase_price_usd)
-              : item.purchase_price_usd
-            const costInUSD = purchasePrice * saleItem.quantity
-            let revenueInUSD = saleItem.subtotal
-            
-            // Convert SRD revenue to USD using the sale's historical exchange rate
-            if (sale.currency === 'SRD') {
-              revenueInUSD = saleItem.subtotal / saleExchangeRate
-            }
-            
-            profitUSD += revenueInUSD - costInUSD
+      sale.sale_items?.forEach(saleItem => {
+        const item = items.find(i => i.id === saleItem.item_id)
+        if (item && item.purchase_price_usd) {
+          const purchasePrice = typeof item.purchase_price_usd === 'string'
+            ? parseFloat(item.purchase_price_usd)
+            : item.purchase_price_usd
+          const costInUSD = purchasePrice * saleItem.quantity
+          let revenueInUSD = saleItem.subtotal
+          
+          if (sale.currency === 'SRD') {
+            revenueInUSD = saleItem.subtotal / saleExchangeRate
           }
-        })
+          
+          profitUSD += revenueInUSD - costInUSD
+        }
       })
+    })
 
-      const stockValueUSD = getStockValueUSD(location.id)
+    return displayCurrency === 'USD' ? profitUSD : profitUSD * rate
+  }
 
-      return {
-        name: location.name,
-        profit: displayCurrency === 'USD' ? profitUSD : profitUSD * currentRate,
-        sales: locationSales.length,
-        stockValue: displayCurrency === 'USD' ? stockValueUSD : stockValueUSD * currentRate
+
+  const getTotalMonthlyExpenses = () => {
+    return monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+  }
+
+  const getTotalMonthlyCommissions = () => {
+    let commissionsUSD = 0
+    
+    currentMonthCommissions.forEach(commission => {
+      commissionsUSD += typeof commission.commission_amount === 'string'
+        ? parseFloat(commission.commission_amount)
+        : commission.commission_amount
+    })
+
+    return displayCurrency === 'USD' ? commissionsUSD : commissionsUSD * rate
+  }
+
+  const getNetCashAvailable = () => {
+    const sales = getCurrentMonthTotal()
+    const expenses = getTotalMonthlyExpenses()
+    const commissions = getTotalMonthlyCommissions()
+    
+    return sales - expenses - commissions
+  }
+  const getStockValue = () => {
+    const valueUSD = stocks.reduce((sum, stock) => {
+      const item = items.find(i => i.id === stock.item_id)
+      if (item && item.purchase_price_usd) {
+        const purchasePrice = typeof item.purchase_price_usd === 'string' 
+          ? parseFloat(item.purchase_price_usd) 
+          : item.purchase_price_usd
+        return sum + (purchasePrice * stock.quantity)
+      }
+      return sum
+    }, 0)
+
+    return displayCurrency === 'USD' ? valueUSD : valueUSD * rate
+  }
+
+  // Potential revenue (what we'll get if we sell everything)
+  const getPotentialRevenue = () => {
+    let potentialUSD = 0
+    let potentialSRD = 0
+
+    stocks.forEach(stock => {
+      const item = items.find(i => i.id === stock.item_id)
+      if (item) {
+        if (item.selling_price_usd) {
+          const price = typeof item.selling_price_usd === 'string'
+            ? parseFloat(item.selling_price_usd)
+            : item.selling_price_usd
+          potentialUSD += price * stock.quantity
+        }
+        if (item.selling_price_srd) {
+          const price = typeof item.selling_price_srd === 'string'
+            ? parseFloat(item.selling_price_srd)
+            : item.selling_price_srd
+          potentialSRD += price * stock.quantity
+        }
       }
     })
+
+    // Convert to display currency
+    if (displayCurrency === 'USD') {
+      return potentialUSD + (potentialSRD / rate)
+    }
+    return potentialSRD + (potentialUSD * rate)
   }
 
-  const topItems = getTopSellingItems()
-  const locationStats = getProfitByLocation()
-  const comboStats = getComboStats()
-  const topCombos = getTopSellingCombos()
+  const getPotentialProfit = () => {
+    return getPotentialRevenue() - getStockValue()
+  }
 
   return (
     <div className="min-h-screen bg-[var(--background)] pb-20">
       <PageHeader 
-        title="Reports & Insights" 
-        subtitle="Analytics and performance metrics"
+        title="Financial Reports" 
+        subtitle="Monthly sales, expenses, and stock analytics"
         icon={<BarChart3 className="w-6 h-6" />}
       />
 
       <div className="px-4 lg:px-6 pt-6 space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex gap-1 overflow-x-auto p-1.5 bg-card rounded-2xl shadow-sm border border-border">
-            {['daily', 'weekly', 'monthly', 'yearly'].map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p as 'daily' | 'weekly' | 'monthly' | 'yearly')}
-                className={`px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap text-sm transition-all duration-200 ${
-                  period === p
-                    ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                }`}
-              >
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </button>
-            ))}
+        {/* Current Month Overview */}
+        <div className="card-premium">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-headline font-bold">Current Month</h2>
+              <p className="text-caption text-muted-foreground">
+                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
           </div>
 
-          <select
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-            className="flex-1 px-4 py-3 border border-border rounded-xl text-body bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm cursor-pointer"
-          >
-            <option value="">All Locations</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name}
-              </option>
-            ))}
-          </select>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="relative overflow-hidden rounded-xl p-4 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+              <div className="text-caption text-muted-foreground mb-1">Total Sales</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(getCurrentMonthTotal(), displayCurrency)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {currentMonthSales.length} transactions
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-xl p-4 bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20">
+              <div className="text-caption text-muted-foreground mb-1">Expenses</div>
+              <div className="text-2xl font-bold text-red-600">
+                {formatCurrency(getTotalMonthlyExpenses(), displayCurrency)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {monthlyExpenses.length} categories
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-xl p-4 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+              <div className="text-caption text-muted-foreground mb-1">Commissions</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {formatCurrency(getTotalMonthlyCommissions(), displayCurrency)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {currentMonthCommissions.length} payments
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-xl p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+              <div className="text-caption text-muted-foreground mb-1">Profit (before expenses)</div>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(getCurrentMonthProfit(), displayCurrency)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Sales - Cost of goods
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-xl p-4 bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20">
+              <div className="text-caption text-muted-foreground mb-1 font-bold">Cash to Keep</div>
+              <div className={`text-2xl font-bold ${getNetCashAvailable() >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                {formatCurrency(getNetCashAvailable(), displayCurrency)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Final amount
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+        {/* Cash Flow Breakdown */}
+        <div className="card-premium">
+          <h2 className="text-headline font-bold mb-6">Cash Flow Breakdown</h2>
+          
+          <div className="space-y-4">
+            {/* Sales */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500/10 to-transparent rounded-xl border border-blue-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-blue-600" />
                 </div>
-                <span className="text-caption text-muted-foreground">Total Sales</span>
+                <div>
+                  <div className="font-bold text-foreground">Total Sales Revenue</div>
+                  <div className="text-sm text-muted-foreground">{currentMonthSales.length} transactions</div>
+                </div>
               </div>
-              <div className="text-2xl font-bold tracking-tight">
-                {formatCurrency(getTotalSalesInDisplayCurrency(), displayCurrency)}
+              <div className="text-right">
+                <div className="text-2xl font-bold text-blue-600">+{formatCurrency(getCurrentMonthTotal(), displayCurrency)}</div>
               </div>
             </div>
-          </div>
 
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
+            {/* Minus Expenses */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-red-600" />
                 </div>
-                <span className="text-caption text-muted-foreground">Est. Profit</span>
+                <div>
+                  <div className="font-bold text-foreground">Operating Expenses</div>
+                  <div className="text-sm text-muted-foreground">{monthlyExpenses.length} categories</div>
+                </div>
               </div>
-              <div className="text-2xl font-bold tracking-tight">
-                {formatCurrency(getTotalProfit(), displayCurrency)}
+              <div className="text-right">
+                <div className="text-2xl font-bold text-red-600">-{formatCurrency(getTotalMonthlyExpenses(), displayCurrency)}</div>
               </div>
             </div>
-          </div>
 
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
-                  <Package className="w-5 h-5 text-orange-600" />
+            {/* Minus Commissions */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-500/10 to-transparent rounded-xl border border-orange-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <Award className="w-5 h-5 text-orange-600" />
                 </div>
-                <span className="text-caption text-muted-foreground">Total Sales</span>
+                <div>
+                  <div className="font-bold text-foreground">Seller Commissions</div>
+                  <div className="text-sm text-muted-foreground">{currentMonthCommissions.length} payments</div>
+                </div>
               </div>
-              <div className="text-2xl font-bold tracking-tight">
-                {sales.filter(s => !selectedLocation || s.location_id === selectedLocation).length}
+              <div className="text-right">
+                <div className="text-2xl font-bold text-orange-600">-{formatCurrency(getTotalMonthlyCommissions(), displayCurrency)}</div>
               </div>
             </div>
-          </div>
 
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
-                  <Layers className="w-5 h-5 text-pink-600" />
+            {/* Final Amount */}
+            <div className="mt-4 pt-4 border-t-2 border-border">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-500/10 to-transparent rounded-xl border border-purple-500/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-foreground text-lg">Cash Available to Keep</div>
+                    <div className="text-sm text-muted-foreground">After all deductions</div>
+                  </div>
                 </div>
-                <span className="text-caption text-muted-foreground">Combos Sold</span>
-              </div>
-              <div className="text-2xl font-bold tracking-tight">
-                {comboStats.totalCombos}
-              </div>
-            </div>
-          </div>
-
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-green-600" />
+                <div className="text-right">
+                  <div className={`text-3xl font-bold ${getNetCashAvailable() >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                    {getNetCashAvailable() >= 0 ? '+' : ''}{formatCurrency(getNetCashAvailable(), displayCurrency)}
+                  </div>
                 </div>
-                <span className="text-caption text-muted-foreground">Combo Revenue</span>
-              </div>
-              <div className="text-2xl font-bold tracking-tight">
-                {formatCurrency(comboStats.totalComboRevenue, displayCurrency)}
-              </div>
-            </div>
-          </div>
-
-          <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-500/10 to-transparent blur-2xl"></div>
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20 flex items-center justify-center">
-                  <Award className="w-5 h-5 text-yellow-600" />
-                </div>
-                <span className="text-caption text-muted-foreground">Combo Savings</span>
-              </div>
-              <div className="text-2xl font-bold tracking-tight text-green-600">
-                {formatCurrency(comboStats.totalSavings, displayCurrency)}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Top Selling Items */}
-        <ChartCard title="Top Selling Items" icon={<Award size={20} />}>
+        {/* Monthly Sales History */}
+        <ChartCard title="Monthly Sales History" icon={<TrendingUp size={20} />}>
           <div className="space-y-3">
-            {topItems.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 group">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 font-bold text-sm text-primary">
-                    #{index + 1}
+            {monthlySalesHistory.length > 0 ? (
+              monthlySalesHistory.map((monthData, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 hover:shadow-md transition-all duration-200 group gap-3"
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-foreground group-hover:text-primary transition-colors">
+                        {monthData.month}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {monthData.salesCount} sales
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-foreground group-hover:text-primary transition-colors truncate">{item.name}</div>
-                    <div className="text-sm text-muted-foreground">Sold: <span className="font-medium text-foreground">{item.quantity}</span> units</div>
+                  <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground mb-1">Revenue</div>
+                      <div className="text-lg font-bold text-blue-600">
+                        {formatCurrency(monthData.totalSales, displayCurrency)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground mb-1">Profit</div>
+                      <div className="text-lg font-bold text-green-600">
+                        {formatCurrency(monthData.totalProfit, displayCurrency)}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-right ml-4">
-                  <div className="text-xl font-bold text-[hsl(var(--success))]">
-                    {formatCurrency(item.revenue, displayCurrency)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">revenue</div>
-                </div>
-              </div>
-            ))}
-            {topItems.length === 0 && (
+              ))
+            ) : (
               <div className="text-center py-12">
-                <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">No sales data for this period</p>
+                <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground">No sales history available</p>
               </div>
             )}
           </div>
         </ChartCard>
 
-        {/* Top Selling Combos */}
-        <ChartCard title="Top Selling Combos" icon={<Layers size={20} />}>
+        {/* Monthly Expenses by Category */}
+        <ChartCard title="Monthly Expenses by Category" icon={<Wallet size={20} />}>
           <div className="space-y-3">
-            {topCombos.map((combo, index) => (
-              <div key={index} className="flex justify-between items-center p-4 bg-gradient-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 hover:shadow-md transition-all duration-200 group">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-sm text-pink-600">
-                    #{index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-foreground group-hover:text-pink-600 transition-colors truncate flex items-center gap-2">
-                      <Sparkles size={14} className="text-pink-500" />
-                      {combo.name}
+            {monthlyExpenses.length > 0 ? (
+              <>
+                {monthlyExpenses.map((expense, index) => {
+                  const percentage = (expense.amount / getTotalMonthlyExpenses()) * 100
+                  return (
+                    <div
+                      key={index}
+                      className="p-4 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20 hover:border-red-500/40 hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="font-bold text-foreground">{expense.categoryName}</div>
+                        <div className="text-xl font-bold text-red-600">
+                          {formatCurrency(expense.amount, displayCurrency)}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                        <div className="text-sm font-medium text-muted-foreground w-12 text-right">
+                          {percentage.toFixed(1)}%
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">Sold: <span className="font-medium text-foreground">{combo.count}</span> times</div>
+                  )
+                })}
+                <div className="pt-4 border-t border-border">
+                  <div className="flex justify-between items-center">
+                    <div className="font-bold text-foreground">Total Expenses</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      {formatCurrency(getTotalMonthlyExpenses(), displayCurrency)}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right ml-4">
-                  <div className="text-xl font-bold text-pink-600">
-                    {formatCurrency(combo.revenue, displayCurrency)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">revenue</div>
-                </div>
-              </div>
-            ))}
-            {topCombos.length === 0 && (
+              </>
+            ) : (
               <div className="text-center py-12">
-                <Layers className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">No combo sales for this period</p>
+                <Wallet className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground">No expenses recorded this month</p>
               </div>
             )}
           </div>
         </ChartCard>
 
-        {/* Location Performance */}
-        <ChartCard title="Location Performance" icon={<MapPin size={20} />}>
-          <div className="space-y-4">
-            {locationStats.map((stat, index) => (
-              <div key={index} className="bg-muted/30 rounded-xl p-5 border border-border/50 hover:border-primary/30 hover:shadow-md transition-all duration-200 group">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">{stat.name}</h4>
-                  <Badge variant="orange">{stat.sales} sales</Badge>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-[hsl(var(--success-muted))] rounded-xl p-3.5 border border-[hsl(var(--success))]/20">
-                    <div className="text-xs text-muted-foreground mb-1 font-medium">Profit ({displayCurrency})</div>
-                    <div className="text-2xl font-bold text-[hsl(var(--success))]">
-                      {formatCurrency(stat.profit, displayCurrency)}
-                    </div>
-                  </div>
-                  <div className="bg-muted/50 rounded-xl p-3.5 border border-border/50">
-                    <div className="text-xs text-muted-foreground mb-1 font-medium">Stock Value ({displayCurrency})</div>
-                    <div className="text-2xl font-bold text-foreground">
-                      {formatCurrency(stat.stockValue, displayCurrency)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+        {/* Stock Value & Potential Revenue */}
+        <div className="card-premium">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
+              <Package className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-headline font-bold">Inventory Analysis</h2>
+              <p className="text-caption text-muted-foreground">Current stock value and potential revenue</p>
+            </div>
           </div>
-        </ChartCard>
 
-        {/* Total Stock Value */}
-        <div className="card-premium text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-orange-500/5"></div>
-          <div className="relative">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 mb-4">
-              <Package className="w-8 h-8 text-blue-600" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+              <div className="mb-2">
+                <ShoppingBag className="w-8 h-8 text-orange-600 mb-3" />
+                <div className="text-caption text-muted-foreground mb-1">Stock Value</div>
+                <div className="text-caption text-muted-foreground/70 text-xs">What we paid</div>
+              </div>
+              <div className="text-3xl font-bold text-orange-600">
+                {formatCurrency(getStockValue(), displayCurrency)}
+              </div>
             </div>
-            <h3 className="text-headline font-semibold tracking-tight mb-2">Total Stock Value ({displayCurrency})</h3>
-            <div className="text-5xl font-bold tracking-tight bg-gradient-to-r from-blue-600 via-purple-600 to-orange-600 bg-clip-text text-transparent mb-2">
-              {formatCurrency(getStockValue(), displayCurrency)}
+
+            <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+              <div className="mb-2">
+                <DollarSign className="w-8 h-8 text-blue-600 mb-3" />
+                <div className="text-caption text-muted-foreground mb-1">Potential Revenue</div>
+                <div className="text-caption text-muted-foreground/70 text-xs">If we sell everything</div>
+              </div>
+              <div className="text-3xl font-bold text-blue-600">
+                {formatCurrency(getPotentialRevenue(), displayCurrency)}
+              </div>
             </div>
-            <div className="text-caption text-muted-foreground">
-              Across all locations
+
+            <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+              <div className="mb-2">
+                <TrendingUp className="w-8 h-8 text-green-600 mb-3" />
+                <div className="text-caption text-muted-foreground mb-1">Potential Profit</div>
+                <div className="text-caption text-muted-foreground/70 text-xs">Revenue - Cost</div>
+              </div>
+              <div className="text-3xl font-bold text-green-600">
+                {formatCurrency(getPotentialProfit(), displayCurrency)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-muted/30 rounded-xl border border-border/50">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-foreground">{stocks.length}</div>
+                <div className="text-xs text-muted-foreground">Items in stock</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-foreground">
+                  {stocks.reduce((sum, s) => sum + s.quantity, 0)}
+                </div>
+                <div className="text-xs text-muted-foreground">Total units</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">
+                  {((getPotentialProfit() / getStockValue()) * 100).toFixed(1)}%
+                </div>
+                <div className="text-xs text-muted-foreground">Profit margin</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">
+                  {((getPotentialRevenue() / getStockValue()) * 100).toFixed(1)}%
+                </div>
+                <div className="text-xs text-muted-foreground">Markup</div>
+              </div>
             </div>
           </div>
         </div>
