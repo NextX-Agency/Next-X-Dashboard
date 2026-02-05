@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { 
-  Wallet, Plus, DollarSign, Edit, Trash2, MapPin, ArrowUpRight, ArrowDownLeft, 
-  TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft
+  Wallet, Plus, DollarSign, Edit, Trash2, ArrowUpRight, ArrowDownLeft, 
+  TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft,
+  ChevronDown, ChevronUp, MapPin
 } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
+import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
@@ -30,6 +31,9 @@ interface TransactionWithDetails extends WalletTransaction {
   wallets?: WalletType & { locations?: Location }
 }
 
+// Approximate USD to SRD exchange rate (can be made dynamic)
+const USD_TO_SRD_RATE = 35.6
+
 export default function WalletsPage() {
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -45,6 +49,12 @@ export default function WalletsPage() {
   
   // View mode: 'locations' (grouped by location) or 'all' (flat list)
   const [viewMode, setViewMode] = useState<'locations' | 'all'>('locations')
+  
+  // Expanded locations for accordion
+  const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set())
+  
+  // Horizontal scroll for summary cards
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   
   const [walletForm, setWalletForm] = useState({
     location_id: '',
@@ -344,7 +354,6 @@ export default function WalletsPage() {
   const getLocationWallets = (): LocationWithWallets[] => {
     const locationMap = new Map<string, LocationWithWallets>()
     
-    // Initialize with all locations
     locations.forEach(loc => {
       locationMap.set(loc.id, {
         ...loc,
@@ -354,7 +363,6 @@ export default function WalletsPage() {
       })
     })
     
-    // Add wallets to their locations
     wallets.forEach(wallet => {
       if (wallet.location_id && locationMap.has(wallet.location_id)) {
         const loc = locationMap.get(wallet.location_id)!
@@ -379,365 +387,718 @@ export default function WalletsPage() {
 
   const grandTotalSRD = wallets.filter(w => w.currency === 'SRD').reduce((sum, w) => sum + w.balance, 0)
   const grandTotalUSD = wallets.filter(w => w.currency === 'USD').reduce((sum, w) => sum + w.balance, 0)
+  
+  // Total in SRD equivalent
+  const grandTotalInSRD = grandTotalSRD + (grandTotalUSD * USD_TO_SRD_RATE)
+  const grandTotalInUSD = grandTotalUSD + (grandTotalSRD / USD_TO_SRD_RATE)
+
+  const toggleLocation = (locationId: string) => {
+    setExpandedLocations(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(locationId)) {
+        newSet.delete(locationId)
+      } else {
+        newSet.add(locationId)
+      }
+      return newSet
+    })
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <PageHeader title="Wallets" subtitle="Manage location wallets and finances" />
-        <LoadingSpinner />
+      <div className="min-h-screen bg-background">
+        {/* Desktop Loading */}
+        <div className="hidden lg:block">
+          <PageHeader title="Wallets" subtitle="Manage location wallets and finances" />
+          <LoadingSpinner />
+        </div>
+        {/* Mobile Loading */}
+        <div className="lg:hidden px-4 pt-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Wallet size={20} className="text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Financial Overview</h1>
+              <p className="text-xs text-muted-foreground">Real-time wallet analytics</p>
+            </div>
+          </div>
+          <LoadingSpinner />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen pb-20 lg:pb-0">
-      <PageHeader 
-        title="Wallets" 
-        subtitle="Manage location wallets and finances"
-        icon={<Wallet size={24} />}
-        action={
-          <div className="flex gap-2">
-            <Button onClick={() => setShowTransferForm(true)} variant="secondary">
-              <ArrowRightLeft size={20} />
-              <span className="hidden sm:inline">Transfer</span>
-            </Button>
-            <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
-              <History size={20} />
-              <span className="hidden sm:inline">History</span>
-            </Button>
-            <Button onClick={() => setShowForm(true)} variant="primary">
-              <Plus size={20} />
-              <span className="hidden sm:inline">New Wallet</span>
-            </Button>
-          </div>
-        }
-      />
-
-      <PageContainer>
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <TrendingUp size={20} />
-              <span className="text-sm font-medium">Grand Total</span>
+    <div className="min-h-screen bg-background pb-24 lg:pb-0">
+      {/* ==================== DESKTOP VIEW ==================== */}
+      <div className="hidden lg:block">
+        <PageHeader 
+          title="Wallets" 
+          subtitle="Manage location wallets and finances"
+          icon={<Wallet size={24} />}
+          action={
+            <div className="flex gap-2">
+              <Button onClick={() => setShowTransferForm(true)} variant="secondary">
+                <ArrowRightLeft size={20} />
+                <span className="hidden sm:inline">Transfer</span>
+              </Button>
+              <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
+                <History size={20} />
+                <span className="hidden sm:inline">History</span>
+              </Button>
+              <Button onClick={() => setShowForm(true)} variant="primary">
+                <Plus size={20} />
+                <span className="hidden sm:inline">New Wallet</span>
+              </Button>
             </div>
-            <div className="text-xl font-bold text-foreground">{formatCurrency(grandTotalSRD, 'SRD')}</div>
-            <div className="text-lg text-muted-foreground">{formatCurrency(grandTotalUSD, 'USD')}</div>
+          }
+        />
+
+        <PageContainer>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
+              <div className="flex items-center gap-2 text-primary mb-2">
+                <TrendingUp size={20} />
+                <span className="text-sm font-medium">Grand Total</span>
+              </div>
+              <div className="text-xl font-bold text-foreground">{formatCurrency(grandTotalSRD, 'SRD')}</div>
+              <div className="text-lg text-muted-foreground">{formatCurrency(grandTotalUSD, 'USD')}</div>
+            </div>
+            <StatBox 
+              label="Cash SRD" 
+              value={formatCurrency(getTotalByTypeAndCurrency('cash', 'SRD'), 'SRD')} 
+              icon={<Banknote size={20} />}
+            />
+            <StatBox 
+              label="Cash USD" 
+              value={formatCurrency(getTotalByTypeAndCurrency('cash', 'USD'), 'USD')} 
+              icon={<Banknote size={20} />}
+            />
+            <StatBox 
+              label="Bank SRD" 
+              value={formatCurrency(getTotalByTypeAndCurrency('bank', 'SRD'), 'SRD')} 
+              icon={<CreditCard size={20} />}
+            />
+            <StatBox 
+              label="Bank USD" 
+              value={formatCurrency(getTotalByTypeAndCurrency('bank', 'USD'), 'USD')} 
+              icon={<CreditCard size={20} />}
+            />
           </div>
-          <StatBox 
-            label="Cash SRD" 
-            value={formatCurrency(getTotalByTypeAndCurrency('cash', 'SRD'), 'SRD')} 
-            icon={<Banknote size={20} />}
-          />
-          <StatBox 
-            label="Cash USD" 
-            value={formatCurrency(getTotalByTypeAndCurrency('cash', 'USD'), 'USD')} 
-            icon={<Banknote size={20} />}
-          />
-          <StatBox 
-            label="Bank SRD" 
-            value={formatCurrency(getTotalByTypeAndCurrency('bank', 'SRD'), 'SRD')} 
-            icon={<CreditCard size={20} />}
-          />
-          <StatBox 
-            label="Bank USD" 
-            value={formatCurrency(getTotalByTypeAndCurrency('bank', 'USD'), 'USD')} 
-            icon={<CreditCard size={20} />}
-          />
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2 mb-6">
+            <span className="text-sm text-muted-foreground">View:</span>
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => setViewMode('locations')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'locations' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <MapPin size={16} className="inline mr-1" />
+                By Location
+              </button>
+              <button
+                onClick={() => setViewMode('all')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'all' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Wallet size={16} className="inline mr-1" />
+                All Wallets
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop Wallets Display */}
+          {wallets.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="No wallets yet"
+              description="Create wallets for your locations to track sales and expenses"
+            />
+          ) : viewMode === 'locations' ? (
+            /* Desktop: Grouped by Location View */
+            <div className="space-y-6">
+              {getLocationWallets().map((location) => (
+                <div 
+                  key={location.id} 
+                  className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 transition-all"
+                >
+                  {/* Location Header */}
+                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                          <Building2 size={24} className="text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground">{location.name}</h3>
+                          {location.seller_name && (
+                            <p className="text-sm text-muted-foreground">Seller: {location.seller_name}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-4 text-right">
+                        {location.totalUSD > 0 && (
+                          <div>
+                            <div className="text-xs text-muted-foreground">USD</div>
+                            <div className="font-bold text-lg text-primary">{formatCurrency(location.totalUSD, 'USD')}</div>
+                          </div>
+                        )}
+                        {location.totalSRD > 0 && (
+                          <div>
+                            <div className="text-xs text-muted-foreground">SRD</div>
+                            <div className="font-bold text-lg text-primary">{formatCurrency(location.totalSRD, 'SRD')}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Wallets Grid */}
+                  <div className="p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {location.wallets.map((wallet) => (
+                        <div 
+                          key={wallet.id} 
+                          className={`p-4 rounded-xl border transition-all group active:scale-[0.98] ${
+                            wallet.type === 'cash' 
+                              ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
+                              : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
+                            }`}>
+                              {wallet.type === 'cash' ? <Banknote size={18} /> : <CreditCard size={18} />}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm capitalize">{wallet.type}</p>
+                              <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                            </div>
+                          </div>
+                          
+                          <div className="text-2xl font-bold text-foreground mb-4">
+                            {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                          </div>
+                          
+                          {/* Desktop: Hover effect buttons */}
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => {
+                                setSelectedWallet(wallet as WalletWithLocation)
+                                setShowTransactionForm(true)
+                              }}
+                              className="flex-1 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              Add/Remove
+                            </button>
+                            <button
+                              onClick={() => handleEditWallet(wallet as WalletWithLocation)}
+                              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
+                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Add Wallet Button */}
+                      <button
+                        onClick={() => {
+                          setWalletForm(prev => ({ ...prev, location_id: location.id }))
+                          setShowForm(true)
+                        }}
+                        className="p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary min-h-[120px]"
+                      >
+                        <Plus size={24} />
+                        <span className="text-sm font-medium">Add Wallet</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Locations without wallets */}
+              {locations.filter(l => !wallets.some(w => w.location_id === l.id)).length > 0 && (
+                <div className="bg-muted/50 rounded-2xl border border-dashed border-border p-6">
+                  <h3 className="font-medium text-foreground mb-3">Locations without wallets:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {locations.filter(l => !wallets.some(w => w.location_id === l.id)).map(loc => (
+                      <button
+                        key={loc.id}
+                        onClick={() => {
+                          setWalletForm(prev => ({ ...prev, location_id: loc.id }))
+                          setShowForm(true)
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-card border border-border hover:border-primary text-sm font-medium transition-colors"
+                      >
+                        <Plus size={14} className="inline mr-1" />
+                        {loc.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Desktop: Flat List View */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {wallets.map((wallet) => (
+                <div 
+                  key={wallet.id} 
+                  className={`p-5 rounded-xl border transition-all group active:scale-[0.98] ${
+                    wallet.type === 'cash' 
+                      ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
+                      : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
+                      }`}>
+                        {wallet.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
+                      </div>
+                      <div>
+                        <p className="font-semibold capitalize">{wallet.type} {wallet.currency}</p>
+                        <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
+                      </div>
+                    </div>
+                    {/* Desktop: Hover action buttons */}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEditWallet(wallet)}
+                        className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteWallet(wallet)}
+                        className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="text-3xl font-bold text-foreground mb-4">
+                    {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                  </div>
+                  
+                  {/* Desktop: Original button */}
+                  <Button
+                    onClick={() => {
+                      setSelectedWallet(wallet)
+                      setShowTransactionForm(true)
+                    }}
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                  >
+                    <DollarSign size={16} />
+                    Add / Remove Money
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </PageContainer>
+      </div>
+
+      {/* ==================== MOBILE VIEW ==================== */}
+      <div className="lg:hidden">
+        {/* Mobile Header */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Wallet size={20} className="text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">Financial Overview</h1>
+              <p className="text-xs text-muted-foreground">Real-time wallet analytics</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Grand Total Hero Card */}
+        <div className="px-4 py-3">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(218,36%,18%)] to-[hsl(218,36%,13%)] border border-border p-5">
+            {/* Background decoration */}
+            <div className="absolute right-0 top-0 w-32 h-32 opacity-10">
+              <Wallet size={128} className="text-primary" />
+            </div>
+            
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-medium text-primary uppercase tracking-wider">Grand Total Portfolio</span>
+              </div>
+              <div className="text-4xl font-bold text-foreground mb-1">
+                SRD {grandTotalSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                ≈ ${grandTotalInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Cards - 2x2 Grid */}
+        <div className="px-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            {/* Cash SRD */}
+            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <Banknote size={16} className="text-emerald-500" />
+                </div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Cash SRD</span>
+              </div>
+              <div className="text-xl font-bold text-foreground">
+                {getTotalByTypeAndCurrency('cash', 'SRD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+            </div>
+
+            {/* Bank SRD */}
+            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Building2 size={16} className="text-blue-500" />
+                </div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Bank SRD</span>
+              </div>
+              <div className="text-xl font-bold text-foreground">
+                {getTotalByTypeAndCurrency('bank', 'SRD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+            </div>
+
+            {/* Cash USD */}
+            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <Banknote size={16} className="text-emerald-500" />
+                </div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Cash USD</span>
+              </div>
+              <div className="text-xl font-bold text-foreground">
+                ${getTotalByTypeAndCurrency('cash', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+            </div>
+
+            {/* Bank USD */}
+            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Building2 size={16} className="text-blue-500" />
+                </div>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Bank USD</span>
+              </div>
+              <div className="text-xl font-bold text-foreground">
+                ${getTotalByTypeAndCurrency('bank', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-sm text-muted-foreground">View:</span>
-          <div className="flex rounded-lg border border-border overflow-hidden">
+        <div className="px-4 py-3">
+          <div className="flex rounded-xl bg-[hsl(218,36%,13%)] p-1 border border-border">
             <button
               onClick={() => setViewMode('locations')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 viewMode === 'locations' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-card text-muted-foreground hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-md' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <MapPin size={16} className="inline mr-1" />
               By Location
             </button>
             <button
               onClick={() => setViewMode('all')}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
                 viewMode === 'all' 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'bg-card text-muted-foreground hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-md' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Wallet size={16} className="inline mr-1" />
               All Wallets
             </button>
           </div>
         </div>
 
-        {/* Wallets Display */}
-        {wallets.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="No wallets yet"
-            description="Create wallets for your locations to track sales and expenses"
-          />
-        ) : viewMode === 'locations' ? (
-          /* Grouped by Location View */
-          <div className="space-y-6">
-            {getLocationWallets().map((location) => (
-              <div 
-                key={location.id} 
-                className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 transition-all"
-              >
-                {/* Location Header */}
-                <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                        <Building2 size={24} className="text-primary" />
+        {/* Mobile Wallets Content */}
+        <div className="px-4 py-2">
+          {wallets.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="No wallets yet"
+              description="Create wallets for your locations to track sales and expenses"
+            />
+          ) : viewMode === 'locations' ? (
+            /* Mobile: Location-based Accordion View */
+            <div className="space-y-3">
+              {getLocationWallets().map((location) => {
+                const isExpanded = expandedLocations.has(location.id)
+                const totalInSRD = location.totalSRD + (location.totalUSD * USD_TO_SRD_RATE)
+                
+                return (
+                  <div 
+                    key={location.id} 
+                    className="bg-[hsl(218,36%,15%)] rounded-2xl border border-border overflow-hidden"
+                  >
+                    {/* Location Header - Clickable */}
+                    <button
+                      onClick={() => toggleLocation(location.id)}
+                      className="w-full px-4 py-4 flex items-center justify-between active:bg-[hsl(218,36%,18%)] transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                          <Building2 size={20} className="text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-foreground">{location.name}</h3>
+                          {location.seller_name && (
+                            <p className="text-xs text-muted-foreground">Seller: {location.seller_name}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-foreground">{location.name}</h3>
-                        {location.seller_name && (
-                          <p className="text-sm text-muted-foreground">Seller: {location.seller_name}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground uppercase">Total SRD</div>
+                          <div className="font-bold text-primary">
+                            {totalInSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronUp size={20} className="text-muted-foreground" />
+                        ) : (
+                          <ChevronDown size={20} className="text-muted-foreground" />
                         )}
                       </div>
-                    </div>
-                    <div className="flex gap-4 text-right">
-                      {location.totalUSD > 0 && (
-                        <div>
-                          <div className="text-xs text-muted-foreground">USD</div>
-                          <div className="font-bold text-lg text-primary">{formatCurrency(location.totalUSD, 'USD')}</div>
-                        </div>
-                      )}
-                      {location.totalSRD > 0 && (
-                        <div>
-                          <div className="text-xs text-muted-foreground">SRD</div>
-                          <div className="font-bold text-lg text-primary">{formatCurrency(location.totalSRD, 'SRD')}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                    </button>
 
-                {/* Wallets Grid */}
-                <div className="p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {location.wallets.map((wallet) => (
-                      <div 
-                        key={wallet.id} 
-                        className={`p-4 rounded-xl border transition-all group active:scale-[0.98] ${
-                          wallet.type === 'cash' 
-                            ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                            : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                          }`}>
-                            {wallet.type === 'cash' ? <Banknote size={18} /> : <CreditCard size={18} />}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-sm capitalize">{wallet.type}</p>
-                            <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-                          </div>
-                        </div>
-                        
-                        <div className="text-2xl font-bold text-foreground mb-4">
-                          {formatCurrency(wallet.balance, wallet.currency as Currency)}
-                        </div>
-                        
-                        {/* Mobile: Always visible buttons with better spacing */}
-                        <div className="flex flex-col gap-2 lg:hidden">
+                    {/* Expanded Wallet Cards */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          {location.wallets.map((wallet) => (
+                            <div 
+                              key={wallet.id} 
+                              onClick={() => {
+                                setSelectedWallet(wallet as WalletWithLocation)
+                                setShowTransactionForm(true)
+                              }}
+                              className={`p-3 rounded-xl border transition-all active:scale-[0.98] cursor-pointer ${
+                                wallet.type === 'cash' 
+                                  ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
+                                  : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                  wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
+                                }`}>
+                                  {wallet.type === 'cash' ? <Banknote size={14} /> : <CreditCard size={14} />}
+                                </div>
+                                <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'} className="text-[10px] px-1.5 py-0.5">
+                                  {wallet.currency}
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground uppercase mb-1">
+                                {wallet.type} Wallet
+                              </div>
+                              <div className="text-xl font-bold text-foreground">
+                                {wallet.currency === 'USD' ? '$' : ''}{wallet.balance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Add New Wallet Button */}
                           <button
                             onClick={() => {
-                              setSelectedWallet(wallet as WalletWithLocation)
-                              setShowTransactionForm(true)
+                              setWalletForm(prev => ({ ...prev, location_id: location.id }))
+                              setShowForm(true)
                             }}
-                            className="w-full py-3 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+                            className="p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary min-h-[100px]"
                           >
-                            <DollarSign size={16} />
-                            Add/Remove Money
+                            <Plus size={20} />
+                            <span className="text-xs font-medium">Add New</span>
                           </button>
+                        </div>
+                        
+                        {/* Quick Actions for location */}
+                        <div className="mt-3 pt-3 border-t border-border/30">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleEditWallet(wallet as WalletWithLocation)}
-                              className="flex-1 py-2.5 px-3 rounded-lg bg-secondary hover:bg-secondary/80 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (location.wallets.length > 0) {
+                                  handleEditWallet(location.wallets[0] as WalletWithLocation)
+                                }
+                              }}
+                              className="flex-1 py-2 px-3 rounded-lg bg-secondary/50 hover:bg-secondary text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1"
                             >
-                              <Edit size={14} />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
-                              className="flex-1 py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
-                            >
-                              <Trash2 size={14} />
-                              Delete
+                              <Edit size={12} />
+                              Manage
                             </button>
                           </div>
                         </div>
-                        
-                        {/* Desktop: Hover effect buttons */}
-                        <div className="hidden lg:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => {
-                              setSelectedWallet(wallet as WalletWithLocation)
-                              setShowTransactionForm(true)
-                            }}
-                            className="flex-1 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                          >
-                            Add/Remove
-                          </button>
-                          <button
-                            onClick={() => handleEditWallet(wallet as WalletWithLocation)}
-                            className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
-                            className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
                       </div>
-                    ))}
+                    )}
                     
-                    {/* Add Wallet Button */}
-                    <button
-                      onClick={() => {
-                        setWalletForm(prev => ({ ...prev, location_id: location.id }))
-                        setShowForm(true)
-                      }}
-                      className="p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary min-h-[120px]"
-                    >
-                      <Plus size={24} />
-                      <span className="text-sm font-medium">Add Wallet</span>
-                    </button>
+                    {/* Collapsed state - show wallet count */}
+                    {!isExpanded && (
+                      <div className="px-4 pb-3 text-xs text-muted-foreground">
+                        {location.wallets.length} wallet{location.wallets.length !== 1 ? 's' : ''} active in this location
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              
+              {/* Locations without wallets */}
+              {locations.filter(l => !wallets.some(w => w.location_id === l.id)).length > 0 && (
+                <div className="bg-muted/30 rounded-2xl border border-dashed border-border p-4">
+                  <h3 className="font-medium text-foreground text-sm mb-3">Locations without wallets:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {locations.filter(l => !wallets.some(w => w.location_id === l.id)).map(loc => (
+                      <button
+                        key={loc.id}
+                        onClick={() => {
+                          setWalletForm(prev => ({ ...prev, location_id: loc.id }))
+                          setShowForm(true)
+                        }}
+                        className="px-3 py-2 rounded-lg bg-card border border-border hover:border-primary text-sm font-medium transition-colors flex items-center gap-1"
+                      >
+                        <Plus size={14} />
+                        {loc.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {/* Locations without wallets */}
-            {locations.filter(l => !wallets.some(w => w.location_id === l.id)).length > 0 && (
-              <div className="bg-muted/50 rounded-2xl border border-dashed border-border p-6">
-                <h3 className="font-medium text-foreground mb-3">Locations without wallets:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {locations.filter(l => !wallets.some(w => w.location_id === l.id)).map(loc => (
-                    <button
-                      key={loc.id}
-                      onClick={() => {
-                        setWalletForm(prev => ({ ...prev, location_id: loc.id }))
-                        setShowForm(true)
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-card border border-border hover:border-primary text-sm font-medium transition-colors"
-                    >
-                      <Plus size={14} className="inline mr-1" />
-                      {loc.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* Flat List View */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {wallets.map((wallet) => (
-              <div 
-                key={wallet.id} 
-                className={`p-5 rounded-xl border transition-all group active:scale-[0.98] ${
-                  wallet.type === 'cash' 
-                    ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                    : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                    }`}>
-                      {wallet.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
+              )}
+            </div>
+          ) : (
+            /* Mobile: All Wallets Flat List */
+            <div className="space-y-3">
+              {wallets.map((wallet) => (
+                <div 
+                  key={wallet.id} 
+                  onClick={() => {
+                    setSelectedWallet(wallet)
+                    setShowTransactionForm(true)
+                  }}
+                  className={`p-4 rounded-2xl border transition-all active:scale-[0.99] cursor-pointer ${
+                    wallet.type === 'cash' 
+                      ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
+                      : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                        wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
+                      }`}>
+                        {wallet.type === 'cash' ? <Banknote size={24} /> : <CreditCard size={24} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground capitalize">{wallet.type}</span>
+                          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold capitalize">{wallet.type} {wallet.currency}</p>
-                      <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-foreground">
+                        {formatCurrency(wallet.balance, wallet.currency as Currency)}
+                      </div>
                     </div>
                   </div>
-                  {/* Desktop: Hover action buttons */}
-                  <div className="hidden lg:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  
+                  {/* Quick action buttons */}
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
                     <button
-                      onClick={() => handleEditWallet(wallet)}
-                      className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedWallet(wallet)
+                        setShowTransactionForm(true)
+                      }}
+                      className="flex-1 py-2.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <DollarSign size={16} />
+                      Add/Remove
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditWallet(wallet)
+                      }}
+                      className="py-2.5 px-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
                     >
                       <Edit size={16} />
                     </button>
                     <button
-                      onClick={() => handleDeleteWallet(wallet)}
-                      className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteWallet(wallet)
+                      }}
+                      className="py-2.5 px-4 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-                
-                <div className="text-3xl font-bold text-foreground mb-4">
-                  {formatCurrency(wallet.balance, wallet.currency as Currency)}
-                </div>
-                
-                {/* Mobile: Always visible buttons */}
-                <div className="flex flex-col gap-2 lg:hidden">
-                  <button
-                    onClick={() => {
-                      setSelectedWallet(wallet)
-                      setShowTransactionForm(true)
-                    }}
-                    className="w-full py-3 text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
-                  >
-                    <DollarSign size={16} />
-                    Add / Remove Money
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditWallet(wallet)}
-                      className="flex-1 py-2.5 px-3 rounded-lg bg-secondary hover:bg-secondary/80 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
-                    >
-                      <Edit size={14} />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteWallet(wallet)}
-                      className="flex-1 py-2.5 px-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all text-sm font-medium flex items-center justify-center gap-1"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Desktop: Original button */}
-                <Button
-                  onClick={() => {
-                    setSelectedWallet(wallet)
-                    setShowTransactionForm(true)
-                  }}
-                  variant="secondary"
-                  size="sm"
-                  fullWidth
-                  className="hidden lg:flex"
-                >
-                  <DollarSign size={16} />
-                  Add / Remove Money
-                </Button>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sticky Bottom Action Bar - Mobile Only */}
+        <div className="fixed bottom-0 left-0 right-0 z-[60]">
+          <div className="bg-gradient-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-6 pb-8 px-5">
+            <div className="flex items-center justify-center gap-4 max-w-sm mx-auto">
+              <button
+                onClick={() => setShowTransferForm(true)}
+                className="w-16 h-14 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
+              >
+                <ArrowRightLeft size={18} />
+                <span className="text-[9px] font-medium">Transfer</span>
+              </button>
+              <button
+                onClick={() => setShowTransactionHistory(true)}
+                className="w-16 h-14 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
+              >
+                <History size={18} />
+                <span className="text-[9px] font-medium">History</span>
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="h-14 px-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
+              >
+                <Plus size={18} />
+                <span className="text-sm font-semibold">New</span>
+              </button>
+            </div>
           </div>
-        )}
-      </PageContainer>
+        </div>
+      </div>
 
       {/* Create/Edit Wallet Modal */}
       <Modal isOpen={showForm} onClose={resetForm} title={editingWallet ? 'Edit Wallet' : 'New Wallet'}>
