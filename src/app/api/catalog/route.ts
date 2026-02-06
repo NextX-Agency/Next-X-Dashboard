@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
     if (type === 'all' || type === 'items') {
       result.items = await prisma.item.findMany({
         where: { 
-          isPublic: true,
-          is_combo: false
+          isPublic: true
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -29,8 +28,7 @@ export async function GET(request: NextRequest) {
     if (type === 'all' || type === 'combos') {
       const combos = await prisma.item.findMany({
         where: { 
-          isPublic: true,
-          is_combo: true
+          isPublic: true
         },
         orderBy: { createdAt: 'desc' }
       })
