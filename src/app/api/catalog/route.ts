@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     if (type === 'all' || type === 'items') {
       result.items = await prisma.item.findMany({
         where: { 
-          isPublic: true
+          isPublic: true,
+          is_combo: false  // Exclude combos from regular items
         },
         orderBy: { createdAt: 'desc' }
       })
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
     if (type === 'all' || type === 'combos') {
       const combos = await prisma.item.findMany({
         where: { 
-          isPublic: true
+          isPublic: true,
+          is_combo: true  // Only get combo items
         },
         orderBy: { createdAt: 'desc' }
       })
