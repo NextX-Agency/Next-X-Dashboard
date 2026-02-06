@@ -16,7 +16,7 @@
     "test:report": "playwright show-report"
   },
   "dependencies": {
-    "@prisma/client": "^6.1.0",
+    "@prisma/client": "6.19.0",
     "@supabase/supabase-js": "^2.87.1",
     "@vercel/blob": "^2.0.0",
     "class-variance-authority": "^0.7.1",
@@ -36,7 +36,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.8",
-    "prisma": "^6.1.0",
+    "prisma": "6.19.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
