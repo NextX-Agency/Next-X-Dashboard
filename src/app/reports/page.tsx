@@ -872,8 +872,8 @@ export default function ReportsPage() {
     return (
       <div className="min-h-screen bg-[var(--background)] pb-20">
         <PageHeader title="Reports & Insights" subtitle="Loading financial data..." icon={<BarChart3 className="w-6 h-6" />} />
-        <div className="px-4 lg:px-6 pt-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="card-premium animate-pulse">
                 <div className="h-4 w-24 bg-muted rounded mb-3" />
@@ -923,13 +923,13 @@ export default function ReportsPage() {
         icon={<BarChart3 className="w-6 h-6" />}
       />
 
-      <div className="px-4 lg:px-6 pt-6 space-y-5">
+      <div className="px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 space-y-3 sm:space-y-5">
         {/* ─── Tab Switcher ─── */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex gap-1 p-1.5 bg-card rounded-2xl shadow-sm border border-border">
             <button
               onClick={() => setActiveTab('current')}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                 activeTab === 'current'
                   ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -940,7 +940,7 @@ export default function ReportsPage() {
             </button>
             <button
               onClick={() => setActiveTab('historical')}
-              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                 activeTab === 'historical'
                   ? 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -953,11 +953,11 @@ export default function ReportsPage() {
         </div>
 
         {/* ─── Filters ─── */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           {isCurrentTab ? (
-            <div className="flex gap-1 overflow-x-auto p-1.5 bg-card rounded-2xl shadow-sm border border-border">
+            <div className="flex gap-1 overflow-x-auto p-1.5 bg-card rounded-2xl shadow-sm border border-border scrollbar-thin">
               {(['daily', 'weekly', 'monthly', 'yearly'] as PeriodType[]).map(p => (
-                <button key={p} onClick={() => setPeriod(p)} className={`px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap text-sm transition-all duration-200 ${
+                <button key={p} onClick={() => setPeriod(p)} className={`px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold whitespace-nowrap text-sm transition-all duration-200 ${
                   period === p ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
                   {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -965,29 +965,29 @@ export default function ReportsPage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-wrap gap-3 items-center p-2 bg-card rounded-2xl shadow-sm border border-border">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground font-medium">From</label>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 p-3 sm:p-2 bg-card rounded-2xl shadow-sm border border-border">
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">From</label>
                 <input type="date" value={histStart} onChange={e => setHistStart(e.target.value)}
-                  className="px-3 py-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  className="flex-1 px-3 py-2.5 sm:py-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground font-medium">To</label>
+              <div className="flex items-center gap-2 flex-1">
+                <label className="text-xs text-muted-foreground font-medium whitespace-nowrap">To</label>
                 <input type="date" value={histEnd} onChange={e => setHistEnd(e.target.value)}
-                  className="px-3 py-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+                  className="flex-1 px-3 py-2.5 sm:py-2 border border-border rounded-lg text-sm bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
           )}
           <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)}
-            className="flex-1 px-4 py-3 border border-border rounded-xl text-body bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm cursor-pointer">
+            className="w-full sm:flex-1 px-4 py-3.5 sm:py-3 border border-border rounded-xl text-body bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm cursor-pointer">
             <option value="">All Locations</option>
             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
           </select>
         </div>
 
         {/* Period indicator */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
             <Calendar size={14} className="text-muted-foreground" />
             <span className="text-muted-foreground">
               Showing data for:{' '}
@@ -1003,7 +1003,7 @@ export default function ReportsPage() {
           </div>
           <button
             onClick={() => setShowDebugInfo(!showDebugInfo)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            className="text-xs px-3 py-2 sm:py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors whitespace-nowrap"
           >
             {showDebugInfo ? 'Hide' : 'Show'} Debug Info
           </button>
@@ -1017,7 +1017,7 @@ export default function ReportsPage() {
                 <Activity size={16} className="text-yellow-600" />
                 <h3 className="font-bold text-foreground">Calculation Debug Info</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs font-mono">
                 <div className="space-y-2">
                   <div className="font-bold text-blue-600">SALES DATA</div>
                   <div>• Total Sales: {filteredSales.length}</div>
@@ -1053,22 +1053,22 @@ export default function ReportsPage() {
         )}
 
         {/* ═══════════════ KEY METRICS ═══════════════ */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Revenue */}
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
                     <DollarSign className="w-4 h-4 text-blue-600" />
                   </div>
-                  <span className="text-xs text-muted-foreground font-medium">Revenue</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Revenue</span>
                 </div>
                 {isCurrentTab && <TrendBadge current={totalRevenue} previous={prevRevenue} />}
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1">{formatCurrency(totalRevenue, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{salesCount} sales</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(totalRevenue, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{salesCount} sales</div>
             </div>
           </div>
 
@@ -1076,17 +1076,17 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-green-600" />
                   </div>
-                  <span className="text-xs text-muted-foreground font-medium">Gross Profit</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Gross Profit</span>
                 </div>
                 {isCurrentTab && <TrendBadge current={totalGrossProfit} previous={prevGrossProfit} />}
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1">{formatCurrency(totalGrossProfit, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{grossMarginPct.toFixed(1)}% margin</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(totalGrossProfit, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{grossMarginPct.toFixed(1)}% margin</div>
             </div>
           </div>
 
@@ -1094,19 +1094,19 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent blur-2xl`} />
             <div className="relative">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
                     <Target className={`w-4 h-4 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
                   </div>
-                  <span className="text-xs text-muted-foreground font-medium">Net Profit</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Net Profit</span>
                 </div>
                 {isCurrentTab && <TrendBadge current={netProfit} previous={prevNetProfit} />}
               </div>
-              <div className={`text-xl font-bold tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className={`text-lg sm:text-xl font-bold tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                 {formatCurrency(netProfit, displayCurrency)}
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">{netMarginPct.toFixed(1)}% net margin</div>
+              <div className="text-xs text-muted-foreground mt-1">{netMarginPct.toFixed(1)}% net margin</div>
             </div>
           </div>
 
@@ -1114,17 +1114,17 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20 flex items-center justify-center">
                     <Wallet className="w-4 h-4 text-red-600" />
                   </div>
-                  <span className="text-xs text-muted-foreground font-medium">Expenses</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Expenses</span>
                 </div>
                 {isCurrentTab && <TrendBadge current={totalExpensesAmt} previous={prevExpensesAmt} invert />}
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1 text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{expenseRatio.toFixed(1)}% of revenue</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{expenseRatio.toFixed(1)}% of revenue</div>
             </div>
           </div>
 
@@ -1132,14 +1132,14 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
                   <Users className="w-4 h-4 text-orange-600" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">Commissions</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Commissions</span>
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1 text-orange-600">{formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{filteredCommissions.length} payments</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-orange-600">{formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{filteredCommissions.length} payments</div>
             </div>
           </div>
 
@@ -1147,14 +1147,14 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
                   <ShoppingBag className="w-4 h-4 text-purple-600" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">Avg Transaction</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Avg Transaction</span>
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1">{formatCurrency(avgTransactionValue, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{salesCount} transactions</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(avgTransactionValue, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{salesCount} transactions</div>
             </div>
           </div>
 
@@ -1162,14 +1162,14 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
                   <Layers className="w-4 h-4 text-pink-600" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">Combos Sold</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Combos Sold</span>
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1">{comboStats.totalCombos}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{formatCurrency(comboStats.totalComboRevenue, displayCurrency)} revenue</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{comboStats.totalCombos}</div>
+              <div className="text-xs text-muted-foreground mt-1">{formatCurrency(comboStats.totalComboRevenue, displayCurrency)} revenue</div>
             </div>
           </div>
 
@@ -1177,14 +1177,14 @@ export default function ReportsPage() {
           <div className="card-premium group relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-transparent blur-2xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
                   <CreditCard className="w-4 h-4 text-cyan-600" />
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">Wallet Balance</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Wallet Balance</span>
               </div>
-              <div className="text-xl font-bold tracking-tight mt-1">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{walletSummary.count} wallets</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{walletSummary.count} wallets</div>
             </div>
           </div>
         </div>
@@ -1195,10 +1195,10 @@ export default function ReportsPage() {
           {expandedSections.financial && (
             <div className="px-4 pb-4 space-y-4">
               {/* P&L Flow */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-center">
-                <div className="rounded-xl p-4 bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 text-center">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2 sm:gap-3 items-center">
+                <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Revenue</div>
-                  <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue, displayCurrency)}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue, displayCurrency)}</div>
                 </div>
                 <div className="hidden md:flex items-center justify-center"><ArrowRight size={20} className="text-muted-foreground" /></div>
                 <div className="rounded-xl p-4 bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 text-center">
@@ -1215,10 +1215,10 @@ export default function ReportsPage() {
               </div>
 
               {/* Deductions */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="p-4 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
                   <div className="text-xs text-muted-foreground mb-1">Operating Expenses</div>
-                  <div className="text-xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
+                  <div className="text-lg sm:text-xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">{expensesByCategory.included.length} categories</div>
                 </div>
                 <div className="p-4 bg-gradient-to-r from-orange-500/10 to-transparent rounded-xl border border-orange-500/20">
@@ -1237,20 +1237,22 @@ export default function ReportsPage() {
 
               {/* Projection (monthly only) */}
               {projection && (
-                <div className="p-4 bg-gradient-to-r from-indigo-500/10 to-transparent rounded-xl border border-indigo-500/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target size={16} className="text-indigo-600" />
-                    <span className="text-sm font-bold text-foreground">Month-End Projection</span>
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-indigo-500/10 to-transparent rounded-xl border border-indigo-500/20">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Target size={16} className="text-indigo-600" />
+                      <span className="text-sm font-bold text-foreground">Month-End Projection</span>
+                    </div>
                     <span className="text-xs text-muted-foreground">({projection.daysElapsed} of {projection.daysInMonth} days)</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <div className="text-xs text-muted-foreground">Projected Revenue</div>
-                      <div className="text-lg font-bold text-indigo-600">{formatCurrency(projection.projectedRevenue, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-indigo-600">{formatCurrency(projection.projectedRevenue, displayCurrency)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Projected Net Profit</div>
-                      <div className={`text-lg font-bold ${projection.projectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      <div className={`text-base sm:text-lg font-bold ${projection.projectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {formatCurrency(projection.projectedNetProfit, displayCurrency)}
                       </div>
                     </div>
@@ -1264,23 +1266,23 @@ export default function ReportsPage() {
 
               {/* Pending Reservations */}
               {reservationSummary.activeCount > 0 && (
-                <div className="p-4 bg-gradient-to-r from-amber-500/10 to-transparent rounded-xl border border-amber-500/20">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-500/10 to-transparent rounded-xl border border-amber-500/20">
+                  <div className="flex items-center gap-2 mb-2 sm:mb-1">
                     <Clock size={16} className="text-amber-600" />
                     <span className="text-sm font-bold text-foreground">Pending Reservations</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                       <div className="text-xs text-muted-foreground">Pending Revenue</div>
-                      <div className="text-lg font-bold text-amber-600">{formatCurrency(reservationSummary.pendingRevenue, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-amber-600">{formatCurrency(reservationSummary.pendingRevenue, displayCurrency)}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Active Orders</div>
-                      <div className="text-lg font-bold text-foreground">{reservationSummary.activeCount}</div>
+                      <div className="text-base sm:text-lg font-bold text-foreground">{reservationSummary.activeCount}</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">Conversion Rate</div>
-                      <div className="text-lg font-bold text-foreground">{reservationSummary.conversionRate.toFixed(1)}%</div>
+                      <div className="text-base sm:text-lg font-bold text-foreground">{reservationSummary.conversionRate.toFixed(1)}%</div>
                     </div>
                   </div>
                 </div>
@@ -1338,31 +1340,31 @@ export default function ReportsPage() {
           {expandedSections.locations && (
             <div className="px-4 pb-4 space-y-3">
               {locationPerformance.map((loc, i) => (
-                <div key={i} className="bg-muted/30 rounded-xl p-4 border border-border/50 hover:border-primary/30 transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-bold text-foreground">{loc.name}</h4>
+                <div key={i} className="bg-muted/30 rounded-xl p-3 sm:p-4 border border-border/50 hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <h4 className="font-bold text-sm sm:text-base text-foreground">{loc.name}</h4>
                     <Badge variant="orange">{loc.salesCount} sales</Badge>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div className="rounded-lg p-2.5 bg-blue-500/5 border border-blue-500/10">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+                    <div className="rounded-lg p-2 sm:p-2.5 bg-blue-500/5 border border-blue-500/10">
                       <div className="text-xs text-muted-foreground">Revenue</div>
-                      <div className="text-lg font-bold text-blue-600">{formatCurrency(loc.revenue, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-blue-600">{formatCurrency(loc.revenue, displayCurrency)}</div>
                     </div>
-                    <div className="rounded-lg p-2.5 bg-green-500/5 border border-green-500/10">
+                    <div className="rounded-lg p-2 sm:p-2.5 bg-green-500/5 border border-green-500/10">
                       <div className="text-xs text-muted-foreground">Gross Profit</div>
-                      <div className="text-lg font-bold text-green-600">{formatCurrency(loc.grossProfit, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(loc.grossProfit, displayCurrency)}</div>
                     </div>
-                    <div className="rounded-lg p-2.5 bg-red-500/5 border border-red-500/10">
+                    <div className="rounded-lg p-2 sm:p-2.5 bg-red-500/5 border border-red-500/10">
                       <div className="text-xs text-muted-foreground">Expenses</div>
-                      <div className="text-lg font-bold text-red-600">{formatCurrency(loc.expenses, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(loc.expenses, displayCurrency)}</div>
                     </div>
-                    <div className={`rounded-lg p-2.5 ${loc.netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'} border`}>
+                    <div className={`rounded-lg p-2 sm:p-2.5 ${loc.netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'} border`}>
                       <div className="text-xs text-muted-foreground">Net Profit</div>
-                      <div className={`text-lg font-bold ${loc.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(loc.netProfit, displayCurrency)}</div>
+                      <div className={`text-base sm:text-lg font-bold ${loc.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(loc.netProfit, displayCurrency)}</div>
                     </div>
-                    <div className="rounded-lg p-2.5 bg-muted/50 border border-border/50">
+                    <div className="rounded-lg p-2 sm:p-2.5 bg-muted/50 border border-border/50">
                       <div className="text-xs text-muted-foreground">Stock Value</div>
-                      <div className="text-lg font-bold text-foreground">{formatCurrency(loc.stockValue, displayCurrency)}</div>
+                      <div className="text-base sm:text-lg font-bold text-foreground">{formatCurrency(loc.stockValue, displayCurrency)}</div>
                     </div>
                   </div>
                 </div>
@@ -1377,8 +1379,8 @@ export default function ReportsPage() {
             <SectionHeader title="Seller Performance" icon={<Users size={20} />} sectionKey="sellers" badge={`${sellerPerformance.length}`} />
             {expandedSections.sellers && (
               <div className="px-4 pb-4">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <table className="w-full text-xs sm:text-sm min-w-[600px] sm:min-w-0">
                     <thead>
                       <tr className="border-b border-border">
                         <th className="text-left py-3 px-2 text-muted-foreground font-medium">#</th>
@@ -1416,7 +1418,7 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Payment Methods" icon={<CreditCard size={20} />} sectionKey="payments" badge={`${paymentBreakdown.length}`} />
           {expandedSections.payments && (
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {paymentBreakdown.length > 0 ? paymentBreakdown.map((pm, i) => (
                 <div key={i} className="p-3 bg-muted/30 rounded-xl border border-border/50">
                   <div className="flex justify-between items-center mb-2">
@@ -1444,13 +1446,13 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Expenses by Category" icon={<Wallet size={20} />} sectionKey="expenses" badge={formatCurrency(totalExpensesAmt, displayCurrency)} />
           {expandedSections.expenses && (
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {/* Excluded categories info */}
               {excludeInventoryExpenses && expensesByCategory.excluded.length > 0 && (
-                <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-xl">
+                <div className="p-3 sm:p-4 bg-green-500/5 border border-green-500/20 rounded-xl">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-sm font-bold text-green-600">✓ Inventory purchases excluded from operating expenses</span>
+                    <span className="text-xs sm:text-sm font-bold text-green-600">✓ Inventory purchases excluded from operating expenses</span>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     <div className="text-xs opacity-75 mb-2">These expenses are inventory costs, not operating expenses:</div>
@@ -1470,10 +1472,10 @@ export default function ReportsPage() {
                 </div>
               )}
               {!excludeInventoryExpenses && (
-                <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                <div className="p-3 sm:p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                    <span className="text-sm font-bold text-amber-600">⚠️ Warning: Inventory expenses are being counted as operating costs</span>
+                    <span className="text-xs sm:text-sm font-bold text-amber-600">⚠️ Warning: Inventory expenses are being counted as operating costs</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">
                     This will make your net profit appear lower than actual. Enable the toggle above to exclude inventory purchases.
@@ -1487,8 +1489,8 @@ export default function ReportsPage() {
                     return (
                       <div key={i} className="p-3 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
                         <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold">{exp.categoryName}</span>
-                          <span className="text-lg font-bold text-red-600">{formatCurrency(exp.amount, displayCurrency)}</span>
+                          <span className="font-bold text-sm sm:text-base">{exp.categoryName}</span>
+                          <span className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(exp.amount, displayCurrency)}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
@@ -1501,8 +1503,8 @@ export default function ReportsPage() {
                   })}
                   <div className="pt-3 border-t border-border">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold">Total Expenses</span>
-                      <span className="text-2xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</span>
+                      <span className="font-bold text-sm sm:text-base">Total Expenses</span>
+                      <span className="text-xl sm:text-2xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</span>
                     </div>
                   </div>
                 </>
@@ -1517,12 +1519,12 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Monthly Sales History" icon={<TrendingUp size={20} />} sectionKey="salesHistory" badge="Last 12 months" />
           {expandedSections.salesHistory && (
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {monthlySalesHistory.length > 0 ? monthlySalesHistory.map((monthData, i) => {
                 const prev = monthlySalesHistory[i + 1]
                 const growth = prev ? pctChange(monthData.totalSales, prev.totalSales) : null
                 return (
-                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all gap-3">
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all gap-2 sm:gap-3">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
                         <Calendar className="w-5 h-5 text-primary" />
@@ -1566,20 +1568,20 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Top Selling Items" icon={<Award size={20} />} sectionKey="topItems" badge={`Top ${topSellingItems.length}`} />
           {expandedSections.topItems && (
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {topSellingItems.map((item, i) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 font-bold text-xs text-primary">
+                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 font-bold text-xs text-primary">
                       #{i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-foreground truncate">{item.name}</div>
+                      <div className="font-bold text-sm sm:text-base text-foreground truncate">{item.name}</div>
                       <div className="text-xs text-muted-foreground">Sold: <span className="font-medium text-foreground">{item.quantity}</span> units</div>
                     </div>
                   </div>
-                  <div className="text-right ml-3">
-                    <div className="text-lg font-bold text-[hsl(var(--success))]">{formatCurrency(item.revenue, displayCurrency)}</div>
+                  <div className="text-right ml-2 sm:ml-3">
+                    <div className="text-base sm:text-lg font-bold text-[hsl(var(--success))]">{formatCurrency(item.revenue, displayCurrency)}</div>
                   </div>
                 </div>
               ))}
@@ -1594,20 +1596,20 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Top Selling Combos" icon={<Sparkles size={20} />} sectionKey="topCombos" badge={`${comboStats.totalCombos} sold`} />
           {expandedSections.topCombos && (
-            <div className="px-4 pb-4 space-y-3">
+            <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {topCombos.map((combo, i) => (
-                <div key={i} className="flex justify-between items-center p-3 bg-gradient-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 transition-all">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-xs text-pink-600">
+                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-gradient-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 transition-all">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-xs text-pink-600">
                       #{i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold truncate flex items-center gap-1"><Sparkles size={12} className="text-pink-500" />{combo.name}</div>
+                      <div className="font-bold text-sm sm:text-base truncate flex items-center gap-1"><Sparkles size={12} className="text-pink-500" />{combo.name}</div>
                       <div className="text-xs text-muted-foreground">Sold: <span className="font-medium">{combo.count}</span> times</div>
                     </div>
                   </div>
-                  <div className="text-right ml-3">
-                    <div className="text-lg font-bold text-pink-600">{formatCurrency(combo.revenue, displayCurrency)}</div>
+                  <div className="text-right ml-2 sm:ml-3">
+                    <div className="text-base sm:text-lg font-bold text-pink-600">{formatCurrency(combo.revenue, displayCurrency)}</div>
                   </div>
                 </div>
               ))}
@@ -1622,7 +1624,7 @@ export default function ReportsPage() {
         <div className="card-premium">
           <SectionHeader title="Inventory Analysis" icon={<Package size={20} />} sectionKey="inventory" />
           {expandedSections.inventory && (
-            <div className="px-4 pb-4 space-y-4">
+            <div className="px-4 pb-4 space-y-3 sm:space-y-4">
               {/* Inventory expense exclusion toggle */}
               <label className="flex items-center gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/20 cursor-pointer hover:bg-blue-500/10 transition-colors">
                 <input type="checkbox" checked={excludeInventoryExpenses}
@@ -1651,39 +1653,39 @@ export default function ReportsPage() {
                 </div>
               </label>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-2xl p-5 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
-                  <ShoppingBag className="w-7 h-7 text-orange-600 mb-2" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+                  <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Stock Value (Cost)</div>
-                  <div className="text-2xl font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
                 </div>
-                <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
-                  <DollarSign className="w-7 h-7 text-blue-600 mb-2" />
+                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+                  <DollarSign className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Potential Revenue</div>
-                  <div className="text-2xl font-bold text-blue-600">{formatCurrency(inventoryAnalysis.potentialRevenueDisplay, displayCurrency)}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-blue-600">{formatCurrency(inventoryAnalysis.potentialRevenueDisplay, displayCurrency)}</div>
                 </div>
-                <div className="rounded-2xl p-5 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
-                  <TrendingUp className="w-7 h-7 text-green-600 mb-2" />
+                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+                  <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Potential Profit</div>
-                  <div className="text-2xl font-bold text-green-600">{formatCurrency(inventoryAnalysis.potentialProfit, displayCurrency)}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-green-600">{formatCurrency(inventoryAnalysis.potentialProfit, displayCurrency)}</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-xl border border-border/50 text-center">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-muted/30 rounded-xl border border-border/50 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-foreground">{inventoryAnalysis.itemCount}</div>
+                  <div className="text-lg sm:text-2xl font-bold text-foreground">{inventoryAnalysis.itemCount}</div>
                   <div className="text-xs text-muted-foreground">Stock Items</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-foreground">{inventoryAnalysis.totalUnits.toLocaleString()}</div>
+                  <div className="text-lg sm:text-2xl font-bold text-foreground">{inventoryAnalysis.totalUnits.toLocaleString()}</div>
                   <div className="text-xs text-muted-foreground">Total Units</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-primary">{inventoryAnalysis.profitMarginPct.toFixed(1)}%</div>
+                  <div className="text-lg sm:text-2xl font-bold text-primary">{inventoryAnalysis.profitMarginPct.toFixed(1)}%</div>
                   <div className="text-xs text-muted-foreground">Profit Margin</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-foreground">
+                  <div className="text-lg sm:text-2xl font-bold text-foreground">
                     {inventoryAnalysis.daysOfInventory !== null ? `${inventoryAnalysis.daysOfInventory}d` : '∞'}
                   </div>
                   <div className="text-xs text-muted-foreground">Days of Inventory</div>
