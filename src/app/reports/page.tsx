@@ -37,6 +37,12 @@ interface SaleWithItems extends Sale {
   }>
 }
 
+interface CommissionWithSale extends Commission {
+  sales?: {
+    currency: string
+  }
+}
+
 interface ExpenseWithCategory extends Expense {
   expense_categories?: ExpenseCategory
 }
@@ -171,7 +177,7 @@ export default function ReportsPage() {
   const [stocks, setStocks] = useState<Stock[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [allExpenses, setAllExpenses] = useState<ExpenseWithCategory[]>([])
-  const [allCommissions, setAllCommissions] = useState<Commission[]>([])
+  const [allCommissions, setAllCommissions] = useState<CommissionWithSale[]>([])
   const [wallets, setWallets] = useState<WalletRow[]>([])
   const [reservations, setReservations] = useState<ReservationWithItem[]>([])
   const [comboItems, setComboItems] = useState<ComboItem[]>([])
@@ -225,7 +231,7 @@ export default function ReportsPage() {
       supabase.from('stock').select('*'),
       supabase.from('locations').select('*'),
       supabase.from('expenses').select('*, expense_categories(*)').order('created_at', { ascending: false }),
-      supabase.from('commissions').select('*').order('created_at', { ascending: false }),
+      supabase.from('commissions').select('*, sales(currency)').order('created_at', { ascending: false }),
       supabase.from('wallets').select('*'),
       supabase.from('reservations').select('*, items(*), clients(name)').order('created_at', { ascending: false }),
       supabase.from('combo_items').select('*'),
@@ -238,7 +244,7 @@ export default function ReportsPage() {
     if (stocksRes.data) setStocks(stocksRes.data)
     if (locationsRes.data) setLocations(locationsRes.data)
     if (expensesRes.data) setAllExpenses(expensesRes.data as ExpenseWithCategory[])
-    if (commissionsRes.data) setAllCommissions(commissionsRes.data as Commission[])
+    if (commissionsRes.data) setAllCommissions(commissionsRes.data as CommissionWithSale[])
     if (walletsRes.data) setWallets(walletsRes.data)
     if (reservationsRes.data) setReservations(reservationsRes.data as ReservationWithItem[])
     if (comboItemsRes.data) setComboItems(comboItemsRes.data)
@@ -407,12 +413,20 @@ export default function ReportsPage() {
     return exp.currency === 'SRD' ? exp.amount : exp.amount * 40
   }, [displayCurrency])
 
-  const commissionInDisplay = useCallback((c: Commission): number => {
+  const commissionInDisplay = useCallback((c: CommissionWithSale): number => {
     const amt = toNum(c.commission_amount)
-    // 🔧 FIX: Commissions are stored in SRD, not USD
-    // When displaying in USD, convert from SRD to USD (divide by 40)
-    // When displaying in SRD, use the amount as-is
-    return displayCurrency === 'USD' ? amt / 40 : amt
+    // 🔧 FIX: Commissions inherit currency from their source sale
+    // Check the related sale's currency to determine conversion
+    const commissionCurrency = c.sales?.currency || 'USD' // Default to USD if not available
+    
+    // Convert commission based on source currency vs display currency
+    if (commissionCurrency === 'USD') {
+      // Commission is in USD
+      return displayCurrency === 'SRD' ? amt * 40 : amt
+    } else {
+      // Commission is in SRD
+      return displayCurrency === 'USD' ? amt / 40 : amt
+    }
   }, [displayCurrency])
 
   // ─── Aggregates ───
