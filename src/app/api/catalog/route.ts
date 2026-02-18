@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// In-memory stale cache — serves last-good data during transient DB outages (P1001)
+let staleCache: { data: Record<string, unknown>; timestamp: number } | null = null
+const STALE_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+
+// Fallback empty structure for when DB is unreachable and no cache exists
+const FALLBACK_EMPTY_RESPONSE = {
+  categories: [],
+  items: [],
+  combos: [],
+  locations: [],
+  exchangeRate: null,
+  banners: [],
+  collections: [],
+  settings: {},
+  stock: [],
+}
+
 // API route to get catalog data - bypasses RLS by using Prisma
 export async function GET(request: NextRequest) {
   try {
@@ -92,6 +109,9 @@ export async function GET(request: NextRequest) {
 
       result.stock = stock
 
+      // Store in memory stale cache for resilience against transient DB outages
+      staleCache = { data: result, timestamp: Date.now() }
+
       // Cache for 60s on CDN/edge, serve stale for up to 2 minutes while revalidating
       return NextResponse.json(result, {
         headers: {
@@ -178,6 +198,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error('Catalog API error:', error)
+
+    // On transient DB connection errors, serve stale cache if available
+    // Catches both P1001 (PrismaClientKnownRequestError) and initialization errors
+    const isPrismaConnectionError =
+      error instanceof Error &&
+      (error.name === 'PrismaClientKnownRequestError' ||
+       error.name === 'PrismaClientInitializationError' ||
+       (error.message && error.message.includes("Can't reach database server")))
+
+    if (isPrismaConnectionError && staleCache) {
+      const ageMs = Date.now() - staleCache.timestamp
+      if (ageMs < STALE_MAX_AGE_MS) {
+        console.warn(`[catalog] DB unreachable — serving stale cache (${Math.round(ageMs / 1000)}s old)`)
+        return NextResponse.json(staleCache.data, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+            'X-Cache': 'stale',
+          },
+        })
+      }
+    }
+
+    // No stale cache available—return empty structure to prevent client crash
+    // Client will render empty state ("Geen producten beschikbaar") instead of error
+    if (isPrismaConnectionError) {
+      console.warn('[catalog] DB unreachable & no stale cache—serving empty fallback')
+      return NextResponse.json(FALLBACK_EMPTY_RESPONSE, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+          'X-Cache': 'fallback',
+        },
+      })
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch catalog data' },
       { status: 500 }

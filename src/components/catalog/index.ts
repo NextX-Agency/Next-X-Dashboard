@@ -24,6 +24,9 @@ export { NewCartDrawer } from './NewCartDrawer'
 export { NewQuickViewModal } from './NewQuickViewModal'
 export { BannerSlider } from './BannerSlider'
 export { PublicLayout } from './PublicLayout'
+export { SectionContainer } from './SectionContainer'
+export { CatalogEmptyState } from './CatalogEmptyState'
+export { StockBadge } from './StockBadge'
 
 // SEO Components
 export { 

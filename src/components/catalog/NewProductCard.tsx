@@ -137,7 +137,7 @@ export function NewProductCard({
         
         {/* Combo Badge */}
         {isCombo && !isOutOfStock && (
-          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
+          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-linear-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
             Combo Deal
           </span>
         )}
@@ -189,15 +189,15 @@ export function NewProductCard({
       {/* Content */}
       <div className="p-3 sm:p-4 flex-1 flex flex-col">
         {/* Name */}
-        <Link href={`/catalog/${id}`} className="block flex-shrink-0">
-          <h3 className="font-semibold text-[#141c2e] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-[2.5rem] sm:min-h-[2.75rem]">
+        <Link href={`/catalog/${id}`} className="block shrink-0">
+          <h3 className="font-semibold text-[#141c2e] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-10 sm:min-h-11">
             {name}
           </h3>
         </Link>
         
         {/* Description or Combo Items */}
         {(isCombo && comboItems && comboItems.length > 0) || description ? (
-          <div className="mt-1.5 flex-shrink-0 min-h-[1.25rem]">
+          <div className="mt-1.5 shrink-0 min-h-5">
             {isCombo && comboItems && comboItems.length > 0 ? (
               <div className="space-y-0.5">
                 {comboItems.slice(0, 2).map((item, index) => (
@@ -256,7 +256,7 @@ export function NewProductCard({
                 // Open product page where notification can be set up
                 window.location.href = `/catalog/${id}`
               }}
-              className="flex-shrink-0 px-3 h-9 sm:h-10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-xs font-medium"
+              className="shrink-0 px-3 h-9 sm:h-10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-xs font-medium"
               aria-label="Melding bij beschikbaarheid"
             >
               <Bell size={14} />
@@ -269,7 +269,7 @@ export function NewProductCard({
                 e.stopPropagation()
                 onAddToCart()
               }}
-              className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100 bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
+              className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100 bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
               aria-label="Toevoegen aan winkelwagen"
             >
               <Plus size={18} strokeWidth={2.5} />
@@ -323,7 +323,7 @@ export function NewProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5">
       {children}
     </div>
   )

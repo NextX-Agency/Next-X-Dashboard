@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
   experimental: {
     // Optimize package imports to reduce bundle size
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // Increase image proxy timeout from default 7s to 15s for Vercel blob storage
+    proxyTimeout: 15_000,
   },
   
   // Headers for SEO, security and caching

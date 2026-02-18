@@ -36,13 +36,15 @@ export function NewCategoryNav({
   if (categories.length === 0) return null
 
   return (
-    <section className="bg-white border-b border-neutral-100">
+    <section className="bg-white border-b border-neutral-100 sticky top-[105px] sm:top-[105px] z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative py-4">
-          {/* Left scroll button */}
+        <div className="relative py-3 sm:py-4">
+          {/* Left scroll gradient + button */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-white to-transparent z-10 pointer-events-none hidden md:block" />
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm -ml-2 hidden md:flex"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm -ml-2 hidden md:flex"
+            aria-label="Scroll categorieën links"
           >
             <ChevronLeft size={16} />
           </button>
@@ -50,13 +52,13 @@ export function NewCategoryNav({
           {/* Categories container */}
           <div
             ref={scrollRef}
-            className="flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth px-1"
+            className="flex gap-2 overflow-x-auto snap-x snap-mandatory scroll-smooth px-1 pb-0.5"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* All products */}
             <button
               onClick={() => onCategoryChange('')}
-              className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+              className={`shrink-0 snap-start px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium transition-all min-h-11 flex items-center ${
                 selectedCategory === ''
                   ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                   : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
@@ -73,7 +75,7 @@ export function NewCategoryNav({
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                className={`shrink-0 snap-start px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium transition-all min-h-11 flex items-center whitespace-nowrap ${
                   selectedCategory === category.id
                     ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
                     : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
@@ -93,10 +95,12 @@ export function NewCategoryNav({
             ))}
           </div>
 
-          {/* Right scroll button */}
+          {/* Right scroll gradient + button */}
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-white to-transparent z-10 pointer-events-none hidden md:block" />
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm -mr-2 hidden md:flex"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm -mr-2 hidden md:flex"
+            aria-label="Scroll categorieën rechts"
           >
             <ChevronRight size={16} />
           </button>

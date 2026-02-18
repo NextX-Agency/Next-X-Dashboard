@@ -61,7 +61,7 @@ export function NewProductCarousel({
   const backgroundClass = bgColor === 'neutral-50' ? 'bg-neutral-50' : 'bg-white'
 
   return (
-    <section className={`py-10 ${backgroundClass} border-b border-neutral-100`}>
+    <section className={`py-8 sm:py-10 ${backgroundClass} border-b border-neutral-100`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
@@ -115,7 +115,7 @@ export function NewProductCarousel({
         <div className="relative -mx-4 sm:mx-0">
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-4 sm:px-0 pb-2"
+            className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth px-4 sm:px-0 pb-4"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {products.map((product) => {
@@ -126,7 +126,7 @@ export function NewProductCarousel({
                 : getStockBadgeText(product.stockStatus || 'in-stock')
               
               return (
-                <div key={product.id} className="flex-shrink-0 w-[160px] sm:w-[200px] lg:w-[220px]">
+                <div key={product.id} className="shrink-0 w-[44vw] sm:w-[200px] md:w-[210px] lg:w-[220px] snap-start">
                   <article className={`group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
                     isOutOfStock
                       ? 'border border-neutral-300 opacity-75'
@@ -162,7 +162,7 @@ export function NewProductCarousel({
                       
                       {/* Combo Badge */}
                       {(isComboCarousel || product.isCombo) && !isOutOfStock && (
-                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-linear-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
                           Combo Deal
                         </span>
                       )}
@@ -194,7 +194,7 @@ export function NewProductCarousel({
                     {/* Info */}
                     <div className="p-3 flex-1 flex flex-col">
                       <Link href={`/catalog/${product.id}`} className="block flex-1">
-                        <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-[2.5rem]">
+                        <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-10">
                           {product.name}
                         </h3>
                       </Link>
@@ -222,7 +222,7 @@ export function NewProductCarousel({
                             <Link
                               href={`/catalog/${product.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-500"
+                              className="lg:hidden shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-500"
                               aria-label="Bekijk product"
                             >
                               <Bell size={14} />
@@ -234,7 +234,7 @@ export function NewProductCarousel({
                                 e.stopPropagation()
                                 onAddToCart(product.id)
                               }}
-                              className="lg:hidden flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
+                              className="lg:hidden shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
                               aria-label="Toevoegen aan winkelwagen"
                             >
                               <Plus size={16} strokeWidth={2.5} />

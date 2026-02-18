@@ -84,11 +84,11 @@ export function NewHeader({
 
         {/* Main header */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-3 sm:gap-4">
             {/* Logo */}
             <Link 
               href="/catalog" 
-              className="flex-shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
+              className="shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
               aria-label="Ga naar homepagina"
               onClick={(e) => {
                 if (onLogoClick) {
@@ -103,11 +103,11 @@ export function NewHeader({
                   alt={storeName} 
                   width={160} 
                   height={56} 
-                  className="h-12 w-auto object-contain"
+                  className="h-9 sm:h-10 lg:h-12 w-auto object-contain transition-all"
                   priority
                 />
               ) : (
-                <span className="text-xl font-bold tracking-tight inline-block">
+                <span className="text-lg sm:text-xl font-bold tracking-tight inline-block">
                   <span className="text-[#141c2e]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>
@@ -209,7 +209,7 @@ export function NewHeader({
         {showSearch && (
           <div className="border-t border-neutral-100 bg-neutral-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-              <div className="relative max-w-xl mx-auto">
+              <div className="relative max-w-lg mx-auto">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
                   type="text"
@@ -217,7 +217,7 @@ export function NewHeader({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   autoFocus
-                  className="w-full h-12 pl-11 pr-4 rounded-full bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all"
+                  className="w-full h-11 sm:h-12 pl-11 pr-10 rounded-full bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all text-sm sm:text-base"
                 />
                 {searchQuery && (
                   <button

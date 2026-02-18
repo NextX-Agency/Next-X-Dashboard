@@ -38,11 +38,11 @@ export function NewValueSection({
   ]
 
   return (
-    <section className="py-16 bg-neutral-50">
+    <section className="py-12 sm:py-16 bg-neutral-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#141c2e] mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#141c2e] mb-3 sm:mb-4">
             Waarom bij ons bestellen?
           </h2>
           {storeDescription && (
@@ -53,7 +53,7 @@ export function NewValueSection({
         </div>
 
         {/* Features Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {features.map((feature, index) => (
             <div 
               key={index}
@@ -86,7 +86,7 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
 
   return (
-    <section className="py-16 bg-gradient-to-br from-[#f97015] to-[#e5640d]">
+    <section className="py-12 sm:py-16 bg-linear-to-br from-[#f97015] to-[#e5640d]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">

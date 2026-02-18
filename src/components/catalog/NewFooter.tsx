@@ -147,7 +147,7 @@ export function NewFooter({
             <ul className="space-y-4">
               <li>
                 <div className="flex items-start gap-3">
-                  <MapPin size={16} className="text-[#f97015] mt-0.5 flex-shrink-0" />
+                  <MapPin size={16} className="text-[#f97015] mt-0.5 shrink-0" />
                   <div>
                     <p className="text-xs text-[#141c2e]/40 mb-0.5">Afhaallocatie</p>
                     <p className="text-sm text-[#141c2e]">{storeAddress}</p>
@@ -166,7 +166,7 @@ export function NewFooter({
                     alt="WhatsApp" 
                     width={16} 
                     height={16} 
-                    className="w-4 h-4 mt-0.5 flex-shrink-0"
+                    className="w-4 h-4 mt-0.5 shrink-0"
                   />
                   <div>
                     <p className="text-xs text-[#141c2e]/40 mb-0.5">WhatsApp</p>
@@ -182,7 +182,7 @@ export function NewFooter({
                     href={`mailto:${storeEmail}`}
                     className="flex items-start gap-3 group hover:bg-[#f97015]/5 -m-2 p-2 rounded-lg transition-all duration-300"
                   >
-                    <Mail size={16} className="text-[#f97015] mt-0.5 flex-shrink-0" />
+                    <Mail size={16} className="text-[#f97015] mt-0.5 shrink-0" />
                     <div>
                       <p className="text-xs text-[#141c2e]/40 mb-0.5">E-mail</p>
                       <p className="text-sm text-[#f97015] group-hover:text-[#e5640d] font-medium transition-colors">

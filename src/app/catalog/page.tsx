@@ -30,6 +30,8 @@ import {
   NewCartDrawer,
   NewQuickViewModal,
   BannerSlider,
+  SectionContainer,
+  CatalogEmptyState,
   Breadcrumbs,
   SEOIntro,
   CategorySEOHeader,
@@ -474,9 +476,9 @@ export default function NewCatalogPage() {
     loadData()
   }, [])
 
-  // Periodic stock refresh for real-time accuracy
+  // Periodic stock refresh for real-time accuracy (60s instead of 30s to reduce load)
   useEffect(() => {
-    const interval = setInterval(refreshStock, 30000) // Refresh every 30 seconds
+    const interval = setInterval(refreshStock, 60000)
     return () => clearInterval(interval)
   }, [refreshStock])
 
@@ -663,9 +665,9 @@ export default function NewCatalogPage() {
     productsRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  // Get newest products
+  // Get newest products (limit to 8 for cleaner carousel)
   const newestProducts = useMemo(() => {
-    return items.slice(0, 10).map(item => ({
+    return items.slice(0, 8).map(item => ({
       id: item.id,
       name: item.name,
       description: item.description,
@@ -888,18 +890,20 @@ export default function NewCatalogPage() {
       <div ref={productsRef}>
         {/* Search Results */}
         {showSearchResults && (
-          <section className="py-10 bg-[#f8f7f4]" aria-labelledby="search-results-heading">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h2 id="search-results-heading" className="text-2xl font-bold text-[#141c2e] mb-2">
-                Zoekresultaten voor &ldquo;{searchQuery}&rdquo;
-              </h2>
-              <p className="text-neutral-600 mb-6">{searchResults.length} producten gevonden in Suriname</p>
-              <NewProductGrid 
-                isEmpty={searchResults.length === 0}
-                onClearFilters={() => setSearchQuery('')}
-                emptyMessage="Geen producten gevonden voor deze zoekopdracht"
-                variant="dark"
-              >
+          <SectionContainer
+            bg="muted"
+            title={`Zoekresultaten voor "${searchQuery}"`}
+            subtitle={`${searchResults.length} producten gevonden in Suriname`}
+            id="search-results"
+            ariaLabel="Zoekresultaten"
+          >
+            {searchResults.length === 0 ? (
+              <CatalogEmptyState
+                type="search"
+                action={{ label: 'Bekijk alle producten', onClick: () => setSearchQuery('') }}
+              />
+            ) : (
+              <NewProductGrid>
                 {searchResults.map((item) => {
                   const itemWithCombo = item as ItemWithCombo
                   const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
@@ -924,29 +928,31 @@ export default function NewCatalogPage() {
                   )
                 })}
               </NewProductGrid>
-            </div>
-          </section>
+            )}
+          </SectionContainer>
         )}
 
         {/* Category Products */}
         {showCategoryProducts && (
-          <section className="py-10 bg-[#f8f7f4]" aria-labelledby="category-heading">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <ProductSectionHeader
-                title={getCategoryName(selectedCategory) || 'Producten'}
-                count={filteredItems.length}
-                variant="dark"
+          <SectionContainer
+            bg="muted"
+            title={getCategoryName(selectedCategory) || 'Producten'}
+            subtitle={`${filteredItems.length} producten`}
+            id="category-products"
+            ariaLabel={getCategoryName(selectedCategory) || 'Producten'}
+          >
+            {/* Hidden category description for SEO */}
+            <p className="sr-only">
+              Shop {getCategoryName(selectedCategory)?.toLowerCase() || 'products'} at NextX Suriname. Quality audio gear with local pickup available.
+            </p>
+            
+            {filteredItems.length === 0 ? (
+              <CatalogEmptyState
+                type="category"
+                action={{ label: 'Bekijk alle producten', onClick: () => setSelectedCategory('') }}
               />
-              {/* Hidden category description for SEO */}
-              <p className="sr-only">
-                Shop {getCategoryName(selectedCategory)?.toLowerCase() || 'products'} at NextX Suriname. Quality audio gear with local pickup available.
-              </p>
-              
-              <NewProductGrid 
-                isEmpty={filteredItems.length === 0}
-                onClearFilters={() => setSelectedCategory('')}
-                variant="dark"
-              >
+            ) : (
+              <NewProductGrid>
                 {filteredItems.map((item) => {
                   const isCombo = item.is_combo || false
                   const comboPrice = getPrice(item)
@@ -989,19 +995,19 @@ export default function NewCatalogPage() {
                   )
                 })}
               </NewProductGrid>
-            </div>
-          </section>
+            )}
+          </SectionContainer>
         )}
 
         {/* Homepage Content */}
         {showHomepage && (
           <>
-            {/* Combo Deals */}
+            {/* Section 1: Combo Deals (revenue driver — always prominent) */}
             {comboItems.length > 0 && (
               <NewProductCarousel
                 title="Combo Deals"
                 subtitle="Bespaar meer met onze speciale combinaties"
-                products={comboItems.map((combo) => {
+                products={comboItems.slice(0, 8).map((combo) => {
                   const comboPrice = getPrice(combo)
                   const comboStock = getComboStockInfo(combo)
                   return {
@@ -1022,7 +1028,7 @@ export default function NewCatalogPage() {
               />
             )}
 
-            {/* New Products Carousel */}
+            {/* Section 2: New Arrivals */}
             {newestProducts.length > 0 && (
               <NewProductCarousel
                 title="Nieuwste Producten"
@@ -1037,11 +1043,12 @@ export default function NewCatalogPage() {
               />
             )}
 
-            {/* Featured Collections */}
-            {collections.length > 0 && collections.map((collection) => {
+            {/* Section 3: Featured Collections (max 3) */}
+            {collections.length > 0 && collections.slice(0, 3).map((collection) => {
               const collectionProducts = collection.collection_items
                 ?.sort((a, b) => a.sort_order - b.sort_order)
                 .filter(ci => ci.items)
+                .slice(0, 8)
                 .map(ci => {
                   const item = ci.items as ItemWithCombo
                   const isCombo = item.is_combo && item.combo_items && item.combo_items.length > 0
@@ -1064,7 +1071,7 @@ export default function NewCatalogPage() {
               return (
                 <NewProductCarousel
                   key={collection.id}
-                  title={`✨ ${collection.name}`}
+                  title={collection.name}
                   subtitle={collection.description || undefined}
                   products={collectionProducts}
                   currency={currency}
@@ -1073,12 +1080,12 @@ export default function NewCatalogPage() {
               )
             })}
 
-            {/* Products by Category */}
-            {productsByCategory.map(({ category, products }) => (
+            {/* Section 4: Shop by Category (each capped at 8 items) */}
+            {productsByCategory.map(({ category, products }, index) => (
               <NewProductCarousel
                 key={category.id}
                 title={category.name}
-                products={products.slice(0, 10).map(item => {
+                products={products.slice(0, 8).map(item => {
                   const itemWithCombo = item as ItemWithCombo
                   const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
                   const stockInfo = isCombo 
@@ -1098,20 +1105,15 @@ export default function NewCatalogPage() {
                 onAddToCart={addToCartById}
                 viewAllClick={() => {
                   setSelectedCategory(category.id)
-                  // Force scroll to top with multiple strategies for mobile compatibility
                   setTimeout(() => {
                     window.scrollTo({ top: 0, behavior: 'smooth' })
-                    // Fallback for older mobile browsers
-                    if (window.scrollY > 0) {
-                      window.scrollTo(0, 0)
-                    }
                   }, 50)
                 }}
-                bgColor={category.name === 'In-Ear Accessories' ? 'neutral-50' : 'white'}
+                bgColor={index % 2 === 1 ? 'neutral-50' : 'white'}
               />
             ))}
 
-            {/* Value Section */}
+            {/* Section 5: Value Proposition & CTA */}
             <NewValueSection_Lazy
               storeAddress={settings.store_address}
               whatsappNumber={settings.whatsapp_number}
