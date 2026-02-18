@@ -91,7 +91,8 @@ export function ProductCarousel({
                         alt={product.name}
                         fill
                         className="object-cover group-hover/card:scale-105 transition-transform duration-500"
-                        unoptimized
+                        sizes="(max-width: 640px) 200px, 220px"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">

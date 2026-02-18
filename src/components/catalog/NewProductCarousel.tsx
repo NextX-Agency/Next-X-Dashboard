@@ -61,14 +61,14 @@ export function NewProductCarousel({
   const backgroundClass = bgColor === 'neutral-50' ? 'bg-neutral-50' : 'bg-white'
 
   return (
-    <section className={`py-10 ${backgroundClass}`}>
+    <section className={`py-10 ${backgroundClass} border-b border-neutral-100`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-[#141c2e]">{title}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#141c2e] leading-tight">{title}</h2>
             {subtitle && (
-              <p className="text-sm text-[#141c2e]/60 mt-1">{subtitle}</p>
+              <p className="text-sm text-[#141c2e]/55 mt-1">{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -142,7 +142,8 @@ export function NewProductCarousel({
                           alt={product.name}
                           fill
                           className={`object-cover transition-transform duration-500 ${isOutOfStock ? 'grayscale' : 'group-hover:scale-105'}`}
-                          unoptimized
+                          sizes="(max-width: 640px) 160px, (max-width: 1024px) 200px, 220px"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">

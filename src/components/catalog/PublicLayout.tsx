@@ -157,7 +157,7 @@ export function PublicLayout({
                   width={160}
                   height={56}
                   className="h-12 w-auto object-contain"
-                  unoptimized
+                  priority
                 />
               ) : (
                 <span className="text-xl font-bold tracking-tight inline-block">
@@ -329,7 +329,6 @@ export function PublicLayout({
                   width={120}
                   height={40}
                   className="h-8 w-auto object-contain mb-4"
-                  unoptimized
                 />
               ) : (
                 <span className="text-xl font-bold block mb-4">

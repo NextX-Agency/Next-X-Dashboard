@@ -112,7 +112,6 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
                         width={56}
                         height={56}
                         className="w-full h-full object-cover"
-                        unoptimized
                       />
                     ) : (
                       <Icon size={28} strokeWidth={1.5} />

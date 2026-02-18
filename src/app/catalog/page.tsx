@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { fetchCatalogData } from '@/lib/catalogApi'
 import { Database } from '@/types/database.types'
@@ -37,6 +38,17 @@ import {
   WebsiteSchema,
   SEO_CONTENT
 } from '@/components/catalog'
+import { PageSkeleton, CarouselSkeleton } from '@/components/catalog/SkeletonLoader'
+
+// Lazy load heavy below-the-fold sections
+const NewValueSection_Lazy = dynamic(
+  () => import('@/components/catalog').then(m => ({ default: m.NewValueSection })),
+  { ssr: false }
+)
+const NewCtaSection_Lazy = dynamic(
+  () => import('@/components/catalog').then(m => ({ default: m.NewCtaSection })),
+  { ssr: false }
+)
 
 // CMS Types
 interface Banner {
@@ -719,14 +731,7 @@ export default function NewCatalogPage() {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Laden...</p>
-        </div>
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   // Error state
@@ -1107,14 +1112,14 @@ export default function NewCatalogPage() {
             ))}
 
             {/* Value Section */}
-            <NewValueSection
+            <NewValueSection_Lazy
               storeAddress={settings.store_address}
               whatsappNumber={settings.whatsapp_number}
               storeDescription={settings.store_description}
             />
 
             {/* CTA Section */}
-            <NewCtaSection
+            <NewCtaSection_Lazy
               whatsappNumber={settings.whatsapp_number}
               storeName={settings.store_name}
             />

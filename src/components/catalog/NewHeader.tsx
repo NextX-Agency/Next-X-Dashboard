@@ -104,7 +104,7 @@ export function NewHeader({
                   width={160} 
                   height={56} 
                   className="h-12 w-auto object-contain"
-                  unoptimized
+                  priority
                 />
               ) : (
                 <span className="text-xl font-bold tracking-tight inline-block">

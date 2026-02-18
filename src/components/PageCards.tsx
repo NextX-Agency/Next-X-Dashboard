@@ -68,7 +68,7 @@ function ItemCardComponent({
     <div className="bg-card rounded-2xl border border-border overflow-hidden hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
       {imageUrl ? (
         <div className="h-44 bg-muted relative overflow-hidden">
-          <Image src={imageUrl} alt={name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" unoptimized />
+          <Image src={imageUrl} alt={name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
         </div>
       ) : (
         <div className="h-44 bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
@@ -192,7 +192,7 @@ function StockCardComponent({ itemName, locationName, quantity, imageUrl, onRemo
       <div className="flex items-center gap-3">
         {imageUrl ? (
           <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform">
-            <Image src={imageUrl} alt={itemName} fill className="object-cover" unoptimized />
+            <Image src={imageUrl} alt={itemName} fill className="object-cover" sizes="56px" />
           </div>
         ) : (
           <div className="w-14 h-14 bg-gradient-to-br from-muted to-muted/50 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">

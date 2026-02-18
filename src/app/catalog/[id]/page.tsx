@@ -537,14 +537,34 @@ export default function ProductDetailPage() {
     ]
   }
 
-  // Loading state
+  // Loading state — Show a skeleton to avoid blank screen while data loads
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-2 border-[#f97015] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-neutral-500">Product laden...</p>
+      <div className="min-h-screen bg-white animate-pulse">
+        {/* Header skeleton */}
+        <div className="h-16 bg-white border-b border-neutral-200 sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+            <div className="h-8 w-24 bg-neutral-100 rounded-lg" />
+            <div className="h-9 w-9 bg-neutral-100 rounded-full" />
+          </div>
         </div>
+        <main className="max-w-7xl mx-auto px-4 lg:px-8 pt-6 pb-12">
+          {/* Breadcrumb */}
+          <div className="h-4 w-48 bg-neutral-100 rounded-full mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            {/* Image skeleton */}
+            <div className="aspect-square bg-neutral-100 rounded-2xl" />
+            {/* Info skeleton */}
+            <div className="px-4 lg:px-8 py-6 space-y-4">
+              <div className="h-8 bg-neutral-100 rounded-full w-3/4" />
+              <div className="h-10 bg-[#f97015]/10 rounded-full w-1/3" />
+              <div className="h-4 bg-neutral-100 rounded-full w-full" />
+              <div className="h-4 bg-neutral-100 rounded-full w-5/6" />
+              <div className="h-4 bg-neutral-100 rounded-full w-4/6" />
+              <div className="h-14 bg-[#f97015]/20 rounded-xl w-full mt-6" />
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -649,7 +669,7 @@ export default function ProductDetailPage() {
                     fill
                     className="object-cover"
                     priority
-                    unoptimized
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     itemProp="image"
                   />
                   
@@ -723,7 +743,6 @@ export default function ProductDetailPage() {
                       width={80}
                       height={80}
                       className="w-full h-full object-cover"
-                      unoptimized
                     />
                   </button>
                 ))}
@@ -835,7 +854,6 @@ export default function ProductDetailPage() {
                             width={40}
                             height={40}
                             className={`rounded-lg object-cover ${itemOutOfStock ? 'opacity-50 grayscale' : ''}`}
-                            unoptimized
                           />
                         ) : (
                           <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">

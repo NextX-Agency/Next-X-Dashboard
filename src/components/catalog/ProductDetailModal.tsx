@@ -99,7 +99,7 @@ export function ProductDetailModal({
                 alt={name}
                 fill
                 className="object-cover"
-                unoptimized
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">

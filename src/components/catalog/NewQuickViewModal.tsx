@@ -102,7 +102,7 @@ export function NewQuickViewModal({
                 alt={name}
                 fill
                 className={`object-cover ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
-                unoptimized
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">

@@ -47,7 +47,6 @@ export function NewFooter({
                 width={120} 
                 height={40} 
                 className="h-8 w-auto object-contain mb-4"
-                unoptimized
               />
             ) : (
               <span className="text-xl font-bold block mb-4">
