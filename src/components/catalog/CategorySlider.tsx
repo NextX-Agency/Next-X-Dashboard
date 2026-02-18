@@ -49,25 +49,28 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
 
   return (
     <section className="relative bg-neutral-900/50 border-y border-white/[0.04]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Section title */}
-        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+      {/* Title in constrained container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-3 sm:pb-4">
+        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
           Shop per categorie
         </h2>
+      </div>
 
+      {/* Full-width scroll container */}
+      <div className="overflow-hidden pb-6">
         <div className="relative group">
           {/* Left scroll button */}
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800 -ml-2"
+            className="absolute left-4 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
             <ChevronLeft size={20} />
           </button>
 
-          {/* Categories container */}
+          {/* Categories container - extends to edges on mobile */}
           <div
             ref={scrollRef}
-            className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8"
+            className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-4 sm:px-6 lg:px-8"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* All products option */}
@@ -128,7 +131,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
           {/* Right scroll button */}
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800 -mr-2"
+            className="absolute right-4 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
             <ChevronRight size={20} />
           </button>
