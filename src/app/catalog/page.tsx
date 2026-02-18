@@ -427,7 +427,12 @@ export default function NewCatalogPage() {
         }
       }
     } catch (err) {
-      console.error('Error loading catalog data:', err)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error('Error loading catalog data:', {
+        message: errorMessage,
+        error: err,
+        stack: err instanceof Error ? err.stack : undefined
+      })
       setError('Er is een fout opgetreden bij het laden van de producten.')
     } finally {
       setLoading(false)

@@ -52,7 +52,7 @@ export function NewCategoryNav({
           {/* Categories container */}
           <div
             ref={scrollRef}
-            className="flex gap-2 overflow-x-auto snap-x snap-mandatory scroll-smooth px-1 pb-0.5"
+            className="flex gap-2 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-0.5 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {/* All products */}
