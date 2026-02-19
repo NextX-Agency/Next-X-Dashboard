@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 
 interface FAQ {
   id: string
@@ -34,6 +36,7 @@ interface FAQ {
 export default function FAQManagementPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -160,7 +163,15 @@ export default function FAQManagementPage() {
   }
 
   const deleteFaq = async (faq: FAQ) => {
-    if (!confirm('Delete this FAQ?')) return
+    const ok = await confirm({
+      title: 'Delete FAQ',
+      message: 'This FAQ will be permanently removed from the site.',
+      itemName: faq.question,
+      itemDetails: faq.category || undefined,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
 
     try {
       const { error } = await supabase
@@ -467,6 +478,7 @@ export default function FAQManagementPage() {
           </button>
         </div>
       </Modal>
+      <ConfirmDialog {...dialogProps} />
     </PageContainer>
   )
 }

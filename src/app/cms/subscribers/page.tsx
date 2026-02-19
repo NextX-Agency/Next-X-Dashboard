@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 
 interface Subscriber {
   id: string
@@ -31,6 +33,7 @@ interface Subscriber {
 export default function SubscribersManagementPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [subscribers, setSubscribers] = useState<Subscriber[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -113,7 +116,15 @@ export default function SubscribersManagementPage() {
   }
 
   const deleteSubscriber = async (subscriber: Subscriber) => {
-    if (!confirm(`Remove ${subscriber.email} from subscribers?`)) return
+    const ok = await confirm({
+      title: 'Remove Subscriber',
+      message: 'This email will be removed from the subscriber list.',
+      itemName: subscriber.email,
+      itemDetails: subscriber.name || undefined,
+      variant: 'danger',
+      confirmLabel: 'Remove',
+    })
+    if (!ok) return
 
     try {
       const { error } = await supabase
@@ -510,6 +521,7 @@ export default function SubscribersManagementPage() {
           </button>
         </div>
       </Modal>
+      <ConfirmDialog {...dialogProps} />
     </PageContainer>
   )
 }

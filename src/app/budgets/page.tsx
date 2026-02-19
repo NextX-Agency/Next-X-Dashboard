@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -33,6 +35,7 @@ type TabType = 'overview' | 'budgets' | 'goals' | 'categories'
 
 export default function BudgetsGoalsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([])
   const [budgets, setBudgets] = useState<BudgetWithCategory[]>([])
@@ -48,6 +51,7 @@ export default function BudgetsGoalsPage() {
   const [showBudgetCategoryForm, setShowBudgetCategoryForm] = useState(false)
   const [showBudgetForm, setShowBudgetForm] = useState(false)
   const [showGoalForm, setShowGoalForm] = useState(false)
+  const [addProgressModal, setAddProgressModal] = useState<{ goal: Goal; amount: string } | null>(null)
   
   // Editing states
   const [editingCategory, setEditingCategory] = useState<BudgetCategory | null>(null)
@@ -168,7 +172,14 @@ export default function BudgetsGoalsPage() {
   }
 
   const handleDeleteCategory = async (category: BudgetCategory) => {
-    if (!confirm(`Delete category "${category.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete Budget Category',
+      message: 'All budgets in this category will also be deleted.',
+      itemName: category.name,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await supabase.from('budget_categories').delete().eq('id', category.id)
     await logActivity({
       action: 'delete',
@@ -238,7 +249,15 @@ export default function BudgetsGoalsPage() {
   }
 
   const handleDeleteBudget = async (budget: BudgetWithCategory) => {
-    if (!confirm(`Delete budget for "${budget.budget_categories?.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete Budget',
+      message: 'This will permanently delete this budget entry.',
+      itemName: budget.budget_categories?.name,
+      itemDetails: `${budget.period} · ${formatCurrency(budget.amount_allowed, 'SRD')}`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await supabase.from('budgets').delete().eq('id', budget.id)
     await logActivity({
       action: 'delete',
@@ -302,7 +321,15 @@ export default function BudgetsGoalsPage() {
   }
 
   const handleDeleteGoal = async (goal: Goal) => {
-    if (!confirm(`Delete goal "${goal.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete Goal',
+      message: 'This will permanently delete this savings goal and all progress.',
+      itemName: goal.name,
+      itemDetails: `${formatCurrency(goal.current_amount, 'SRD')} / ${formatCurrency(goal.target_amount, 'SRD')}`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await supabase.from('goals').delete().eq('id', goal.id)
     await logActivity({
       action: 'delete',
@@ -314,11 +341,16 @@ export default function BudgetsGoalsPage() {
     loadData()
   }
 
-  const handleAddGoalProgress = async (goal: Goal) => {
-    const amount = prompt('Add amount to goal:')
-    if (!amount) return
-    
-    const newAmount = goal.current_amount + parseFloat(amount)
+  const handleAddGoalProgress = (goal: Goal) => {
+    setAddProgressModal({ goal, amount: '' })
+  }
+
+  const handleConfirmAddProgress = async () => {
+    if (!addProgressModal) return
+    const { goal, amount } = addProgressModal
+    const parsed = parseFloat(amount)
+    if (isNaN(parsed) || parsed <= 0) return
+    const newAmount = goal.current_amount + parsed
     await supabase.from('goals').update({ current_amount: newAmount }).eq('id', goal.id)
     await logActivity({
       action: 'update',
@@ -327,6 +359,7 @@ export default function BudgetsGoalsPage() {
       entityName: goal.name,
       details: `Added ${amount} SRD to goal - New total: ${newAmount}/${goal.target_amount} SRD`
     })
+    setAddProgressModal(null)
     loadData()
   }
 
@@ -856,6 +889,51 @@ export default function BudgetsGoalsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Add Goal Progress Modal */}
+      <Modal isOpen={!!addProgressModal} onClose={() => setAddProgressModal(null)} title="Add Progress">
+        {addProgressModal && (
+          <div className="space-y-4 pb-2">
+            <div className="px-3 py-2.5 bg-muted/60 rounded-xl border border-border">
+              <p className="text-sm font-semibold text-foreground">{addProgressModal.goal.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatCurrency(addProgressModal.goal.current_amount, 'SRD')} / {formatCurrency(addProgressModal.goal.target_amount, 'SRD')}
+              </p>
+            </div>
+            <Input
+              label="Amount to add (SRD)"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={addProgressModal.amount}
+              onChange={(e) => setAddProgressModal({ ...addProgressModal, amount: e.target.value })}
+              placeholder="Enter amount"
+            />
+            {addProgressModal.amount && !isNaN(parseFloat(addProgressModal.amount)) && (
+              <p className="text-xs text-muted-foreground">
+                New total: <span className="font-semibold text-foreground">{formatCurrency(addProgressModal.goal.current_amount + parseFloat(addProgressModal.amount), 'SRD')}</span> / {formatCurrency(addProgressModal.goal.target_amount, 'SRD')}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAddProgressModal(null)}
+                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAddProgress}
+                disabled={!addProgressModal.amount || isNaN(parseFloat(addProgressModal.amount)) || parseFloat(addProgressModal.amount) <= 0}
+                className="flex-1 px-4 py-3 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+              >
+                Add Progress
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

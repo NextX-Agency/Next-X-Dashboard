@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { Plus, MapPin, User, Phone, Wallet, ToggleLeft, ToggleRight } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 
@@ -18,6 +20,7 @@ interface LocationWithWallets extends Location {
 }
 
 export default function LocationsPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [locations, setLocations] = useState<LocationWithWallets[]>([])
   const [stock, setStock] = useState<Stock[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -159,7 +162,15 @@ export default function LocationsPage() {
 
   const handleDelete = async (id: string) => {
     const location = locations.find(l => l.id === id)
-    if (confirm('Delete this location? This will also delete all associated stock and wallets.')) {
+    const walletCount = location?.wallets?.length || 0
+    const ok = await confirm({
+      title: 'Delete Location',
+      message: `This will permanently delete the location and all associated stock and wallets${walletCount > 0 ? ` (${walletCount} wallet${walletCount > 1 ? 's' : ''})` : ''}. This cannot be undone.`,
+      itemName: location?.name,
+      variant: 'danger',
+      confirmLabel: 'Delete Location',
+    })
+    if (ok) {
       await supabase.from('locations').delete().eq('id', id)
       await logActivity({
         action: 'delete',
@@ -569,6 +580,8 @@ export default function LocationsPage() {
           </Button>
         </form>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

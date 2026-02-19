@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -34,6 +36,7 @@ interface OrderItemForm {
 
 export default function OrdersPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [orders, setOrders] = useState<OrderWithDetails[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -404,7 +407,17 @@ export default function OrdersPage() {
       alert('Can only delete pending or cancelled orders')
       return
     }
-    if (!confirm('Delete this order?')) return
+    const ok = await confirm({
+      title: 'Delete Order',
+      message: order.status === 'pending'
+        ? 'This pending order will be deleted and the amount refunded to the wallet.'
+        : 'This cancelled order will be permanently deleted.',
+      itemName: `Order #${order.id.slice(0, 8)}`,
+      itemDetails: `${formatCurrency(order.total_amount, order.currency as Currency)} · ${order.status}`,
+      variant: 'danger',
+      confirmLabel: order.status === 'pending' ? 'Delete & Refund' : 'Delete',
+    })
+    if (!ok) return
 
     // Refund if pending
     if (order.status === 'pending' && order.wallets) {
@@ -926,6 +939,8 @@ export default function OrdersPage() {
           </div>
         )}
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

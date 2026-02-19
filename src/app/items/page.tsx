@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Check } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
@@ -19,6 +21,7 @@ interface ItemWithComboItems extends Item {
 }
 
 export default function ItemsPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [categories, setCategories] = useState<Category[]>([])
   const [items, setItems] = useState<ItemWithComboItems[]>([])
   const [showCategoryForm, setShowCategoryForm] = useState(false)
@@ -99,7 +102,14 @@ export default function ItemsPage() {
 
   const handleDeleteCategory = async (id: string) => {
     const category = categories.find(c => c.id === id)
-    if (confirm('Delete this category?')) {
+    const ok = await confirm({
+      title: 'Delete Category',
+      message: 'Items in this category will become uncategorized.',
+      itemName: category?.name,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (ok) {
       await supabase.from('categories').delete().eq('id', id)
       await logActivity({
         action: 'delete',
@@ -242,7 +252,14 @@ export default function ItemsPage() {
 
   const handleDeleteItem = async (id: string) => {
     const item = items.find(i => i.id === id)
-    if (confirm('Delete this item?')) {
+    const ok = await confirm({
+      title: item?.is_combo ? 'Delete Combo' : 'Delete Item',
+      message: 'This will permanently remove the item and all associated data.',
+      itemName: item?.name,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (ok) {
       await supabase.from('items').delete().eq('id', id)
       await logActivity({
         action: 'delete',
@@ -917,6 +934,8 @@ export default function ItemsPage() {
           )}
         </form>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

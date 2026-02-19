@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { Plus, Tag, Receipt, Trash2, Edit, X, Search, Filter, ArrowUpDown, MapPin, Building2 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -26,6 +28,7 @@ type SortOrder = 'asc' | 'desc'
 
 export default function ExpensesPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([])
   const [wallets, setWallets] = useState<Wallet[]>([])
@@ -196,7 +199,14 @@ export default function ExpensesPage() {
   }
 
   const handleDeleteCategory = async (category: ExpenseCategory) => {
-    if (!confirm(`Delete category "${category.name}"?`)) return
+    const ok = await confirm({
+      title: 'Delete Category',
+      message: 'This will remove the category. Existing expenses will be uncategorized.',
+      itemName: category.name,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await supabase.from('expense_categories').delete().eq('id', category.id)
     await logActivity({
       action: 'delete',
@@ -345,7 +355,16 @@ export default function ExpensesPage() {
   }
 
   const handleDeleteExpense = async (expense: ExpenseWithDetails) => {
-    if (!confirm('Delete this expense? The amount will be refunded to the wallet.')) return
+    const category = categories.find(c => c.id === expense.category_id)
+    const ok = await confirm({
+      title: 'Delete Expense',
+      message: 'The amount will be refunded to the wallet. This cannot be undone.',
+      itemName: formatCurrency(expense.amount, expense.currency as Currency),
+      itemDetails: category?.name || expense.expense_categories?.name || 'Uncategorized',
+      variant: 'danger',
+      confirmLabel: 'Delete & Refund',
+    })
+    if (!ok) return
     
     await supabase.from('expenses').delete().eq('id', expense.id)
     
@@ -846,6 +865,8 @@ export default function ExpensesPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

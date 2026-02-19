@@ -7,6 +7,8 @@ import { Database } from '@/types/database.types'
 import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, CurrencyToggle, EmptyState, LoadingSpinner, Badge, Input } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 
@@ -77,6 +79,7 @@ interface SalesStats {
 type WalletType = Database['public']['Tables']['wallets']['Row']
 
 export default function SalesPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('')
@@ -691,7 +694,15 @@ export default function SalesPage() {
   }
 
   const handleUndoSale = async (sale: SaleWithDetails) => {
-    if (!confirm('Are you sure you want to undo this sale? Stock will be restored and wallet will be refunded.')) return
+    const ok = await confirm({
+      title: 'Undo Sale',
+      message: 'Stock will be restored, the wallet will be refunded, and commissions will be removed. This cannot be undone.',
+      itemName: `${formatCurrency(sale.total_amount, sale.currency as Currency)} • ${sale.locations?.name || 'Unknown'}`,
+      itemDetails: `Sale ID: ${sale.id.slice(0, 8)}`,
+      variant: 'warning',
+      confirmLabel: 'Undo Sale',
+    })
+    if (!ok) return
 
     try {
       // Restore stock for each item
@@ -1759,6 +1770,8 @@ export default function SalesPage() {
           </Button>
         </div>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

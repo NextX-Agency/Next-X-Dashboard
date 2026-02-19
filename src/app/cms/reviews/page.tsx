@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal, Badge } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 
 interface Review {
   id: string
@@ -43,6 +45,7 @@ interface Review {
 export default function ReviewsManagementPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -105,7 +108,15 @@ export default function ReviewsManagementPage() {
   }
 
   const deleteReview = async (review: Review) => {
-    if (!confirm('Delete this review permanently?')) return
+    const ok = await confirm({
+      title: 'Delete Review',
+      message: 'This review will be permanently removed.',
+      itemName: review.item?.name || 'Review',
+      itemDetails: `by ${review.name} · ${review.rating}★`,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
 
     try {
       const { error } = await supabase
@@ -456,6 +467,7 @@ export default function ReviewsManagementPage() {
           ))}
         </div>
       )}
+      <ConfirmDialog {...dialogProps} />
     </PageContainer>
   )
 }

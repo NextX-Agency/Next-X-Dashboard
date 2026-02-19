@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Settings, Save, Phone, Store, DollarSign, Shield, Users, Key, Loader2, Check, AlertCircle, ExternalLink, Globe, ImageIcon, Type, FileText, Palette, Star } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
@@ -33,6 +35,7 @@ interface User {
 
 export default function SettingsPage() {
   const { user: currentUser } = useAuth()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '',
     store_name: '',
@@ -198,7 +201,15 @@ export default function SettingsPage() {
       alert('Cannot delete your own account')
       return
     }
-    if (confirm('Are you sure you want to delete this user?')) {
+    const userToDelete = users.find(u => u.id === userId)
+    const ok = await confirm({
+      title: 'Delete User',
+      message: 'This will permanently delete the user account. They will no longer be able to log in.',
+      itemName: userToDelete?.name || userToDelete?.email || 'Unknown User',
+      variant: 'danger',
+      confirmLabel: 'Delete User',
+    })
+    if (ok) {
       await supabase.from('users').delete().eq('id', userId)
       loadUsers()
     }
@@ -681,6 +692,8 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

@@ -10,6 +10,8 @@ import {
 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 
@@ -35,6 +37,7 @@ interface TransactionWithDetails extends WalletTransaction {
 const USD_TO_SRD_RATE = 35.6
 
 export default function WalletsPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
@@ -167,7 +170,15 @@ export default function WalletsPage() {
 
   const handleDeleteWallet = async (wallet: WalletWithLocation) => {
     const locationName = wallet.locations?.name || 'Unknown'
-    if (!confirm(`Delete ${wallet.type} ${wallet.currency} wallet for "${locationName}"? This cannot be undone.`)) return
+    const ok = await confirm({
+      title: 'Delete Wallet',
+      message: 'This will permanently delete the wallet and all its transaction history. This cannot be undone.',
+      itemName: `${locationName} — ${wallet.type} ${wallet.currency}`,
+      itemDetails: `Balance: ${formatCurrency(wallet.balance, wallet.currency as Currency)}`,
+      variant: 'danger',
+      confirmLabel: 'Delete Wallet',
+    })
+    if (!ok) return
     
     await supabase.from('wallets').delete().eq('id', wallet.id)
     await logActivity({
@@ -1449,6 +1460,8 @@ export default function WalletsPage() {
           </Button>
         </form>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

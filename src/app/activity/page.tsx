@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Activity, Filter, Calendar, Search, RefreshCw, Trash2, Package, Tag, MapPin, Warehouse, ShoppingCart, Bookmark, Wallet, Receipt, Target, Users, User, Percent, DollarSign, TrendingUp, Clock, BarChart3 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, LoadingSpinner, Badge, EmptyState, StatBox } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { getActionText, getEntityTypeText, getActionColor } from '@/lib/activityLog'
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row']
@@ -30,6 +32,7 @@ const entityIcons: Record<EntityType, React.ElementType> = {
 }
 
 export default function ActivityLogPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -73,7 +76,13 @@ export default function ActivityLogPage() {
   }, [actionFilter, entityFilter, dateFilter])
 
   const handleClearLogs = async () => {
-    if (!confirm('Are you sure you want to clear all activity logs? This cannot be undone.')) return
+    const ok = await confirm({
+      title: 'Clear All Logs',
+      message: `This will permanently delete all ${logs.length} activity log entries. This cannot be undone.`,
+      variant: 'danger',
+      confirmLabel: 'Clear All Logs',
+    })
+    if (!ok) return
     
     setLoading(true)
     await supabase.from('activity_logs').delete().neq('id', '')
@@ -401,6 +410,8 @@ export default function ActivityLogPage() {
           </div>
         )}
       </PageContainer>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

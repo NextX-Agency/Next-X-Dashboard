@@ -6,6 +6,8 @@ import { Database } from '@/types/database.types'
 import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Percent, Trash2 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, EmptyState, LoadingSpinner, Badge, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
@@ -34,6 +36,7 @@ interface LocationCommissionSummary {
 
 export default function CommissionsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [locations, setLocations] = useState<Location[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [commissions, setCommissions] = useState<CommissionWithDetails[]>([])
@@ -220,8 +223,15 @@ export default function CommissionsPage() {
     if (!commission) return
     
     const currency = (commission.sales?.currency || 'USD') as Currency
-    const confirmMsg = `Delete commission ${formatCurrency(commission.commission_amount, currency)} for ${commission.locations?.seller_name || commission.locations?.name}?`
-    if (!confirm(confirmMsg)) return
+    const ok = await confirm({
+      title: 'Delete Commission',
+      message: 'This will permanently remove this commission record.',
+      itemName: formatCurrency(commission.commission_amount, currency),
+      itemDetails: commission.locations?.seller_name || commission.locations?.name || 'Unknown',
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     
     await supabase
       .from('commissions')
@@ -400,7 +410,16 @@ export default function CommissionsPage() {
   }
 
   const handleDeleteRate = async (rateId: string) => {
-    if (!confirm('Are you sure you want to delete this category rate?')) return
+    const rate = sellerCategoryRates?.find(r => r.id === rateId)
+    const category = categories.find(c => c.id === rate?.category_id)
+    const ok = await confirm({
+      title: 'Delete Category Rate',
+      message: 'This will remove the custom commission rate for this category. The seller will use the default rate instead.',
+      itemName: category?.name || 'Category Rate',
+      variant: 'warning',
+      confirmLabel: 'Delete Rate',
+    })
+    if (!ok) return
 
     await supabase
       .from('seller_category_rates')
@@ -925,6 +944,8 @@ export default function CommissionsPage() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }

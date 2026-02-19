@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown } from 'lucide-react'
+import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
 import { logActivity } from '@/lib/activityLog'
@@ -28,6 +28,7 @@ export default function StockPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
   const [showLowStock, setShowLowStock] = useState(false)
+  const [removeModal, setRemoveModal] = useState<{ stock: StockWithDetails; removeQty: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [addForm, setAddForm] = useState({
@@ -250,22 +251,25 @@ export default function StockPage() {
     }
   }
 
-  const handleRemoveStock = async (stockId: string, currentQty: number) => {
-    const removeQty = prompt(`Remove quantity (max ${currentQty}):`)
-    if (!removeQty) return
-    
-    const qty = parseInt(removeQty)
-    if (qty <= 0 || qty > currentQty) {
-      alert('Invalid quantity')
-      return
-    }
+  const handleRemoveStock = (stockId: string, currentQty: number) => {
+    const stock = stocks.find(s => s.id === stockId)
+    if (!stock) return
+    setRemoveModal({ stock, removeQty: '1' })
+  }
 
-    const newQty = currentQty - qty
+  const handleConfirmRemoveStock = async () => {
+    if (!removeModal) return
+    const { stock, removeQty } = removeModal
+    const qty = parseInt(removeQty)
+    if (isNaN(qty) || qty <= 0 || qty > stock.quantity) return
+
+    const newQty = stock.quantity - qty
     if (newQty === 0) {
-      await supabase.from('stock').delete().eq('id', stockId)
+      await supabase.from('stock').delete().eq('id', stock.id)
     } else {
-      await supabase.from('stock').update({ quantity: newQty }).eq('id', stockId)
+      await supabase.from('stock').update({ quantity: newQty }).eq('id', stock.id)
     }
+    setRemoveModal(null)
     if (selectedLocation) {
       await loadStockByLocation(selectedLocation)
     } else {
@@ -558,6 +562,52 @@ export default function StockPage() {
             Transfer Stock
           </Button>
         </form>
+      </Modal>
+
+      {/* Remove Stock Modal */}
+      <Modal isOpen={!!removeModal} onClose={() => setRemoveModal(null)} title="Remove Stock">
+        {removeModal && (
+          <div className="space-y-4 pb-2">
+            <div className="px-3 py-2.5 bg-muted/60 rounded-xl border border-border">
+              <p className="text-sm font-semibold text-foreground">{removeModal.stock.items?.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{removeModal.stock.locations?.name} &bull; {removeModal.stock.quantity} in stock</p>
+            </div>
+            <Input
+              label={`Quantity to remove (max ${removeModal.stock.quantity})`}
+              type="number"
+              min="1"
+              max={removeModal.stock.quantity}
+              value={removeModal.removeQty}
+              onChange={(e) => setRemoveModal({ ...removeModal, removeQty: e.target.value })}
+              placeholder="Enter quantity"
+            />
+            {(() => {
+              const qty = parseInt(removeModal.removeQty)
+              const valid = !isNaN(qty) && qty > 0 && qty <= removeModal.stock.quantity
+              const remaining = valid ? removeModal.stock.quantity - qty : null
+              return remaining !== null ? (
+                <p className="text-xs text-muted-foreground">
+                  Remaining stock after removal: <span className={`font-semibold ${remaining === 0 ? 'text-red-500' : 'text-foreground'}`}>{remaining}</span>{remaining === 0 ? ' (will delete entry)' : ''}
+                </p>
+              ) : null
+            })()}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRemoveModal(null)}
+                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRemoveStock}
+                disabled={(() => { const q = parseInt(removeModal.removeQty); return isNaN(q) || q <= 0 || q > removeModal.stock.quantity })()}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-[44px] touch-manipulation flex items-center justify-center gap-2"
+              >
+                <Minus size={16} /> Remove
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

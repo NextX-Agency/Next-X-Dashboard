@@ -9,6 +9,8 @@ import {
 import Link from 'next/link'
 import Image from 'next/image'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner, Modal } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 
 interface BlogPost {
@@ -39,6 +41,7 @@ interface BlogCategory {
 }
 
 export default function BlogManagementPage() {
+  const { dialogProps, confirm } = useConfirmDialog()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [categories, setCategories] = useState<BlogCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,7 +169,14 @@ export default function BlogManagementPage() {
   }
 
   const handleDeleteCategory = async (category: BlogCategory) => {
-    if (!confirm(`Delete category "${category.name}"? Posts will be uncategorized.`)) return
+    const ok = await confirm({
+      title: 'Delete Category',
+      message: 'Posts in this category will become uncategorized.',
+      itemName: category.name,
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     try {
       await supabase.from('blog_categories').delete().eq('id', category.id)
       loadData()
@@ -647,6 +657,8 @@ export default function BlogManagementPage() {
           </form>
         </Modal>
       )}
+
+      <ConfirmDialog {...dialogProps} />
     </PageContainer>
   )
 }

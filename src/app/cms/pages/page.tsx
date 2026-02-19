@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { useConfirmDialog } from '@/lib/useConfirmDialog'
 
 interface Page {
   id: string
@@ -35,6 +37,7 @@ interface Page {
 export default function PagesManagementPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { dialogProps, confirm } = useConfirmDialog()
   const [pages, setPages] = useState<Page[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -162,7 +165,15 @@ export default function PagesManagementPage() {
   }
 
   const deletePage = async (page: Page) => {
-    if (!confirm(`Delete page "${page.title}"?`)) return
+    const ok = await confirm({
+      title: 'Delete Page',
+      message: 'This page will be permanently deleted and removed from the site.',
+      itemName: page.title,
+      itemDetails: `/${page.slug}`,
+      variant: 'danger',
+      confirmLabel: 'Delete Page',
+    })
+    if (!ok) return
 
     try {
       const { error } = await supabase
@@ -560,6 +571,7 @@ export default function PagesManagementPage() {
           </button>
         </div>
       </Modal>
+      <ConfirmDialog {...dialogProps} />
     </PageContainer>
   )
 }
