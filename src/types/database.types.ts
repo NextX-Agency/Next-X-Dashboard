@@ -540,18 +540,21 @@ export interface Database {
           id: string
           name: string
           type: string
+          linked_expense_categories: string | null
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           type: string
+          linked_expense_categories?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
           type?: string
+          linked_expense_categories?: string | null
           created_at?: string
         }
       }
@@ -564,6 +567,7 @@ export interface Database {
           period: string
           start_date: string
           end_date: string | null
+          currency: string
           created_at: string
           updated_at: string
         }
@@ -575,6 +579,7 @@ export interface Database {
           period: string
           start_date: string
           end_date?: string | null
+          currency?: string
           created_at?: string
           updated_at?: string
         }
@@ -586,6 +591,7 @@ export interface Database {
           period?: string
           start_date?: string
           end_date?: string | null
+          currency?: string
           created_at?: string
           updated_at?: string
         }
@@ -597,6 +603,8 @@ export interface Database {
           target_amount: number
           current_amount: number
           deadline: string | null
+          currency: string
+          wallet_id: string | null
           created_at: string
           updated_at: string
         }
@@ -606,6 +614,8 @@ export interface Database {
           target_amount: number
           current_amount?: number
           deadline?: string | null
+          currency?: string
+          wallet_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -615,6 +625,8 @@ export interface Database {
           target_amount?: number
           current_amount?: number
           deadline?: string | null
+          currency?: string
+          wallet_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -627,6 +639,7 @@ export interface Database {
           entity_id: string | null
           entity_name: string | null
           details: string | null
+          user_id: string | null
           created_at: string
         }
         Insert: {
@@ -636,6 +649,7 @@ export interface Database {
           entity_id?: string | null
           entity_name?: string | null
           details?: string | null
+          user_id?: string | null
           created_at?: string
         }
         Update: {
@@ -645,6 +659,7 @@ export interface Database {
           entity_id?: string | null
           entity_name?: string | null
           details?: string | null
+          user_id?: string | null
           created_at?: string
         }
       }

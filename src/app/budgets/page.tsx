@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState } from '@/components/UI'
+import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -36,7 +36,7 @@ interface BudgetWithCategory extends Budget {
 type TabType = 'overview' | 'budgets' | 'goals' | 'categories'
 
 export default function BudgetsGoalsPage() {
-  const { displayCurrency, exchangeRate } = useCurrency()
+  const { displayCurrency, setDisplayCurrency, exchangeRate, convertToDisplay } = useCurrency()
   const { dialogProps, confirm } = useConfirmDialog()
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -178,7 +178,7 @@ export default function BudgetsGoalsPage() {
 
   const handleEditCategory = (category: BudgetCategory) => {
     setEditingCategory(category)
-    setBudgetCategoryForm({ name: category.name, type: category.type as 'marketing' | 'trips' | 'orders' | 'custom', linked_expense_categories: (category as any).linked_expense_categories || '' })
+    setBudgetCategoryForm({ name: category.name, type: category.type as 'marketing' | 'trips' | 'orders' | 'custom', linked_expense_categories: category.linked_expense_categories || '' })
     setShowBudgetCategoryForm(true)
   }
 
@@ -259,7 +259,7 @@ export default function BudgetsGoalsPage() {
       period: budget.period as 'monthly' | 'yearly' | 'custom',
       start_date: budget.start_date,
       end_date: budget.end_date || '',
-      currency: ((budget as any).currency || 'SRD') as Currency
+      currency: (budget.currency || 'SRD') as Currency
     })
     setShowBudgetForm(true)
   }
@@ -269,13 +269,13 @@ export default function BudgetsGoalsPage() {
       title: 'Delete Budget',
       message: 'This will permanently delete this budget entry.',
       itemName: budget.budget_categories?.name,
-      itemDetails: `${budget.period} · ${formatCurrency(budget.amount_allowed, ((budget as any).currency || 'SRD') as Currency)}`,
+      itemDetails: `${budget.period} · ${formatCurrency(budget.amount_allowed, (budget.currency || 'SRD') as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (!ok) return
     await supabase.from('budgets').delete().eq('id', budget.id)
-    const budgetCurrency = ((budget as any).currency || 'SRD') as Currency
+    const budgetCurrency = (budget.currency || 'SRD') as Currency
     await logActivity({
       action: 'delete',
       entityType: 'budget',
@@ -346,8 +346,8 @@ export default function BudgetsGoalsPage() {
       target_amount: goal.target_amount.toString(),
       current_amount: goal.current_amount.toString(),
       deadline: goal.deadline || '',
-      currency: ((goal as any).currency || 'SRD') as Currency,
-      wallet_id: (goal as any).wallet_id || ''
+      currency: (goal.currency || 'SRD') as Currency,
+      wallet_id: goal.wallet_id || ''
     })
     setShowGoalForm(true)
   }
@@ -357,12 +357,12 @@ export default function BudgetsGoalsPage() {
       title: 'Delete Goal',
       message: 'This will permanently delete this savings goal and all progress.',
       itemName: goal.name,
-      itemDetails: `${formatCurrency(goal.current_amount, ((goal as any).currency || 'SRD') as Currency)} / ${formatCurrency(goal.target_amount, ((goal as any).currency || 'SRD') as Currency)}`,
+      itemDetails: `${formatCurrency(goal.current_amount, (goal.currency || 'SRD') as Currency)} / ${formatCurrency(goal.target_amount, (goal.currency || 'SRD') as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (!ok) return
-    const goalCurrency = ((goal as any).currency || 'SRD') as Currency
+    const goalCurrency = (goal.currency || 'SRD') as Currency
     await supabase.from('goals').delete().eq('id', goal.id)
     await logActivity({
       action: 'delete',
@@ -385,7 +385,7 @@ export default function BudgetsGoalsPage() {
     const parsed = parseFloat(amount)
     if (isNaN(parsed) || parsed <= 0) return
     const newAmount = goal.current_amount + parsed
-    const goalCurrency = ((goal as any).currency || 'SRD') as Currency
+    const goalCurrency = (goal.currency || 'SRD') as Currency
     await supabase.from('goals').update({ current_amount: newAmount }).eq('id', goal.id)
     await logActivity({
       action: 'update',
@@ -405,14 +405,10 @@ export default function BudgetsGoalsPage() {
   }
 
   const getTotalBudget = () => budgets.reduce((sum, b) => {
-    const cur = ((b as any).currency || 'SRD') as Currency
-    if (displayCurrency === 'USD') return sum + (cur === 'USD' ? b.amount_allowed : b.amount_allowed / exchangeRate)
-    return sum + (cur === 'SRD' ? b.amount_allowed : b.amount_allowed * exchangeRate)
+    return sum + convertToDisplay(b.amount_allowed, (b.currency || 'SRD') as Currency)
   }, 0)
   const getTotalSpent = () => budgets.reduce((sum, b) => {
-    const cur = ((b as any).currency || 'SRD') as Currency
-    if (displayCurrency === 'USD') return sum + (cur === 'USD' ? b.amount_spent : b.amount_spent / exchangeRate)
-    return sum + (cur === 'SRD' ? b.amount_spent : b.amount_spent * exchangeRate)
+    return sum + convertToDisplay(b.amount_spent, (b.currency || 'SRD') as Currency)
   }, 0)
   const getTotalGoalProgress = () => {
     if (goals.length === 0) return 0
@@ -421,21 +417,11 @@ export default function BudgetsGoalsPage() {
 
   // Wallet calculations
   const getTotalWalletBalance = () => {
-    return wallets.reduce((sum, w) => {
-      if (displayCurrency === 'USD') {
-        return sum + (w.currency === 'USD' ? w.balance : w.balance / exchangeRate)
-      }
-      return sum + (w.currency === 'SRD' ? w.balance : w.balance * exchangeRate)
-    }, 0)
+    return wallets.reduce((sum, w) => sum + convertToDisplay(w.balance, w.currency as Currency), 0)
   }
 
   const getWalletsByType = (type: 'cash' | 'bank') => {
-    return wallets.filter(w => w.type === type).reduce((sum, w) => {
-      if (displayCurrency === 'USD') {
-        return sum + (w.currency === 'USD' ? w.balance : w.balance / exchangeRate)
-      }
-      return sum + (w.currency === 'SRD' ? w.balance : w.balance * exchangeRate)
-    }, 0)
+    return wallets.filter(w => w.type === type).reduce((sum, w) => sum + convertToDisplay(w.balance, w.currency as Currency), 0)
   }
 
   // Expense calculations
@@ -446,76 +432,65 @@ export default function BudgetsGoalsPage() {
         const expDate = new Date(e.created_at)
         return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear()
       })
-      .reduce((sum, e) => {
-        if (displayCurrency === 'USD') {
-          return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
-        }
-        return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
-      }, 0)
+      .reduce((sum, e) => sum + convertToDisplay(e.amount, (e.currency || 'SRD') as Currency), 0)
   }
 
   const getTotalExpenses = () => {
-    return expenses.reduce((sum, e) => {
-      if (displayCurrency === 'USD') {
-        return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
-      }
-      return sum + (e.currency === 'SRD' ? e.amount : e.amount * exchangeRate)
-    }, 0)
+    return expenses.reduce((sum, e) => sum + convertToDisplay(e.amount, (e.currency || 'SRD') as Currency), 0)
   }
 
   // Sync budget spent amounts from expenses (filtered by linked expense categories)
   const handleSyncBudgets = async () => {
     setSyncing(true)
     try {
-      let updatedCount = 0
-      
+      // Compute all new amounts first, then fire DB writes concurrently
+      const updates: { id: string; amount_spent: number }[] = []
+
       for (const budget of budgets) {
-        // Find the budget's category to get linked_expense_categories
         const budgetCategory = budgetCategories.find(c => c.id === budget.category_id)
-        const linkedCatIds = (budgetCategory as any)?.linked_expense_categories
-          ? ((budgetCategory as any).linked_expense_categories as string).split(',').map((id: string) => id.trim()).filter(Boolean)
+        const linkedCatIds = budgetCategory?.linked_expense_categories
+          ? budgetCategory.linked_expense_categories.split(',').map((id: string) => id.trim()).filter(Boolean)
           : []
 
-        // Get expenses within the budget period
         const startDate = new Date(budget.start_date)
         const endDate = budget.end_date ? new Date(budget.end_date) : new Date()
-        const budgetCurrency = ((budget as any).currency || 'SRD') as Currency
+        const budgetCurrency = (budget.currency || 'SRD') as Currency
 
-        // Filter expenses by date AND linked expense categories
         const budgetExpenses = expenses.filter(e => {
           const expDate = new Date(e.created_at)
           const inDateRange = expDate >= startDate && expDate <= endDate
           if (!inDateRange) return false
-          // If no linked categories, don't match any expenses (must configure categories first)
           if (linkedCatIds.length === 0) return false
           return linkedCatIds.includes(e.category_id)
         })
 
-        // Sum expenses, converting currency if needed
+        // Convert each expense amount into the budget's own currency
         const totalSpent = budgetExpenses.reduce((sum, e) => {
           const expCurrency = (e.currency || 'SRD') as Currency
           if (expCurrency === budgetCurrency) return sum + e.amount
-          // Convert: if budget is SRD and expense is USD, multiply by rate
           if (budgetCurrency === 'SRD' && expCurrency === 'USD') return sum + (e.amount * exchangeRate)
-          // If budget is USD and expense is SRD, divide by rate
           if (budgetCurrency === 'USD' && expCurrency === 'SRD') return sum + (e.amount / exchangeRate)
           return sum + e.amount
         }, 0)
 
         const roundedSpent = Math.round(totalSpent * 100) / 100
         if (roundedSpent !== budget.amount_spent) {
-          await supabase.from('budgets').update({ amount_spent: roundedSpent }).eq('id', budget.id)
-          updatedCount++
+          updates.push({ id: budget.id, amount_spent: roundedSpent })
         }
       }
-      
+
+      // Fire all DB writes concurrently instead of sequentially
+      await Promise.all(
+        updates.map(u => supabase.from('budgets').update({ amount_spent: u.amount_spent }).eq('id', u.id))
+      )
+
       await loadData()
       await logActivity({
         action: 'update',
         entityType: 'budget',
         entityId: 'sync',
         entityName: 'Budget Sync',
-        details: buildActivityDetails({ Updated: `${updatedCount} of ${budgets.length} budgets`, Source: 'Expense data' }),
+        details: buildActivityDetails({ Updated: `${updates.length} of ${budgets.length} budgets`, Source: 'Expense data' }),
         userId: user?.id
       })
     } catch (error) {
@@ -539,6 +514,7 @@ export default function BudgetsGoalsPage() {
         title="Budgets & Goals" 
         subtitle="Track spending and financial objectives"
         icon={<Wallet className="w-6 h-6" />}
+        action={<CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />}
       />
 
       <PageContainer>
@@ -732,7 +708,7 @@ export default function BudgetsGoalsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {budgetCategories.map((category) => {
-                  const linkedIds = ((category as any).linked_expense_categories || '').split(',').filter(Boolean)
+                  const linkedIds = (category.linked_expense_categories || '').split(',').filter(Boolean)
                   const linkedNames = linkedIds.map((id: string) => expenseCategories.find(ec => ec.id === id.trim())?.name).filter(Boolean)
                   return (
                   <div key={category.id} className="bg-card p-5 rounded-2xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group">
@@ -808,10 +784,10 @@ export default function BudgetsGoalsPage() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div className={`text-2xl font-bold flex items-baseline gap-1 ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
-                              <span>{formatCurrency(budget.amount_spent, ((budget as any).currency || 'SRD') as Currency)}</span>
+                              <span>{formatCurrency(budget.amount_spent, (budget.currency || 'SRD') as Currency)}</span>
                             </div>
-                            <div className="text-sm text-muted-foreground">of {formatCurrency(budget.amount_allowed, ((budget as any).currency || 'SRD') as Currency)}</div>
-                            <div className="text-xs text-amber-500 font-semibold mt-0.5">({((budget as any).currency || 'SRD')})</div>
+                            <div className="text-sm text-muted-foreground">of {formatCurrency(budget.amount_allowed, (budget.currency || 'SRD') as Currency)}</div>
+                            <div className="text-xs text-amber-500 font-semibold mt-0.5">({budget.currency || 'SRD'})</div>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => handleEditBudget(budget)} className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
@@ -883,9 +859,9 @@ export default function BudgetsGoalsPage() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div className={`text-2xl font-bold ${isComplete ? 'text-success' : 'text-foreground'}`}>
-                              {formatCurrency(goal.current_amount, ((goal as any).currency || 'SRD') as Currency)}
+                              {formatCurrency(goal.current_amount, (goal.currency || 'SRD') as Currency)}
                             </div>
-                            <div className="text-sm text-muted-foreground">of {formatCurrency(goal.target_amount, ((goal as any).currency || 'SRD') as Currency)}</div>
+                            <div className="text-sm text-muted-foreground">of {formatCurrency(goal.target_amount, (goal.currency || 'SRD') as Currency)}</div>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => handleAddGoalProgress(goal)} className="p-2 rounded-lg text-muted-foreground hover:text-success hover:bg-success/10 transition-colors" title="Add progress">
@@ -1032,7 +1008,7 @@ export default function BudgetsGoalsPage() {
       {/* Add Goal Progress Modal */}
       <Modal isOpen={!!addProgressModal} onClose={() => setAddProgressModal(null)} title="Add Progress">
         {addProgressModal && (() => {
-          const progressCurrency = ((addProgressModal.goal as any).currency || 'SRD') as Currency
+          const progressCurrency = (addProgressModal.goal.currency || 'SRD') as Currency
           return (
           <div className="space-y-4 pb-2">
             <div className="px-3 py-2.5 bg-muted/60 rounded-xl border border-border">
