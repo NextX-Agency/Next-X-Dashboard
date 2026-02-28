@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Settings, Save, Phone, Store, DollarSign, Shield, Users, Key, Loader2, Check, AlertCircle, ExternalLink, Globe, ImageIcon, Type, FileText, Palette, Star } from 'lucide-react'
+import { Settings, Save, Phone, Store, DollarSign, Shield, Users, Key, Loader2, Check, AlertCircle, ExternalLink, Globe, ImageIcon, Type, FileText, Palette, Star, Database, Download, Upload, Trash2, RefreshCw, HardDrive, Clock } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner } from '@/components/UI'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -49,7 +49,7 @@ export default function SettingsPage() {
     hero_subtitle: ''
   })
   const [users, setUsers] = useState<User[]>([])
-  const [activeTab, setActiveTab] = useState<'store' | 'webshop' | 'users' | 'security'>('store')
+  const [activeTab, setActiveTab] = useState<'store' | 'webshop' | 'users' | 'security' | 'backup'>('store')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -63,6 +63,19 @@ export default function SettingsPage() {
     name: '',
     role: 'staff'
   })
+
+  // Backup states
+  interface BackupFile {
+    url: string
+    pathname: string
+    size: number
+    uploadedAt: string
+  }
+  const [backups, setBackups] = useState<BackupFile[]>([])
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupAction, setBackupAction] = useState<string | null>(null)
+  const [restoreMode, setRestoreMode] = useState<'wipe' | 'merge'>('wipe')
+  const [restoreResult, setRestoreResult] = useState<{ success: boolean; totalRows: number; errors?: string[] } | null>(null)
 
   const loadSettings = async () => {
     setLoading(true)
@@ -105,6 +118,192 @@ export default function SettingsPage() {
     loadSettings()
     loadUsers()
   }, [])
+
+  // Load backup list when tab changes
+  useEffect(() => {
+    if (activeTab === 'backup') {
+      loadBackups()
+    }
+  }, [activeTab])
+
+  const loadBackups = async () => {
+    try {
+      const res = await fetch('/api/backup/list')
+      if (res.ok) {
+        const data = await res.json()
+        setBackups(data.backups || [])
+      }
+    } catch (error) {
+      console.error('Error loading backups:', error)
+    }
+  }
+
+  const handleCreateBackup = async () => {
+    setBackupLoading(true)
+    setBackupAction('Creating backup...')
+    setRestoreResult(null)
+    try {
+      // Step 1: Export all data
+      setBackupAction('Exporting database...')
+      const exportRes = await fetch('/api/backup/export')
+      if (!exportRes.ok) throw new Error('Export failed')
+      const backupData = await exportRes.json()
+
+      // Step 2: Save to Vercel Blob
+      setBackupAction('Saving to cloud...')
+      const saveRes = await fetch('/api/backup/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backupData),
+      })
+      if (!saveRes.ok) throw new Error('Save failed')
+
+      // Step 3: Also trigger download
+      setBackupAction('Downloading file...')
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nextx-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      setBackupAction(null)
+      await loadBackups()
+    } catch (error) {
+      console.error('Backup creation error:', error)
+      setBackupAction(null)
+      alert('Failed to create backup. Check console for details.')
+    }
+    setBackupLoading(false)
+  }
+
+  const handleDownloadBackup = async (backupUrl: string, pathname: string) => {
+    try {
+      const res = await fetch(backupUrl)
+      const data = await res.text()
+      const blob = new Blob([data], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = pathname.split('/').pop() || 'backup.json'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Download error:', error)
+      alert('Failed to download backup.')
+    }
+  }
+
+  const handleDeleteBackup = async (url: string) => {
+    const ok = await confirm({
+      title: 'Delete Backup',
+      message: 'This will permanently remove this backup file from cloud storage.',
+      variant: 'danger',
+      confirmLabel: 'Delete Backup',
+    })
+    if (!ok) return
+
+    try {
+      const res = await fetch('/api/backup/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      if (res.ok) {
+        await loadBackups()
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+    }
+  }
+
+  const handleRestoreFromCloud = async (backupUrl: string) => {
+    const ok = await confirm({
+      title: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Restore',
+      message: restoreMode === 'wipe'
+        ? 'WARNING: This will DELETE ALL current data and replace it with the backup. This cannot be undone. Are you absolutely sure?'
+        : 'This will merge the backup data into your current database. Existing records will be updated, new records will be added.',
+      variant: 'danger',
+      confirmLabel: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Data',
+    })
+    if (!ok) return
+
+    setBackupLoading(true)
+    setBackupAction('Downloading backup...')
+    setRestoreResult(null)
+    try {
+      const res = await fetch(backupUrl)
+      const backup = await res.json()
+
+      setBackupAction(`Restoring (${restoreMode} mode)...`)
+      const restoreRes = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup, mode: restoreMode }),
+      })
+
+      const result = await restoreRes.json()
+      setRestoreResult(result)
+      setBackupAction(null)
+    } catch (error) {
+      console.error('Restore error:', error)
+      setBackupAction(null)
+      alert('Failed to restore backup. Check console for details.')
+    }
+    setBackupLoading(false)
+  }
+
+  const handleImportFromFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const ok = await confirm({
+      title: restoreMode === 'wipe' ? 'Wipe & Restore from File' : 'Merge from File',
+      message: restoreMode === 'wipe'
+        ? 'WARNING: This will DELETE ALL current data and replace it with the uploaded file. This cannot be undone.'
+        : 'This will merge the uploaded file data into your current database.',
+      variant: 'danger',
+      confirmLabel: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Data',
+    })
+    if (!ok) {
+      e.target.value = ''
+      return
+    }
+
+    setBackupLoading(true)
+    setBackupAction('Reading file...')
+    setRestoreResult(null)
+    try {
+      const text = await file.text()
+      const backup = JSON.parse(text)
+
+      if (!backup.version || !backup.tables) {
+        throw new Error('Invalid backup file format')
+      }
+
+      setBackupAction(`Restoring (${restoreMode} mode)...`)
+      const restoreRes = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup, mode: restoreMode }),
+      })
+
+      const result = await restoreRes.json()
+      setRestoreResult(result)
+      setBackupAction(null)
+    } catch (error) {
+      console.error('Import error:', error)
+      setBackupAction(null)
+      alert('Failed to import backup. Make sure the file is a valid backup JSON file.')
+    }
+    setBackupLoading(false)
+    e.target.value = ''
+  }
 
   const saveSettings = async () => {
     setSaving(true)
@@ -279,6 +478,17 @@ export default function SettingsPage() {
             <Shield size={16} className="sm:w-[18px] sm:h-[18px]" />
             <span className="hidden sm:inline">Security</span>
             <span className="sm:hidden">Sec</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('backup')}
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+              activeTab === 'backup'
+                ? 'bg-primary text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            }`}
+          >
+            <Database size={16} className="sm:w-[18px] sm:h-[18px]" />
+            <span>Backup</span>
           </button>
         </div>
 
@@ -627,6 +837,229 @@ export default function SettingsPage() {
                 <li>• User sessions are stored locally and validated on each request</li>
                 <li>• For production, implement proper password hashing (bcrypt)</li>
                 <li>• Consider adding rate limiting for login attempts</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Backup Tab */}
+        {activeTab === 'backup' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Actions Section */}
+            <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-5 sm:space-y-6">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-1 flex items-center gap-2">
+                  <HardDrive size={18} className="sm:w-5 sm:h-5 text-primary" />
+                  Backup & Restore
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Create full database backups, download them, or restore from a previous backup.
+                </p>
+              </div>
+
+              {/* Loading overlay */}
+              {backupLoading && (
+                <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-xl border border-primary/20">
+                  <Loader2 size={20} className="animate-spin text-primary" />
+                  <span className="text-sm font-medium text-foreground">{backupAction || 'Working...'}</span>
+                </div>
+              )}
+
+              {/* Restore result */}
+              {restoreResult && (
+                <div className={`p-4 rounded-xl border ${restoreResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {restoreResult.success ? <Check size={18} className="text-green-500" /> : <AlertCircle size={18} className="text-red-500" />}
+                    <span className="font-semibold text-sm">{restoreResult.success ? 'Restore Successful' : 'Restore Completed with Errors'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total rows restored: {restoreResult.totalRows.toLocaleString()}
+                  </p>
+                  {restoreResult.errors && restoreResult.errors.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-medium text-red-500">Errors:</p>
+                      {restoreResult.errors.map((err, i) => (
+                        <p key={i} className="text-xs text-red-400">{err}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={handleCreateBackup}
+                  disabled={backupLoading}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Download size={20} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-foreground">Create Backup</p>
+                    <p className="text-xs text-muted-foreground">Export all data to cloud + download</p>
+                  </div>
+                </button>
+
+                <label className={`flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer text-left ${backupLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                    <Upload size={20} className="text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-foreground">Import from File</p>
+                    <p className="text-xs text-muted-foreground">Restore from a local .json backup</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportFromFile}
+                    disabled={backupLoading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Restore Mode Selector */}
+              <div className="border-t border-border pt-5">
+                <h4 className="text-sm font-semibold text-foreground mb-3">Restore Mode</h4>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    onClick={() => setRestoreMode('wipe')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      restoreMode === 'wipe'
+                        ? 'border-red-500/50 bg-red-500/10'
+                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`w-3 h-3 rounded-full border-2 ${restoreMode === 'wipe' ? 'border-red-500 bg-red-500' : 'border-muted-foreground'}`} />
+                      <span className="font-semibold text-sm text-foreground">Wipe & Restore</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-5">Delete all current data, then import the backup cleanly. Best for disaster recovery.</p>
+                  </button>
+                  <button
+                    onClick={() => setRestoreMode('merge')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      restoreMode === 'merge'
+                        ? 'border-blue-500/50 bg-blue-500/10'
+                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`w-3 h-3 rounded-full border-2 ${restoreMode === 'merge' ? 'border-blue-500 bg-blue-500' : 'border-muted-foreground'}`} />
+                      <span className="font-semibold text-sm text-foreground">Merge / Upsert</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-5">Insert new records and update existing ones. Less destructive but may conflict.</p>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Saved Backups (File Manager) */}
+            <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                    <Clock size={18} className="sm:w-5 sm:h-5" />
+                    Saved Backups
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Cloud backups stored in Vercel Blob. Auto-backups run daily at 2 AM UTC.</p>
+                </div>
+                <button
+                  onClick={loadBackups}
+                  disabled={backupLoading}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50 min-h-[44px]"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+              </div>
+
+              {backups.length === 0 ? (
+                <div className="text-center py-12">
+                  <Database size={40} className="mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-sm text-muted-foreground">No backups found</p>
+                  <p className="text-xs text-muted-foreground mt-1">Create your first backup using the button above.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {backups.map((backup) => {
+                    const isAuto = backup.pathname.includes('auto-')
+                    const date = new Date(backup.uploadedAt)
+                    const sizeKB = (backup.size / 1024).toFixed(1)
+                    const sizeMB = (backup.size / (1024 * 1024)).toFixed(2)
+                    const sizeDisplay = backup.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`
+
+                    return (
+                      <div key={backup.url} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isAuto ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
+                            {isAuto ? <RefreshCw size={16} className="text-blue-500" /> : <HardDrive size={16} className="text-primary" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-foreground truncate">
+                              {backup.pathname.split('/').pop()}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${isAuto ? 'bg-blue-500/10 text-blue-500' : 'bg-primary/10 text-primary'}`}>
+                                {isAuto ? 'AUTO' : 'MANUAL'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {date.toLocaleDateString()} {date.toLocaleTimeString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {sizeDisplay}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 pl-12 sm:pl-0 flex-shrink-0">
+                          <button
+                            onClick={() => handleDownloadBackup(backup.url, backup.pathname)}
+                            className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            title="Download"
+                          >
+                            <Download size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleRestoreFromCloud(backup.url)}
+                            disabled={backupLoading}
+                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                            title="Restore"
+                          >
+                            <Upload size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBackup(backup.url)}
+                            disabled={backupLoading}
+                            className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Info Section */}
+            <div className="bg-card rounded-2xl border border-border p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                <AlertCircle size={18} className="text-yellow-500" />
+                Backup Information
+              </h3>
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
+                <li>• Backups include <strong>all database tables</strong> (products, sales, wallets, users, CMS content, etc.)</li>
+                <li>• Manual backups are saved to cloud storage <strong>and</strong> downloaded to your device</li>
+                <li>• Automatic backups run <strong>daily at 2 AM UTC</strong> and are kept for 30 days</li>
+                <li>• <strong>Wipe & Restore</strong> deletes all current data first — use for disaster recovery</li>
+                <li>• <strong>Merge / Upsert</strong> updates existing records and adds new ones — less destructive</li>
+                <li>• Always create a fresh backup <strong>before</strong> running database migrations</li>
+                <li>• Keep at least one local backup copy for extra safety</li>
               </ul>
             </div>
           </div>

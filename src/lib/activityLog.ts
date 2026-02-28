@@ -8,6 +8,7 @@ export type ActionType =
   | 'complete'
   | 'cancel'
   | 'pay'
+  | 'receive'
 
 export type EntityType = 
   | 'item'
@@ -45,26 +46,33 @@ interface LogActivityParams {
   entityId?: string | null
   entityName?: string | null
   details?: string | null
+  userId?: string | null
 }
 
 /**
  * Log an activity to the activity_logs table
+ * 
+ * Details format convention (pipe-separated for structured rendering):
+ *   "Items: 3x iPhone 15, 2x AirPods | Wallet: SRD Cash -500 | Location: Paramaribo | User: admin"
  */
 export async function logActivity({
   action,
   entityType,
   entityId = null,
   entityName = null,
-  details = null
+  details = null,
+  userId = null
 }: LogActivityParams) {
   try {
-    await supabase.from('activity_logs').insert({
+    const insertData: Record<string, unknown> = {
       action,
       entity_type: entityType,
       entity_id: entityId,
       entity_name: entityName,
       details
-    })
+    }
+    if (userId) insertData.user_id = userId
+    await supabase.from('activity_logs').insert(insertData)
   } catch (error) {
     // Silently fail - logging should not break the main flow
     console.error('Failed to log activity:', error)
@@ -74,7 +82,7 @@ export async function logActivity({
 /**
  * Get formatted action text for display
  */
-export function getActionText(action: ActionType): string {
+export function getActionText(action: string): string {
   switch (action) {
     case 'create': return 'Created'
     case 'update': return 'Updated'
@@ -83,6 +91,7 @@ export function getActionText(action: ActionType): string {
     case 'complete': return 'Completed'
     case 'cancel': return 'Cancelled'
     case 'pay': return 'Paid'
+    case 'receive': return 'Received'
     default: return action
   }
 }
@@ -90,7 +99,7 @@ export function getActionText(action: ActionType): string {
 /**
  * Get formatted entity type for display
  */
-export function getEntityTypeText(entityType: EntityType): string {
+export function getEntityTypeText(entityType: string): string {
   switch (entityType) {
     case 'item': return 'Item'
     case 'category': return 'Category'
@@ -108,22 +117,60 @@ export function getEntityTypeText(entityType: EntityType): string {
     case 'client': return 'Client'
     case 'commission': return 'Commission'
     case 'exchange_rate': return 'Exchange Rate'
-    default: return entityType
+    case 'purchase_order': return 'Purchase Order'
+    case 'blog_post': return 'Blog Post'
+    case 'blog_category': return 'Blog Category'
+    case 'banner': return 'Banner'
+    case 'collection': return 'Collection'
+    case 'page': return 'Page'
+    case 'testimonial': return 'Testimonial'
+    case 'faq': return 'FAQ'
+    case 'review': return 'Review'
+    case 'subscriber': return 'Subscriber'
+    case 'settings': return 'Settings'
+    case 'seller_category_rate': return 'Seller Rate'
+    default: return entityType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 }
 
 /**
  * Get action color for badges
  */
-export function getActionColor(action: ActionType): 'success' | 'warning' | 'danger' | 'info' {
+export function getActionColor(action: string): string {
   switch (action) {
-    case 'create': return 'success'
-    case 'update': return 'info'
-    case 'delete': return 'danger'
-    case 'transfer': return 'info'
-    case 'complete': return 'success'
-    case 'cancel': return 'warning'
-    case 'pay': return 'success'
-    default: return 'info'
+    case 'create': return 'text-green-500'
+    case 'update': return 'text-blue-500'
+    case 'delete': return 'text-red-500'
+    case 'transfer': return 'text-blue-500'
+    case 'complete': return 'text-green-500'
+    case 'cancel': return 'text-yellow-500'
+    case 'pay': return 'text-green-500'
+    case 'receive': return 'text-emerald-500'
+    default: return 'text-blue-500'
   }
+}
+
+/**
+ * Parse pipe-separated detail string into structured parts
+ * Format: "Items: 3x iPhone | Wallet: SRD Cash | Location: Paramaribo"
+ */
+export function parseActivityDetails(details: string | null): { key: string; value: string }[] {
+  if (!details) return []
+  return details.split(' | ').map(part => {
+    const colonIdx = part.indexOf(': ')
+    if (colonIdx > -1) {
+      return { key: part.slice(0, colonIdx).trim(), value: part.slice(colonIdx + 2).trim() }
+    }
+    return { key: '', value: part.trim() }
+  })
+}
+
+/**
+ * Build a structured detail string from key-value pairs
+ */
+export function buildActivityDetails(parts: Record<string, string | undefined | null>): string {
+  return Object.entries(parts)
+    .filter(([, v]) => v != null && v !== '')
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(' | ')
 }

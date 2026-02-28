@@ -4,6 +4,12 @@
   "devCommand": "next dev",
   "installCommand": "pnpm install",
   "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/backup/auto",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "redirects": [
     {
       "source": "/shop",

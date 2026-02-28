@@ -66,6 +66,11 @@ export const PROTECTED_API_ROUTES = [
   '/api/check-commission',
   '/api/get-sale-info',
   '/api/debug-reservations',
+  '/api/backup/export',
+  '/api/backup/save',
+  '/api/backup/list',
+  '/api/backup/delete',
+  '/api/backup/restore',
 ] as const
 
 // Helper function to check if a path is a public route

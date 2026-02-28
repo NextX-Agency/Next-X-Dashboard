@@ -8,11 +8,13 @@ import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, Loadi
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
-import { logActivity } from '@/lib/activityLog'
+import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { useAuth } from '@/lib/AuthContext'
 
 type BudgetCategory = Database['public']['Tables']['budget_categories']['Row']
+type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
 type Budget = Database['public']['Tables']['budgets']['Row']
 type Goal = Database['public']['Tables']['goals']['Row']
 type WalletType = Database['public']['Tables']['wallets']['Row']
@@ -36,8 +38,10 @@ type TabType = 'overview' | 'budgets' | 'goals' | 'categories'
 export default function BudgetsGoalsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { dialogProps, confirm } = useConfirmDialog()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([])
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [budgets, setBudgets] = useState<BudgetWithCategory[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
@@ -61,7 +65,8 @@ export default function BudgetsGoalsPage() {
   // Forms
   const [budgetCategoryForm, setBudgetCategoryForm] = useState({
     name: '',
-    type: 'custom' as 'marketing' | 'trips' | 'orders' | 'custom'
+    type: 'custom' as 'marketing' | 'trips' | 'orders' | 'custom',
+    linked_expense_categories: '' as string
   })
   const [budgetForm, setBudgetForm] = useState({
     category_id: '',
@@ -69,28 +74,33 @@ export default function BudgetsGoalsPage() {
     amount_spent: '',
     period: 'monthly' as 'monthly' | 'yearly' | 'custom',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    currency: 'SRD' as Currency
   })
   const [goalForm, setGoalForm] = useState({
     name: '',
     target_amount: '',
     current_amount: '',
-    deadline: ''
+    deadline: '',
+    currency: 'SRD' as Currency,
+    wallet_id: ''
   })
 
   const loadData = async () => {
     try {
       setLoading(true)
-      const [categoriesRes, budgetsRes, goalsRes, walletsRes, expensesRes, locationsRes] = await Promise.all([
+      const [categoriesRes, budgetsRes, goalsRes, walletsRes, expensesRes, locationsRes, expCatRes] = await Promise.all([
         supabase.from('budget_categories').select('*').order('name'),
         supabase.from('budgets').select('*, budget_categories(*)').order('created_at', { ascending: false }),
         supabase.from('goals').select('*').order('created_at', { ascending: false }),
         supabase.from('wallets').select('*, locations(*)').order('created_at', { ascending: false }),
         supabase.from('expenses').select('*, expense_categories(name)').order('created_at', { ascending: false }),
-        supabase.from('locations').select('*').eq('is_active', true).order('name')
+        supabase.from('locations').select('*').eq('is_active', true).order('name'),
+        supabase.from('expense_categories').select('*').order('name')
       ])
       
       if (categoriesRes.data) setBudgetCategories(categoriesRes.data)
+      if (expCatRes.data) setExpenseCategories(expCatRes.data)
       if (budgetsRes.data) setBudgets(budgetsRes.data as BudgetWithCategory[])
       if (goalsRes.data) setGoals(goalsRes.data)
       if (walletsRes.data) setWallets(walletsRes.data as WalletWithLocation[])
@@ -109,19 +119,19 @@ export default function BudgetsGoalsPage() {
 
   // Reset form functions
   const resetCategoryForm = () => {
-    setBudgetCategoryForm({ name: '', type: 'custom' })
+    setBudgetCategoryForm({ name: '', type: 'custom', linked_expense_categories: '' })
     setEditingCategory(null)
     setShowBudgetCategoryForm(false)
   }
 
   const resetBudgetForm = () => {
-    setBudgetForm({ category_id: '', amount_allowed: '', amount_spent: '', period: 'monthly', start_date: '', end_date: '' })
+    setBudgetForm({ category_id: '', amount_allowed: '', amount_spent: '', period: 'monthly', start_date: '', end_date: '', currency: 'SRD' })
     setEditingBudget(null)
     setShowBudgetForm(false)
   }
 
   const resetGoalForm = () => {
-    setGoalForm({ name: '', target_amount: '', current_amount: '', deadline: '' })
+    setGoalForm({ name: '', target_amount: '', current_amount: '', deadline: '', currency: 'SRD', wallet_id: '' })
     setEditingGoal(null)
     setShowGoalForm(false)
   }
@@ -131,29 +141,30 @@ export default function BudgetsGoalsPage() {
     e.preventDefault()
     try {
       setSubmitting(true)
+      const catData = {
+        name: budgetCategoryForm.name,
+        type: budgetCategoryForm.type,
+        linked_expense_categories: budgetCategoryForm.linked_expense_categories || null
+      }
       if (editingCategory) {
-        await supabase.from('budget_categories').update({
-          name: budgetCategoryForm.name,
-          type: budgetCategoryForm.type
-        }).eq('id', editingCategory.id)
+        await supabase.from('budget_categories').update(catData).eq('id', editingCategory.id)
         await logActivity({
           action: 'update',
           entityType: 'budget_category',
           entityId: editingCategory.id,
           entityName: budgetCategoryForm.name,
-          details: `Updated budget category: ${budgetCategoryForm.name} (${budgetCategoryForm.type})`
+          details: buildActivityDetails({ Category: budgetCategoryForm.name, Type: budgetCategoryForm.type }),
+          userId: user?.id
         })
       } else {
-        const { data } = await supabase.from('budget_categories').insert({
-          name: budgetCategoryForm.name,
-          type: budgetCategoryForm.type
-        }).select().single()
+        const { data } = await supabase.from('budget_categories').insert(catData).select().single()
         await logActivity({
           action: 'create',
           entityType: 'budget_category',
           entityId: data?.id,
           entityName: budgetCategoryForm.name,
-          details: `Created budget category: ${budgetCategoryForm.name} (${budgetCategoryForm.type})`
+          details: buildActivityDetails({ Category: budgetCategoryForm.name, Type: budgetCategoryForm.type }),
+          userId: user?.id
         })
       }
       resetCategoryForm()
@@ -167,7 +178,7 @@ export default function BudgetsGoalsPage() {
 
   const handleEditCategory = (category: BudgetCategory) => {
     setEditingCategory(category)
-    setBudgetCategoryForm({ name: category.name, type: category.type as 'marketing' | 'trips' | 'orders' | 'custom' })
+    setBudgetCategoryForm({ name: category.name, type: category.type as 'marketing' | 'trips' | 'orders' | 'custom', linked_expense_categories: (category as any).linked_expense_categories || '' })
     setShowBudgetCategoryForm(true)
   }
 
@@ -186,7 +197,8 @@ export default function BudgetsGoalsPage() {
       entityType: 'budget_category',
       entityId: category.id,
       entityName: category.name,
-      details: `Deleted budget category: ${category.name}`
+      details: buildActivityDetails({ Category: category.name }),
+      userId: user?.id
     })
     loadData()
   }
@@ -202,7 +214,8 @@ export default function BudgetsGoalsPage() {
         amount_spent: parseFloat(budgetForm.amount_spent) || 0,
         period: budgetForm.period,
         start_date: budgetForm.start_date,
-        end_date: budgetForm.end_date || null
+        end_date: budgetForm.end_date || null,
+        currency: budgetForm.currency
       }
       
       const categoryName = budgetCategories.find(c => c.id === budgetForm.category_id)?.name || 'Unknown'
@@ -214,7 +227,8 @@ export default function BudgetsGoalsPage() {
           entityType: 'budget',
           entityId: editingBudget.id,
           entityName: categoryName,
-          details: `Updated budget: ${budgetForm.amount_allowed} SRD (${budgetForm.period})`
+          details: buildActivityDetails({ Amount: formatCurrency(parseFloat(budgetForm.amount_allowed), budgetForm.currency), Period: budgetForm.period }),
+          userId: user?.id
         })
       } else {
         const { data: newBudget } = await supabase.from('budgets').insert(data).select().single()
@@ -223,7 +237,8 @@ export default function BudgetsGoalsPage() {
           entityType: 'budget',
           entityId: newBudget?.id,
           entityName: categoryName,
-          details: `Created ${budgetForm.period} budget: ${budgetForm.amount_allowed} SRD`
+          details: buildActivityDetails({ Amount: formatCurrency(parseFloat(budgetForm.amount_allowed), budgetForm.currency), Period: budgetForm.period }),
+          userId: user?.id
         })
       }
       resetBudgetForm()
@@ -243,7 +258,8 @@ export default function BudgetsGoalsPage() {
       amount_spent: budget.amount_spent.toString(),
       period: budget.period as 'monthly' | 'yearly' | 'custom',
       start_date: budget.start_date,
-      end_date: budget.end_date || ''
+      end_date: budget.end_date || '',
+      currency: ((budget as any).currency || 'SRD') as Currency
     })
     setShowBudgetForm(true)
   }
@@ -253,18 +269,20 @@ export default function BudgetsGoalsPage() {
       title: 'Delete Budget',
       message: 'This will permanently delete this budget entry.',
       itemName: budget.budget_categories?.name,
-      itemDetails: `${budget.period} · ${formatCurrency(budget.amount_allowed, 'SRD')}`,
+      itemDetails: `${budget.period} · ${formatCurrency(budget.amount_allowed, ((budget as any).currency || 'SRD') as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (!ok) return
     await supabase.from('budgets').delete().eq('id', budget.id)
+    const budgetCurrency = ((budget as any).currency || 'SRD') as Currency
     await logActivity({
       action: 'delete',
       entityType: 'budget',
       entityId: budget.id,
       entityName: budget.budget_categories?.name || 'Unknown',
-      details: `Deleted ${budget.period} budget: ${budget.amount_allowed} SRD`
+      details: buildActivityDetails({ Amount: formatCurrency(budget.amount_allowed, budgetCurrency), Period: budget.period }),
+      userId: user?.id
     })
     loadData()
   }
@@ -278,8 +296,12 @@ export default function BudgetsGoalsPage() {
         name: goalForm.name,
         target_amount: parseFloat(goalForm.target_amount),
         current_amount: parseFloat(goalForm.current_amount) || 0,
-        deadline: goalForm.deadline || null
+        deadline: goalForm.deadline || null,
+        currency: goalForm.currency,
+        wallet_id: goalForm.wallet_id || null
       }
+      
+      const walletName = goalForm.wallet_id ? wallets.find(w => w.id === goalForm.wallet_id)?.person_name || 'Unknown' : undefined
       
       if (editingGoal) {
         await supabase.from('goals').update(data).eq('id', editingGoal.id)
@@ -288,7 +310,11 @@ export default function BudgetsGoalsPage() {
           entityType: 'goal',
           entityId: editingGoal.id,
           entityName: goalForm.name,
-          details: `Updated goal: ${goalForm.current_amount}/${goalForm.target_amount} SRD`
+          details: buildActivityDetails({
+            Target: formatCurrency(parseFloat(goalForm.target_amount), goalForm.currency),
+            ...(walletName && { Wallet: walletName })
+          }),
+          userId: user?.id
         })
       } else {
         const { data: newGoal } = await supabase.from('goals').insert(data).select().single()
@@ -297,7 +323,11 @@ export default function BudgetsGoalsPage() {
           entityType: 'goal',
           entityId: newGoal?.id,
           entityName: goalForm.name,
-          details: `Created goal: ${goalForm.target_amount} SRD target`
+          details: buildActivityDetails({
+            Target: formatCurrency(parseFloat(goalForm.target_amount), goalForm.currency),
+            ...(walletName && { Wallet: walletName })
+          }),
+          userId: user?.id
         })
       }
       resetGoalForm()
@@ -315,7 +345,9 @@ export default function BudgetsGoalsPage() {
       name: goal.name,
       target_amount: goal.target_amount.toString(),
       current_amount: goal.current_amount.toString(),
-      deadline: goal.deadline || ''
+      deadline: goal.deadline || '',
+      currency: ((goal as any).currency || 'SRD') as Currency,
+      wallet_id: (goal as any).wallet_id || ''
     })
     setShowGoalForm(true)
   }
@@ -325,18 +357,20 @@ export default function BudgetsGoalsPage() {
       title: 'Delete Goal',
       message: 'This will permanently delete this savings goal and all progress.',
       itemName: goal.name,
-      itemDetails: `${formatCurrency(goal.current_amount, 'SRD')} / ${formatCurrency(goal.target_amount, 'SRD')}`,
+      itemDetails: `${formatCurrency(goal.current_amount, ((goal as any).currency || 'SRD') as Currency)} / ${formatCurrency(goal.target_amount, ((goal as any).currency || 'SRD') as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (!ok) return
+    const goalCurrency = ((goal as any).currency || 'SRD') as Currency
     await supabase.from('goals').delete().eq('id', goal.id)
     await logActivity({
       action: 'delete',
       entityType: 'goal',
       entityId: goal.id,
       entityName: goal.name,
-      details: `Deleted goal: ${goal.current_amount}/${goal.target_amount} SRD`
+      details: buildActivityDetails({ Target: formatCurrency(goal.target_amount, goalCurrency), Progress: formatCurrency(goal.current_amount, goalCurrency) }),
+      userId: user?.id
     })
     loadData()
   }
@@ -351,13 +385,15 @@ export default function BudgetsGoalsPage() {
     const parsed = parseFloat(amount)
     if (isNaN(parsed) || parsed <= 0) return
     const newAmount = goal.current_amount + parsed
+    const goalCurrency = ((goal as any).currency || 'SRD') as Currency
     await supabase.from('goals').update({ current_amount: newAmount }).eq('id', goal.id)
     await logActivity({
       action: 'update',
       entityType: 'goal',
       entityId: goal.id,
       entityName: goal.name,
-      details: `Added ${amount} SRD to goal - New total: ${newAmount}/${goal.target_amount} SRD`
+      details: buildActivityDetails({ Added: formatCurrency(parsed, goalCurrency), Total: `${formatCurrency(newAmount, goalCurrency)} / ${formatCurrency(goal.target_amount, goalCurrency)}` }),
+      userId: user?.id
     })
     setAddProgressModal(null)
     loadData()
@@ -368,8 +404,16 @@ export default function BudgetsGoalsPage() {
     return Math.min((current / target) * 100, 100)
   }
 
-  const getTotalBudget = () => budgets.reduce((sum, b) => sum + b.amount_allowed, 0)
-  const getTotalSpent = () => budgets.reduce((sum, b) => sum + b.amount_spent, 0)
+  const getTotalBudget = () => budgets.reduce((sum, b) => {
+    const cur = ((b as any).currency || 'SRD') as Currency
+    if (displayCurrency === 'USD') return sum + (cur === 'USD' ? b.amount_allowed : b.amount_allowed / exchangeRate)
+    return sum + (cur === 'SRD' ? b.amount_allowed : b.amount_allowed * exchangeRate)
+  }, 0)
+  const getTotalSpent = () => budgets.reduce((sum, b) => {
+    const cur = ((b as any).currency || 'SRD') as Currency
+    if (displayCurrency === 'USD') return sum + (cur === 'USD' ? b.amount_spent : b.amount_spent / exchangeRate)
+    return sum + (cur === 'SRD' ? b.amount_spent : b.amount_spent * exchangeRate)
+  }, 0)
   const getTotalGoalProgress = () => {
     if (goals.length === 0) return 0
     return goals.reduce((sum, g) => sum + getProgressPercentage(g.current_amount, g.target_amount), 0) / goals.length
@@ -419,25 +463,49 @@ export default function BudgetsGoalsPage() {
     }, 0)
   }
 
-  // Sync budget spent amounts from expenses
+  // Sync budget spent amounts from expenses (filtered by linked expense categories)
   const handleSyncBudgets = async () => {
     setSyncing(true)
     try {
-      // For each budget, calculate actual spending from expenses
+      let updatedCount = 0
+      
       for (const budget of budgets) {
+        // Find the budget's category to get linked_expense_categories
+        const budgetCategory = budgetCategories.find(c => c.id === budget.category_id)
+        const linkedCatIds = (budgetCategory as any)?.linked_expense_categories
+          ? ((budgetCategory as any).linked_expense_categories as string).split(',').map((id: string) => id.trim()).filter(Boolean)
+          : []
+
         // Get expenses within the budget period
         const startDate = new Date(budget.start_date)
         const endDate = budget.end_date ? new Date(budget.end_date) : new Date()
-        
+        const budgetCurrency = ((budget as any).currency || 'SRD') as Currency
+
+        // Filter expenses by date AND linked expense categories
         const budgetExpenses = expenses.filter(e => {
           const expDate = new Date(e.created_at)
-          return expDate >= startDate && expDate <= endDate
+          const inDateRange = expDate >= startDate && expDate <= endDate
+          if (!inDateRange) return false
+          // If no linked categories, don't match any expenses (must configure categories first)
+          if (linkedCatIds.length === 0) return false
+          return linkedCatIds.includes(e.category_id)
         })
 
-        const totalSpent = budgetExpenses.reduce((sum, e) => sum + e.amount, 0)
-        
-        if (totalSpent !== budget.amount_spent) {
-          await supabase.from('budgets').update({ amount_spent: totalSpent }).eq('id', budget.id)
+        // Sum expenses, converting currency if needed
+        const totalSpent = budgetExpenses.reduce((sum, e) => {
+          const expCurrency = (e.currency || 'SRD') as Currency
+          if (expCurrency === budgetCurrency) return sum + e.amount
+          // Convert: if budget is SRD and expense is USD, multiply by rate
+          if (budgetCurrency === 'SRD' && expCurrency === 'USD') return sum + (e.amount * exchangeRate)
+          // If budget is USD and expense is SRD, divide by rate
+          if (budgetCurrency === 'USD' && expCurrency === 'SRD') return sum + (e.amount / exchangeRate)
+          return sum + e.amount
+        }, 0)
+
+        const roundedSpent = Math.round(totalSpent * 100) / 100
+        if (roundedSpent !== budget.amount_spent) {
+          await supabase.from('budgets').update({ amount_spent: roundedSpent }).eq('id', budget.id)
+          updatedCount++
         }
       }
       
@@ -447,7 +515,8 @@ export default function BudgetsGoalsPage() {
         entityType: 'budget',
         entityId: 'sync',
         entityName: 'Budget Sync',
-        details: `Synced ${budgets.length} budgets with actual expense data`
+        details: buildActivityDetails({ Updated: `${updatedCount} of ${budgets.length} budgets`, Source: 'Expense data' }),
+        userId: user?.id
       })
     } catch (error) {
       console.error('Error syncing budgets:', error)
@@ -476,8 +545,8 @@ export default function BudgetsGoalsPage() {
         {/* Stats Overview */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox label={`Total Wallet Balance`} value={formatCurrency(getTotalWalletBalance(), displayCurrency)} icon={<Wallet size={24} />} variant="success" />
-          <StatBox label="Total Budget" value={formatCurrency(getTotalBudget(), 'SRD')} icon={<PiggyBank size={24} />} />
-          <StatBox label="Budget Spent" value={formatCurrency(getTotalSpent(), 'SRD')} icon={<TrendingUp size={24} />} variant="warning" />
+          <StatBox label="Total Budget" value={formatCurrency(getTotalBudget(), displayCurrency)} icon={<PiggyBank size={24} />} />
+          <StatBox label="Budget Spent" value={formatCurrency(getTotalSpent(), displayCurrency)} icon={<TrendingUp size={24} />} variant="warning" />
           <StatBox label="Goal Progress" value={`${getTotalGoalProgress().toFixed(0)}%`} icon={<Target size={24} />} variant="primary" />
         </div>
 
@@ -581,14 +650,16 @@ export default function BudgetsGoalsPage() {
                     <ArrowUpRight size={18} className="text-primary" />
                     <span className="text-sm font-medium text-muted-foreground">Total Budget Allocated</span>
                   </div>
-                  <div className="text-2xl font-bold text-foreground">{formatCurrency(getTotalBudget(), 'SRD')}</div>
+                  <div className="text-2xl font-bold text-foreground">{formatCurrency(getTotalBudget(), displayCurrency)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">({displayCurrency}) across all budgets</div>
                 </div>
                 <div className="bg-muted/50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <ArrowDownRight size={18} className="text-destructive" />
-                    <span className="text-sm font-medium text-muted-foreground">Total Expenses</span>
+                    <span className="text-sm font-medium text-muted-foreground">Total All System Expenses</span>
                   </div>
                   <div className="text-2xl font-bold text-destructive">{formatCurrency(getTotalExpenses(), displayCurrency)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Note: Link expense categories to budgets to track spending</div>
                 </div>
               </div>
 
@@ -660,12 +731,27 @@ export default function BudgetsGoalsPage() {
               <EmptyState icon={Calendar} title="No categories yet" description="Create budget categories to organize your spending." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {budgetCategories.map((category) => (
+                {budgetCategories.map((category) => {
+                  const linkedIds = ((category as any).linked_expense_categories || '').split(',').filter(Boolean)
+                  const linkedNames = linkedIds.map((id: string) => expenseCategories.find(ec => ec.id === id.trim())?.name).filter(Boolean)
+                  return (
                   <div key={category.id} className="bg-card p-5 rounded-2xl border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 group">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{category.name}</h3>
-                        <Badge variant={category.type === 'custom' ? 'default' : 'orange'} className="mt-2">{category.type}</Badge>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={category.type === 'custom' ? 'default' : 'orange'}>{category.type}</Badge>
+                        </div>
+                        {linkedNames.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {linkedNames.map((name: string) => (
+                              <span key={name} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">{name}</span>
+                            ))}
+                          </div>
+                        )}
+                        {linkedNames.length === 0 && (
+                          <p className="text-[10px] text-warning mt-1.5">No expense categories linked</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleEditCategory(category)} className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
@@ -677,7 +763,8 @@ export default function BudgetsGoalsPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -720,10 +807,11 @@ export default function BudgetsGoalsPage() {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <div className={`text-2xl font-bold ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
-                              ${budget.amount_spent.toFixed(2)}
+                            <div className={`text-2xl font-bold flex items-baseline gap-1 ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
+                              <span>{formatCurrency(budget.amount_spent, ((budget as any).currency || 'SRD') as Currency)}</span>
                             </div>
-                            <div className="text-sm text-muted-foreground">of ${budget.amount_allowed.toFixed(2)}</div>
+                            <div className="text-sm text-muted-foreground">of {formatCurrency(budget.amount_allowed, ((budget as any).currency || 'SRD') as Currency)}</div>
+                            <div className="text-xs text-amber-500 font-semibold mt-0.5">({((budget as any).currency || 'SRD')})</div>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => handleEditBudget(budget)} className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
@@ -795,9 +883,9 @@ export default function BudgetsGoalsPage() {
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <div className={`text-2xl font-bold ${isComplete ? 'text-success' : 'text-foreground'}`}>
-                              ${goal.current_amount.toFixed(2)}
+                              {formatCurrency(goal.current_amount, ((goal as any).currency || 'SRD') as Currency)}
                             </div>
-                            <div className="text-sm text-muted-foreground">of ${goal.target_amount.toFixed(2)}</div>
+                            <div className="text-sm text-muted-foreground">of {formatCurrency(goal.target_amount, ((goal as any).currency || 'SRD') as Currency)}</div>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => handleAddGoalProgress(goal)} className="p-2 rounded-lg text-muted-foreground hover:text-success hover:bg-success/10 transition-colors" title="Add progress">
@@ -842,6 +930,37 @@ export default function BudgetsGoalsPage() {
             <option value="orders">Orders</option>
             <option value="custom">Custom</option>
           </Select>
+          {/* Linked Expense Categories */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Linked Expense Categories</label>
+            <p className="text-xs text-muted-foreground mb-2">Select expense categories whose spending counts toward budgets in this category.</p>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto p-2 bg-muted/30 rounded-xl border border-border">
+              {expenseCategories.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-2 text-center">No expense categories found</p>
+              ) : (
+                expenseCategories.map((ec) => {
+                  const selectedIds = budgetCategoryForm.linked_expense_categories ? budgetCategoryForm.linked_expense_categories.split(',').filter(Boolean) : []
+                  const isSelected = selectedIds.includes(ec.id)
+                  return (
+                    <label key={ec.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-muted/50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          const newIds = isSelected
+                            ? selectedIds.filter(id => id !== ec.id)
+                            : [...selectedIds, ec.id]
+                          setBudgetCategoryForm({ ...budgetCategoryForm, linked_expense_categories: newIds.join(',') })
+                        }}
+                        className="rounded accent-primary"
+                      />
+                      <span className="text-sm">{ec.name}</span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </div>
           <div className="flex gap-3">
             <Button type="submit" variant="primary" fullWidth loading={submitting}>{editingCategory ? 'Update' : 'Create'}</Button>
             <Button type="button" variant="secondary" fullWidth onClick={resetCategoryForm}>Cancel</Button>
@@ -856,7 +975,13 @@ export default function BudgetsGoalsPage() {
             <option value="">Select Category</option>
             {budgetCategories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
           </Select>
-          <Input label="Budget Amount" type="number" step="0.01" value={budgetForm.amount_allowed} onChange={(e) => setBudgetForm({ ...budgetForm, amount_allowed: e.target.value })} placeholder="Enter amount" required />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Budget Amount" type="number" step="0.01" value={budgetForm.amount_allowed} onChange={(e) => setBudgetForm({ ...budgetForm, amount_allowed: e.target.value })} placeholder="Enter amount" required />
+            <Select label="Currency" value={budgetForm.currency} onChange={(e) => setBudgetForm({ ...budgetForm, currency: e.target.value as Currency })}>
+              <option value="SRD">SRD</option>
+              <option value="USD">USD</option>
+            </Select>
+          </div>
           {editingBudget && (
             <Input label="Amount Spent" type="number" step="0.01" value={budgetForm.amount_spent} onChange={(e) => setBudgetForm({ ...budgetForm, amount_spent: e.target.value })} placeholder="0.00" />
           )}
@@ -878,10 +1003,24 @@ export default function BudgetsGoalsPage() {
       <Modal isOpen={showGoalForm} onClose={resetGoalForm} title={editingGoal ? 'Edit Goal' : 'Add Goal'}>
         <form onSubmit={handleSubmitGoal} className="space-y-4">
           <Input label="Goal Name" value={goalForm.name} onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })} placeholder="Enter goal name" required />
-          <Input label="Target Amount" type="number" step="0.01" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} placeholder="Enter target amount" required />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Target Amount" type="number" step="0.01" value={goalForm.target_amount} onChange={(e) => setGoalForm({ ...goalForm, target_amount: e.target.value })} placeholder="Enter target amount" required />
+            <Select label="Currency" value={goalForm.currency} onChange={(e) => setGoalForm({ ...goalForm, currency: e.target.value as Currency })}>
+              <option value="SRD">SRD</option>
+              <option value="USD">USD</option>
+            </Select>
+          </div>
           {editingGoal && (
             <Input label="Current Amount" type="number" step="0.01" value={goalForm.current_amount} onChange={(e) => setGoalForm({ ...goalForm, current_amount: e.target.value })} placeholder="0.00" />
           )}
+          <Select label="Linked Wallet (Optional)" value={goalForm.wallet_id} onChange={(e) => setGoalForm({ ...goalForm, wallet_id: e.target.value })}>
+            <option value="">No wallet linked</option>
+            {wallets.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.person_name || w.locations?.name || 'Unknown'} ({w.currency} · {w.type})
+              </option>
+            ))}
+          </Select>
           <Input label="Deadline (Optional)" type="date" value={goalForm.deadline} onChange={(e) => setGoalForm({ ...goalForm, deadline: e.target.value })} />
           <div className="flex gap-3">
             <Button type="submit" variant="primary" fullWidth loading={submitting}>{editingGoal ? 'Update' : 'Create'}</Button>
@@ -892,16 +1031,18 @@ export default function BudgetsGoalsPage() {
 
       {/* Add Goal Progress Modal */}
       <Modal isOpen={!!addProgressModal} onClose={() => setAddProgressModal(null)} title="Add Progress">
-        {addProgressModal && (
+        {addProgressModal && (() => {
+          const progressCurrency = ((addProgressModal.goal as any).currency || 'SRD') as Currency
+          return (
           <div className="space-y-4 pb-2">
             <div className="px-3 py-2.5 bg-muted/60 rounded-xl border border-border">
               <p className="text-sm font-semibold text-foreground">{addProgressModal.goal.name}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {formatCurrency(addProgressModal.goal.current_amount, 'SRD')} / {formatCurrency(addProgressModal.goal.target_amount, 'SRD')}
+                {formatCurrency(addProgressModal.goal.current_amount, progressCurrency)} / {formatCurrency(addProgressModal.goal.target_amount, progressCurrency)}
               </p>
             </div>
             <Input
-              label="Amount to add (SRD)"
+              label={`Amount to add (${progressCurrency})`}
               type="number"
               step="0.01"
               min="0.01"
@@ -911,7 +1052,7 @@ export default function BudgetsGoalsPage() {
             />
             {addProgressModal.amount && !isNaN(parseFloat(addProgressModal.amount)) && (
               <p className="text-xs text-muted-foreground">
-                New total: <span className="font-semibold text-foreground">{formatCurrency(addProgressModal.goal.current_amount + parseFloat(addProgressModal.amount), 'SRD')}</span> / {formatCurrency(addProgressModal.goal.target_amount, 'SRD')}
+                New total: <span className="font-semibold text-foreground">{formatCurrency(addProgressModal.goal.current_amount + parseFloat(addProgressModal.amount), progressCurrency)}</span> / {formatCurrency(addProgressModal.goal.target_amount, progressCurrency)}
               </p>
             )}
             <div className="flex gap-3">
@@ -930,7 +1071,8 @@ export default function BudgetsGoalsPage() {
               </button>
             </div>
           </div>
-        )}
+          )
+        })()}
       </Modal>
 
       <ConfirmDialog {...dialogProps} />

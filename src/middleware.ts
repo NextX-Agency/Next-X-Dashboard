@@ -27,7 +27,9 @@ const PROTECTED_API_PREFIXES = [
   '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
   '/api/delete-commissions', '/api/recalculate-commissions', '/api/fix-combo-price',
   '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations',
-  '/api/create-missing-commissions'
+  '/api/create-missing-commissions',
+  '/api/backup/export', '/api/backup/save', '/api/backup/list',
+  '/api/backup/delete', '/api/backup/restore'
 ]
 
 function isPublicRoute(pathname: string): boolean {

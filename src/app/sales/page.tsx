@@ -10,7 +10,8 @@ import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity } from '@/lib/activityLog'
+import { logActivity, buildActivityDetails } from '@/lib/activityLog'
+import { useAuth } from '@/lib/AuthContext'
 
 type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
@@ -80,6 +81,7 @@ type WalletType = Database['public']['Tables']['wallets']['Row']
 
 export default function SalesPage() {
   const { dialogProps, confirm } = useConfirmDialog()
+  const { user } = useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('')
@@ -580,7 +582,13 @@ export default function SalesPage() {
                   entityType: 'commission',
                   entityId: sale.id,
                   entityName: `${seller.name || locationName}`,
-                  details: `Commission earned: ${formatCurrency(categoryCommission, currency)} at ${rateToUse}% for category sale at ${locationName}`
+                  details: buildActivityDetails({
+                    Amount: formatCurrency(categoryCommission, currency),
+                    Rate: `${rateToUse}%`,
+                    Location: locationName,
+                    Seller: seller.name || ''
+                  }),
+                  userId: user?.id
                 })
               }
             }
@@ -624,7 +632,14 @@ export default function SalesPage() {
                 entityType: 'commission',
                 entityId: sale.id,
                 entityName: `${seller.name || locationName}`,
-                details: `Commission earned: ${formatCurrency(comboCommission, currency)} at ${comboRate}% for combo "${combo.name}" at ${locationName}`
+                details: buildActivityDetails({
+                  Amount: formatCurrency(comboCommission, currency),
+                  Rate: `${comboRate}%`,
+                  Items: `Combo: ${combo.name}`,
+                  Location: locationName,
+                  Seller: seller.name || ''
+                }),
+                userId: user?.id
               })
             }
           }
@@ -657,13 +672,20 @@ export default function SalesPage() {
         if (selectedLocation) loadLocationWallets(selectedLocation)
       }
 
-      // Log activity
+      // Log activity - use saleItems array which has verified item names
+      const itemsLog = saleItems.map(si => `${si.quantity}x ${si.name}`).join(', ')
       await logActivity({
         action: 'create',
         entityType: 'sale',
         entityId: sale.id,
         entityName: invoiceNumber,
-        details: `Sale completed at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length + combos.length} items)`
+        details: buildActivityDetails({
+          Items: itemsLog || `${saleItems.length} items`,
+          Total: formatCurrency(total, currency),
+          Wallet: matchingWallet ? `${matchingWallet.person_name} (${matchingWallet.currency})` : '',
+          Location: location?.name || ''
+        }),
+        userId: user?.id
       })
 
       // Create invoice data
@@ -780,7 +802,12 @@ export default function SalesPage() {
         entityType: 'sale',
         entityId: sale.id,
         entityName: 'Sale Undo',
-        details: `Undid sale of ${formatCurrency(sale.total_amount, sale.currency as Currency)} at ${sale.locations?.name || 'Unknown'}. Stock restored, wallet refunded, commissions removed.`
+        details: buildActivityDetails({
+          Total: formatCurrency(sale.total_amount, sale.currency as Currency),
+          Location: sale.locations?.name || 'Unknown',
+          Items: `${sale.sale_items?.map((i: any) => `${i.quantity}x ${i.items?.name || '?'}`).join(', ') || 'N/A'}`
+        }),
+        userId: user?.id
       })
 
       // Reload data

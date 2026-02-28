@@ -9,8 +9,9 @@ import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity } from '@/lib/activityLog'
+import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { useAuth } from '@/lib/AuthContext'
 
 type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
 type Expense = Database['public']['Tables']['expenses']['Row']
@@ -29,6 +30,7 @@ type SortOrder = 'asc' | 'desc'
 export default function ExpensesPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { dialogProps, confirm } = useConfirmDialog()
+  const { user } = useAuth()
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([])
   const [wallets, setWallets] = useState<Wallet[]>([])
@@ -173,7 +175,8 @@ export default function ExpensesPage() {
           entityType: 'expense_category',
           entityId: editingCategory.id,
           entityName: categoryName,
-          details: `Updated category from "${editingCategory.name}" to "${categoryName}"`
+          details: buildActivityDetails({ Category: `${editingCategory.name} → ${categoryName}` }),
+          userId: user?.id
         })
       } else {
         const { data } = await supabase.from('expense_categories').insert({ name: categoryName }).select().single()
@@ -182,7 +185,8 @@ export default function ExpensesPage() {
           entityType: 'expense_category',
           entityId: data?.id,
           entityName: categoryName,
-          details: `Created expense category: ${categoryName}`
+          details: buildActivityDetails({ Category: categoryName }),
+          userId: user?.id
         })
       }
       resetCategoryForm()
@@ -213,7 +217,8 @@ export default function ExpensesPage() {
       entityType: 'expense_category',
       entityId: category.id,
       entityName: category.name,
-      details: `Deleted expense category: ${category.name}`
+      details: buildActivityDetails({ Category: category.name }),
+      userId: user?.id
     })
     loadData()
   }
@@ -283,7 +288,13 @@ export default function ExpensesPage() {
           entityType: 'expense',
           entityId: editingExpense.id,
           entityName: category?.name || 'Uncategorized',
-          details: `Updated expense: ${formatCurrency(amount, expenseForm.currency)} at ${location?.name}`
+          details: buildActivityDetails({
+            Amount: formatCurrency(amount, expenseForm.currency),
+            Category: category?.name || 'Uncategorized',
+            Wallet: `${wallet.person_name} (${wallet.currency})`,
+            Location: location?.name || ''
+          }),
+          userId: user?.id
         })
       } else {
         if (wallet.balance < amount) {
@@ -327,7 +338,13 @@ export default function ExpensesPage() {
           entityType: 'expense',
           entityId: data?.id,
           entityName: category?.name || 'Uncategorized',
-          details: `Created expense: ${formatCurrency(amount, expenseForm.currency)} at ${location?.name}${expenseForm.description ? ` - ${expenseForm.description}` : ''}`
+          details: buildActivityDetails({
+            Amount: formatCurrency(amount, expenseForm.currency),
+            Category: category?.name || 'Uncategorized',
+            Wallet: `${wallet.person_name} (${wallet.currency})`,
+            Location: location?.name || ''
+          }),
+          userId: user?.id
         })
       }
 
@@ -396,7 +413,13 @@ export default function ExpensesPage() {
       entityType: 'expense',
       entityId: expense.id,
       entityName: expense.expense_categories?.name || 'Uncategorized',
-      details: `Deleted expense: ${formatCurrency(expense.amount, expense.currency as Currency)} at ${expense.locations?.name || 'Unknown location'}`
+      details: buildActivityDetails({
+        Amount: formatCurrency(expense.amount, expense.currency as Currency),
+        Category: expense.expense_categories?.name || 'Uncategorized',
+        Wallet: expense.wallets ? `${expense.wallets.person_name} (${expense.wallets.currency})` : '',
+        Location: expense.locations?.name || ''
+      }),
+      userId: user?.id
     })
     
     loadData()
