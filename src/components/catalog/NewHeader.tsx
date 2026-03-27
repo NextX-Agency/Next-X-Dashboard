@@ -157,10 +157,10 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden xl:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#f97015]/30 bg-[#f97015]/5 text-[#f97015] text-xs font-bold tracking-wide hover:bg-[#f97015] hover:text-white transition-all duration-200"
+                className="hidden xl:inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-[#f97015]/40 bg-gradient-to-r from-[#f97015]/8 to-[#f97015]/12 text-[#f97015] text-xs font-bold tracking-widest uppercase hover:from-[#f97015]/95 hover:to-[#f97015] hover:text-white hover:border-[#f97015] hover:shadow-lg hover:shadow-[#f97015]/30 transition-all duration-300 hover:scale-[1.05] active:scale-95"
               >
                 NextX Agency
-                <ExternalLink size={11} />
+                <ExternalLink size={12} />
               </a>
             </nav>
 
@@ -233,10 +233,10 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-semibold text-[#f97015] hover:bg-[#f97015]/10 transition-colors"
+                className="flex items-center gap-2.5 w-full px-4 py-3 rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-[#f97015]/90 to-[#f97015] border border-[#f97015]/50 hover:from-[#f97015] hover:to-[#e5640d] hover:shadow-lg hover:shadow-[#f97015]/30 active:shadow-md transition-all duration-200 active:scale-95"
               >
-                <ExternalLink size={14} />
-                NextX Agency
+                <ExternalLink size={16} />
+                <span>Bekijk NextX Agency</span>
               </a>
               {/* Main Pages */}
               <div className="pb-3 mb-3 border-b border-neutral-100">

@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from 'react'
 import Image from 'next/image'
+import { MessageCircle } from 'lucide-react'
 
 /* ─── Agency cross-reference section ─────────────────────────────────── */
 
@@ -269,13 +270,7 @@ export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps)
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-white text-[#f97015] font-bold text-sm hover:bg-white/90 transition-colors shadow-lg"
               >
-                <Image
-                  src="/whatsapp.png"
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="w-5 h-5"
-                />
+                <MessageCircle size={20} className="text-[#25D366]" />
                 Chat met ons op WhatsApp
               </a>
             </div>
