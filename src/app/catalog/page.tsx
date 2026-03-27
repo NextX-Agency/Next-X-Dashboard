@@ -1039,7 +1039,6 @@ export default function NewCatalogPage() {
             {(() => {
               const iemCategory = productsByCategory.find(({ category }) =>
                 category.name.toLowerCase().includes('in-ear monitor') ||
-                category.name.toLowerCase().includes('in-ear') ||
                 category.name.toLowerCase() === 'iem'
               )
               if (!iemCategory || iemCategory.products.length === 0) return null
@@ -1131,7 +1130,6 @@ export default function NewCatalogPage() {
             {productsByCategory
               .filter(({ category }) =>
                 !category.name.toLowerCase().includes('in-ear monitor') &&
-                !category.name.toLowerCase().includes('in-ear') &&
                 category.name.toLowerCase() !== 'iem'
               )
               .map(({ category, products }, index) => (
