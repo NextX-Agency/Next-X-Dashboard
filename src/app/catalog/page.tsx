@@ -687,13 +687,15 @@ export default function NewCatalogPage() {
     
     categories.forEach(cat => {
       const categoryProducts = items.filter(item => item.category_id === cat.id)
-      if (categoryProducts.length > 0) {
-        grouped.push({ category: cat, products: categoryProducts })
+      const categoryComboProducts = comboItems.filter(combo => combo.category_id === cat.id)
+      const allProducts = [...categoryProducts, ...categoryComboProducts]
+      if (allProducts.length > 0) {
+        grouped.push({ category: cat, products: allProducts })
       }
     })
 
     return grouped
-  }, [items, categories])
+  }, [items, comboItems, categories])
 
   // Product counts per category (includes combos)
   const productCounts = useMemo(() => {
