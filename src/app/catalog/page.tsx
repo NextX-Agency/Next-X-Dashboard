@@ -760,7 +760,7 @@ export default function NewCatalogPage() {
   }
 
   // Build store URL for structured data
-  const storeUrl = typeof window !== 'undefined' ? window.location.origin : 'https://nextx.sr'
+  const storeUrl = typeof window !== 'undefined' ? window.location.origin : 'https://shop-nextx.com'
 
   // Prepare products for structured data
   const productsForSchema = items.slice(0, 20).map(item => ({

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // Dynamic sitemap generation for Next.js
 // This will be automatically served at /sitemap.xml
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://nextx.sr'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
 // Create Supabase client for server-side sitemap generation
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!

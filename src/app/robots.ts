@@ -3,7 +3,7 @@ import { MetadataRoute } from 'next'
 // Dynamic robots.txt generation for Next.js
 // This will be automatically served at /robots.txt
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://nextx.sr'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
 export default function robots(): MetadataRoute.Robots {
   return {
