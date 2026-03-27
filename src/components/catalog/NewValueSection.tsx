@@ -135,71 +135,40 @@ export function NewValueSection(_props: NewValueSectionProps) {
                 </div>
               </div>
 
-              {/* CSS mockup of agency website — no iframe, no external network */}
+              {/* Live iframe — actual nextxagency.com, scaled to fit */}
               <div className="relative overflow-hidden bg-[#0f172a]" style={{ height: '300px' }}>
-
                 {/* Live badge */}
-                <span className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold tracking-widest uppercase">
+                <span className="absolute top-2 right-2 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold tracking-widest uppercase pointer-events-none">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Live
                 </span>
 
-                {/* Simulated nav bar */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-                  <span className="text-xs font-black text-white">
-                    Next<span className="text-[#f97015]">X</span>
-                  </span>
-                  <div className="flex items-center gap-4">
-                    {['Diensten', 'Portfolio', 'Contact'].map(n => (
-                      <span key={n} className="text-[9px] text-slate-500">{n}</span>
-                    ))}
-                    <span className="px-2.5 py-1 rounded-full bg-[#f97015] text-white text-[8px] font-bold">Offerte</span>
-                  </div>
-                </div>
+                <iframe
+                  src="https://www.nextxagency.com"
+                  title="NextX Agency website"
+                  sandbox="allow-scripts allow-same-origin"
+                  referrerPolicy="no-referrer"
+                  style={{
+                    width: '200%',
+                    height: '600px',
+                    border: 'none',
+                    transform: 'scale(0.5)',
+                    transformOrigin: 'top left',
+                    pointerEvents: 'none',
+                  }}
+                />
 
-                {/* Hero area */}
-                <div className="px-5 pt-5 pb-3">
-                  <div className="text-[11px] font-bold text-slate-500 tracking-widest uppercase mb-2">Webbureau in Suriname</div>
-                  <div className="mb-1">
-                    <span className="text-lg font-black text-white leading-tight">Uw digitale</span>
-                  </div>
-                  <div className="mb-1">
-                    <span className="text-lg font-black text-white leading-tight">succes begint </span>
-                    <span
-                      className="text-lg font-black leading-tight"
-                      style={{
-                        background: 'linear-gradient(90deg, #f97015, #fb9500, #f97015)',
-                        backgroundSize: '200% auto',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        animation: 'gradientShift 3s ease infinite',
-                      }}
-                    >
-                      hier.
-                    </span>
-                  </div>
-                  <p className="text-[9px] text-slate-500 leading-relaxed mt-2 max-w-[200px]">
-                    Moderne websites en webshops voor bedrijven in Suriname.
-                  </p>
-                </div>
-
-                {/* Service tags row */}
-                <div className="flex gap-1.5 px-5 mt-1">
-                  {['Webdesign', 'E-Commerce', 'Branding', 'SEO'].map(s => (
-                    <span key={s} className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[8px] text-slate-400 font-medium">{s}</span>
-                  ))}
-                </div>
-
-                {/* CTA button mockup */}
-                <div className="px-5 mt-4">
-                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#f97015] text-white text-[9px] font-bold shadow-md shadow-[#f97015]/30">
-                    Bekijk ons werk →
-                  </span>
-                </div>
+                {/* Clickable overlay — forwards click to open site in new tab */}
+                <a
+                  href="https://www.nextxagency.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute inset-0 z-10"
+                  aria-label="Bekijk NextX Agency website"
+                />
 
                 {/* Bottom gradient fade */}
-                <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#1e293b] to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#1e293b] to-transparent pointer-events-none z-10" />
               </div>
             </div>
           </div>

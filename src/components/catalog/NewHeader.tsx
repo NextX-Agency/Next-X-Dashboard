@@ -51,16 +51,6 @@ export function NewHeader({
             <div className="flex items-center justify-between h-10 text-xs">
               <div className="hidden sm:flex items-center gap-4 text-neutral-500">
                 <span>Alleen afhalen • Geen bezorging</span>
-                <span className="text-neutral-300">•</span>
-                <a
-                  href="https://www.nextxagency.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-neutral-500 hover:text-[#f97015] transition-colors duration-200"
-                >
-                  Webshop door <span className="font-semibold text-[#141c2e] hover:text-[#f97015] transition-colors">NextX Agency</span>
-                  <ExternalLink size={11} />
-                </a>
               </div>
               <div className="flex items-center gap-4 ml-auto">
                 {/* Currency Selector */}
@@ -162,16 +152,15 @@ export function NewHeader({
                 </div>
               )}
 
-              {/* Agency cross-reference */}
+              {/* Agency cross-link */}
               <a
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#f97015]/30 bg-[#f97015]/5 text-sm font-medium text-[#f97015] hover:bg-[#f97015]/15 hover:border-[#f97015]/60 transition-all duration-200 group"
+                className="hidden xl:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#f97015]/30 bg-[#f97015]/5 text-[#f97015] text-xs font-bold tracking-wide hover:bg-[#f97015] hover:text-white transition-all duration-200"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#f97015] animate-pulse" />
                 NextX Agency
-                <ExternalLink size={12} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                <ExternalLink size={11} />
               </a>
             </nav>
 
@@ -240,6 +229,15 @@ export function NewHeader({
         {showMobileMenu && (
           <div className="lg:hidden border-t border-neutral-100 bg-white">
             <div className="px-4 py-4 space-y-1">
+              <a
+                href="https://www.nextxagency.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-semibold text-[#f97015] hover:bg-[#f97015]/10 transition-colors"
+              >
+                <ExternalLink size={14} />
+                NextX Agency
+              </a>
               {/* Main Pages */}
               <div className="pb-3 mb-3 border-b border-neutral-100">
                 <button
@@ -255,18 +253,6 @@ export function NewHeader({
                 >
                   Alle Producten
                 </button>
-                <a
-                  href="https://www.nextxagency.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-medium text-[#f97015] bg-[#f97015]/5 border border-[#f97015]/20 hover:bg-[#f97015]/10 transition-colors mt-1"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#f97015] animate-pulse" />
-                    NextX Agency
-                  </span>
-                  <ExternalLink size={14} className="opacity-60" />
-                </a>
               </div>
               
               {/* Categories */}
