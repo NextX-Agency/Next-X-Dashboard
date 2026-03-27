@@ -126,24 +126,6 @@ export function NewHeader({
               >
                 Producten
               </button>
-              <Link
-                href="/blog"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                Blog
-              </Link>
-              <Link
-                href="/faq"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/testimonials"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                Reviews
-              </Link>
               {categories.length > 0 && (
                 <div className="relative group">
                   <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors">
@@ -251,27 +233,6 @@ export function NewHeader({
                 >
                   Alle Producten
                 </button>
-                <Link
-                  href="/blog"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  Blog
-                </Link>
-                <Link
-                  href="/faq"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  FAQ
-                </Link>
-                <Link
-                  href="/testimonials"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  Reviews
-                </Link>
               </div>
               
               {/* Categories */}

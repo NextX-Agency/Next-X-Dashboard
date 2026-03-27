@@ -1033,7 +1033,47 @@ export default function NewCatalogPage() {
               />
             )}
 
-            {/* Section 2: New Arrivals */}
+            {/* Section 2: IEM Highlight (In-Ear Monitors — our core product) */}
+            {(() => {
+              const iemCategory = productsByCategory.find(({ category }) =>
+                category.name.toLowerCase().includes('in-ear monitor') ||
+                category.name.toLowerCase().includes('in-ear') ||
+                category.name.toLowerCase() === 'iem'
+              )
+              if (!iemCategory || iemCategory.products.length === 0) return null
+              return (
+                <NewProductCarousel
+                  key={`iem-highlight-${iemCategory.category.id}`}
+                  title={iemCategory.category.name}
+                  subtitle="Onze premium In-Ear Monitors — helder geluid, directe beschikbaarheid"
+                  products={iemCategory.products.slice(0, 8).map(item => {
+                    const itemWithCombo = item as ItemWithCombo
+                    const isCombo = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+                    const stockInfo = isCombo
+                      ? getComboStockInfo(itemWithCombo)
+                      : { status: getStockStatus(item.id), available: getStockLevel(item.id) }
+                    return {
+                      id: item.id,
+                      name: item.name,
+                      description: item.description,
+                      image_url: item.image_url,
+                      price: getPrice(item),
+                      stockStatus: stockInfo.status,
+                      stockLevel: stockInfo.available
+                    }
+                  })}
+                  currency={currency}
+                  onAddToCart={addToCartById}
+                  viewAllClick={() => {
+                    setSelectedCategory(iemCategory.category.id)
+                    setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, 50)
+                  }}
+                  bgColor="neutral-50"
+                />
+              )
+            })()}
+
+            {/* Section 3: New Arrivals */}
             {newestProducts.length > 0 && (
               <NewProductCarousel
                 title="Nieuwste Producten"
@@ -1048,7 +1088,7 @@ export default function NewCatalogPage() {
               />
             )}
 
-            {/* Section 3: Featured Collections (max 3) */}
+            {/* Section 4: Featured Collections (max 3) */}
             {collections.length > 0 && collections.slice(0, 3).map((collection) => {
               const collectionProducts = collection.collection_items
                 ?.sort((a, b) => a.sort_order - b.sort_order)
@@ -1085,8 +1125,14 @@ export default function NewCatalogPage() {
               )
             })}
 
-            {/* Section 4: Shop by Category (each capped at 8 items) */}
-            {productsByCategory.map(({ category, products }, index) => (
+            {/* Section 5: Shop by Category (each capped at 8 items — IEM excluded, shown above) */}
+            {productsByCategory
+              .filter(({ category }) =>
+                !category.name.toLowerCase().includes('in-ear monitor') &&
+                !category.name.toLowerCase().includes('in-ear') &&
+                category.name.toLowerCase() !== 'iem'
+              )
+              .map(({ category, products }, index) => (
               <NewProductCarousel
                 key={category.id}
                 title={category.name}

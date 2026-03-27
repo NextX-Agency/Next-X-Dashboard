@@ -109,21 +109,6 @@ export function NewFooter({
               Informatie
             </h4>
             <ul className="space-y-3">
-              <li>
-                <Link href="/blog" className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium">
-                  Blog
-                </Link>
-              </li>
-              <li>
-                <Link href="/faq" className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium">
-                  FAQ
-                </Link>
-              </li>
-              <li>
-                <Link href="/testimonials" className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium">
-                  Reviews
-                </Link>
-              </li>
               <li className="flex items-start gap-3 text-sm text-[#141c2e]/60">
                 <MapPin size={16} className="text-[#f97015] mt-0.5 shrink-0" />
                 <span>Alleen afhalen op locatie, geen bezorging</span>

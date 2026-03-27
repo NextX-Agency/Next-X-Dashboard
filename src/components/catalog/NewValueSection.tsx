@@ -1,7 +1,7 @@
 'use client'
 
-import Image from 'next/image'
 import { useRef, useEffect } from 'react'
+import Image from 'next/image'
 
 /* ─── Agency cross-reference section ─────────────────────────────────── */
 
@@ -19,7 +19,7 @@ export function NewValueSection(_props: NewValueSectionProps) {
   useEffect(() => {
     const el = sectionRef.current
     if (!el) return
-    const targets = el.querySelectorAll('.catalog-reveal')
+    const targets = el.querySelectorAll('.catalog-reveal, .catalog-reveal-left, .catalog-reveal-right')
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -29,7 +29,7 @@ export function NewValueSection(_props: NewValueSectionProps) {
           }
         })
       },
-      { threshold: 0.15 }
+      { threshold: 0.12 }
     )
     targets.forEach((t) => observer.observe(t))
     return () => observer.disconnect()
@@ -54,13 +54,21 @@ export function NewValueSection(_props: NewValueSectionProps) {
         }}
       />
 
+      {/* Radial glow behind right column */}
+      <div
+        className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(249,112,21,0.08) 0%, transparent 70%)',
+        }}
+      />
+
       <div className="relative z-10 max-w-6xl mx-auto px-5 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
           {/* ── Left: content ── */}
           <div className="flex flex-col gap-6">
             {/* Pill badge */}
-            <div className="catalog-reveal">
+            <div className="catalog-reveal-left">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#f97015]/25 bg-[#f97015]/10 text-[#f97015] text-xs font-bold tracking-widest uppercase">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#f97015] animate-pulse" />
                 Gebouwd door NextX
@@ -87,7 +95,7 @@ export function NewValueSection(_props: NewValueSectionProps) {
               {services.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium"
+                  className="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 text-xs font-semibold tracking-wide hover:border-[#f97015]/40 hover:text-[#f97015] transition-colors duration-200"
                 >
                   {tag}
                 </span>
@@ -100,20 +108,22 @@ export function NewValueSection(_props: NewValueSectionProps) {
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#f97015] text-white text-sm font-bold tracking-wide hover:bg-[#e5640d] transition-colors duration-200 shadow-lg shadow-[#f97015]/20"
+                className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full bg-[#f97015] text-white text-sm font-bold tracking-wide hover:bg-[#e5640d] transition-all duration-200 shadow-lg shadow-[#f97015]/25 hover:shadow-[#f97015]/40 hover:scale-[1.02]"
               >
                 Bekijk NextX Agency
-                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
               </a>
             </div>
           </div>
 
-          {/* ── Right: browser mockup ── */}
-          <div className="catalog-reveal catalog-reveal-d2">
-            <div className="rounded-2xl bg-[#1e293b] border border-slate-700/60 overflow-hidden shadow-2xl shadow-black/40">
+          {/* ── Right: CSS browser mockup (no iframe) ── */}
+          <div className="catalog-reveal-right catalog-reveal-d1">
+            <div className="rounded-2xl bg-[#1e293b] border border-slate-700/60 overflow-hidden shadow-2xl shadow-black/50">
 
               {/* Chrome bar */}
-              <div className="flex items-center gap-1.5 px-3 py-2.5 bg-[#1e293b] border-b border-slate-700/50">
+              <div className="flex items-center gap-1.5 px-3 py-2.5 bg-[#1a2744] border-b border-slate-700/50">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
                 <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
                 <span className="w-2.5 h-2.5 rounded-full bg-green-400/70" />
@@ -125,34 +135,75 @@ export function NewValueSection(_props: NewValueSectionProps) {
                 </div>
               </div>
 
-              {/* Website preview */}
-              <div className="relative" style={{ height: '280px' }}>
-                <iframe
-                  src="https://www.nextxagency.com"
-                  title="NextX Agency"
-                  className="pointer-events-none bg-white"
-                  style={{
-                    border: 'none',
-                    width: '1440px',
-                    height: '900px',
-                    transform: 'scale(0.33)',
-                    transformOrigin: 'top left',
-                  }}
-                  loading="lazy"
-                  sandbox="allow-scripts allow-same-origin"
-                />
+              {/* CSS mockup of agency website — no iframe, no external network */}
+              <div className="relative overflow-hidden bg-[#0f172a]" style={{ height: '300px' }}>
 
-                {/* Live pill */}
-                <span className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold tracking-widest uppercase z-10 pointer-events-none">
+                {/* Live badge */}
+                <span className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold tracking-widest uppercase">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   Live
                 </span>
+
+                {/* Simulated nav bar */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+                  <span className="text-xs font-black text-white">
+                    Next<span className="text-[#f97015]">X</span>
+                  </span>
+                  <div className="flex items-center gap-4">
+                    {['Diensten', 'Portfolio', 'Contact'].map(n => (
+                      <span key={n} className="text-[9px] text-slate-500">{n}</span>
+                    ))}
+                    <span className="px-2.5 py-1 rounded-full bg-[#f97015] text-white text-[8px] font-bold">Offerte</span>
+                  </div>
+                </div>
+
+                {/* Hero area */}
+                <div className="px-5 pt-5 pb-3">
+                  <div className="text-[11px] font-bold text-slate-500 tracking-widest uppercase mb-2">Webbureau in Suriname</div>
+                  <div className="mb-1">
+                    <span className="text-lg font-black text-white leading-tight">Uw digitale</span>
+                  </div>
+                  <div className="mb-1">
+                    <span className="text-lg font-black text-white leading-tight">succes begint </span>
+                    <span
+                      className="text-lg font-black leading-tight"
+                      style={{
+                        background: 'linear-gradient(90deg, #f97015, #fb9500, #f97015)',
+                        backgroundSize: '200% auto',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text',
+                        animation: 'gradientShift 3s ease infinite',
+                      }}
+                    >
+                      hier.
+                    </span>
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-relaxed mt-2 max-w-[200px]">
+                    Moderne websites en webshops voor bedrijven in Suriname.
+                  </p>
+                </div>
+
+                {/* Service tags row */}
+                <div className="flex gap-1.5 px-5 mt-1">
+                  {['Webdesign', 'E-Commerce', 'Branding', 'SEO'].map(s => (
+                    <span key={s} className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[8px] text-slate-400 font-medium">{s}</span>
+                  ))}
+                </div>
+
+                {/* CTA button mockup */}
+                <div className="px-5 mt-4">
+                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#f97015] text-white text-[9px] font-bold shadow-md shadow-[#f97015]/30">
+                    Bekijk ons werk →
+                  </span>
+                </div>
 
                 {/* Bottom gradient fade */}
                 <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-[#1e293b] to-transparent pointer-events-none" />
               </div>
             </div>
           </div>
+
         </div>
       </div>
 

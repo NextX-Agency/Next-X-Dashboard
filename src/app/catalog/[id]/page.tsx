@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -101,6 +101,27 @@ export default function ProductDetailPage() {
   const [cartCount, setCartCount] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
   
+  // Scroll-reveal for right column
+  const infoColRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = infoColRef.current
+    if (!el) return
+    const reveals = el.querySelectorAll<HTMLElement>('.catalog-reveal')
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('catalog-reveal-visible')
+            obs.unobserve(e.target)
+          }
+        })
+      },
+      { threshold: 0.08 }
+    )
+    reveals.forEach(r => obs.observe(r))
+    return () => obs.disconnect()
+  }, [product])
+
   // Cart drawer states
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState('')
@@ -751,9 +772,9 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Info - Right Column */}
-          <div className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
+          <div ref={infoColRef} className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
             {/* Product Title */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
+            <h1 className="catalog-reveal text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
               {product.name}
             </h1>
 
@@ -766,7 +787,7 @@ export default function ProductDetailPage() {
             </span>
 
             {/* Unit Price */}
-            <div className="mb-6">
+            <div className="catalog-reveal catalog-reveal-d1 mb-6">
               <div className="flex items-baseline gap-3">
                 <span className={`text-3xl sm:text-4xl font-black ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
                   {formatCurrency(unitPrice, currency)}
@@ -800,7 +821,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
+            <div className="catalog-reveal catalog-reveal-d2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                   <Store size={20} className="text-green-600" />
@@ -816,10 +837,11 @@ export default function ProductDetailPage() {
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8">
-                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-                  Beschrijving
-                </h2>
+              <div className="catalog-reveal catalog-reveal-d3 mb-8 rounded-2xl bg-neutral-50 border border-neutral-100 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-4 rounded-full bg-[#f97015] flex-shrink-0" />
+                  <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Beschrijving</h2>
+                </div>
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
                 </p>
@@ -885,33 +907,43 @@ export default function ProductDetailPage() {
             )}
 
             {/* Features */}
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <MapPin size={18} className="text-[#f97015]" />
+            <div className="catalog-reveal catalog-reveal-d4 grid grid-cols-2 gap-3 mb-8">
+              <div className="group flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#f97015]/30">
+                <div className="w-8 h-8 rounded-full bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
+                  <MapPin size={16} className="text-[#f97015]" />
+                </div>
                 <span className="text-sm text-neutral-700">Ophalen in winkel</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Clock size={18} className="text-[#f97015]" />
+              <div className="group flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#f97015]/30">
+                <div className="w-8 h-8 rounded-full bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
+                  <Clock size={16} className="text-[#f97015]" />
+                </div>
                 <span className="text-sm text-neutral-700">Snel beschikbaar</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
-                <Shield size={18} className="text-[#f97015]" />
+              <div className="group flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#f97015]/30">
+                <div className="w-8 h-8 rounded-full bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
+                  <Shield size={16} className="text-[#f97015]" />
+                </div>
                 <span className="text-sm text-neutral-700">Kwaliteit gegarandeerd</span>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+              <div className={`group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                 isOutOfStock 
-                  ? 'bg-red-50 border-red-200' 
+                  ? 'bg-red-50 border-red-200 hover:border-red-300' 
                   : isLowStock 
-                    ? 'bg-amber-50 border-amber-200' 
-                    : 'bg-green-50 border-green-200'
+                    ? 'bg-amber-50 border-amber-200 hover:border-amber-300' 
+                    : 'bg-green-50 border-green-200 hover:border-green-300'
               }`}>
-                {isOutOfStock ? (
-                  <AlertCircle size={18} className="text-red-500" />
-                ) : isLowStock ? (
-                  <AlertCircle size={18} className="text-amber-500" />
-                ) : (
-                  <Check size={18} className="text-green-500" />
-                )}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  isOutOfStock ? 'bg-red-100' : isLowStock ? 'bg-amber-100' : 'bg-green-100'
+                }`}>
+                  {isOutOfStock ? (
+                    <AlertCircle size={16} className="text-red-500" />
+                  ) : isLowStock ? (
+                    <AlertCircle size={16} className="text-amber-500" />
+                  ) : (
+                    <Check size={16} className="text-green-500" />
+                  )}
+                </div>
                 <span className={`text-sm font-medium ${
                   isOutOfStock 
                     ? 'text-red-700' 

@@ -23,6 +23,7 @@ export function NewHero({
 }: NewHeroProps) {
   const [mapActive, setMapActive] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -40,8 +41,28 @@ export function NewHero({
     }
   }, [mapActive])
 
+  // Scroll-reveal for hero content
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    const targets = el.querySelectorAll('.catalog-reveal, .catalog-reveal-left')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('catalog-reveal-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.05 }
+    )
+    targets.forEach((t) => observer.observe(t))
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section className="relative overflow-hidden catalog-bg-light">
+    <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
       {/* Decorative elements */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#141c2e]/5 to-transparent" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-[#f97015]/10 to-transparent rounded-full -translate-x-1/2 translate-y-1/2" />
@@ -52,7 +73,7 @@ export function NewHero({
           {/* Mobile Title Section */}
           <div className="text-center py-8">            
             {/* Title */}
-            <h1 className="text-4xl sm:text-5xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
+            <h1 className="catalog-reveal text-4xl sm:text-5xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
               <span className="flex flex-col items-center gap-2">
                 <span>Welcome to</span>
                 <Image 
@@ -72,14 +93,14 @@ export function NewHero({
             
             {/* Subtitle */}
             {heroSubtitle && (
-              <p className="text-lg text-[#141c2e]/70 max-w-lg mx-auto mb-8 leading-relaxed">
+              <p className="catalog-reveal catalog-reveal-d1 text-lg text-[#141c2e]/70 max-w-lg mx-auto mb-8 leading-relaxed">
                 {heroSubtitle}
               </p>
             )}
           </div>
           
           {/* Badge above map */}
-          <div className="text-center pb-4">
+          <div className="catalog-reveal catalog-reveal-d2 text-center pb-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#f97015]/20 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
               <span className="text-xs font-medium text-[#141c2e]">
@@ -159,7 +180,7 @@ export function NewHero({
           {/* Content */}
           <div className="order-2 lg:order-1">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white border border-[#f97015]/20 shadow-sm">
+            <div className="catalog-reveal inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white border border-[#f97015]/20 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
               <span className="text-xs font-medium text-[#141c2e]">
                 Alleen Afhalen in {storeAddress}
@@ -167,7 +188,7 @@ export function NewHero({
             </div>
             
             {/* Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
+            <h1 className="catalog-reveal catalog-reveal-d1 text-4xl sm:text-5xl lg:text-6xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
               <span className="inline-flex items-center">
                 <span>Welcome to</span>
                 <Image 
@@ -188,13 +209,13 @@ export function NewHero({
             
             {/* Subtitle */}
             {heroSubtitle && (
-              <p className="text-lg text-[#141c2e]/70 max-w-lg mb-8 leading-relaxed">
+              <p className="catalog-reveal catalog-reveal-d2 text-lg text-[#141c2e]/70 max-w-lg mb-8 leading-relaxed">
                 {heroSubtitle}
               </p>
             )}
             
             {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-4 mb-12">
+            <div className="catalog-reveal catalog-reveal-d3 flex flex-wrap gap-4 mb-12">
               <button
                 onClick={onExploreClick}
                 className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-all shadow-lg shadow-[#f97015]/30 hover:shadow-xl hover:shadow-[#f97015]/40"

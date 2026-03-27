@@ -82,7 +82,7 @@ export function NewProductCard({
   
   return (
     <article 
-      className={`group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+      className={`catalog-hover-lift group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
         isOutOfStock
           ? 'border border-neutral-300 opacity-75'
           : isCombo 

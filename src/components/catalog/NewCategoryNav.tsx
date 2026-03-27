@@ -36,7 +36,7 @@ export function NewCategoryNav({
   if (categories.length === 0) return null
 
   return (
-    <section className="bg-white border-b border-neutral-100 relative sm:sticky sm:top-[105px] z-40">
+    <section className="bg-white border-b border-neutral-100 relative z-40">
       {/* Full-width scroll container */}
       <div className="overflow-hidden">
         <div className="max-w-7xl mx-auto">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, AlertCircle, Bell } from 'lucide-react'
@@ -45,6 +45,27 @@ export function NewProductCarousel({
   isComboCarousel = false
 }: NewProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
+
+  // Scroll-reveal for section header
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    const targets = el.querySelectorAll('.catalog-reveal, .catalog-reveal-left')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('catalog-reveal-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+    targets.forEach((t) => observer.observe(t))
+    return () => observer.disconnect()
+  }, [])
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -61,14 +82,14 @@ export function NewProductCarousel({
   const backgroundClass = bgColor === 'neutral-50' ? 'bg-neutral-50' : 'bg-white'
 
   return (
-    <section className={`py-8 sm:py-10 ${backgroundClass} border-b border-neutral-100`}>
+    <section ref={sectionRef} className={`py-8 sm:py-10 ${backgroundClass} border-b border-neutral-100`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-end justify-between mb-6">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-[#141c2e] leading-tight">{title}</h2>
+            <h2 className="catalog-reveal-left text-xl sm:text-2xl font-bold text-[#141c2e] leading-tight">{title}</h2>
             {subtitle && (
-              <p className="text-sm text-[#141c2e]/55 mt-1">{subtitle}</p>
+              <p className="catalog-reveal catalog-reveal-d1 text-sm text-[#141c2e]/55 mt-1">{subtitle}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -127,7 +148,7 @@ export function NewProductCarousel({
               
               return (
                 <div key={product.id} className="shrink-0 w-[44vw] sm:w-[200px] md:w-[210px] lg:w-[220px] snap-start">
-                  <article className={`group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+                  <article className={`catalog-hover-lift group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
                     isOutOfStock
                       ? 'border border-neutral-300 opacity-75'
                       : isComboCarousel || product.isCombo
