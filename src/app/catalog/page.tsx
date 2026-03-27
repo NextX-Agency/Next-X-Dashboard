@@ -1074,21 +1074,6 @@ export default function NewCatalogPage() {
               )
             })()}
 
-            {/* Section 3: New Arrivals */}
-            {newestProducts.length > 0 && (
-              <NewProductCarousel
-                title="Nieuwste Producten"
-                subtitle="Recent toegevoegd aan onze collectie"
-                products={newestProducts.map(p => ({ 
-                  ...p, 
-                  stockStatus: getStockStatus(p.id),
-                  stockLevel: getStockLevel(p.id) 
-                }))}
-                currency={currency}
-                onAddToCart={addToCartById}
-              />
-            )}
-
             {/* Section 4: Featured Collections (max 3) */}
             {collections.length > 0 && collections.slice(0, 3).map((collection) => {
               const collectionProducts = collection.collection_items
