@@ -101,25 +101,19 @@ export default function ProductDetailPage() {
   const [cartCount, setCartCount] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
   
-  // Scroll-reveal for right column
+  // Reveal right column elements after product data loads
   const infoColRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    if (!product) return
     const el = infoColRef.current
     if (!el) return
-    const reveals = el.querySelectorAll<HTMLElement>('.catalog-reveal')
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach(e => {
-          if (e.isIntersecting) {
-            e.target.classList.add('catalog-reveal-visible')
-            obs.unobserve(e.target)
-          }
-        })
-      },
-      { threshold: 0.08 }
-    )
-    reveals.forEach(r => obs.observe(r))
-    return () => obs.disconnect()
+    // Give the browser one frame to paint before starting CSS animations
+    const timer = setTimeout(() => {
+      el.querySelectorAll<HTMLElement>('.catalog-reveal').forEach(r =>
+        r.classList.add('catalog-reveal-visible')
+      )
+    }, 50)
+    return () => clearTimeout(timer)
   }, [product])
 
   // Cart drawer states
