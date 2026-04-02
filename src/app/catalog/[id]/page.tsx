@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -101,22 +101,7 @@ export default function ProductDetailPage() {
   const [cartCount, setCartCount] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
   
-  // Reveal right column elements after product data loads
-  const infoColRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!product) return
-    // Use a longer timeout to ensure DOM has transitioned from skeleton to
-    // main layout (especially for regular items where loading is very fast
-    // and infoColRef may not yet be attached on the first paint cycle).
-    const timer = setTimeout(() => {
-      const el = infoColRef.current
-      if (!el) return
-      el.querySelectorAll<HTMLElement>('.catalog-reveal').forEach(r =>
-        r.classList.add('catalog-reveal-visible')
-      )
-    }, 150)
-    return () => clearTimeout(timer)
-  }, [product])
+
 
   // Cart drawer states
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -768,9 +753,9 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Info - Right Column */}
-          <div ref={infoColRef} className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
+          <div className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
             {/* Product Title */}
-            <h1 className="catalog-reveal text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
               {product.name}
             </h1>
 
@@ -783,7 +768,7 @@ export default function ProductDetailPage() {
             </span>
 
             {/* Unit Price */}
-            <div className="catalog-reveal catalog-reveal-d1 mb-6">
+            <div className="mb-6">
               <div className="flex items-baseline gap-3">
                 <span className={`text-3xl sm:text-4xl font-black ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
                   {formatCurrency(unitPrice, currency)}
@@ -817,7 +802,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="catalog-reveal catalog-reveal-d2 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
                   <Store size={20} className="text-green-600" />
@@ -903,7 +888,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Features */}
-            <div className="catalog-reveal catalog-reveal-d4 grid grid-cols-2 gap-3 mb-8">
+            <div className="grid grid-cols-2 gap-3 mb-8">
               <div className="group flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#f97015]/30">
                 <div className="w-8 h-8 rounded-full bg-[#f97015]/10 flex items-center justify-center flex-shrink-0">
                   <MapPin size={16} className="text-[#f97015]" />
