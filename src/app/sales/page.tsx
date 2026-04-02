@@ -438,7 +438,7 @@ export default function SalesPage() {
         const isCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
         const finalPrice = isCustomPrice ? cartItem.customPrice! : originalPrice
         
-        await supabase.from('sale_items').insert({
+        const { error: siError } = await supabase.from('sale_items').insert({
           sale_id: sale.id,
           item_id: cartItem.item.id,
           quantity: cartItem.quantity,
@@ -448,6 +448,14 @@ export default function SalesPage() {
           original_price: isCustomPrice ? originalPrice : null,
           discount_reason: isCustomPrice ? cartItem.discountReason || null : null
         })
+
+        if (siError) {
+          // Rollback: delete the sale header so it doesn't sit empty in the DB
+          await supabase.from('sales').delete().eq('id', sale.id)
+          alert(`Error saving item "${cartItem.item.name}" to the sale. The sale was cancelled. Please try again.\n\nDetails: ${siError.message}`)
+          setSubmitting(false)
+          return
+        }
 
         saleItems.push({
           name: cartItem.item.name,
@@ -489,13 +497,20 @@ export default function SalesPage() {
         for (const comboItem of combo.items) {
           const price = combo.comboPrice / combo.items.reduce((s, i) => s + i.quantity, 0) * comboItem.quantity
           
-          await supabase.from('sale_items').insert({
+          const { error: siError } = await supabase.from('sale_items').insert({
             sale_id: sale.id,
             item_id: comboItem.item.id,
             quantity: comboItem.quantity,
             unit_price: price / comboItem.quantity,
             subtotal: price
           })
+
+          if (siError) {
+            await supabase.from('sales').delete().eq('id', sale.id)
+            alert(`Error saving combo item "${comboItem.item.name}" to the sale. The sale was cancelled. Please try again.\n\nDetails: ${siError.message}`)
+            setSubmitting(false)
+            return
+          }
 
           const { data: stock } = await supabase
             .from('stock')

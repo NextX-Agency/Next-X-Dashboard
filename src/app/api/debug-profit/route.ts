@@ -95,10 +95,18 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const recordedTotalUSD =
+      sale.currency === 'USD'
+        ? Number(sale.totalAmount)
+        : Number(sale.totalAmount) / saleRate
+
+    const missingItems = itemBreakdown.length === 0 && Number(sale.totalAmount) > 0
+
     return {
       saleId: sale.id,
       date: sale.createdAt,
       totalAmount: Number(sale.totalAmount),
+      recordedTotalUSD: Math.round(recordedTotalUSD * 100) / 100,
       currency: sale.currency,
       exchangeRate: saleRate,
       locationName: sale.location?.name ?? 'Unknown',
@@ -108,10 +116,16 @@ export async function GET(request: NextRequest) {
         totalRevenueUSD > 0
           ? (totalProfitUSD / totalRevenueUSD) * 100
           : 0,
+      missingItems,
       items: itemBreakdown,
-      issues: itemBreakdown
-        .filter(i => i.issue)
-        .map(i => ({ item: i.itemName, issue: i.issue })),
+      issues: [
+        ...(missingItems
+          ? [{ item: 'ALL ITEMS', issue: 'MISSING_SALE_ITEMS' as const }]
+          : []),
+        ...itemBreakdown
+          .filter(i => i.issue)
+          .map(i => ({ item: i.itemName, issue: i.issue })),
+      ],
     }
   })
 
@@ -156,6 +170,7 @@ export async function GET(request: NextRequest) {
   const deletedItems = saleDetails.flatMap(s => s.items.filter(i => i.issue === 'ITEM_DELETED'))
   const noCOGSItems = saleDetails.flatMap(s => s.items.filter(i => i.issue === 'NO_COGS'))
   const noCategoryItems = saleDetails.flatMap(s => s.items.filter(i => i.issue === 'NO_CATEGORY'))
+  const salesMissingItems = saleDetails.filter(s => s.missingItems)
 
   return NextResponse.json({
     period: { start: startDate.toISOString(), end: endDate.toISOString() },
@@ -169,10 +184,19 @@ export async function GET(request: NextRequest) {
           : 0,
       salesWithIssues: salesWithIssues.length,
       issueCount: {
+        missingSaleItems: salesMissingItems.length,
         deletedItems: deletedItems.length,
         noCOGS: noCOGSItems.length,
         noCategory: noCategoryItems.length,
       },
+      salesMissingItems: salesMissingItems.map(s => ({
+        saleId: s.saleId,
+        date: s.date,
+        locationName: s.locationName,
+        currency: s.currency,
+        recordedTotal: s.totalAmount,
+        recordedTotalUSD: s.recordedTotalUSD,
+      })),
     },
     categoryBreakdown,
     allCategories: allCategories.map(c => ({ id: c.id, name: c.name })),

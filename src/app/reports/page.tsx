@@ -1130,10 +1130,37 @@ export default function ReportsPage() {
                 {deepDebugData && !deepDebugLoading && (
                   <div className="space-y-4 text-xs font-mono">
 
-                    {/* Issue alert */}
+                    {/* Missing sale items — highest priority alert */}
+                    {deepDebugData.summary.issueCount.missingSaleItems > 0 && (
+                      <div className="bg-red-600/15 border-2 border-red-500/50 rounded p-3 space-y-2">
+                        <div className="font-bold text-red-400 text-sm">
+                          🚨 {deepDebugData.summary.issueCount.missingSaleItems} SALE(S) HAVE NO ITEMS RECORDED
+                        </div>
+                        <div className="text-red-300 text-xs leading-relaxed">
+                          These sales were saved to the database but their line items (sale_items) were never stored — likely a network or permission error during checkout.
+                          Revenue and profit from these sales are invisible to the report. <strong className="text-white">FIX: Go to Sales page → find the sale → click Undo → re-record it.</strong>
+                        </div>
+                        <div className="space-y-1 pt-1 border-t border-red-500/20">
+                          {deepDebugData.summary.salesMissingItems.map((s: any) => (
+                            <div key={s.saleId} className="flex justify-between text-red-300">
+                              <span>{new Date(s.date).toLocaleString()} · {s.locationName} · {s.currency}</span>
+                              <span className="text-white font-bold">
+                                Recorded total: {s.currency} {s.recordedTotal.toFixed(2)} (${s.recordedTotalUSD.toFixed(2)} USD) — MISSING FROM REPORT
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Other issues */}
                     {deepDebugData.summary.salesWithIssues > 0 && (
+                      deepDebugData.summary.issueCount.deletedItems > 0 ||
+                      deepDebugData.summary.issueCount.noCOGS > 0 ||
+                      deepDebugData.summary.issueCount.noCategory > 0
+                    ) && (
                       <div className="bg-red-500/10 border border-red-500/20 rounded p-3 space-y-1">
-                        <div className="font-bold text-red-400">⚠ ISSUES FOUND IN {deepDebugData.summary.salesWithIssues} SALE(S)</div>
+                        <div className="font-bold text-red-400">⚠ ITEM DATA ISSUES</div>
                         {deepDebugData.summary.issueCount.deletedItems > 0 && (
                           <div className="text-red-300">• {deepDebugData.summary.issueCount.deletedItems} line item(s) reference deleted items — profit lost</div>
                         )}
@@ -1194,6 +1221,7 @@ export default function ReportsPage() {
                       <div className="space-y-3">
                         {deepDebugData.sales.map((sale: any) => (
                           <div key={sale.saleId} className={`rounded border p-2 space-y-1 ${
+                            sale.missingItems ? 'border-red-600/60 bg-red-600/10' :
                             sale.issues.length > 0 ? 'border-red-500/30 bg-red-500/5' : 'border-border/30 bg-muted/10'
                           }`}>
                             <div className="flex justify-between">
@@ -1201,10 +1229,13 @@ export default function ReportsPage() {
                                 {new Date(sale.date).toLocaleString()} · {sale.locationName} · {sale.currency}
                               </span>
                               <span>
-                                Rev: ${sale.totalRevenueUSD.toFixed(2)} · Profit:{' '}
-                                <span className={sale.totalProfitUSD < 0 ? 'text-red-400' : 'text-emerald-400'}>
-                                  ${sale.totalProfitUSD.toFixed(2)}
-                                </span>{' '}({sale.grossMarginPct.toFixed(0)}%)
+                                {sale.missingItems
+                                  ? <span className="text-red-400 font-bold">Recorded: {sale.currency} {sale.totalAmount.toFixed(2)} — NO ITEMS IN DB</span>
+                                  : <>Rev: ${sale.totalRevenueUSD.toFixed(2)} · Profit:{' '}
+                                    <span className={sale.totalProfitUSD < 0 ? 'text-red-400' : 'text-emerald-400'}>
+                                      ${sale.totalProfitUSD.toFixed(2)}
+                                    </span>{' '}({sale.grossMarginPct.toFixed(0)}%)</>
+                                }
                               </span>
                             </div>
                             {sale.issues.length > 0 && (
