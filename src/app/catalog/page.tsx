@@ -681,7 +681,23 @@ export default function NewCatalogPage() {
     }))
   }, [items, currency, exchangeRate])
 
-  // Get products by category for homepage
+  // Preferred display order for category sections and the filter nav.
+  // Categories matching a name here appear first (in this order); unlisted
+  // categories follow in their default (alphabetical) order.
+  const CATEGORY_PRIORITY = ['Combo Deals', 'In-Ear Monitor', 'In-Ear Accessories']
+
+  const sortCategoriesByPriority = (cats: Category[]): Category[] => {
+    return [...cats].sort((a, b) => {
+      const ai = CATEGORY_PRIORITY.indexOf(a.name)
+      const bi = CATEGORY_PRIORITY.indexOf(b.name)
+      if (ai === -1 && bi === -1) return 0   // both unlisted — keep original order
+      if (ai === -1) return 1                 // a unlisted → after b
+      if (bi === -1) return -1                // b unlisted → after a
+      return ai - bi                          // both listed → priority order
+    })
+  }
+
+  // Get products by category for homepage (priority-sorted)
   const productsByCategory = useMemo(() => {
     const grouped: { category: Category; products: Item[] }[] = []
     
@@ -690,6 +706,16 @@ export default function NewCatalogPage() {
       if (categoryProducts.length > 0) {
         grouped.push({ category: cat, products: categoryProducts })
       }
+    })
+
+    // Apply priority sort so Combo Deals → In-Ear Monitor → In-Ear Accessories
+    grouped.sort((a, b) => {
+      const ai = CATEGORY_PRIORITY.indexOf(a.category.name)
+      const bi = CATEGORY_PRIORITY.indexOf(b.category.name)
+      if (ai === -1 && bi === -1) return 0
+      if (ai === -1) return 1
+      if (bi === -1) return -1
+      return ai - bi
     })
 
     return grouped
@@ -817,7 +843,7 @@ export default function NewCatalogPage() {
       <NewHeader
         storeName={settings.store_name}
         logoUrl={settings.store_logo_url}
-        categories={categories}
+        categories={sortCategoriesByPriority(categories)}
         currency={currency}
         onCurrencyChange={setCurrency}
         cartCount={getCartCount()}
@@ -882,7 +908,7 @@ export default function NewCatalogPage() {
 
       {/* Category Navigation */}
       <NewCategoryNav
-        categories={categories}
+        categories={sortCategoriesByPriority(categories)}
         selectedCategory={selectedCategory}
         onCategoryChange={(catId) => {
           setSelectedCategory(catId)
@@ -1142,7 +1168,7 @@ export default function NewCatalogPage() {
         storeAddress={settings.store_address}
         whatsappNumber={settings.whatsapp_number}
         storeEmail={settings.store_email}
-        categories={categories}
+        categories={sortCategoriesByPriority(categories)}
         onCategoryClick={(catId) => {
           setSelectedCategory(catId)
           setSearchQuery('')

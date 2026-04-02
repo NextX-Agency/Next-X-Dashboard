@@ -105,14 +105,16 @@ export default function ProductDetailPage() {
   const infoColRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!product) return
-    const el = infoColRef.current
-    if (!el) return
-    // Give the browser one frame to paint before starting CSS animations
+    // Use a longer timeout to ensure DOM has transitioned from skeleton to
+    // main layout (especially for regular items where loading is very fast
+    // and infoColRef may not yet be attached on the first paint cycle).
     const timer = setTimeout(() => {
+      const el = infoColRef.current
+      if (!el) return
       el.querySelectorAll<HTMLElement>('.catalog-reveal').forEach(r =>
         r.classList.add('catalog-reveal-visible')
       )
-    }, 50)
+    }, 150)
     return () => clearTimeout(timer)
   }, [product])
 
@@ -831,7 +833,7 @@ export default function ProductDetailPage() {
 
             {/* Description */}
             {product.description && (
-              <div className="catalog-reveal catalog-reveal-d3 mb-8 rounded-2xl bg-neutral-50 border border-neutral-100 p-5">
+              <div className="mb-8 rounded-2xl bg-neutral-50 border border-neutral-100 p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="w-1 h-4 rounded-full bg-[#f97015] flex-shrink-0" />
                   <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Beschrijving</h2>
