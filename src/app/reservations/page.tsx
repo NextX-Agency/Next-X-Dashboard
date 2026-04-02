@@ -148,7 +148,7 @@ export default function ReservationsPage() {
       // Load all initial data in parallel for better performance
       const [clientsRes, itemsRes, locationsRes] = await Promise.all([
         supabase.from('clients').select('*').order('name'),
-        supabase.from('items').select('*').order('name'),
+        supabase.from('items').select('*').is('deleted_at', null).order('name'),
         supabase.from('locations').select('*').order('name')
       ])
       

@@ -321,7 +321,7 @@ export default function NewCatalogPage() {
         console.log('Falling back to Supabase')
         const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
           supabase.from('categories').select('*').order('name'),
-          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).order('created_at', { ascending: false }),
+          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).is('deleted_at', null).order('created_at', { ascending: false }),
           supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
           supabase.from('store_settings').select('*'),
           supabase.from('locations').select('*').eq('is_active', true).order('name'),

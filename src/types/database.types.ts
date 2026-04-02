@@ -77,6 +77,7 @@ export interface Database {
           is_public: boolean
           is_combo: boolean
           allow_custom_price: boolean
+          deleted_at: string | null
           created_at: string
           updated_at: string
         }
@@ -92,6 +93,7 @@ export interface Database {
           is_public?: boolean
           is_combo?: boolean
           allow_custom_price?: boolean
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -107,6 +109,7 @@ export interface Database {
           is_public?: boolean
           is_combo?: boolean
           allow_custom_price?: boolean
+          deleted_at?: string | null
           created_at?: string
           updated_at?: string
         }

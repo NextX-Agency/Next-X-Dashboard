@@ -132,7 +132,7 @@ export default function ProductDetailPage() {
       setLoading(true)
       
       const [productRes, rateRes, settingsRes, categoriesRes, locationsRes, stockRes] = await Promise.all([
-        supabase.from('items').select('*').eq('id', productId).single(),
+        supabase.from('items').select('*').eq('id', productId).is('deleted_at', null).single(),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
         supabase.from('store_settings').select('*'),
         supabase.from('categories').select('*').eq('is_active', true).order('name'),

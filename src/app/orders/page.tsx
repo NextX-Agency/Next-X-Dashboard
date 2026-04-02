@@ -92,7 +92,7 @@ export default function OrdersPage() {
     setLoading(true)
     const [ordersRes, itemsRes, locationsRes, walletsRes, clientsRes] = await Promise.all([
       supabase.from('purchase_orders').select('*, wallets(*), locations(*), clients(*), purchase_order_items(*, items(*))').order('created_at', { ascending: false }),
-      supabase.from('items').select('*').order('name'),
+      supabase.from('items').select('*').is('deleted_at', null).order('name'),
       supabase.from('locations').select('*').order('name'),
       supabase.from('wallets').select('*').order('person_name'),
       supabase.from('clients').select('*').order('name')

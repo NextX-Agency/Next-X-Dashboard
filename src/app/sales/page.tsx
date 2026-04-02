@@ -130,7 +130,7 @@ export default function SalesPage() {
   const loadData = async () => {
     setLoading(true)
     const [itemsRes, locationsRes, ratesRes] = await Promise.all([
-      supabase.from('items').select('*').order('name'),
+      supabase.from('items').select('*').is('deleted_at', null).order('name'),
       supabase.from('locations').select('*').order('name'),
       supabase.from('exchange_rates').select('*').eq('is_active', true).single()
     ])
