@@ -2,6 +2,7 @@
 
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { catalogShellClassName } from '@/components/catalog/shell'
 
 /**
  * SectionContainer - Standardized section wrapper for the catalog homepage.
@@ -70,7 +71,7 @@ export function SectionContainer({
       className={`${bgClass} ${paddingY} ${borderClass} ${className}`}
       aria-label={ariaLabel || title}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={catalogShellClassName}>
         {/* Section Header */}
         {(title || action || headerExtra) && (
           <div className="flex items-end justify-between mb-6 gap-4">

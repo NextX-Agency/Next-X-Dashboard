@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { catalogShellClassName } from '@/components/catalog/shell'
 import { NewHeader, NewFooter, NewCartDrawer } from '@/components/catalog'
 import { 
   getItemStockStatus, 
@@ -607,6 +608,7 @@ export default function ProductDetailPage() {
       <NewHeader
         storeName={settings.store_name}
         logoUrl={settings.store_logo_url}
+        whatsappNumber={settings.whatsapp_number}
         categories={categories}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -620,9 +622,9 @@ export default function ProductDetailPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto bg-white pt-6 lg:pt-8 pb-40 lg:pb-8" itemScope itemType="https://schema.org/Product">
+      <main className={`${catalogShellClassName} bg-white pt-6 lg:pt-8 pb-40 lg:pb-8`} itemScope itemType="https://schema.org/Product">
         {/* Breadcrumbs */}
-        <nav aria-label="Breadcrumb" className="px-4 lg:px-8 mb-4">
+        <nav aria-label="Breadcrumb" className="mb-4">
           <ol className="flex items-center text-sm flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
               <Link href="/" className="text-[#f97015] hover:underline" itemProp="item">
@@ -751,7 +753,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Product Info - Right Column */}
-          <div className="px-4 sm:px-6 lg:px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
+          <div className="px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
             {/* Product Title */}
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
               {product.name}
@@ -800,9 +802,9 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
+            <div className="bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
                   <Store size={20} className="text-green-600" />
                 </div>
                 <div>
@@ -869,7 +871,7 @@ export default function ProductDetailPage() {
                           </p>
                         </div>
                         {itemOutOfStock && (
-                          <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
+                          <AlertCircle size={16} className="text-red-500 shrink-0" />
                         )}
                       </Link>
                     )

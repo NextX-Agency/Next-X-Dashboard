@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Search, ShoppingCart, Menu, X, ChevronDown } from 'lucide-react'
+import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
   id: string
@@ -13,6 +14,7 @@ interface Category {
 interface NewHeaderProps {
   storeName: string
   logoUrl?: string
+  whatsappNumber: string
   categories: Category[]
   currency: 'SRD' | 'USD'
   onCurrencyChange: (currency: 'SRD' | 'USD') => void
@@ -28,6 +30,7 @@ interface NewHeaderProps {
 export function NewHeader({
   storeName,
   logoUrl,
+  whatsappNumber,
   categories,
   currency,
   onCurrencyChange,
@@ -41,13 +44,16 @@ export function NewHeader({
 }: NewHeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
+  const actionButtonClassName = 'relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-white text-[#141c2e] shadow-[0_10px_24px_rgba(20,28,46,0.06)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:border-[#f97015]/40 hover:bg-[#fff7f2] active:scale-[0.96]'
+  const utilityLinkClassName = 'inline-flex h-10 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3.5 text-sm font-medium text-[#141c2e] shadow-[0_10px_24px_rgba(20,28,46,0.06)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:border-[#f97015]/40 hover:bg-[#fff7f2] active:scale-[0.98]'
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-white border-b border-neutral-200">
         {/* Top bar */}
         <div className="border-b border-neutral-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={catalogShellClassName}>
             <div className="flex items-center justify-between h-10 text-xs">
               <div className="hidden sm:flex items-center gap-4 text-neutral-500">
                 <span>Alleen afhalen • Geen bezorging</span>
@@ -83,7 +89,7 @@ export function NewHeader({
         </div>
 
         {/* Main header */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={catalogShellClassName}>
           <div className="flex items-center justify-between h-14 sm:h-16 gap-3 sm:gap-4">
             {/* Logo */}
             <Link 
@@ -173,10 +179,28 @@ export function NewHeader({
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              <a
+                href={`https://wa.me/${whatsappClean}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${utilityLinkClassName} hidden sm:inline-flex`}
+                aria-label="Chat met ons op WhatsApp"
+              >
+                <Image
+                  src="/whatsapp.png"
+                  alt="WhatsApp"
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px]"
+                />
+                <span>WhatsApp</span>
+              </a>
+
               {/* Search Toggle */}
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
+                className={actionButtonClassName}
+                aria-label={showSearch ? 'Sluit zoeken' : 'Open zoeken'}
               >
                 <Search size={20} />
               </button>
@@ -184,11 +208,12 @@ export function NewHeader({
               {/* Cart */}
               <button
                 onClick={onCartClick}
-                className="relative w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
+                className={actionButtonClassName}
+                aria-label="Open winkelwagen"
               >
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#f97015] text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#f97015] text-white text-[10px] font-bold flex items-center justify-center">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
@@ -197,7 +222,8 @@ export function NewHeader({
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
+                className={`lg:hidden ${actionButtonClassName}`}
+                aria-label={showMobileMenu ? 'Sluit menu' : 'Open menu'}
               >
                 {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
               </button>
@@ -208,7 +234,7 @@ export function NewHeader({
         {/* Search Bar (Expandable) */}
         {showSearch && (
           <div className="border-t border-neutral-100 bg-neutral-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className={`${catalogShellClassName} py-4`}>
               <div className="relative max-w-lg mx-auto">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
@@ -217,7 +243,7 @@ export function NewHeader({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   autoFocus
-                  className="w-full h-11 sm:h-12 pl-11 pr-10 rounded-full bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all text-sm sm:text-base"
+                  className="w-full h-11 sm:h-12 pl-11 pr-10 rounded-xl bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all text-sm sm:text-base"
                 />
                 {searchQuery && (
                   <button
@@ -235,7 +261,23 @@ export function NewHeader({
         {/* Mobile Menu */}
         {showMobileMenu && (
           <div className="lg:hidden border-t border-neutral-100 bg-white">
-            <div className="px-4 py-4 space-y-1">
+            <div className={`${catalogShellClassName} py-4 space-y-1`}>
+              <a
+                href={`https://wa.me/${whatsappClean}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${utilityLinkClassName} mb-3 w-full justify-center`}
+              >
+                <Image
+                  src="/whatsapp.png"
+                  alt="WhatsApp"
+                  width={18}
+                  height={18}
+                  className="h-[18px] w-[18px]"
+                />
+                <span>Chat via WhatsApp</span>
+              </a>
+
               {/* Main Pages */}
               <div className="pb-3 mb-3 border-b border-neutral-100">
                 <button

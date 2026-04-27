@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { MapPin, Phone, MessageCircle, Mail, Clock, ChevronRight } from 'lucide-react'
+import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
   id: string
@@ -36,7 +37,7 @@ export function NewFooter({
   return (
     <footer className="bg-neutral-50 text-[#141c2e] border-t border-neutral-200">
       {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+      <div className={`${catalogShellClassName} py-12 lg:py-16`}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div className="lg:col-span-1">
@@ -199,7 +200,7 @@ export function NewFooter({
 
       {/* Bottom Bar */}
       <div className="border-t border-neutral-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className={`${catalogShellClassName} py-6`}>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-[#141c2e]/50">
               © {currentYear} {storeName}. Alle rechten voorbehouden.

@@ -7,7 +7,6 @@ import { fetchCatalogData } from '@/lib/catalogApi'
 import type { NormalizedCatalogData } from '@/lib/catalogData'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import FloatingWhatsApp from '@/components/FloatingWhatsApp'
 import { 
   getItemStockStatus, 
   getItemStockLevel, 
@@ -858,6 +857,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       <NewHeader
         storeName={settings.store_name}
         logoUrl={settings.store_logo_url}
+        whatsappNumber={settings.whatsapp_number}
         categories={categories}
         currency={currency}
         onCurrencyChange={setCurrency}
@@ -1189,11 +1189,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
           setSearchQuery('')
           window.scrollTo({ top: 0, behavior: 'smooth' })
         }}
-      />
-
-      {/* Floating WhatsApp Button */}
-      <FloatingWhatsApp 
-        whatsappNumber={settings.whatsapp_number}
       />
 
       {/* Cart Drawer */}
