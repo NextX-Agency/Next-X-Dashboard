@@ -815,13 +815,12 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="mb-6 rounded-3xl border border-[#f97015]/15 bg-[#fffaf5] p-5 shadow-[0_16px_34px_rgba(20,28,46,0.05)]">
+            <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-5">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f97015]/15 bg-white shrink-0">
-                  <Store size={20} className="text-[#f97015]" />
+                <div className="flex h-9 w-9 items-center justify-center shrink-0">
+                  <Store size={20} className="text-neutral-600" />
                 </div>
                 <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f97015]">Afhalen op locatie</p>
                   <p className="font-semibold text-neutral-900 mb-1">Alleen ophalen</p>
                   <p className="text-sm text-neutral-600">
                     Dit product is beschikbaar voor ophalen bij onze winkel in {settings.store_address}
@@ -832,11 +831,8 @@ export default function ProductDetailPage() {
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8 rounded-2xl bg-neutral-50 border border-neutral-100 p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-1 h-4 rounded-full bg-[#f97015] shrink-0" />
-                  <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Beschrijving</h2>
-                </div>
+              <div className="mb-8 rounded-lg border border-neutral-200 bg-white p-5">
+                <h2 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider mb-3">Beschrijving</h2>
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
                 </p>
