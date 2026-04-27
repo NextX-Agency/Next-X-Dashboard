@@ -25,7 +25,6 @@ import {
   ProductSectionHeader,
   NewProductCarousel,
   NewValueSection,
-  NewCtaSection,
   NewFooter,
   NewCartDrawer,
   NewQuickViewModal,
@@ -45,10 +44,6 @@ import { PageSkeleton, CarouselSkeleton } from '@/components/catalog/SkeletonLoa
 // Lazy load heavy below-the-fold sections
 const NewValueSection_Lazy = dynamic(
   () => import('@/components/catalog').then(m => ({ default: m.NewValueSection })),
-  { ssr: false }
-)
-const NewCtaSection_Lazy = dynamic(
-  () => import('@/components/catalog').then(m => ({ default: m.NewCtaSection })),
   { ssr: false }
 )
 
@@ -1168,11 +1163,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
               storeDescription={settings.store_description}
             />
 
-            {/* CTA Section */}
-            <NewCtaSection_Lazy
-              whatsappNumber={settings.whatsapp_number}
-              storeName={settings.store_name}
-            />
           </>
         )}
       </div>

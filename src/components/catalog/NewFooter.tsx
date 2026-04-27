@@ -186,12 +186,9 @@ export function NewFooter({
       {/* Bottom Bar */}
       <div className="border-t border-neutral-200">
         <div className={`${catalogShellClassName} py-6`}>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center justify-center">
             <p className="text-sm text-[#141c2e]/50">
               © {currentYear} {storeName}. Alle rechten voorbehouden.
-            </p>
-            <p className="text-sm text-[#141c2e]/30">
-              Powered by <span className="text-[#f97015]">NextX</span>
             </p>
           </div>
         </div>

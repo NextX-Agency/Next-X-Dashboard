@@ -42,7 +42,6 @@ export function NewHero({
     }
   }, [mapActive])
 
-  const badgeClassName = 'inline-flex items-center gap-2 rounded-lg border border-[#f97015]/15 bg-white px-4 py-2 text-xs font-medium text-[#141c2e] shadow-[0_14px_28px_rgba(20,28,46,0.07)]'
   const primaryActionClassName = 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
 
   useEffect(() => {
@@ -92,15 +91,6 @@ export function NewHero({
                 {heroSubtitle}
               </p>
             )}
-          </div>
-
-          <div className="catalog-reveal catalog-reveal-d2 pb-4 text-center">
-            <div className={badgeClassName}>
-              <span className="h-2 w-2 rounded-full bg-[#f97015] animate-pulse" />
-              <span className="text-xs font-medium text-[#141c2e]">
-                Alleen Afhalen in {storeAddress}
-              </span>
-            </div>
           </div>
 
           <div className="pb-8">
@@ -157,15 +147,6 @@ export function NewHero({
 
         <div className="hidden items-center gap-8 py-16 lg:grid lg:grid-cols-2 lg:gap-16 lg:py-24">
           <div className="order-2 lg:order-1">
-            <div className="catalog-reveal">
-              <div className={`${badgeClassName} mb-6`}>
-                <span className="h-2 w-2 rounded-full bg-[#f97015] animate-pulse" />
-                <span className="text-xs font-medium text-[#141c2e]">
-                  Alleen Afhalen in {storeAddress}
-                </span>
-              </div>
-            </div>
-
             <h1 className="catalog-reveal catalog-reveal-d1 mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl lg:text-6xl">
               <span className="inline-flex items-center">
                 <span>Welcome to</span>
