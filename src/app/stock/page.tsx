@@ -51,7 +51,7 @@ export default function StockPage() {
   const loadData = async () => {
     setLoading(true)
     const [itemsRes, locationsRes] = await Promise.all([
-      supabase.from('items').select('*').order('name'),
+      supabase.from('items').select('*').is('deleted_at', null).order('name'),
       supabase.from('locations').select('*').order('name')
     ])
     // Filter out combo items from the items list for stock management

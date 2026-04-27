@@ -51,7 +51,7 @@ export default function ItemsPage() {
     setLoading(true)
     const [categoriesRes, itemsRes] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
-      supabase.from('items').select('*').order('name')
+      supabase.from('items').select('*').is('deleted_at', null).order('name')
     ])
     if (categoriesRes.data) setCategories(categoriesRes.data)
     if (itemsRes.data) {
@@ -254,13 +254,13 @@ export default function ItemsPage() {
     const item = items.find(i => i.id === id)
     const ok = await confirm({
       title: item?.is_combo ? 'Delete Combo' : 'Delete Item',
-      message: 'This will permanently remove the item and all associated data.',
+      message: 'The item will be hidden from all lists. Past sales and profit history are preserved.',
       itemName: item?.name,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (ok) {
-      await supabase.from('items').delete().eq('id', id)
+      await supabase.from('items').update({ deleted_at: new Date().toISOString() }).eq('id', id)
       await logActivity({
         action: 'delete',
         entityType: 'item',

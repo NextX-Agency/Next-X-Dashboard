@@ -266,6 +266,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
             is_public: updatedItem.is_public,
             is_combo: updatedItem.is_combo,
             allow_custom_price: updatedItem.allow_custom_price,
+            deleted_at: updatedItem.deleted_at ?? null,
             created_at: updatedItem.created_at,
             updated_at: updatedItem.updated_at
           }
@@ -595,6 +596,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       is_public: item.is_public,
       is_combo: item.is_combo,
       allow_custom_price: item.allow_custom_price,
+      deleted_at: item.deleted_at ?? null,
       created_at: item.created_at,
       updated_at: item.updated_at
     }

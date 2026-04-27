@@ -337,6 +337,60 @@ body {
   color: #ffffff;
 }
 
+/* Cross-reference section scroll reveal */
+@keyframes catalogRevealUp {
+  from { opacity: 0; transform: translateY(1.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.catalog-reveal {
+  opacity: 0;
+  transform: translateY(1.5rem);
+}
+.catalog-reveal-visible {
+  animation: catalogRevealUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.catalog-reveal-d1 { animation-delay: 0.08s; }
+.catalog-reveal-d2 { animation-delay: 0.16s; }
+.catalog-reveal-d3 { animation-delay: 0.24s; }
+.catalog-reveal-d4 { animation-delay: 0.32s; }
+.catalog-reveal-d5 { animation-delay: 0.40s; }
+.catalog-reveal-d6 { animation-delay: 0.48s; }
+.catalog-reveal-d7 { animation-delay: 0.56s; }
+.catalog-reveal-d8 { animation-delay: 0.64s; }
+
+/* Slide from left/right variants */
+@keyframes catalogRevealLeft {
+  from { opacity: 0; transform: translateX(-28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes catalogRevealRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.catalog-reveal-left {
+  opacity: 0;
+  transform: translateX(-28px);
+}
+.catalog-reveal-right {
+  opacity: 0;
+  transform: translateX(28px);
+}
+.catalog-reveal-left.catalog-reveal-visible {
+  animation: catalogRevealLeft 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.catalog-reveal-right.catalog-reveal-visible {
+  animation: catalogRevealRight 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hover lift utility */
+.catalog-hover-lift {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+.catalog-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px -8px rgba(0,0,0,0.12);
+}
+
 /* Hero Logo Styling */
 .catalog-hero-logo {
   display: inline-flex;

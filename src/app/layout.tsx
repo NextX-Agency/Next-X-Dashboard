@@ -4,7 +4,7 @@ import { CurrencyProvider } from "@/lib/CurrencyContext";
 import { AuthProvider } from "@/lib/AuthContext";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://nextx.sr'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
 export const metadata: Metadata = {
   // Primary SEO - Optimized for "NextX Suriname"

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, ShoppingCart, Menu, X, ChevronDown } from 'lucide-react'
+import { Search, ShoppingCart, Menu, X, ChevronDown, ExternalLink } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
@@ -50,23 +50,19 @@ export function NewHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-white border-b border-neutral-200">
-        {/* Top bar */}
+      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
         <div className="border-b border-neutral-100">
           <div className={catalogShellClassName}>
-            <div className="flex items-center justify-between h-10 text-xs">
-              <div className="hidden sm:flex items-center gap-4 text-neutral-500">
+            <div className="flex h-10 items-center justify-between text-xs">
+              <div className="hidden items-center gap-4 text-neutral-500 sm:flex">
                 <span>Alleen afhalen • Geen bezorging</span>
               </div>
-              <div className="flex items-center gap-4 ml-auto">
-                {/* Currency Selector */}
+              <div className="ml-auto flex items-center gap-4">
                 <div className="flex items-center gap-1 text-neutral-600">
                   <button
                     onClick={() => onCurrencyChange('SRD')}
-                    className={`px-2 py-0.5 rounded transition-colors ${
-                      currency === 'SRD' 
-                        ? 'bg-[#f97015] text-white' 
-                        : 'hover:bg-neutral-100'
+                    className={`rounded px-2 py-0.5 transition-colors ${
+                      currency === 'SRD' ? 'bg-[#f97015] text-white' : 'hover:bg-neutral-100'
                     }`}
                   >
                     SRD
@@ -74,10 +70,8 @@ export function NewHeader({
                   <span className="text-neutral-300">/</span>
                   <button
                     onClick={() => onCurrencyChange('USD')}
-                    className={`px-2 py-0.5 rounded transition-colors ${
-                      currency === 'USD' 
-                        ? 'bg-[#f97015] text-white' 
-                        : 'hover:bg-neutral-100'
+                    className={`rounded px-2 py-0.5 transition-colors ${
+                      currency === 'USD' ? 'bg-[#f97015] text-white' : 'hover:bg-neutral-100'
                     }`}
                   >
                     USD
@@ -88,12 +82,10 @@ export function NewHeader({
           </div>
         </div>
 
-        {/* Main header */}
         <div className={catalogShellClassName}>
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-3 sm:gap-4">
-            {/* Logo */}
-            <Link 
-              href="/catalog" 
+          <div className="flex h-14 items-center justify-between gap-3 sm:h-16 sm:gap-4">
+            <Link
+              href="/catalog"
               className="shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
               aria-label="Ga naar homepagina"
               onClick={(e) => {
@@ -104,65 +96,44 @@ export function NewHeader({
               }}
             >
               {logoUrl ? (
-                <Image 
-                  src={logoUrl} 
-                  alt={storeName} 
-                  width={160} 
-                  height={56} 
-                  className="h-9 sm:h-10 lg:h-12 w-auto object-contain transition-all"
+                <Image
+                  src={logoUrl}
+                  alt={storeName}
+                  width={160}
+                  height={56}
+                  className="h-9 w-auto object-contain transition-all sm:h-10 lg:h-12"
                   priority
                 />
               ) : (
-                <span className="text-lg sm:text-xl font-bold tracking-tight inline-block">
+                <span className="inline-block text-lg font-bold tracking-tight sm:text-xl">
                   <span className="text-[#141c2e]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>
               )}
             </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-6">
+            <nav className="hidden items-center gap-6 lg:flex">
               <button
                 onClick={() => onCategoryChange('')}
                 className={`text-sm font-medium transition-colors ${
-                  !selectedCategory 
-                    ? 'text-[#f97015]' 
-                    : 'text-[#141c2e]/70 hover:text-[#141c2e]'
+                  !selectedCategory ? 'text-[#f97015]' : 'text-[#141c2e]/70 hover:text-[#141c2e]'
                 }`}
               >
                 Producten
               </button>
-              <Link
-                href="/blog"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                Blog
-              </Link>
-              <Link
-                href="/faq"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/testimonials"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors"
-              >
-                Reviews
-              </Link>
               {categories.length > 0 && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors">
+                  <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 transition-colors hover:text-[#141c2e]">
                     Categorieën
                     <ChevronDown size={14} />
                   </button>
-                  <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <div className="bg-white rounded-xl shadow-xl border border-neutral-200 py-2 min-w-[180px]">
+                  <div className="invisible absolute left-0 top-full pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                    <div className="min-w-[180px] rounded-xl border border-neutral-200 bg-white py-2 shadow-xl">
                       {categories.map((cat) => (
                         <button
                           key={cat.id}
                           onClick={() => onCategoryChange(cat.id)}
-                          className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                          className={`w-full px-4 py-2 text-left text-sm transition-colors ${
                             selectedCategory === cat.id
                               ? 'bg-[#f97015]/10 text-[#f97015]'
                               : 'text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e]'
@@ -175,9 +146,17 @@ export function NewHeader({
                   </div>
                 </div>
               )}
+              <a
+                href="https://www.nextxagency.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden items-center gap-2 rounded-lg border border-[#f97015]/50 bg-linear-to-r from-[#f97015]/90 to-[#f97015] px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:scale-[1.02] hover:from-[#f97015] hover:to-[#e5640d] hover:shadow-lg hover:shadow-[#f97015]/40 active:scale-95 xl:inline-flex"
+              >
+                NextX Agency
+                <ExternalLink size={14} />
+              </a>
             </nav>
 
-            {/* Actions */}
             <div className="flex items-center gap-2">
               <a
                 href={`https://wa.me/${whatsappClean}`}
@@ -196,7 +175,6 @@ export function NewHeader({
                 <span>WhatsApp</span>
               </a>
 
-              {/* Search Toggle */}
               <button
                 onClick={() => setShowSearch(!showSearch)}
                 className={actionButtonClassName}
@@ -205,7 +183,6 @@ export function NewHeader({
                 <Search size={20} />
               </button>
 
-              {/* Cart */}
               <button
                 onClick={onCartClick}
                 className={actionButtonClassName}
@@ -213,13 +190,12 @@ export function NewHeader({
               >
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#f97015] text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#f97015] px-1 text-[10px] font-bold text-white">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
               </button>
 
-              {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className={`lg:hidden ${actionButtonClassName}`}
@@ -231,11 +207,10 @@ export function NewHeader({
           </div>
         </div>
 
-        {/* Search Bar (Expandable) */}
         {showSearch && (
           <div className="border-t border-neutral-100 bg-neutral-50">
             <div className={`${catalogShellClassName} py-4`}>
-              <div className="relative max-w-lg mx-auto">
+              <div className="relative mx-auto max-w-lg">
                 <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
                 <input
                   type="text"
@@ -243,7 +218,7 @@ export function NewHeader({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   autoFocus
-                  className="w-full h-11 sm:h-12 pl-11 pr-10 rounded-xl bg-white border border-neutral-200 text-[#141c2e] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#f97015] focus:border-transparent transition-all text-sm sm:text-base"
+                  className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#141c2e] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015] sm:h-12 sm:text-base"
                 />
                 {searchQuery && (
                   <button
@@ -258,10 +233,18 @@ export function NewHeader({
           </div>
         )}
 
-        {/* Mobile Menu */}
         {showMobileMenu && (
-          <div className="lg:hidden border-t border-neutral-100 bg-white">
-            <div className={`${catalogShellClassName} py-4 space-y-1`}>
+          <div className="border-t border-neutral-100 bg-white lg:hidden">
+            <div className={`${catalogShellClassName} space-y-1 py-4`}>
+              <a
+                href="https://www.nextxagency.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-[#f97015]/50 bg-linear-to-r from-[#f97015]/90 to-[#f97015] px-4 py-3 text-sm font-bold text-white transition-all duration-200 hover:from-[#f97015] hover:to-[#e5640d] hover:shadow-lg hover:shadow-[#f97015]/30 active:scale-95"
+              >
+                <ExternalLink size={16} />
+                <span>Bekijk NextX Agency</span>
+              </a>
               <a
                 href={`https://wa.me/${whatsappClean}`}
                 target="_blank"
@@ -278,46 +261,21 @@ export function NewHeader({
                 <span>Chat via WhatsApp</span>
               </a>
 
-              {/* Main Pages */}
-              <div className="pb-3 mb-3 border-b border-neutral-100">
+              <div className="mb-3 border-b border-neutral-100 pb-3">
                 <button
                   onClick={() => {
                     onCategoryChange('')
                     setShowMobileMenu(false)
                   }}
-                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
-                    !selectedCategory 
-                      ? 'bg-[#f97015]/10 text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    !selectedCategory ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#141c2e]/70 hover:bg-neutral-50'
                   }`}
                 >
                   Alle Producten
                 </button>
-                <Link
-                  href="/blog"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  Blog
-                </Link>
-                <Link
-                  href="/faq"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  FAQ
-                </Link>
-                <Link
-                  href="/testimonials"
-                  onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
-                >
-                  Reviews
-                </Link>
               </div>
-              
-              {/* Categories */}
-              <p className="px-4 py-2 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Categorieën</p>
+
+              <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">Categorieën</p>
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -325,10 +283,8 @@ export function NewHeader({
                     onCategoryChange(cat.id)
                     setShowMobileMenu(false)
                   }}
-                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors ${
-                    selectedCategory === cat.id 
-                      ? 'bg-[#f97015]/10 text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    selectedCategory === cat.id ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#141c2e]/70 hover:bg-neutral-50'
                   }`}
                 >
                   {cat.name}

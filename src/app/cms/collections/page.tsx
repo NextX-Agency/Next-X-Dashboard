@@ -69,7 +69,7 @@ export default function CollectionsPage() {
     try {
       const [collectionsRes, itemsRes, collectionItemsRes] = await Promise.all([
         supabase.from('collections').select('*').order('position'),
-        supabase.from('items').select('id, name, image_url, selling_price_srd').eq('is_public', true),
+        supabase.from('items').select('id, name, image_url, selling_price_srd').eq('is_public', true).is('deleted_at', null),
         supabase.from('collection_items').select('*')
       ])
 

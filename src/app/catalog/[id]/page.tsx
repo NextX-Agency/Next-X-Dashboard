@@ -102,6 +102,8 @@ export default function ProductDetailPage() {
   const [cartCount, setCartCount] = useState(0)
   const [addedToCart, setAddedToCart] = useState(false)
   
+
+
   // Cart drawer states
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState('')
@@ -131,7 +133,7 @@ export default function ProductDetailPage() {
       setLoading(true)
       
       const [productRes, rateRes, settingsRes, categoriesRes, locationsRes, stockRes] = await Promise.all([
-        supabase.from('items').select('*').eq('id', productId).single(),
+        supabase.from('items').select('*').eq('id', productId).is('deleted_at', null).single(),
         supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
         supabase.from('store_settings').select('*'),
         supabase.from('categories').select('*').eq('is_active', true).order('name'),
@@ -813,7 +815,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="mb-6 rounded-[24px] border border-[#f97015]/15 bg-[#fffaf5] p-5 shadow-[0_16px_34px_rgba(20,28,46,0.05)]">
+            <div className="mb-6 rounded-3xl border border-[#f97015]/15 bg-[#fffaf5] p-5 shadow-[0_16px_34px_rgba(20,28,46,0.05)]">
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f97015]/15 bg-white shrink-0">
                   <Store size={20} className="text-[#f97015]" />
@@ -830,10 +832,11 @@ export default function ProductDetailPage() {
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8">
-                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
-                  Beschrijving
-                </h2>
+              <div className="mb-8 rounded-2xl bg-neutral-50 border border-neutral-100 p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-4 rounded-full bg-[#f97015] shrink-0" />
+                  <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider">Beschrijving</h2>
+                </div>
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
                 </p>

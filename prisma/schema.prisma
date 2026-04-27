@@ -75,6 +75,7 @@ model Item {
   isPublic                                Boolean?            @default(true) @map("is_public")
   is_combo                                Boolean?            @default(false)
   allow_custom_price                      Boolean?            @default(false)
+  deletedAt                               DateTime?           @map("deleted_at") @db.Timestamptz(6)
   combo_items_combo_items_combo_idToitems combo_items[]       @relation("combo_items_combo_idToitems")
   combo_items_combo_items_item_idToitems  combo_items[]       @relation("combo_items_item_idToitems")
   category                                Category?           @relation(fields: [categoryId], references: [id])

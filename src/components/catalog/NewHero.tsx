@@ -24,6 +24,7 @@ export function NewHero({
 }: NewHeroProps) {
   const [mapActive, setMapActive] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -44,85 +45,87 @@ export function NewHero({
   const badgeClassName = 'inline-flex items-center gap-2 rounded-lg border border-[#f97015]/15 bg-white px-4 py-2 text-xs font-medium text-[#141c2e] shadow-[0_14px_28px_rgba(20,28,46,0.07)]'
   const primaryActionClassName = 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
 
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) return
+    const targets = el.querySelectorAll('.catalog-reveal, .catalog-reveal-left')
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('catalog-reveal-visible')
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.05 }
+    )
+    targets.forEach((target) => observer.observe(target))
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <section className="relative overflow-hidden catalog-bg-light">
-      {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#141c2e]/5 to-transparent" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-[#f97015]/10 to-transparent rounded-full -translate-x-1/2 translate-y-1/2" />
-      
+    <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
+      <div className="absolute top-0 right-0 h-full w-1/2 bg-linear-to-l from-[#141c2e]/5 to-transparent" />
+      <div className="absolute bottom-0 left-0 h-96 w-96 -translate-x-1/2 translate-y-1/2 rounded-full bg-linear-to-tr from-[#f97015]/10 to-transparent" />
+
       <div className={catalogShellClassName}>
-        {/* Mobile Layout - Title First */}
         <div className="lg:hidden">
-          {/* Mobile Title Section */}
-          <div className="text-center py-8">            
-            {/* Title */}
-            <h1 className="text-4xl sm:text-5xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
+          <div className="py-8 text-center">
+            <h1 className="catalog-reveal mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl">
               <span className="flex flex-col items-center gap-2">
                 <span>Welcome to</span>
-                <Image 
-                  src="/Colored - White background.png" 
-                  alt="Next x Logo" 
-                  width={240} 
+                <Image
+                  src="/Colored - White background.png"
+                  alt="Next x Logo"
+                  width={240}
                   height={77}
                   className="relative"
-                  style={{ 
-                    height: 'auto', 
-                    width: '240px'
-                  }}
+                  style={{ height: 'auto', width: '240px' }}
                   priority
                 />
               </span>
             </h1>
-            
-            {/* Subtitle */}
+
             {heroSubtitle && (
-              <p className="text-lg text-[#141c2e]/70 max-w-lg mx-auto mb-8 leading-relaxed">
+              <p className="catalog-reveal catalog-reveal-d1 mx-auto mb-8 max-w-lg text-lg leading-relaxed text-[#141c2e]/70">
                 {heroSubtitle}
               </p>
             )}
           </div>
-          
-          {/* Badge above map */}
-          <div className="text-center pb-4">
+
+          <div className="catalog-reveal catalog-reveal-d2 pb-4 text-center">
             <div className={badgeClassName}>
-              <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-[#f97015] animate-pulse" />
               <span className="text-xs font-medium text-[#141c2e]">
                 Alleen Afhalen in {storeAddress}
               </span>
             </div>
           </div>
-          
-          {/* Mobile Map Container */}
+
           <div className="pb-8">
-            <div className="relative aspect-square max-w-sm mx-auto">
-              {/* Main container with Google Maps */}
-              <div 
+            <div className="relative mx-auto aspect-square max-w-sm">
+              <div
                 ref={mapRef}
-                className="relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300"
+                className="relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300"
                 style={{ border: mapActive ? '2px solid #f97015' : '2px solid rgba(249, 112, 21, 0.2)' }}
               >
-                <div className="aspect-square relative">
+                <div className="relative aspect-square">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
-                    className="absolute inset-0 w-full h-full border-0"
+                    className="absolute inset-0 h-full w-full border-0"
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
                     style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
                   />
-                  
-                  {/* Subtle click indicator - corner badge */}
+
                   {!mapActive && (
                     <>
-                      <div 
-                        className="absolute inset-0 cursor-pointer"
-                        onClick={() => setMapActive(true)}
-                      />
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-sm border border-[#f97015]/30">
-                        <p className="text-xs font-medium text-[#141c2e]/80">
-                          Tap to interact
-                        </p>
+                      <div className="absolute inset-0 cursor-pointer" onClick={() => setMapActive(true)} />
+                      <div className="absolute right-3 top-3 rounded-lg border border-[#f97015]/30 bg-white/90 px-2 py-1 shadow-sm backdrop-blur-sm">
+                        <p className="text-xs font-medium text-[#141c2e]/80">Tap to interact</p>
                       </div>
                     </>
                   )}
@@ -130,22 +133,16 @@ export function NewHero({
               </div>
             </div>
           </div>
-          
-          {/* Mobile CTA Section */}
-          <div className="text-center pb-8">
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-4 justify-center mb-8">
-              <button
-                onClick={onExploreClick}
-                className={primaryActionClassName}
-              >
+
+          <div className="pb-8 text-center">
+            <div className="catalog-reveal catalog-reveal-d3 mb-8 flex flex-wrap justify-center gap-4">
+              <button onClick={onExploreClick} className={primaryActionClassName}>
                 Ontdek Producten
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
               </button>
             </div>
-            
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#141c2e]/60">
+
+            <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center justify-center gap-6 text-sm text-[#141c2e]/60">
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-[#f97015]" />
                 <span>Lokale Afhaallocatie</span>
@@ -158,58 +155,46 @@ export function NewHero({
           </div>
         </div>
 
-        {/* Desktop Layout - Original */}
-        <div className="hidden lg:grid lg:grid-cols-2 gap-8 lg:gap-16 items-center py-16 lg:py-24">
-          {/* Content */}
+        <div className="hidden items-center gap-8 py-16 lg:grid lg:grid-cols-2 lg:gap-16 lg:py-24">
           <div className="order-2 lg:order-1">
-            {/* Badge */}
-            <div className={`${badgeClassName} mb-6`}>
-              <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
-              <span className="text-xs font-medium text-[#141c2e]">
-                Alleen Afhalen in {storeAddress}
-              </span>
+            <div className="catalog-reveal">
+              <div className={`${badgeClassName} mb-6`}>
+                <span className="h-2 w-2 rounded-full bg-[#f97015] animate-pulse" />
+                <span className="text-xs font-medium text-[#141c2e]">
+                  Alleen Afhalen in {storeAddress}
+                </span>
+              </div>
             </div>
-            
-            {/* Title */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#141c2e] tracking-tight leading-[1.1] mb-6">
+
+            <h1 className="catalog-reveal catalog-reveal-d1 mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl lg:text-6xl">
               <span className="inline-flex items-center">
                 <span>Welcome to</span>
-                <Image 
-                  src="/Colored - White background.png" 
-                  alt="Next x Logo" 
-                  width={280} 
+                <Image
+                  src="/Colored - White background.png"
+                  alt="Next x Logo"
+                  width={280}
                   height={90}
-                  className="ml-3 sm:ml-4 relative"
-                  style={{ 
-                    height: '1.15em', 
-                    width: 'auto',
-                    top: '0.08em'
-                  }}
+                  className="relative ml-3 sm:ml-4"
+                  style={{ height: '1.15em', width: 'auto', top: '0.08em' }}
                   priority
                 />
               </span>
             </h1>
-            
-            {/* Subtitle */}
+
             {heroSubtitle && (
-              <p className="text-lg text-[#141c2e]/70 max-w-lg mb-8 leading-relaxed">
+              <p className="catalog-reveal catalog-reveal-d2 mb-8 max-w-lg text-lg leading-relaxed text-[#141c2e]/70">
                 {heroSubtitle}
               </p>
             )}
-            
-            {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-4 mb-12">
-              <button
-                onClick={onExploreClick}
-                className={primaryActionClassName}
-              >
+
+            <div className="catalog-reveal catalog-reveal-d3 mb-12 flex flex-wrap gap-4">
+              <button onClick={onExploreClick} className={primaryActionClassName}>
                 Ontdek Producten
-                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
               </button>
             </div>
-            
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center gap-6 text-sm text-[#141c2e]/60">
+
+            <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center gap-6 text-sm text-[#141c2e]/60">
               <div className="flex items-center gap-2">
                 <MapPin size={16} className="text-[#f97015]" />
                 <span>Lokale Afhaallocatie</span>
@@ -220,38 +205,30 @@ export function NewHero({
               </div>
             </div>
           </div>
-          
-          {/* Desktop Map Container */}
-          <div className="order-1 lg:order-2 relative">
-            <div className="relative aspect-square max-w-md mx-auto lg:max-w-none">
-              {/* Main container with Google Maps */}
-              <div 
+
+          <div className="order-1 relative lg:order-2">
+            <div className="relative mx-auto aspect-square max-w-md lg:max-w-none">
+              <div
                 ref={mapRef}
-                className="relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300"
+                className="relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300"
                 style={{ border: mapActive ? '2px solid #f97015' : '2px solid rgba(249, 112, 21, 0.2)' }}
               >
-                <div className="aspect-square relative">
+                <div className="relative aspect-square">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
-                    className="absolute inset-0 w-full h-full border-0"
+                    className="absolute inset-0 h-full w-full border-0"
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
                     style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
                   />
-                  
-                  {/* Subtle click indicator - corner badge */}
+
                   {!mapActive && (
                     <>
-                      <div 
-                        className="absolute inset-0 cursor-pointer"
-                        onClick={() => setMapActive(true)}
-                      />
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-sm border border-[#f97015]/30">
-                        <p className="text-sm font-medium text-[#141c2e]/80">
-                          Click to interact
-                        </p>
+                      <div className="absolute inset-0 cursor-pointer" onClick={() => setMapActive(true)} />
+                      <div className="absolute right-4 top-4 rounded-lg border border-[#f97015]/30 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+                        <p className="text-sm font-medium text-[#141c2e]/80">Click to interact</p>
                       </div>
                     </>
                   )}

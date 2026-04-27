@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
       ] = await Promise.all([
         prisma.category.findMany({ orderBy: { name: 'asc' } }),
         prisma.item.findMany({
-          where: { isPublic: true, is_combo: false },
+          where: { isPublic: true, is_combo: false, deletedAt: null },
           orderBy: { createdAt: 'desc' },
         }),
         // Fetch combos with their combo_items (uses named relation)
         prisma.item.findMany({
-          where: { isPublic: true, is_combo: true },
+          where: { isPublic: true, is_combo: true, deletedAt: null },
           orderBy: { createdAt: 'desc' },
           include: {
             combo_items_combo_items_combo_idToitems: true,

@@ -191,6 +191,9 @@ export default function ReportsPage() {
   const [excludeLowValueItems, setExcludeLowValueItems] = useState(false)
   const [excludeInventoryExpenses, setExcludeInventoryExpenses] = useState(true)
   const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const [deepDebugData, setDeepDebugData] = useState<any>(null)
+  const [deepDebugLoading, setDeepDebugLoading] = useState(false)
+  const [deepDebugError, setDeepDebugError] = useState<string | null>(null)
 
   // Historical date range
   const [histStart, setHistStart] = useState(() => {
@@ -1016,7 +1019,25 @@ export default function ReportsPage() {
             </span>
           </div>
           <button
-            onClick={() => setShowDebugInfo(!showDebugInfo)}
+            onClick={async () => {
+              const next = !showDebugInfo
+              setShowDebugInfo(next)
+              if (next && !deepDebugData) {
+                setDeepDebugLoading(true)
+                setDeepDebugError(null)
+                try {
+                  const start = activeBounds.start.toISOString().slice(0, 10)
+                  const end = activeBounds.end.toISOString().slice(0, 10)
+                  const res = await fetch(`/api/debug-profit?start=${start}&end=${end}`)
+                  if (!res.ok) throw new Error(await res.text())
+                  setDeepDebugData(await res.json())
+                } catch (err: any) {
+                  setDeepDebugError(err.message)
+                } finally {
+                  setDeepDebugLoading(false)
+                }
+              }
+            }}
             className="text-xs px-3 py-2 sm:py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors whitespace-nowrap"
           >
             {showDebugInfo ? 'Hide' : 'Show'} Debug Info
@@ -1025,42 +1046,226 @@ export default function ReportsPage() {
 
         {/* Debug Info Section */}
         {showDebugInfo && (
-          <div className="card-premium bg-yellow-500/5 border-yellow-500/20">
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-2 mb-3">
-                <Activity size={16} className="text-yellow-600" />
-                <h3 className="font-bold text-foreground">Calculation Debug Info</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs font-mono">
-                <div className="space-y-2">
-                  <div className="font-bold text-blue-600">SALES DATA</div>
-                  <div>• Total Sales: {filteredSales.length}</div>
-                  <div>• Total Revenue: {formatCurrency(totalRevenue, displayCurrency)}</div>
-                  <div>• Gross Profit: {formatCurrency(totalGrossProfit, displayCurrency)}</div>
-                  <div>• Avg Transaction: {formatCurrency(avgTransactionValue, displayCurrency)}</div>
+          <div className="space-y-3">
+            {/* Quick summary panel */}
+            <div className="card-premium bg-yellow-500/5 border-yellow-500/20">
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Activity size={16} className="text-yellow-600" />
+                  <h3 className="font-bold text-foreground">Calculation Debug Info</h3>
                 </div>
-                <div className="space-y-2">
-                  <div className="font-bold text-red-600">EXPENSES DATA</div>
-                  <div>• Total Expenses (raw): {filteredExpenses.length} items</div>
-                  <div>• Excluded (inventory): {filteredExpenses.filter(e => excludeInventoryExpenses && isInventoryExpense(e)).length} items</div>
-                  <div>• Included in calc: {filteredExpenses.filter(e => !excludeInventoryExpenses || !isInventoryExpense(e)).length} items</div>
-                  <div>• Operating Expenses: {formatCurrency(totalExpensesAmt, displayCurrency)}</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="font-bold text-orange-600">COMMISSIONS DATA</div>
-                  <div>• Total Commissions: {filteredCommissions.length} payments</div>
-                  <div>• Commission Amount: {formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
-                  <div>• As % of Revenue: {totalRevenue > 0 ? ((totalCommissionsAmt / totalRevenue) * 100).toFixed(1) : '0'}%</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="font-bold text-emerald-600">NET PROFIT CALC</div>
-                  <div>• Gross Profit: {formatCurrency(totalGrossProfit, displayCurrency)}</div>
-                  <div>• - Operating Exp: {formatCurrency(totalExpensesAmt, displayCurrency)}</div>
-                  <div>• - Commissions: {formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
-                  <div className="pt-1 border-t border-yellow-500/20">
-                    <strong>= Net Profit: {formatCurrency(netProfit, displayCurrency)}</strong>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-xs font-mono">
+                  <div className="space-y-2">
+                    <div className="font-bold text-blue-600">SALES DATA</div>
+                    <div>• Total Sales: {filteredSales.length}</div>
+                    <div>• Total Revenue: {formatCurrency(totalRevenue, displayCurrency)}</div>
+                    <div>• Gross Profit: {formatCurrency(totalGrossProfit, displayCurrency)}</div>
+                    <div>• Avg Transaction: {formatCurrency(avgTransactionValue, displayCurrency)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="font-bold text-red-600">EXPENSES DATA</div>
+                    <div>• Total Expenses (raw): {filteredExpenses.length} items</div>
+                    <div>• Excluded (inventory): {filteredExpenses.filter(e => excludeInventoryExpenses && isInventoryExpense(e)).length} items</div>
+                    <div>• Included in calc: {filteredExpenses.filter(e => !excludeInventoryExpenses || !isInventoryExpense(e)).length} items</div>
+                    <div>• Operating Expenses: {formatCurrency(totalExpensesAmt, displayCurrency)}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="font-bold text-orange-600">COMMISSIONS DATA</div>
+                    <div>• Total Commissions: {filteredCommissions.length} payments</div>
+                    <div>• Commission Amount: {formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
+                    <div>• As % of Revenue: {totalRevenue > 0 ? ((totalCommissionsAmt / totalRevenue) * 100).toFixed(1) : '0'}%</div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="font-bold text-emerald-600">NET PROFIT CALC</div>
+                    <div>• Gross Profit: {formatCurrency(totalGrossProfit, displayCurrency)}</div>
+                    <div>• - Operating Exp: {formatCurrency(totalExpensesAmt, displayCurrency)}</div>
+                    <div>• - Commissions: {formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
+                    <div className="pt-1 border-t border-yellow-500/20">
+                      <strong>= Net Profit: {formatCurrency(netProfit, displayCurrency)}</strong>
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Deep diagnostic panel (server-side Prisma data) */}
+            <div className="card-premium bg-blue-500/5 border-blue-500/20">
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity size={16} className="text-blue-500" />
+                    <h3 className="font-bold text-foreground">Deep Profit Diagnosis (Server)</h3>
+                    <span className="text-xs text-muted-foreground">reads database directly, bypasses RLS</span>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setDeepDebugLoading(true)
+                      setDeepDebugError(null)
+                      try {
+                        const start = activeBounds.start.toISOString().slice(0, 10)
+                        const end = activeBounds.end.toISOString().slice(0, 10)
+                        const res = await fetch(`/api/debug-profit?start=${start}&end=${end}`)
+                        if (!res.ok) throw new Error(await res.text())
+                        setDeepDebugData(await res.json())
+                      } catch (err: any) {
+                        setDeepDebugError(err.message)
+                      } finally {
+                        setDeepDebugLoading(false)
+                      }
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors"
+                  >
+                    {deepDebugLoading ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
+
+                {deepDebugError && (
+                  <div className="text-xs text-red-500 bg-red-500/10 rounded p-2">{deepDebugError}</div>
+                )}
+
+                {deepDebugLoading && (
+                  <div className="text-xs text-muted-foreground animate-pulse">Fetching server data…</div>
+                )}
+
+                {deepDebugData && !deepDebugLoading && (
+                  <div className="space-y-4 text-xs font-mono">
+
+                    {/* Missing sale items — highest priority alert */}
+                    {deepDebugData.summary.issueCount.missingSaleItems > 0 && (
+                      <div className="bg-red-600/15 border-2 border-red-500/50 rounded p-3 space-y-2">
+                        <div className="font-bold text-red-400 text-sm">
+                          🚨 {deepDebugData.summary.issueCount.missingSaleItems} SALE(S) HAVE NO ITEMS RECORDED
+                        </div>
+                        <div className="text-red-300 text-xs leading-relaxed">
+                          These sales were saved to the database but their line items (sale_items) were never stored — likely a network or permission error during checkout.
+                          Revenue and profit from these sales are invisible to the report. <strong className="text-white">FIX: Go to Sales page → find the sale → click Undo → re-record it.</strong>
+                        </div>
+                        <div className="space-y-1 pt-1 border-t border-red-500/20">
+                          {deepDebugData.summary.salesMissingItems.map((s: any) => (
+                            <div key={s.saleId} className="flex justify-between text-red-300">
+                              <span>{new Date(s.date).toLocaleString()} · {s.locationName} · {s.currency}</span>
+                              <span className="text-white font-bold">
+                                Recorded total: {s.currency} {s.recordedTotal.toFixed(2)} (${s.recordedTotalUSD.toFixed(2)} USD) — MISSING FROM REPORT
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Other issues */}
+                    {deepDebugData.summary.salesWithIssues > 0 && (
+                      deepDebugData.summary.issueCount.deletedItems > 0 ||
+                      deepDebugData.summary.issueCount.noCOGS > 0 ||
+                      deepDebugData.summary.issueCount.noCategory > 0
+                    ) && (
+                      <div className="bg-red-500/10 border border-red-500/20 rounded p-3 space-y-1">
+                        <div className="font-bold text-red-400">⚠ ITEM DATA ISSUES</div>
+                        {deepDebugData.summary.issueCount.deletedItems > 0 && (
+                          <div className="text-red-300">• {deepDebugData.summary.issueCount.deletedItems} line item(s) reference deleted items — profit lost</div>
+                        )}
+                        {deepDebugData.summary.issueCount.noCOGS > 0 && (
+                          <div className="text-yellow-300">• {deepDebugData.summary.issueCount.noCOGS} line item(s) have purchase_price_usd = $0 — profit overstated</div>
+                        )}
+                        {deepDebugData.summary.issueCount.noCategory > 0 && (
+                          <div className="text-orange-300">• {deepDebugData.summary.issueCount.noCategory} line item(s) have no category — won't appear in Category Performance</div>
+                        )}
+                      </div>
+                    )}
+
+                    {deepDebugData.summary.salesWithIssues === 0 && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-3 text-emerald-400">
+                        ✓ No data issues found. All items have costs and categories.
+                      </div>
+                    )}
+
+                    {/* Server summary vs client */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-muted/30 rounded p-2 space-y-1">
+                        <div className="font-bold text-blue-400">SERVER (DB direct)</div>
+                        <div>Revenue: ${deepDebugData.summary.totalRevenueUSD.toFixed(2)} USD</div>
+                        <div>Gross Profit: ${deepDebugData.summary.totalProfitUSD.toFixed(2)} USD</div>
+                        <div>Margin: {deepDebugData.summary.grossMarginPct.toFixed(1)}%</div>
+                        <div>Sales: {deepDebugData.summary.totalSales}</div>
+                      </div>
+                      <div className="bg-muted/30 rounded p-2 space-y-1">
+                        <div className="font-bold text-green-400">CLIENT (this page)</div>
+                        <div>Revenue: ${(totalRevenue / (displayCurrency === 'SRD' ? rate : 1)).toFixed(2)} USD</div>
+                        <div>Gross Profit: ${(totalGrossProfit / (displayCurrency === 'SRD' ? rate : 1)).toFixed(2)} USD</div>
+                        <div>Margin: {grossMarginPct.toFixed(1)}%</div>
+                        <div>Sales: {filteredSales.length}</div>
+                      </div>
+                    </div>
+
+                    {/* Category breakdown from server */}
+                    <div>
+                      <div className="font-bold text-purple-400 mb-2">CATEGORY BREAKDOWN (server)</div>
+                      <div className="space-y-1">
+                        {deepDebugData.categoryBreakdown.map((cat: any) => (
+                          <div key={cat.name} className="flex justify-between bg-muted/20 rounded px-2 py-1">
+                            <span className={cat.name === 'Uncategorized' || cat.name === '[deleted]' ? 'text-red-400' : 'text-foreground'}>
+                              {cat.name}
+                            </span>
+                            <span className="text-muted-foreground">
+                              Rev: ${cat.revenueUSD.toFixed(2)} &nbsp;|&nbsp;
+                              Profit: <span className={cat.profitUSD < 0 ? 'text-red-400' : 'text-emerald-400'}>${cat.profitUSD.toFixed(2)}</span> &nbsp;({cat.marginPct.toFixed(0)}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Per-sale breakdown */}
+                    <div>
+                      <div className="font-bold text-orange-400 mb-2">PER-SALE BREAKDOWN</div>
+                      <div className="space-y-3">
+                        {deepDebugData.sales.map((sale: any) => (
+                          <div key={sale.saleId} className={`rounded border p-2 space-y-1 ${
+                            sale.missingItems ? 'border-red-600/60 bg-red-600/10' :
+                            sale.issues.length > 0 ? 'border-red-500/30 bg-red-500/5' : 'border-border/30 bg-muted/10'
+                          }`}>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">
+                                {new Date(sale.date).toLocaleString()} · {sale.locationName} · {sale.currency}
+                              </span>
+                              <span>
+                                {sale.missingItems
+                                  ? <span className="text-red-400 font-bold">Recorded: {sale.currency} {sale.totalAmount.toFixed(2)} — NO ITEMS IN DB</span>
+                                  : <>Rev: ${sale.totalRevenueUSD.toFixed(2)} · Profit:{' '}
+                                    <span className={sale.totalProfitUSD < 0 ? 'text-red-400' : 'text-emerald-400'}>
+                                      ${sale.totalProfitUSD.toFixed(2)}
+                                    </span>{' '}({sale.grossMarginPct.toFixed(0)}%)</>
+                                }
+                              </span>
+                            </div>
+                            {sale.issues.length > 0 && (
+                              <div className="text-red-400">
+                                Issues: {sale.issues.map((iss: any) => `${iss.item} → ${iss.issue}`).join(', ')}
+                              </div>
+                            )}
+                            <div className="pl-2 space-y-0.5">
+                              {sale.items.map((si: any, idx: number) => (
+                                <div key={idx} className={`flex justify-between ${
+                                  si.issue === 'ITEM_DELETED' ? 'text-red-400' :
+                                  si.issue === 'NO_COGS' ? 'text-yellow-400' :
+                                  si.issue === 'NO_CATEGORY' ? 'text-orange-400' : 'text-muted-foreground'
+                                }`}>
+                                  <span>↳ {si.itemName} ×{si.quantity} [{si.categoryName}]</span>
+                                  <span>
+                                    cost: ${si.costUSD !== null ? si.costUSD.toFixed(2) : '?'} · profit:{' '}
+                                    {si.profitUSD !== null ? `$${si.profitUSD.toFixed(2)}` : '?'}
+                                    {si.issue && <span className="ml-1 text-red-400">({si.issue})</span>}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
               </div>
             </div>
           </div>
