@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { ArrowRight, MapPin, Clock } from 'lucide-react'
+import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface NewHeroProps {
   storeName: string
@@ -40,13 +41,16 @@ export function NewHero({
     }
   }, [mapActive])
 
+  const badgeClassName = 'inline-flex items-center gap-2 rounded-lg border border-[#f97015]/15 bg-white px-4 py-2 text-xs font-medium text-[#141c2e] shadow-[0_14px_28px_rgba(20,28,46,0.07)]'
+  const primaryActionClassName = 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
+
   return (
     <section className="relative overflow-hidden catalog-bg-light">
       {/* Decorative elements */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#141c2e]/5 to-transparent" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-[#f97015]/10 to-transparent rounded-full -translate-x-1/2 translate-y-1/2" />
       
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className={catalogShellClassName}>
         {/* Mobile Layout - Title First */}
         <div className="lg:hidden">
           {/* Mobile Title Section */}
@@ -80,7 +84,7 @@ export function NewHero({
           
           {/* Badge above map */}
           <div className="text-center pb-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-[#f97015]/20 shadow-sm">
+            <div className={badgeClassName}>
               <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
               <span className="text-xs font-medium text-[#141c2e]">
                 Alleen Afhalen in {storeAddress}
@@ -133,7 +137,7 @@ export function NewHero({
             <div className="flex flex-wrap gap-4 justify-center mb-8">
               <button
                 onClick={onExploreClick}
-                className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-all shadow-lg shadow-[#f97015]/30 hover:shadow-xl hover:shadow-[#f97015]/40"
+                className={primaryActionClassName}
               >
                 Ontdek Producten
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -159,7 +163,7 @@ export function NewHero({
           {/* Content */}
           <div className="order-2 lg:order-1">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white border border-[#f97015]/20 shadow-sm">
+            <div className={`${badgeClassName} mb-6`}>
               <span className="w-2 h-2 rounded-full bg-[#f97015] animate-pulse" />
               <span className="text-xs font-medium text-[#141c2e]">
                 Alleen Afhalen in {storeAddress}
@@ -197,7 +201,7 @@ export function NewHero({
             <div className="flex flex-wrap gap-4 mb-12">
               <button
                 onClick={onExploreClick}
-                className="group inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-all shadow-lg shadow-[#f97015]/30 hover:shadow-xl hover:shadow-[#f97015]/40"
+                className={primaryActionClassName}
               >
                 Ontdek Producten
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />

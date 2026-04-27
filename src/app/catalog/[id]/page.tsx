@@ -263,6 +263,17 @@ export default function ProductDetailPage() {
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
   const isCombo = product?.is_combo && product?.combo_items && product.combo_items.length > 0
+  const stockBadgeClassName = isOutOfStock
+    ? 'border-red-200 bg-white text-red-700'
+    : isLowStock
+      ? 'border-amber-200 bg-[#fffaf2] text-amber-700'
+      : 'border-emerald-200 bg-white text-emerald-700'
+  const detailFeatureCardClassName = 'flex items-center gap-3 rounded-2xl border border-neutral-200/80 bg-white px-4 py-3 shadow-[0_14px_30px_rgba(20,28,46,0.05)]'
+  const detailStatusFeatureClassName = isOutOfStock
+    ? `${detailFeatureCardClassName} border-red-200 bg-red-50/70`
+    : isLowStock
+      ? `${detailFeatureCardClassName} border-amber-200 bg-amber-50/70`
+      : `${detailFeatureCardClassName} border-emerald-200 bg-emerald-50/70`
 
   // Get current cart quantity for this product
   const getCartQuantityForProduct = useCallback((): number => {
@@ -783,17 +794,17 @@ export default function ProductDetailPage() {
               {/* Stock Status Indicator */}
               <div className="mt-3">
                 {isOutOfStock ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-100 text-red-700">
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <AlertCircle size={16} />
                     <span className="text-sm font-semibold">Uitverkocht</span>
                   </div>
                 ) : isLowStock ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-700 animate-pulse">
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <AlertCircle size={16} />
                     <span className="text-sm font-semibold">Nog {stockLevel} beschikbaar</span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-100 text-green-700">
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <Check size={16} />
                     <span className="text-sm font-semibold">Op voorraad</span>
                   </div>
@@ -802,12 +813,13 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="bg-linear-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 mb-6">
+            <div className="mb-6 rounded-[24px] border border-[#f97015]/15 bg-[#fffaf5] p-5 shadow-[0_16px_34px_rgba(20,28,46,0.05)]">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-                  <Store size={20} className="text-green-600" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#f97015]/15 bg-white shrink-0">
+                  <Store size={20} className="text-[#f97015]" />
                 </div>
                 <div>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f97015]">Afhalen op locatie</p>
                   <p className="font-semibold text-neutral-900 mb-1">Alleen ophalen</p>
                   <p className="text-sm text-neutral-600">
                     Dit product is beschikbaar voor ophalen bij onze winkel in {settings.store_address}
@@ -888,25 +900,19 @@ export default function ProductDetailPage() {
 
             {/* Features */}
             <div className="grid grid-cols-2 gap-3 mb-8">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
+              <div className={detailFeatureCardClassName}>
                 <MapPin size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Ophalen in winkel</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
+              <div className={detailFeatureCardClassName}>
                 <Clock size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Snel beschikbaar</span>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-100 border border-neutral-200">
+              <div className={detailFeatureCardClassName}>
                 <Shield size={18} className="text-[#f97015]" />
                 <span className="text-sm text-neutral-700">Kwaliteit gegarandeerd</span>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded-xl border ${
-                isOutOfStock 
-                  ? 'bg-red-50 border-red-200' 
-                  : isLowStock 
-                    ? 'bg-amber-50 border-amber-200' 
-                    : 'bg-green-50 border-green-200'
-              }`}>
+              <div className={detailStatusFeatureClassName}>
                 {isOutOfStock ? (
                   <AlertCircle size={18} className="text-red-500" />
                 ) : isLowStock ? (
