@@ -815,7 +815,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-5">
+            <div className="mb-6 rounded-lg bg-white p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 items-center justify-center shrink-0">
                   <Store size={20} className="text-neutral-600" />
@@ -831,7 +831,7 @@ export default function ProductDetailPage() {
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8 rounded-lg border border-neutral-200 bg-white p-5">
+              <div className="mb-8 rounded-lg bg-white p-5">
                 <h2 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider mb-3">Beschrijving</h2>
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
