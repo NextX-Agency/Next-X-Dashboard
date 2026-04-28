@@ -41,20 +41,22 @@ export function NewFooter({
 
           {/* Brand */}
           <div className="flex flex-col gap-5">
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt={storeName}
-                width={110}
-                height={36}
-                className="h-8 w-auto object-contain"
-              />
-            ) : (
-              <span className="text-xl font-bold">
-                <span className="text-[#141c2e]">Next</span>
-                <span className="text-[#f97015]">X</span>
-              </span>
-            )}
+            <div className="h-8 flex items-center">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={storeName}
+                  width={110}
+                  height={36}
+                  className="h-8 w-auto object-contain"
+                />
+              ) : (
+                <span className="text-xl font-bold leading-none">
+                  <span className="text-[#141c2e]">Next</span>
+                  <span className="text-[#f97015]">X</span>
+                </span>
+              )}
+            </div>
 
             {storeDescription && (
               <p className="text-sm leading-relaxed text-neutral-500 max-w-xs">
