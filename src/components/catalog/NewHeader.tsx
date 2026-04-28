@@ -51,7 +51,7 @@ export function NewHeader({
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
-        <div className="border-b border-neutral-100">
+        <div className="border-b border-neutral-100 hidden sm:block">
           <div className={catalogShellClassName}>
             <div className="flex h-10 items-center justify-between text-xs">
               <div className="hidden items-center gap-4 text-neutral-500 sm:flex">
@@ -177,7 +177,7 @@ export function NewHeader({
 
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className={actionButtonClassName}
+                className={`${actionButtonClassName} hidden sm:flex`}
                 aria-label={showSearch ? 'Sluit zoeken' : 'Open zoeken'}
               >
                 <Search size={20} />
@@ -236,6 +236,26 @@ export function NewHeader({
         {showMobileMenu && (
           <div className="border-t border-neutral-100 bg-white lg:hidden">
             <div className={`${catalogShellClassName} space-y-1 py-4`}>
+              <div className="mb-4 px-4">
+                <div className="relative">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    type="text"
+                    placeholder="Zoek producten..."
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#141c2e] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015]"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => onSearchChange('')}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
               <a
                 href="https://www.nextxagency.com"
                 target="_blank"
@@ -249,16 +269,16 @@ export function NewHeader({
                 href={`https://wa.me/${whatsappClean}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${utilityLinkClassName} mb-3 w-full justify-center`}
+                className="mb-3 flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#141c2e]/70 hover:bg-neutral-50 transition-colors"
               >
                 <Image
                   src="/whatsapp.png"
                   alt="WhatsApp"
-                  width={18}
-                  height={18}
-                  className="h-[18px] w-[18px]"
+                  width={16}
+                  height={16}
+                  className="h-4 w-4"
                 />
-                <span>Chat via WhatsApp</span>
+                <span>WhatsApp</span>
               </a>
 
               <div className="mb-3 border-b border-neutral-100 pb-3">
