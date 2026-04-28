@@ -158,23 +158,6 @@ export function NewHeader({
             </nav>
 
             <div className="flex items-center gap-2">
-              <a
-                href={`https://wa.me/${whatsappClean}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${utilityLinkClassName} hidden sm:inline-flex`}
-                aria-label="Chat met ons op WhatsApp"
-              >
-                <Image
-                  src="/whatsapp.png"
-                  alt="WhatsApp"
-                  width={18}
-                  height={18}
-                  className="h-[18px] w-[18px]"
-                />
-                <span>WhatsApp</span>
-              </a>
-
               <button
                 onClick={() => setShowSearch(!showSearch)}
                 className={`${actionButtonClassName} hidden sm:flex`}
