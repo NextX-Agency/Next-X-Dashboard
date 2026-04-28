@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Phone, MessageCircle, Mail, Clock, ChevronRight } from 'lucide-react'
+import { MapPin, Mail, Instagram, Facebook } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
@@ -35,146 +35,133 @@ export function NewFooter({
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="bg-neutral-50 text-[#141c2e] border-t border-neutral-200">
-      {/* Main Footer */}
-      <div className={`${catalogShellClassName} py-12 lg:py-16`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-          {/* Brand Column */}
-          <div className="lg:col-span-1">
+    <footer className="border-t border-neutral-200 bg-white text-[#141c2e]">
+      <div className={`${catalogShellClassName} py-12 lg:py-14`}>
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-16">
+
+          {/* Brand */}
+          <div className="flex flex-col gap-5">
             {logoUrl ? (
-              <Image 
-                src={logoUrl} 
-                alt={storeName} 
-                width={120} 
-                height={40} 
-                className="h-8 w-auto object-contain mb-4"
+              <Image
+                src={logoUrl}
+                alt={storeName}
+                width={110}
+                height={36}
+                className="h-8 w-auto object-contain"
               />
             ) : (
-              <span className="text-xl font-bold block mb-4">
+              <span className="text-xl font-bold">
                 <span className="text-[#141c2e]">Next</span>
                 <span className="text-[#f97015]">X</span>
               </span>
             )}
+
             {storeDescription && (
-              <p className="text-sm text-[#141c2e]/60 mb-6 leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-500 max-w-xs">
                 {storeDescription}
               </p>
             )}
-            <a
-              href={`https://wa.me/${whatsappClean}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
-            >
-              <Image 
-                src="/whatsapp-white.png" 
-                alt="WhatsApp" 
-                width={16} 
-                height={16} 
-                className="w-4 h-4"
-              />
-              WhatsApp
-            </a>
+
+            {/* Social links */}
+            <div className="flex items-center gap-3">
+              <a
+                href="https://www.instagram.com/nextx_audio/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+              >
+                <Instagram size={17} />
+              </a>
+              <a
+                href="https://www.facebook.com/profile.php?id=100069532104534"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Facebook"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+              >
+                <Facebook size={17} />
+              </a>
+              <a
+                href={`https://wa.me/${whatsappClean}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="WhatsApp"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 transition-colors hover:border-[#f97015]/40"
+              >
+                <Image
+                  src="/whatsapp.png"
+                  alt="WhatsApp"
+                  width={17}
+                  height={17}
+                  className="h-[17px] w-[17px]"
+                />
+              </a>
+            </div>
           </div>
 
-          {/* Categories Column */}
-          <div>
-            <h4 className="font-semibold text-[#f97015] mb-4">
+          {/* Categories */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Categorieën
             </h4>
-            <ul className="space-y-3">
+            <ul className="flex flex-col gap-2.5">
               <li>
-                <Link
-                  href="/catalog"
-                  className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium"
+                <button
+                  onClick={() => onCategoryClick('')}
+                  className="text-sm text-neutral-600 transition-colors hover:text-[#f97015]"
                 >
                   Alle Producten
-                </Link>
+                </button>
               </li>
-              {categories.slice(0, 5).map((cat) => (
+              {categories.slice(0, 6).map((cat) => (
                 <li key={cat.id}>
-                  <Link
-                    href={`/catalog?category=${cat.id}`}
-                    className="text-sm text-[#f97015] hover:text-[#e5640d] hover:underline transition-all duration-300 font-medium"
+                  <button
+                    onClick={() => onCategoryClick(cat.id)}
+                    className="text-sm text-neutral-600 transition-colors hover:text-[#f97015]"
                   >
                     {cat.name}
-                  </Link>
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Info Column */}
-          <div>
-            <h4 className="font-semibold text-[#f97015] mb-4">
-              Informatie
-            </h4>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3 text-sm text-[#141c2e]/60">
-                <MapPin size={16} className="text-[#f97015] mt-0.5 shrink-0" />
-                <span>Alleen afhalen op locatie, geen bezorging</span>
-              </li>
-              <li className="flex items-start gap-3 text-sm text-[#141c2e]/60">
-                <MessageCircle size={16} className="text-[#f97015] mt-0.5 shrink-0" />
-                <span>Bestel via WhatsApp</span>
-              </li>
-              <li className="flex items-start gap-3 text-sm text-[#141c2e]/60">
-                <Clock size={16} className="text-[#f97015] mt-0.5 shrink-0" />
-                <span>Snelle reactie binnen kantooruren</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact Column */}
-          <div>
-            <h4 className="font-semibold text-[#f97015] mb-4">
+          {/* Contact */}
+          <div className="flex flex-col gap-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
               Contact
             </h4>
-            <ul className="space-y-4">
-              <li>
-                <div className="flex items-start gap-3">
-                  <MapPin size={16} className="text-[#f97015] mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-xs text-[#141c2e]/40 mb-0.5">Afhaallocatie</p>
-                    <p className="text-sm text-[#141c2e]">{storeAddress}</p>
-                  </div>
-                </div>
+            <ul className="flex flex-col gap-3">
+              <li className="flex items-start gap-2.5 text-sm text-neutral-600">
+                <MapPin size={15} className="mt-0.5 shrink-0 text-neutral-400" />
+                <span>{storeAddress}</span>
               </li>
-              <li>
-                <a 
+              <li className="flex items-center gap-2.5 text-sm text-neutral-600">
+                <Image
+                  src="/whatsapp.png"
+                  alt="WhatsApp"
+                  width={15}
+                  height={15}
+                  className="h-[15px] w-[15px] shrink-0"
+                />
+                <a
                   href={`https://wa.me/${whatsappClean}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-start gap-3 group hover:bg-[#f97015]/5 -m-2 p-2 rounded-lg transition-all duration-300"
+                  className="transition-colors hover:text-[#f97015]"
                 >
-                  <Image 
-                    src="/whatsapp-white.png" 
-                    alt="WhatsApp" 
-                    width={16} 
-                    height={16} 
-                    className="w-4 h-4 mt-0.5 shrink-0"
-                  />
-                  <div>
-                    <p className="text-xs text-[#141c2e]/40 mb-0.5">WhatsApp</p>
-                    <p className="text-sm text-[#f97015] group-hover:text-[#e5640d] font-medium transition-colors">
-                      {whatsappNumber}
-                    </p>
-                  </div>
+                  {whatsappNumber}
                 </a>
               </li>
               {storeEmail && (
-                <li>
-                  <a 
+                <li className="flex items-center gap-2.5 text-sm text-neutral-600">
+                  <Mail size={15} className="shrink-0 text-neutral-400" />
+                  <a
                     href={`mailto:${storeEmail}`}
-                    className="flex items-start gap-3 group hover:bg-[#f97015]/5 -m-2 p-2 rounded-lg transition-all duration-300"
+                    className="transition-colors hover:text-[#f97015]"
                   >
-                    <Mail size={16} className="text-[#f97015] mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs text-[#141c2e]/40 mb-0.5">E-mail</p>
-                      <p className="text-sm text-[#f97015] group-hover:text-[#e5640d] font-medium transition-colors">
-                        {storeEmail}
-                      </p>
-                    </div>
+                    {storeEmail}
                   </a>
                 </li>
               )}
@@ -183,13 +170,29 @@ export function NewFooter({
         </div>
       </div>
 
-      {/* Bottom Bar */}
-      <div className="border-t border-neutral-200">
-        <div className={`${catalogShellClassName} py-6`}>
-          <div className="flex items-center justify-center">
-            <p className="text-sm text-[#141c2e]/50">
-              © {currentYear} {storeName}. Alle rechten voorbehouden.
-            </p>
+      {/* Bottom bar */}
+      <div className="border-t border-neutral-100">
+        <div className={`${catalogShellClassName} flex items-center justify-between py-5`}>
+          <p className="text-xs text-neutral-400">
+            © {currentYear} {storeName}. Alle rechten voorbehouden.
+          </p>
+          <div className="flex items-center gap-4">
+            <a
+              href="https://www.instagram.com/nextx_audio/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
+            >
+              Instagram
+            </a>
+            <a
+              href="https://www.facebook.com/profile.php?id=100069532104534"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
+            >
+              Facebook
+            </a>
           </div>
         </div>
       </div>
