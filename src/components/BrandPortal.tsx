@@ -34,7 +34,7 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="/portal-audio.jpg"
+            src="/iems.webp"
             alt="NextX Audio — Premium IEMs"
             fill
             className="object-cover portal-img"
@@ -63,8 +63,8 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="/portal-watches.jpg"
-            alt="NextX Watches — Invicta Timepieces"
+            src="/pro-diver.jpg"
+            alt="NextX Watches — Invicta Pro Diver"
             fill
             className="object-cover portal-img"
             priority

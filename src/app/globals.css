@@ -1558,11 +1558,24 @@ button, a, input, select, textarea {
 .portal-half.is-hovered { flex: 1.4; }
 .portal-half.is-dimmed  { flex: 0.6; }
 
-/* Image wrapper — contains Next.js <Image fill> */
+/* Image wrapper */
 .portal-img-wrap {
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+/* Gradient backgrounds used when no real photo is supplied */
+.portal-audio-bg {
+  background:
+    radial-gradient(ellipse 80% 70% at 20% 60%, rgba(14, 48, 110, 0.55) 0%, transparent 70%),
+    linear-gradient(135deg, #0a1628 0%, #0f2045 35%, #0c1835 65%, #070e1e 100%);
+}
+
+.portal-watches-bg {
+  background:
+    radial-gradient(ellipse 70% 60% at 75% 45%, rgba(90, 65, 20, 0.4) 0%, transparent 70%),
+    linear-gradient(135deg, #09090b 0%, #14100a 40%, #0f0c06 70%, #07070a 100%);
 }
 
 .portal-img {

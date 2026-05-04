@@ -2,7 +2,6 @@
 
 import { memo, useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { ShoppingBag, Search, X, Menu } from 'lucide-react'
 
 interface WatchesHeaderProps {
@@ -28,14 +27,18 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
   const LogoLockup = ({ onClick }: { onClick?: () => void }) => (
     <Link href="/watches" onClick={onClick} className="flex flex-col items-start leading-none shrink-0" aria-label="NextX Watches">
-      <Image
-        src="/nextx-logo-light.png"
-        alt="NextX"
-        width={54}
-        height={28}
-        className="object-contain"
-        priority
-      />
+      <span
+        style={{
+          fontFamily: 'var(--font-cormorant, Georgia, serif)',
+          color: 'var(--w-cream, #F0EBE1)',
+          fontSize: '1.35rem',
+          fontWeight: 300,
+          letterSpacing: '0.12em',
+          lineHeight: 1,
+        }}
+      >
+        NextX
+      </span>
       <span
         className="mt-[5px] text-[8px] font-light tracking-[0.38em] uppercase"
         style={{
