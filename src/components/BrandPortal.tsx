@@ -14,18 +14,11 @@ export default function BrandPortal() {
       {/* Vertical divider line */}
       <div className="portal-divider" aria-hidden="true" />
 
-      {/* Central seal — NextX logo */}
+      {/* Central seal — text-based, no image artifacts */}
       <div className="portal-center" aria-hidden="true">
         <div className="portal-center-line-top" />
         <div className="portal-center-inner">
-          <Image
-            src="/nextx-logo-light.png"
-            alt="NextX"
-            width={54}
-            height={28}
-            className="object-contain"
-            priority
-          />
+          <span className="portal-center-wordmark">NEXTX</span>
         </div>
         <div className="portal-center-line-bottom" />
       </div>
