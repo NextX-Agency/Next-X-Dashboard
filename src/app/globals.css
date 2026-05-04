@@ -1574,27 +1574,25 @@ button, a, input, select, textarea {
   transform: scale(1.05);
 }
 
-/* Dark overlays */
+/* Dark overlays — tuned per image brightness */
 .portal-overlay {
   position: absolute;
   inset: 0;
   z-index: 5;
 }
 
+/* Audio: IEM photo has lighter gray bg, needs heavy darkening */
 .portal-audio-overlay {
-  background: linear-gradient(
-    to right,
-    rgba(10, 16, 30, 0.88) 0%,
-    rgba(10, 16, 30, 0.45) 100%
-  );
+  background:
+    linear-gradient(to right, rgba(8, 14, 28, 0.93) 0%, rgba(8, 14, 28, 0.78) 60%, rgba(8, 14, 28, 0.55) 100%),
+    linear-gradient(to top, rgba(8, 14, 28, 0.6) 0%, transparent 40%);
 }
 
+/* Watches: Invicta photo is already very dark — lighter touch */
 .portal-watches-overlay {
-  background: linear-gradient(
-    to left,
-    rgba(9, 9, 11, 0.88) 0%,
-    rgba(9, 9, 11, 0.45) 100%
-  );
+  background:
+    linear-gradient(to left, rgba(9, 9, 11, 0.72) 0%, rgba(9, 9, 11, 0.45) 60%, rgba(9, 9, 11, 0.2) 100%),
+    linear-gradient(to top, rgba(9, 9, 11, 0.55) 0%, transparent 40%);
 }
 
 /* Content positioning */
@@ -1686,32 +1684,59 @@ button, a, input, select, textarea {
   color: #C9A84C;
 }
 
-/* Central logo badge */
+/* Central vertical seal — text wordmark, no image artifacts */
 .portal-center {
   position: absolute;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
   pointer-events: none;
+  width: 1px;
 }
 
+/* Glowing lines above and below badge */
+.portal-center-line-top {
+  flex: 1;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.18) 100%);
+  max-height: 35%;
+}
+
+.portal-center-line-bottom {
+  flex: 1;
+  width: 1px;
+  background: linear-gradient(to top, transparent 0%, rgba(255, 255, 255, 0.18) 100%);
+  max-height: 35%;
+}
+
+/* Badge with wordmark */
 .portal-center-inner {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: rgba(12, 12, 14, 0.65);
+  flex-shrink: 0;
+  padding: 14px 10px;
+  background: rgba(6, 6, 8, 0.7);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+}
+
+.portal-center-wordmark {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  font-family: system-ui, -apple-system, sans-serif;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 /* Vertical divider */
@@ -1731,9 +1756,18 @@ button, a, input, select, textarea {
   .brand-portal { flex-direction: column; }
   .portal-half { flex: 1 !important; }
   .portal-divider { display: none; }
+  /* On mobile the seal becomes a horizontal bar between the two halves */
   .portal-center {
-    display: none; /* hide logo on mobile for clean look */
+    position: static;
+    transform: none;
+    width: 100%;
+    height: 1px;
+    flex-direction: row;
+    border-top: 1px solid rgba(255,255,255,0.1);
   }
+  .portal-center-line-top,
+  .portal-center-line-bottom,
+  .portal-center-inner { display: none; }
   .portal-audio-content,
   .portal-watches-content {
     left: 0;

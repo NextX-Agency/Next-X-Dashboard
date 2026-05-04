@@ -11,21 +11,16 @@ export default function BrandPortal() {
 
   return (
     <div className="brand-portal">
-      {/* Vertical divider */}
+      {/* Vertical divider line */}
       <div className="portal-divider" aria-hidden="true" />
 
-      {/* Central logo badge */}
+      {/* Central seal — text-based, no image artifacts */}
       <div className="portal-center" aria-hidden="true">
+        <div className="portal-center-line-top" />
         <div className="portal-center-inner">
-          <Image
-            src="/nextx-logo-light.png"
-            alt="NextX"
-            width={44}
-            height={24}
-            className="object-contain"
-            priority
-          />
+          <span className="portal-center-wordmark">NEXTX</span>
         </div>
+        <div className="portal-center-line-bottom" />
       </div>
 
       {/* — Audio — */}
@@ -39,8 +34,8 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=1920&q=80"
-            alt="NextX Audio"
+            src="/portal-audio.jpg"
+            alt="NextX Audio — Premium IEMs"
             fill
             className="object-cover portal-img"
             priority
@@ -48,6 +43,7 @@ export default function BrandPortal() {
           />
         </div>
         <div className="portal-overlay portal-audio-overlay" aria-hidden="true" />
+
         <div className="portal-content portal-audio-content">
           <span className="portal-eyebrow">NextX</span>
           <h2 className="portal-title portal-audio-title">Audio</h2>
@@ -67,8 +63,8 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=1920&q=80"
-            alt="NextX Watches"
+            src="/portal-watches.jpg"
+            alt="NextX Watches — Invicta Timepieces"
             fill
             className="object-cover portal-img"
             priority
@@ -76,6 +72,7 @@ export default function BrandPortal() {
           />
         </div>
         <div className="portal-overlay portal-watches-overlay" aria-hidden="true" />
+
         <div className="portal-content portal-watches-content">
           <span className="portal-eyebrow">NextX</span>
           <h2 className="portal-title portal-watches-title">Watches</h2>
