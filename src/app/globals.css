@@ -1558,31 +1558,20 @@ button, a, input, select, textarea {
 .portal-half.is-hovered { flex: 1.4; }
 .portal-half.is-dimmed  { flex: 0.6; }
 
-/* Background layers */
-.portal-bg {
+/* Image wrapper — contains Next.js <Image fill> */
+.portal-img-wrap {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
-  transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  overflow: hidden;
 }
 
-.portal-half:hover .portal-bg,
-.portal-half:focus-visible .portal-bg {
-  transform: scale(1.04);
+.portal-img {
+  transition: transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-/* Placeholder gradients until real photos are added to /public */
-.portal-audio-bg {
-  background-image: url('/portal-audio.jpg');
-  background-color: #0f172a;
-  background-image: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0c1a30 100%);
-}
-
-.portal-watches-bg {
-  background-image: url('/portal-watches.jpg');
-  background-color: #09090b;
-  background-image: linear-gradient(135deg, #09090b 0%, #1a1207 50%, #0d0a03 100%);
+.portal-half:hover .portal-img,
+.portal-half:focus-visible .portal-img {
+  transform: scale(1.05);
 }
 
 /* Dark overlays */
@@ -1712,16 +1701,17 @@ button, a, input, select, textarea {
 }
 
 .portal-center-inner {
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 12, 14, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 /* Vertical divider */
@@ -1898,18 +1888,23 @@ button, a, input, select, textarea {
   color: var(--w-gold);
 }
 
-/* Product card base */
+/* Product card — no default border/bg, items float on dark page */
 .w-product-card {
-  background: var(--w-surface);
-  border: 1px solid var(--w-border);
-  overflow: hidden;
+  background: transparent;
+  border: 1px solid transparent;
+  overflow: visible;
   transition: var(--w-transition);
   cursor: pointer;
   display: flex;
   flex-direction: column;
 }
 
-.w-product-card:hover {
+.w-product-card > a:first-child {
+  border: 1px solid var(--w-border);
+  transition: border-color 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.w-product-card:hover > a:first-child {
   border-color: var(--w-border-gold);
 }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { memo } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Instagram, MessageCircle } from 'lucide-react'
 
@@ -52,7 +53,7 @@ function WatchesFooterComponent({
     <footer
       style={{
         background: 'var(--w-surface)',
-        borderTop: '1px solid var(--w-gold)',
+        borderTop: '1px solid var(--w-border-gold)',
         fontFamily: 'var(--font-jost, system-ui, sans-serif)',
       }}
     >
@@ -61,16 +62,17 @@ function WatchesFooterComponent({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           {/* Brand */}
           <div className="col-span-2 lg:col-span-1">
-            <Link href="/watches" className="block mb-4">
+            <Link href="/watches" className="inline-flex flex-col items-start mb-5">
+              <Image
+                src="/nextx-logo-light.png"
+                alt="NextX"
+                width={60}
+                height={32}
+                className="object-contain"
+              />
               <span
-                className="text-xs font-light tracking-[0.3em] uppercase block"
-                style={{ color: 'var(--w-muted)' }}
-              >
-                NextX
-              </span>
-              <span
-                className="text-2xl font-light tracking-[0.1em] uppercase block"
-                style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
+                className="mt-1.5 text-[8px] font-light tracking-[0.38em] uppercase"
+                style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
               >
                 Watches
               </span>

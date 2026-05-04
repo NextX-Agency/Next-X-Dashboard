@@ -39,83 +39,109 @@ function WatchProductCardComponent({
   const inStock = stockCount > 0
 
   return (
-    <article
-      className="w-product-card group"
-      style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
-    >
-      {/* Image container — 5:6 aspect ratio */}
-      <Link href={productHref} className="block relative w-full overflow-hidden" style={{ aspectRatio: '5/6' }}>
+    <article className="w-product-card group">
+      {/* Image — 5:6 ratio, dark surface bg for consistent framing */}
+      <Link
+        href={productHref}
+        className="block relative w-full overflow-hidden"
+        style={{ aspectRatio: '5/6', background: 'var(--w-surface)' }}
+        tabIndex={-1}
+        aria-label={name}
+      >
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="object-cover transition-transform duration-700 will-change-transform group-hover:scale-[1.03]"
+            className="object-cover transition-transform duration-700 will-change-transform group-hover:scale-[1.04]"
           />
         ) : (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'var(--w-surface)' }}
-          >
+          /* Elegant placeholder — not a generic letter */
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+            {/* Decorative watch-face rings */}
+            <div style={{ position: 'relative', width: 72, height: 72 }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                borderRadius: '50%',
+                border: '1px solid rgba(201,168,76,0.2)',
+              }} />
+              <div style={{
+                position: 'absolute', inset: 8,
+                borderRadius: '50%',
+                border: '1px solid rgba(201,168,76,0.12)',
+              }} />
+              <div style={{
+                position: 'absolute', inset: 16,
+                borderRadius: '50%',
+                border: '1px solid rgba(201,168,76,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'rgba(201,168,76,0.25)' }} />
+              </div>
+            </div>
             <span
-              className="text-4xl font-light"
-              style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-border)' }}
+              className="text-[8px] tracking-[0.3em] uppercase"
+              style={{ color: 'rgba(201,168,76,0.3)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
             >
-              W
+              Image soon
             </span>
           </div>
         )}
 
-        {/* Quick view overlay */}
+        {/* Quick view — slides up from bottom on hover */}
         {onQuickView && (
           <button
             onClick={e => { e.preventDefault(); onQuickView(id) }}
-            className="absolute bottom-0 left-0 right-0 py-3 text-[10px] font-light tracking-[0.2em] uppercase text-center transition-all duration-300 opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0"
-            style={{ background: 'rgba(9,9,11,0.85)', color: 'var(--w-cream)', backdropFilter: 'blur(4px)' }}
+            className="absolute bottom-0 left-0 right-0 py-3 text-[9px] font-light tracking-[0.25em] uppercase text-center transition-all duration-400 opacity-0 group-hover:opacity-100 translate-y-full group-hover:translate-y-0"
+            style={{ background: 'rgba(9,9,11,0.88)', color: 'var(--w-cream-2)', backdropFilter: 'blur(6px)', letterSpacing: '0.25em' }}
           >
             Quick View
           </button>
         )}
 
-        {/* Out of stock badge */}
+        {/* Sold out badge */}
         {!inStock && (
           <div
-            className="absolute top-3 left-3 px-2 py-1 text-[9px] font-light tracking-[0.2em] uppercase"
-            style={{ background: 'var(--w-bg)', color: 'var(--w-muted)' }}
+            className="absolute top-3 left-3 px-2.5 py-1 text-[8px] tracking-[0.2em] uppercase"
+            style={{ background: 'rgba(9,9,11,0.7)', color: 'var(--w-muted)', backdropFilter: 'blur(4px)', border: '1px solid var(--w-border)' }}
           >
             Sold Out
           </div>
         )}
       </Link>
 
-      {/* Info */}
-      <div className="pt-3 pb-1">
-        {/* Brand */}
+      {/* Product info */}
+      <div className="pt-4 pb-2">
         {brand && (
           <p
-            className="mb-0.5 text-[9px] font-light tracking-[0.25em] uppercase"
-            style={{ color: 'var(--w-gold)' }}
+            className="mb-1 text-[8px] tracking-[0.28em] uppercase"
+            style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
             {brand}
           </p>
         )}
 
-        {/* Name */}
-        <Link href={productHref} className="block">
+        <Link href={productHref} className="block group/name">
           <h3
-            className="text-base font-light leading-snug hover:opacity-70 transition-opacity"
-            style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
+            className="font-light leading-snug"
+            style={{
+              fontFamily: 'var(--font-cormorant, Georgia, serif)',
+              color: 'var(--w-cream)',
+              fontSize: 'clamp(1rem, 2vw, 1.15rem)',
+            }}
           >
             {name}
           </h3>
         </Link>
 
-        {/* Price + add to cart row */}
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--w-border)' }}>
           <p
             className="text-sm font-light"
-            style={{ color: price ? 'var(--w-cream)' : 'var(--w-muted)' }}
+            style={{
+              color: price ? 'var(--w-cream-2)' : 'var(--w-muted)',
+              fontFamily: 'var(--font-jost, system-ui, sans-serif)',
+            }}
           >
             {price != null ? formatCurrency(price, displayCurrency) : 'Price on request'}
           </p>
@@ -123,11 +149,11 @@ function WatchProductCardComponent({
           {onAddToCart && inStock && (
             <button
               onClick={() => onAddToCart(id)}
-              className="p-2 transition-all hover:opacity-70"
+              className="p-1.5 transition-all hover:opacity-100 opacity-40 group-hover:opacity-70"
               style={{ color: 'var(--w-gold)' }}
               aria-label={`Add ${name} to cart`}
             >
-              <ShoppingBag size={16} strokeWidth={1.5} />
+              <ShoppingBag size={15} strokeWidth={1.5} />
             </button>
           )}
         </div>
