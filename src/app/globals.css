@@ -1534,3 +1534,474 @@ button, a, input, select, textarea {
   }
 }
 
+/* ============================================
+   BRAND PORTAL — Index pagina split-screen
+   ============================================ */
+
+.brand-portal {
+  display: flex;
+  height: 100svh;
+  overflow: hidden;
+  position: relative;
+}
+
+.portal-half {
+  position: relative;
+  flex: 1;
+  transition: flex 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+
+.portal-half.is-hovered { flex: 1.4; }
+.portal-half.is-dimmed  { flex: 0.6; }
+
+/* Background layers */
+.portal-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.portal-half:hover .portal-bg,
+.portal-half:focus-visible .portal-bg {
+  transform: scale(1.04);
+}
+
+/* Placeholder gradients until real photos are added to /public */
+.portal-audio-bg {
+  background-image: url('/portal-audio.jpg');
+  background-color: #0f172a;
+  background-image: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0c1a30 100%);
+}
+
+.portal-watches-bg {
+  background-image: url('/portal-watches.jpg');
+  background-color: #09090b;
+  background-image: linear-gradient(135deg, #09090b 0%, #1a1207 50%, #0d0a03 100%);
+}
+
+/* Dark overlays */
+.portal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+.portal-audio-overlay {
+  background: linear-gradient(
+    to right,
+    rgba(10, 16, 30, 0.88) 0%,
+    rgba(10, 16, 30, 0.45) 100%
+  );
+}
+
+.portal-watches-overlay {
+  background: linear-gradient(
+    to left,
+    rgba(9, 9, 11, 0.88) 0%,
+    rgba(9, 9, 11, 0.45) 100%
+  );
+}
+
+/* Content positioning */
+.portal-content {
+  position: absolute;
+  bottom: 15%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+
+.portal-audio-content {
+  left: 0;
+  padding: 0 2.5rem;
+  text-align: left;
+  align-items: flex-start;
+}
+
+.portal-watches-content {
+  right: 0;
+  padding: 0 2.5rem;
+  text-align: right;
+  align-items: flex-end;
+}
+
+.portal-eyebrow {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.portal-title {
+  font-size: clamp(3rem, 5vw, 5.5rem);
+  font-weight: 300;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+}
+
+.portal-audio-title {
+  font-family: system-ui, sans-serif;
+  color: #f97015; /* NextX Orange */
+}
+
+.portal-watches-title {
+  font-family: var(--font-cormorant, Georgia, serif);
+  color: #C9A84C; /* NextX Gold */
+}
+
+.portal-sub {
+  font-size: 0.875rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 1.5rem;
+  max-width: 24ch;
+}
+
+.portal-watches-content .portal-sub {
+  text-align: right;
+}
+
+.portal-cta {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+  transition: color 0.3s, opacity 0.3s;
+}
+
+.portal-half:hover .portal-cta,
+.portal-half:focus-visible .portal-cta {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.portal-audio:hover .portal-cta,
+.portal-audio:focus-visible .portal-cta {
+  color: #f97015;
+}
+
+.portal-watches:hover .portal-cta,
+.portal-watches:focus-visible .portal-cta {
+  color: #C9A84C;
+}
+
+/* Central logo badge */
+.portal-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.portal-center-inner {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Vertical divider */
+.portal-divider {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 15;
+  pointer-events: none;
+}
+
+/* Mobile: stacked vertically */
+@media (max-width: 767px) {
+  .brand-portal { flex-direction: column; }
+  .portal-half { flex: 1 !important; }
+  .portal-divider { display: none; }
+  .portal-center {
+    display: none; /* hide logo on mobile for clean look */
+  }
+  .portal-audio-content,
+  .portal-watches-content {
+    left: 0;
+    right: 0;
+    text-align: center;
+    align-items: center;
+    padding: 0 1.5rem;
+  }
+  .portal-title { font-size: clamp(2.5rem, 10vw, 4rem); }
+}
+
+/* ============================================
+   WATCHES CATALOG — Luxury Design System
+   Scope: .watches-scope (prevents conflicts)
+   ============================================ */
+
+.watches-scope {
+  /* Background Palette */
+  --w-bg:           #09090B;
+  --w-surface:      #111113;
+  --w-surface-2:    #18181C;
+  --w-surface-3:    #222228;
+
+  /* Gold Palette */
+  --w-gold:         #C9A84C;
+  --w-gold-light:   #E8C97A;
+  --w-gold-muted:   #7A6428;
+  --w-gold-glow:    rgba(201, 168, 76, 0.15);
+
+  /* Text */
+  --w-cream:        #F0EBE1;
+  --w-cream-2:      #C8C0B4;
+  --w-muted:        #6B6B70;
+  --w-white:        #FAFAFA;
+
+  /* Borders */
+  --w-border:       #2A2A2E;
+  --w-border-gold:  rgba(201, 168, 76, 0.25);
+
+  /* Typography */
+  --font-display:   var(--font-cormorant, 'Georgia', serif);
+  --font-body:      var(--font-jost, system-ui, sans-serif);
+
+  /* Spacing */
+  --w-section-y:    6rem;
+  --w-container:    1440px;
+
+  /* Transitions */
+  --w-transition:       all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --w-transition-slow:  all 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  background: var(--w-bg);
+  color: var(--w-cream);
+  min-height: 100svh;
+}
+
+/* Typography utilities */
+.w-display-1 {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 7rem);
+  font-weight: 300;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+}
+
+.w-heading {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 3rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.w-subheading {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--w-gold);
+}
+
+.w-body {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--w-cream-2);
+}
+
+/* Watches header scroll behavior */
+.watches-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: transparent;
+  transition: var(--w-transition);
+  border-bottom: 1px solid transparent;
+}
+
+.watches-header.scrolled {
+  background: rgba(9, 9, 11, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom-color: var(--w-border);
+}
+
+/* Watches gold button */
+.w-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 2rem;
+  background: var(--w-gold);
+  color: #09090B;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: var(--w-transition);
+}
+
+.w-btn-gold:hover {
+  background: var(--w-gold-light);
+}
+
+/* Watches outline button */
+.w-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 2rem;
+  background: transparent;
+  color: var(--w-cream);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid var(--w-border-gold);
+  cursor: pointer;
+  transition: var(--w-transition);
+}
+
+.w-btn-outline:hover {
+  border-color: var(--w-gold);
+  color: var(--w-gold);
+}
+
+/* Product card base */
+.w-product-card {
+  background: var(--w-surface);
+  border: 1px solid var(--w-border);
+  overflow: hidden;
+  transition: var(--w-transition);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.w-product-card:hover {
+  border-color: var(--w-border-gold);
+}
+
+.w-product-card-image {
+  position: relative;
+  aspect-ratio: 5/6;
+  overflow: hidden;
+  background: var(--w-surface-2);
+}
+
+.w-product-card-image img {
+  transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.w-product-card:hover .w-product-card-image img {
+  transform: scale(1.03);
+}
+
+.w-product-card-info {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  flex: 1;
+}
+
+.w-product-brand {
+  font-family: var(--font-body);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--w-gold);
+}
+
+.w-product-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: var(--w-cream);
+  line-height: 1.2;
+}
+
+.w-product-specs {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 300;
+  color: var(--w-muted);
+  letter-spacing: 0.04em;
+}
+
+.w-product-price {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--w-gold);
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+/* Category nav pills */
+.w-category-nav {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 1rem;
+  -ms-overflow-style: none;
+}
+
+.w-category-nav::-webkit-scrollbar { display: none; }
+
+.w-category-pill {
+  flex-shrink: 0;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--w-border);
+  background: transparent;
+  color: var(--w-muted);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--w-transition);
+  white-space: nowrap;
+}
+
+.w-category-pill:hover,
+.w-category-pill.active {
+  border-color: var(--w-gold);
+  color: var(--w-gold);
+}
+
+

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Check } from 'lucide-react'
+import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Check, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -30,6 +30,7 @@ export default function ItemsPage() {
   const [editingItem, setEditingItem] = useState<ItemWithComboItems | null>(null)
   const [categoryName, setCategoryName] = useState('')
   const [activeTab, setActiveTab] = useState<'items' | 'combos' | 'categories'>('items')
+  const [catalogFilter, setCatalogFilter] = useState<'all' | 'audio' | 'watches'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -43,7 +44,8 @@ export default function ItemsPage() {
     image_url: '',
     is_public: true,
     is_combo: false,
-    allow_custom_price: false
+    allow_custom_price: false,
+    catalog_type: 'audio',
   })
   const [comboItems, setComboItems] = useState<{ item_id: string; quantity: number }[]>([])
 
@@ -133,7 +135,8 @@ export default function ItemsPage() {
       image_url: '',
       is_public: true,
       is_combo: false,
-      allow_custom_price: false
+      allow_custom_price: false,
+      catalog_type: 'audio',
     })
     setComboItems([])
     setEditingItem(null)
@@ -156,7 +159,8 @@ export default function ItemsPage() {
         image_url: itemForm.image_url || null,
         is_public: itemForm.is_public,
         is_combo: itemForm.is_combo,
-        allow_custom_price: itemForm.allow_custom_price
+        allow_custom_price: itemForm.allow_custom_price,
+        catalog_type: itemForm.catalog_type || 'audio',
       }
 
       if (editingItem) {
@@ -233,7 +237,8 @@ export default function ItemsPage() {
       image_url: item.image_url || '',
       is_public: item.is_public ?? true,
       is_combo: isCombo,
-      allow_custom_price: item.allow_custom_price ?? false
+      allow_custom_price: item.allow_custom_price ?? false,
+      catalog_type: (item as Item & { catalog_type?: string }).catalog_type || 'audio',
     })
     if (isCombo && item.combo_items && item.combo_items.length > 0) {
       setComboItems(item.combo_items.map(ci => ({
@@ -308,7 +313,11 @@ export default function ItemsPage() {
   const regularItems = items.filter(item => !item.is_combo)
   const comboItemsList = items.filter(item => item.is_combo)
 
-  const filteredItems = regularItems.filter(item => 
+  const catalogFilteredItems = catalogFilter === 'all'
+    ? regularItems
+    : regularItems.filter(item => (item as Item & { catalog_type?: string }).catalog_type === catalogFilter)
+
+  const filteredItems = catalogFilteredItems.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     getCategoryName(item.category_id).toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -423,6 +432,30 @@ export default function ItemsPage() {
             </button>
           </div>
         </div>
+
+        {/* Catalog filter — only shown on Items tab */}
+        {activeTab === 'items' && (
+          <div className="flex gap-2 mb-4">
+            {([
+              { key: 'all', label: 'All', icon: <Package size={14} /> },
+              { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+              { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+            ] as { key: 'all' | 'audio' | 'watches'; label: string; icon: React.ReactNode }[]).map(f => (
+              <button
+                key={f.key}
+                onClick={() => setCatalogFilter(f.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  catalogFilter === f.key
+                    ? 'bg-primary text-white'
+                    : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {f.icon}
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Items Section */}
         {activeTab === 'items' && (
@@ -746,6 +779,27 @@ export default function ItemsPage() {
                 <DollarSign size={16} className="text-warning" />
                 Allow custom price (for discounts)
               </label>
+            </div>
+            {/* Catalog type */}
+            <div className="flex items-center gap-3 min-h-[44px]">
+              <label className="text-sm font-medium text-foreground w-32">Catalog</label>
+              <div className="flex gap-2">
+                {(['audio', 'watches'] as const).map(ct => (
+                  <button
+                    key={ct}
+                    type="button"
+                    onClick={() => setItemForm({ ...itemForm, catalog_type: ct })}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      itemForm.catalog_type === ct
+                        ? 'bg-primary border-primary text-white'
+                        : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {ct === 'audio' ? <Headphones size={13} /> : <Watch size={13} />}
+                    {ct.charAt(0).toUpperCase() + ct.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           

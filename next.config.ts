@@ -79,7 +79,18 @@ const nextConfig: NextConfig = {
   },
   
   async redirects() {
-    return [];
+    return [
+      {
+        source: '/catalog',
+        destination: '/audio',
+        permanent: true,
+      },
+      {
+        source: '/catalog/:id',
+        destination: '/audio/:id',
+        permanent: true,
+      },
+    ];
   },
 };
 

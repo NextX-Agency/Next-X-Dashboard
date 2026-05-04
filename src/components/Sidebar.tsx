@@ -22,15 +22,11 @@ import {
   Settings,
   Store,
   ExternalLink,
-  FileText,
   Layers,
-  Image as ImageIcon,
-  MessageSquareText,
-  HelpCircle,
-  FileEdit,
   ChevronDown,
   ChevronRight,
-  Newspaper
+  Headphones,
+  Watch
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -52,7 +48,7 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     'Store': true,
-    'Content': true,
+    'Storefronts': true,
     'Operations': true,
     'Finance': true,
     'Analytics': true,
@@ -65,22 +61,16 @@ export default function Sidebar() {
       title: 'Store',
       items: [
         { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'View Catalog', icon: Store, path: '/catalog', external: true },
         { name: 'Products', icon: Package, path: '/items' },
         { name: 'Stock', icon: Layers, path: '/stock' },
         { name: 'Locations', icon: MapPin, path: '/locations' },
       ],
     },
     {
-      title: 'Content',
+      title: 'Storefronts',
       items: [
-        { name: 'CMS Hub', icon: FileText, path: '/cms' },
-        { name: 'Blog', icon: Newspaper, path: '/cms/blog' },
-        { name: 'Banners', icon: ImageIcon, path: '/cms/banners' },
-        { name: 'Collections', icon: Layers, path: '/cms/collections' },
-        { name: 'Pages', icon: FileEdit, path: '/cms/pages' },
-        { name: 'Testimonials', icon: MessageSquareText, path: '/cms/testimonials' },
-        { name: 'FAQ', icon: HelpCircle, path: '/cms/faq' },
+        { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
+        { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
       ],
     },
     {

@@ -52,6 +52,7 @@ model StoreSetting {
 model Category {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String
+  catalogType           String                  @default("audio") @map("catalog_type")
   createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   commissions           Commission[]
@@ -76,6 +77,7 @@ model Item {
   is_combo                                Boolean?            @default(false)
   allow_custom_price                      Boolean?            @default(false)
   deletedAt                               DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  catalogType                             String              @default("audio") @map("catalog_type")
   combo_items_combo_items_combo_idToitems combo_items[]       @relation("combo_items_combo_idToitems")
   combo_items_combo_items_item_idToitems  combo_items[]       @relation("combo_items_item_idToitems")
   category                                Category?           @relation(fields: [categoryId], references: [id])
