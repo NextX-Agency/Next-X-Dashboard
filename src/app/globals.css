@@ -1580,6 +1580,7 @@ button, a, input, select, textarea {
 
 .portal-img {
   transition: transform 0.7s cubic-bezier(0.25, 0.1, 0.25, 1);
+  object-position: center bottom;
 }
 
 .portal-half:hover .portal-img,
@@ -1742,10 +1743,10 @@ button, a, input, select, textarea {
 }
 
 .portal-center-wordmark {
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.85);
   text-transform: uppercase;
   font-family: system-ui, -apple-system, sans-serif;
   writing-mode: vertical-rl;
@@ -1754,14 +1755,7 @@ button, a, input, select, textarea {
 
 /* Vertical divider */
 .portal-divider {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  z-index: 15;
-  pointer-events: none;
+  display: none;
 }
 
 /* Mobile: stacked vertically */
