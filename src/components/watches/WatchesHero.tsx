@@ -42,7 +42,7 @@ function WatchesHeroComponent({
         style={{ inset: '-12% 0', height: '124%' }}
       >
         <Image
-          src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=2400&q=85"
+          src="https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=2400&q=85"
           alt=""
           fill
           className="object-cover"

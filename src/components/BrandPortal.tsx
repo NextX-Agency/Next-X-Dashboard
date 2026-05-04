@@ -39,7 +39,7 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1920&q=80"
+            src="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=1920&q=80"
             alt="NextX Audio"
             fill
             className="object-cover portal-img"
@@ -67,7 +67,7 @@ export default function BrandPortal() {
       >
         <div className="portal-img-wrap">
           <Image
-            src="https://images.unsplash.com/photo-1548169874-53e85f753f1e?auto=format&fit=crop&w=1920&q=80"
+            src="https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&w=1920&q=80"
             alt="NextX Watches"
             fill
             className="object-cover portal-img"
