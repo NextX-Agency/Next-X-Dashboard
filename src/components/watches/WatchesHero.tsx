@@ -35,7 +35,7 @@ function WatchesHeroComponent({
       style={{ height: 'min(100svh, 980px)', minHeight: 520 }}
       aria-label="Hero section"
     >
-      {/* Background image — no zoom, full frame */}
+      {/* Background image — fills viewport */}
       <div
         ref={bgRef}
         className="absolute will-change-transform"
@@ -45,24 +45,24 @@ function WatchesHeroComponent({
           src="/hero_section-watches.png"
           alt=""
           fill
-          className="object-contain"
+          className="object-cover"
           priority
           sizes="100vw"
         />
       </div>
 
-      {/* Primary overlay: bottom-to-top dark gradient (reading area) */}
+      {/* Overlay: bottom-to-top soft gradient for text readability */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to top, rgba(9,9,11,0.98) 0%, rgba(9,9,11,0.72) 38%, rgba(9,9,11,0.25) 70%, rgba(9,9,11,0.1) 100%)',
+          background: 'linear-gradient(to top, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.55) 30%, rgba(9,9,11,0.15) 55%, transparent 80%)',
         }}
       />
-      {/* Secondary overlay: left-side darkening for text legibility */}
+      {/* Left edge subtle darkening */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to right, rgba(9,9,11,0.55) 0%, rgba(9,9,11,0.1) 50%, transparent 100%)',
+          background: 'linear-gradient(to right, rgba(9,9,11,0.4) 0%, rgba(9,9,11,0.05) 35%, transparent 55%)',
         }}
       />
 
@@ -73,11 +73,11 @@ function WatchesHeroComponent({
       />
 
       {/* Content */}
-      <div className="relative z-10 px-6 lg:px-16 pb-20 lg:pb-28 max-w-screen-2xl mx-auto w-full">
-        <div className="max-w-xl lg:pl-8">
+      <div className="relative z-10 px-6 lg:px-12 pb-16 lg:pb-24 max-w-screen-2xl mx-auto w-full">
+        <div className="max-w-lg">
           {/* Eyebrow label */}
           <p
-            className="mb-8 text-[10px] font-light tracking-[0.45em] uppercase"
+            className="mb-6 text-[10px] font-light tracking-[0.45em] uppercase"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-gold)' }}
           >
             NextX Watches — Luxury Collection
@@ -85,11 +85,11 @@ function WatchesHeroComponent({
 
           {/* Main title */}
           <h1
-            className="mb-7 font-light leading-[0.92]"
+            className="mb-5 font-light leading-[0.88]"
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
-              fontSize: 'clamp(4rem, 10vw, 8.5rem)',
+              fontSize: 'clamp(3.5rem, 8vw, 7.5rem)',
               whiteSpace: 'pre-line',
               letterSpacing: '-0.01em',
             }}
@@ -98,11 +98,11 @@ function WatchesHeroComponent({
           </h1>
 
           {/* Thin gold rule */}
-          <div className="mb-7 w-12 h-px" style={{ background: 'var(--w-gold-muted)' }} />
+          <div className="mb-5 w-10 h-px" style={{ background: 'var(--w-gold-muted)' }} />
 
           {/* Subtitle */}
           <p
-            className="mb-12 max-w-xs text-sm font-light leading-loose"
+            className="mb-10 max-w-sm text-sm font-light leading-relaxed"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-cream-2)', letterSpacing: '0.02em' }}
           >
             {subtitle}
