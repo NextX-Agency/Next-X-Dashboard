@@ -11,12 +11,7 @@ import {
   WatchCartDrawer,
   WatchesFooter,
 } from '@/components/watches'
-import { WatchesFeaturedSection } from '@/components/watches/WatchesFeaturedSection'
 import { WatchesBrandNav } from '@/components/watches/WatchesBrandNav'
-import { WatchesPriceTiers } from '@/components/watches/WatchesPriceTiers'
-import type { PriceTier } from '@/components/watches/WatchesPriceTiers'
-import { WatchStoriesSection } from '@/components/watches/WatchStoriesSection'
-import { WatchNewArrivalsSection } from '@/components/watches/WatchNewArrivalsSection'
 
 interface Category {
   id: string
@@ -65,7 +60,6 @@ export default function WatchesCatalogClient({
 }: WatchesCatalogClientProps) {
   const { displayCurrency } = useCurrency()
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [activePriceTier, setActivePriceTier] = useState<PriceTier>('all')
   const [cartItems, setCartItems] = useState<CartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quickViewItem, setQuickViewItem] = useState<Item | null>(null)
@@ -78,25 +72,10 @@ export default function WatchesCatalogClient({
     return map
   }, [stock])
 
-  // Items for the filtered browse grid
   const filteredItems = useMemo(() => {
-    let result = items
-    if (activeCategory) result = result.filter(i => i.categoryId === activeCategory)
-    if (activePriceTier !== 'all') {
-      result = result.filter(i => {
-        const price = i.sellingPriceUsd ? Number(i.sellingPriceUsd) : 0
-        if (activePriceTier === 'low') return price < 200
-        if (activePriceTier === 'mid') return price >= 200 && price < 500
-        if (activePriceTier === 'high') return price >= 500
-        return true
-      })
-    }
-    return result
-  }, [items, activeCategory, activePriceTier])
-
-  // Curated sets (not affected by filters)
-  const featuredItems = useMemo(() => items.slice(0, 6), [items])
-  const newArrivals    = useMemo(() => items.slice(0, 8), [items])
+    if (!activeCategory) return items
+    return items.filter(i => i.categoryId === activeCategory)
+  }, [items, activeCategory])
 
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
@@ -120,13 +99,7 @@ export default function WatchesCatalogClient({
     setCartItems(prev => prev.filter(c => c.id !== id))
   }, [])
 
-  const handleQuickView = useCallback((id: string) => {
-    setQuickViewItem(items.find(i => i.id === id) ?? null)
-  }, [items])
-
   const cartCount = cartItems.reduce((sum, c) => sum + c.quantity, 0)
-  const isFiltered = activeCategory !== null || activePriceTier !== 'all'
-  const clearFilters = () => { setActiveCategory(null); setActivePriceTier('all') }
 
   return (
     <>
@@ -155,30 +128,9 @@ export default function WatchesCatalogClient({
           <div className="hidden sm:block h-px flex-1 max-w-24" style={{ background: 'var(--w-border-gold)' }} />
         </div>
 
-        {/* ── Featured Collection ──────────────────────── */}
-        <WatchesFeaturedSection
-          items={featuredItems}
-          stockMap={stockMap}
-          displayCurrency={displayCurrency}
-          onAddToCart={handleAddToCart}
-          onQuickView={handleQuickView}
-        />
-
-        {/* ── Watch Stories / Heritage ─────────────────── */}
-        <WatchStoriesSection />
-
-        {/* ── New Arrivals Carousel ────────────────────── */}
-        <WatchNewArrivalsSection
-          items={newArrivals}
-          stockMap={stockMap}
-          displayCurrency={displayCurrency}
-          onAddToCart={handleAddToCart}
-          onQuickView={handleQuickView}
-        />
-
         {/* ══ Browse Collection ════════════════════════ */}
         <section id="collections">
-          {/* Sticky brand-filter nav */}
+          {/* Sticky category nav */}
           <div
             className="sticky top-16 lg:top-20 z-50"
             style={{ background: 'var(--w-bg)' }}
@@ -190,40 +142,10 @@ export default function WatchesCatalogClient({
             />
           </div>
 
-          {/* Price-tier selector */}
-          <WatchesPriceTiers
-            items={items}
-            activeTier={activePriceTier}
-            onChange={setActivePriceTier}
-          />
-
-          {/* Filter summary strip */}
-          {isFiltered && (
-            <div className="px-6 lg:px-12 pt-5 pb-1 max-w-screen-2xl mx-auto flex items-center gap-4">
-              <span
-                className="text-[9px] tracking-[0.22em] uppercase"
-                style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
-              >
-                {filteredItems.length} {filteredItems.length === 1 ? 'watch' : 'watches'} found
-              </span>
-              <button
-                onClick={clearFilters}
-                className="text-[9px] tracking-[0.22em] uppercase underline transition-opacity hover:opacity-100 opacity-80"
-                style={{ color: 'var(--w-orange)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
-              >
-                Clear filters
-              </button>
-            </div>
-          )}
-
           {/* Product grid */}
           <div id="all" className="px-6 lg:px-12 pt-10 pb-20 max-w-screen-2xl mx-auto">
             {filteredItems.length === 0 ? (
-              <EmptyState
-                whatsappNumber={whatsappNumber}
-                isFiltered={isFiltered}
-                onClear={clearFilters}
-              />
+              <EmptyState whatsappNumber={whatsappNumber} />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
                 {filteredItems.map(item => (
@@ -279,15 +201,7 @@ export default function WatchesCatalogClient({
     </>
   )
 }
-function EmptyState({
-  whatsappNumber,
-  isFiltered,
-  onClear,
-}: {
-  whatsappNumber: string
-  isFiltered?: boolean
-  onClear?: () => void
-}) {
+function EmptyState({ whatsappNumber }: { whatsappNumber: string }) {
   return (
     <div className="flex flex-col items-center py-28 lg:py-40">
       {/* Decorative ring */}
@@ -303,7 +217,7 @@ function EmptyState({
         className="mb-3 text-[9px] tracking-[0.4em] uppercase text-center"
         style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
-        {isFiltered ? 'No Results' : 'Coming Soon'}
+        Coming Soon
       </p>
 
       <h2
@@ -315,11 +229,8 @@ function EmptyState({
           letterSpacing: '0.01em',
         }}
       >
-        {isFiltered ? (
-          <>No Watches<br /><em style={{ color: 'var(--w-cream-2)' }}>Match This Filter</em></>
-        ) : (
-          <>The Collection<br /><em style={{ color: 'var(--w-cream-2)' }}>is Arriving</em></>
-        )}
+        The Collection<br />
+        <em style={{ color: 'var(--w-cream-2)' }}>is Arriving</em>
       </h2>
 
       <div className="mb-6 w-10 h-px" style={{ background: 'var(--w-gold-muted)' }} />
@@ -328,30 +239,18 @@ function EmptyState({
         className="mb-10 text-sm font-light text-center max-w-sm leading-loose"
         style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
-        {isFiltered
-          ? 'Try adjusting your filters to discover more timepieces in our collection.'
-          : 'Our curated selection of luxury timepieces is being prepared. Contact us on WhatsApp to be notified first.'}
+        Our curated selection of luxury timepieces is being prepared. Contact us on WhatsApp to be notified first.
       </p>
 
-      {isFiltered && onClear ? (
-        <button
-          onClick={onClear}
-          className="w-btn-orange inline-flex items-center gap-3"
-        >
-          Clear Filters
-          <span className="text-xs opacity-80">×</span>
-        </button>
-      ) : (
-        <Link
-          href={`https://wa.me/${whatsappNumber}?text=Hello NextX, I would like to know more about your watch collection.`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-btn-gold inline-flex items-center gap-3"
-        >
-          Get Notified
-          <span className="text-xs opacity-70">→</span>
-        </Link>
-      )}
+      <Link
+        href={`https://wa.me/${whatsappNumber}?text=Hello NextX, I would like to know more about your watch collection.`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-btn-gold inline-flex items-center gap-3"
+      >
+        Get Notified
+        <span className="text-xs opacity-70">→</span>
+      </Link>
     </div>
   )
 }

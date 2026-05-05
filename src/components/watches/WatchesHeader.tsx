@@ -29,23 +29,17 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
   const LogoLockup = ({ onClick }: { onClick?: () => void }) => (
     <Link href="/watches" onClick={onClick} className="flex flex-col items-start leading-none shrink-0" aria-label="NextX Watches">
       <Image
-        src="/nextx-logo-light.png"
+        src="/nextx-logo-dark.png"
         alt="NextX"
-        width={54}
-        height={28}
+        width={80}
+        height={34}
         className="object-contain"
+        style={{
+          /* invert turns white→black (hides on dark bg), hue-rotate keeps orange≈orange */
+          filter: 'invert(1) hue-rotate(180deg)',
+        }}
         priority
       />
-      <span
-        className="mt-[5px] text-[8px] font-light tracking-[0.38em] uppercase"
-        style={{
-          fontFamily: 'var(--font-jost, system-ui, sans-serif)',
-          color: 'var(--w-gold)',
-          letterSpacing: '0.38em',
-        }}
-      >
-        Watches
-      </span>
     </Link>
   )
 

@@ -42,7 +42,7 @@ function WatchesHeroComponent({
         style={{ inset: '-12% 0', height: '124%' }}
       >
         <Image
-          src="/pro-diver.jpg"
+          src="/hero_section-watches.png"
           alt=""
           fill
           className="object-cover"
