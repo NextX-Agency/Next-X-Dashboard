@@ -7,12 +7,14 @@ import { Instagram, MessageCircle } from 'lucide-react'
 
 interface WatchesFooterProps {
   whatsappNumber?: string
-  instagramHandle?: string
+  storeAddress?: string
+  storeDescription?: string
 }
 
 function WatchesFooterComponent({
   whatsappNumber = '5978555555',
-  instagramHandle = 'nextxwatches',
+  storeAddress = 'Paramaribo, Suriname',
+  storeDescription = 'Curated luxury timepieces from NextX — delivering exceptional watches with personal service and expertise.',
 }: WatchesFooterProps) {
   const year = new Date().getFullYear()
 
@@ -41,9 +43,14 @@ function WatchesFooterComponent({
           external: true,
         },
         {
-          label: `@${instagramHandle}`,
-          href: `https://instagram.com/${instagramHandle}`,
+          label: '@nextxwatches',
+          href: 'https://instagram.com/nextxwatches',
           external: true,
+        },
+        {
+          label: storeAddress,
+          href: '#',
+          isText: true,
         },
       ],
     },
@@ -78,7 +85,7 @@ function WatchesFooterComponent({
               </span>
             </Link>
             <p className="text-xs font-light leading-relaxed" style={{ color: 'var(--w-muted)' }}>
-              Curated luxury timepieces,<br />delivered in Suriname.
+              {storeDescription}
             </p>
 
             {/* Social links */}
@@ -94,7 +101,7 @@ function WatchesFooterComponent({
                 <MessageCircle size={18} strokeWidth={1.5} />
               </a>
               <a
-                href={`https://instagram.com/${instagramHandle}`}
+                href="https://instagram.com/nextxwatches"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 transition-opacity hover:opacity-60"
@@ -116,19 +123,34 @@ function WatchesFooterComponent({
                 {col.heading}
               </h3>
               <ul className="flex flex-col gap-3">
-                {col.links.map(link => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      target={(link as { external?: boolean }).external ? '_blank' : undefined}
-                      rel={(link as { external?: boolean }).external ? 'noopener noreferrer' : undefined}
-                      className="text-xs font-light transition-opacity hover:opacity-70"
-                      style={{ color: 'var(--w-cream-2)' }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {col.links.map(link => {
+                  const isText = (link as { isText?: boolean }).isText
+                  if (isText) {
+                    return (
+                      <li key={link.label}>
+                        <span
+                          className="text-xs font-light"
+                          style={{ color: 'var(--w-cream-2)' }}
+                        >
+                          {link.label}
+                        </span>
+                      </li>
+                    )
+                  }
+                  return (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        target={(link as { external?: boolean }).external ? '_blank' : undefined}
+                        rel={(link as { external?: boolean }).external ? 'noopener noreferrer' : undefined}
+                        className="text-xs font-light transition-opacity hover:opacity-70"
+                        style={{ color: 'var(--w-cream-2)' }}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}
