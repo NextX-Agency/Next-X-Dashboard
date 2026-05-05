@@ -64,7 +64,7 @@ function WatchesFooterComponent({
           <div className="col-span-2 lg:col-span-1">
             <Link href="/watches" className="inline-flex flex-col items-start mb-5">
               <Image
-                src="/nextx-logo-light.png"
+                src="/nextx-dark-light.png"
                 alt="NextX"
                 width={60}
                 height={32}
