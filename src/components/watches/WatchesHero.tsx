@@ -38,17 +38,17 @@ function WatchesHeroComponent({
       {/* Background image — no zoom, full frame */}
       <div
         ref={bgRef}
-        className="absolute will-change-transform overflow-hidden"
+        className="absolute will-change-transform"
         style={{ inset: '0', height: '100%' }}
       >
         <Image
           src="/hero_section-watches.png"
           alt=""
           fill
-          className="object-cover"
+          className="object-contain"
+          style={{ objectPosition: 'right center' }}
           priority
           sizes="100vw"
-          style={{ transform: 'translateX(150px)' }}
         />
       </div>
 
