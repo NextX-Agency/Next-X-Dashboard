@@ -31,7 +31,7 @@ function WatchesHeroComponent({
 
   return (
     <section
-      className="relative flex items-end overflow-hidden"
+      className="relative flex items-center overflow-hidden"
       style={{ height: 'min(100svh, 980px)', minHeight: 520 }}
       aria-label="Hero section"
     >
@@ -73,7 +73,7 @@ function WatchesHeroComponent({
       />
 
       {/* Content */}
-      <div className="relative z-10 px-6 lg:px-12 pb-16 lg:pb-24 max-w-screen-2xl mx-auto w-full">
+      <div className="relative z-10 px-6 lg:px-12 py-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
         <div className="max-w-lg">
           {/* Eyebrow label */}
           <p
