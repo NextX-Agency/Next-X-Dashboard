@@ -34,10 +34,6 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
         width={80}
         height={34}
         className="object-contain"
-        style={{
-          /* invert turns white→black (hides on dark bg), hue-rotate keeps orange≈orange */
-          filter: 'invert(1) hue-rotate(180deg)',
-        }}
         priority
       />
     </Link>

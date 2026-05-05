@@ -35,17 +35,17 @@ function WatchesHeroComponent({
       style={{ height: 'min(100svh, 980px)', minHeight: 520 }}
       aria-label="Hero section"
     >
-      {/* Background image with parallax */}
+      {/* Background image — no zoom, full frame */}
       <div
         ref={bgRef}
         className="absolute will-change-transform"
-        style={{ inset: '-12% 0', height: '124%' }}
+        style={{ inset: '0', height: '100%' }}
       >
         <Image
           src="/hero_section-watches.png"
           alt=""
           fill
-          className="object-cover"
+          className="object-contain"
           priority
           sizes="100vw"
         />
