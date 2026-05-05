@@ -1820,6 +1820,15 @@ button, a, input, select, textarea {
   --w-border:       #2A2A2E;
   --w-border-gold:  rgba(201, 168, 76, 0.25);
 
+  /* Brand Orange — CTA & active states */
+  --w-orange:       #f97015;
+  --w-orange-dim:   rgba(249, 112, 21, 0.10);
+  --w-orange-glow:  rgba(249, 112, 21, 0.28);
+
+  /* Metallic accents */
+  --w-steel:        #3D404A;
+  --w-metallic:     rgba(148, 163, 184, 0.07);
+
   /* Typography */
   --font-display:   var(--font-cormorant, 'Georgia', serif);
   --font-body:      var(--font-jost, system-ui, sans-serif);
@@ -1934,6 +1943,52 @@ button, a, input, select, textarea {
   border-color: var(--w-gold);
   color: var(--w-gold);
 }
+
+/* Watches orange CTA button (NextX brand) */
+.w-btn-orange {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 2rem;
+  background: var(--w-orange);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: var(--w-transition);
+}
+
+.w-btn-orange:hover {
+  background: #e0620c;
+  box-shadow: 0 6px 24px var(--w-orange-glow);
+}
+
+/* Scroll-reveal utility (intersection observer driven) */
+@keyframes wRevealUp {
+  from { opacity: 0; transform: translateY(2rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.w-reveal {
+  opacity: 0;
+  transform: translateY(2rem);
+}
+
+.w-reveal.is-visible {
+  animation: wRevealUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.w-reveal-d1 { animation-delay: 0.08s; }
+.w-reveal-d2 { animation-delay: 0.16s; }
+.w-reveal-d3 { animation-delay: 0.24s; }
+.w-reveal-d4 { animation-delay: 0.32s; }
+.w-reveal-d5 { animation-delay: 0.40s; }
+.w-reveal-d6 { animation-delay: 0.48s; }
 
 /* Product card — no default border/bg, items float on dark page */
 .w-product-card {

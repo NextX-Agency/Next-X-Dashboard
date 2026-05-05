@@ -15,7 +15,7 @@ function WatchesHeroComponent({
   title = 'Timeless\nPrecision',
   subtitle = 'Curated luxury timepieces for the discerning collector',
   ctaLabel = 'Explore Collection',
-  ctaHref = '/watches#collections',
+  ctaHref = '/watches#featured',
 }: WatchesHeroProps) {
   const bgRef = useRef<HTMLDivElement>(null)
 
@@ -42,7 +42,7 @@ function WatchesHeroComponent({
         style={{ inset: '-12% 0', height: '124%' }}
       >
         <Image
-          src="/portal-watches.jpg"
+          src="/pro-diver.jpg"
           alt=""
           fill
           className="object-cover"
@@ -108,11 +108,16 @@ function WatchesHeroComponent({
             {subtitle}
           </p>
 
-          {/* CTA */}
-          <Link href={ctaHref} className="w-btn-gold inline-flex items-center gap-3">
-            {ctaLabel}
-            <span className="text-xs opacity-70">→</span>
-          </Link>
+          {/* CTAs */}
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href={ctaHref} className="w-btn-orange inline-flex items-center gap-3">
+              {ctaLabel}
+              <span className="text-xs opacity-80">→</span>
+            </Link>
+            <Link href="/watches#new" className="w-btn-outline inline-flex items-center gap-3">
+              New Arrivals
+            </Link>
+          </div>
         </div>
       </div>
 
