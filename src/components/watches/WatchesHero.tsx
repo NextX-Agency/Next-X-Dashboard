@@ -46,6 +46,7 @@ function WatchesHeroComponent({
           alt=""
           fill
           className="object-contain"
+          style={{ objectPosition: 'right center' }}
           priority
           sizes="100vw"
         />
