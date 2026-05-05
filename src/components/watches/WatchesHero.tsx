@@ -45,8 +45,8 @@ function WatchesHeroComponent({
           src="/hero_section-watches.png"
           alt=""
           fill
-          className="object-contain"
-          style={{ objectPosition: '85% center' }}
+          className="object-cover"
+          style={{ objectPosition: '100% center' }}
           priority
           sizes="100vw"
         />
