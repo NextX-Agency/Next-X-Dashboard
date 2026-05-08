@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         hostname: '*.public.blob.vercel-storage.com',
       },
       {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
         // Allow localhost blob previews in dev
         protocol: 'http',
         hostname: 'localhost',
@@ -79,7 +83,18 @@ const nextConfig: NextConfig = {
   },
   
   async redirects() {
-    return [];
+    return [
+      {
+        source: '/catalog',
+        destination: '/audio',
+        permanent: true,
+      },
+      {
+        source: '/catalog/:id',
+        destination: '/audio/:id',
+        permanent: true,
+      },
+    ];
   },
 };
 

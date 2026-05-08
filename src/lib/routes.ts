@@ -7,8 +7,10 @@
 
 // Public routes accessible by everyone (no login required)
 export const PUBLIC_ROUTES = [
-  '/',           // Catalog (landing page)
-  '/catalog',    // Catalog direct access
+  '/',           // Brand portal
+  '/catalog',    // Legacy audio catalog (redirects to /audio)
+  '/audio',      // Audio catalog
+  '/watches',    // Watches catalog
   '/login',      // Login page
   '/blog',       // Public blog
   '/faq',        // Public FAQ
@@ -20,7 +22,9 @@ export const PUBLIC_ROUTES = [
 export const PUBLIC_ROUTE_PREFIXES = [
   '/blog/',      // Blog posts
   '/p/',         // Dynamic pages
-  '/catalog/',   // Catalog sub-pages
+  '/catalog/',   // Legacy catalog sub-pages
+  '/audio/',     // Audio catalog sub-pages
+  '/watches/',   // Watches catalog sub-pages
 ] as const
 
 // Admin-only routes (require authentication + admin role)

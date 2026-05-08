@@ -10,8 +10,8 @@ import type { NextRequest } from 'next/server'
  */
 
 // Public routes that don't require any authentication
-const PUBLIC_ROUTES = ['/', '/catalog', '/login', '/blog', '/faq', '/testimonials']
-const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/']
+const PUBLIC_ROUTES = ['/', '/catalog', '/audio', '/watches', '/login', '/blog', '/faq', '/testimonials']
+const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
 
 // Admin routes that require admin role
 const ADMIN_ROUTES = [

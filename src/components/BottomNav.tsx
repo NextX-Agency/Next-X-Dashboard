@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/AuthContext'
@@ -8,10 +8,8 @@ import {
   LayoutDashboard, 
   ShoppingCart, 
   Package, 
-  BarChart3, 
-  FileText,
-  Layers,
-  Plus
+  BarChart3,
+  Settings
 } from 'lucide-react'
 
 // Define nav items outside component to prevent recreation
@@ -20,15 +18,7 @@ const DEFAULT_NAV_ITEMS = [
   { name: 'Sales', icon: ShoppingCart, path: '/sales' },
   { name: 'Stock', icon: Package, path: '/stock' },
   { name: 'Reports', icon: BarChart3, path: '/reports' },
-  { name: 'CMS', icon: FileText, path: '/cms' },
-]
-
-const CMS_NAV_ITEMS = [
-  { name: 'CMS Hub', icon: FileText, path: '/cms' },
-  { name: 'Blog', icon: FileText, path: '/cms/blog' },
-  { name: 'Banners', icon: Layers, path: '/cms/banners' },
-  { name: 'Pages', icon: FileText, path: '/cms/pages' },
-  { name: 'Home', icon: LayoutDashboard, path: '/dashboard' },
+  { name: 'Settings', icon: Settings, path: '/settings' },
 ]
 
 function BottomNavComponent() {
@@ -40,25 +30,16 @@ function BottomNavComponent() {
   if (!isAdmin) {
     return null
   }
-  
-  const { navItems, isCMSSection } = useMemo(() => {
-    const isCMS = pathname.startsWith('/cms')
-    return {
-      navItems: isCMS ? CMS_NAV_ITEMS : DEFAULT_NAV_ITEMS,
-      isCMSSection: isCMS
-    }
-  }, [pathname])
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900/98 backdrop-blur-xl border-t border-gray-800/80 z-50">
       {/* Safe area padding for devices with home indicators */}
       <div className="flex justify-around items-center h-16 px-1 pb-safe">
-        {navItems.map((item) => {
+        {DEFAULT_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.path || 
-            (item.path !== '/dashboard' && item.path !== '/cms' && pathname.startsWith(item.path))
-          const isExactCMS = item.path === '/cms' && pathname === '/cms'
-          const isActiveState = isActive || isExactCMS
+            (item.path !== '/dashboard' && pathname.startsWith(item.path))
+          const isActiveState = isActive
           
           return (
             <Link
