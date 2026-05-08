@@ -1727,29 +1727,27 @@ button, a, input, select, textarea {
   max-height: 35%;
 }
 
-/* Badge with wordmark */
+/* Badge with actual company logo */
 .portal-center-inner {
   flex-shrink: 0;
-  padding: 14px 10px;
-  background: rgba(6, 6, 8, 0.7);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  padding: 12px 18px;
+  background: rgba(6, 6, 8, 0.82);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(249, 112, 21, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  box-shadow: 0 0 48px rgba(0,0,0,0.7), 0 0 24px rgba(249, 112, 21, 0.12);
+  border-radius: 2px;
 }
 
-.portal-center-wordmark {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.75);
-  text-transform: uppercase;
-  font-family: system-ui, -apple-system, sans-serif;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+.portal-center-logo {
+  display: block;
+  width: 116px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(249, 112, 21, 0.35));
 }
 
 /* Vertical divider */
