@@ -14,17 +14,19 @@ export default function BrandPortal() {
       {/* Vertical divider line */}
       <div className="portal-divider" aria-hidden="true" />
 
-      {/* Central seal — actual company logo */}
+      {/* Central seal — animated gradient ring + logo */}
       <div className="portal-center" aria-hidden="true">
         <div className="portal-center-line-top" />
-        <div className="portal-center-inner">
-          <Image
-            src="/nextx-logo-dark.png"
-            alt="NextX"
-            width={116}
-            height={46}
-            className="portal-center-logo"
-          />
+        <div className="portal-center-ring">
+          <div className="portal-center-inner">
+            <Image
+              src="/nextx-logo-dark.png"
+              alt="NextX"
+              width={120}
+              height={48}
+              className="portal-center-logo"
+            />
+          </div>
         </div>
         <div className="portal-center-line-bottom" />
       </div>
@@ -49,12 +51,19 @@ export default function BrandPortal() {
           />
         </div>
         <div className="portal-overlay portal-audio-overlay" aria-hidden="true" />
+        <div className="portal-edge-glow portal-audio-glow" aria-hidden="true" />
 
         <div className="portal-content portal-audio-content">
-          <span className="portal-eyebrow">NextX</span>
+          <span className="portal-eyebrow">
+            <span className="portal-eyebrow-dot portal-eyebrow-dot--audio" />
+            NextX
+          </span>
           <h2 className="portal-title portal-audio-title">Audio</h2>
           <p className="portal-sub">Premium In-Ear Monitors &amp; Audiophile Gear</p>
-          <span className="portal-cta">Explore Collection →</span>
+          <span className="portal-cta">
+            <span className="portal-cta-text">Explore Collection</span>
+            <span className="portal-cta-arrow">→</span>
+          </span>
         </div>
       </Link>
 
@@ -78,12 +87,19 @@ export default function BrandPortal() {
           />
         </div>
         <div className="portal-overlay portal-watches-overlay" aria-hidden="true" />
+        <div className="portal-edge-glow portal-watches-glow" aria-hidden="true" />
 
         <div className="portal-content portal-watches-content">
-          <span className="portal-eyebrow">NextX</span>
+          <span className="portal-eyebrow">
+            NextX
+            <span className="portal-eyebrow-dot portal-eyebrow-dot--watches" />
+          </span>
           <h2 className="portal-title portal-watches-title">Watches</h2>
           <p className="portal-sub">Curated Luxury Timepieces</p>
-          <span className="portal-cta">Explore Collection →</span>
+          <span className="portal-cta">
+            <span className="portal-cta-arrow">←</span>
+            <span className="portal-cta-text">Explore Collection</span>
+          </span>
         </div>
       </Link>
     </div>
