@@ -14,21 +14,6 @@ export default function BrandPortal() {
       {/* Thin vertical divider */}
       <div className="portal-divider" aria-hidden="true" />
 
-      {/* Center logo badge — white frosted glass so the logo is actually visible */}
-      <div className="portal-center" aria-hidden="true">
-        <div className="portal-center-line-top" />
-        <div className="portal-center-inner">
-          <Image
-            src="/nextx-logo-light.png"
-            alt="NextX"
-            width={130}
-            height={52}
-            className="portal-center-logo"
-          />
-        </div>
-        <div className="portal-center-line-bottom" />
-      </div>
-
       {/* — Audio — */}
       <Link
         href="/audio"
