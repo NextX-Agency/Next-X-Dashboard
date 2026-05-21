@@ -123,16 +123,18 @@ export function NewHeader({
               </Link>
 
               {brandLinks.length > 0 && (
-                <div className="hidden lg:flex items-center gap-3 pt-1 text-[10px] font-medium uppercase tracking-[0.24em] text-neutral-400">
-                  <span className="text-neutral-300">NextX</span>
-                  {brandLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="transition-colors hover:text-[#f97015]"
-                    >
-                      {link.label}
-                    </Link>
+                <div className="hidden md:flex items-center gap-2.5 pt-1 pl-0.5 text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-500">
+                  <span className="h-px w-5 shrink-0 bg-neutral-300" />
+                  {brandLinks.map((link, index) => (
+                    <div key={link.href} className="flex items-center gap-2.5">
+                      {index > 0 && <span className="text-neutral-300">•</span>}
+                      <Link
+                        href={link.href}
+                        className="transition-colors hover:text-[#f97015]"
+                      >
+                        {link.label}
+                      </Link>
+                    </div>
                   ))}
                 </div>
               )}

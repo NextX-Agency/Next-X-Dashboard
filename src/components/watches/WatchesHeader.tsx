@@ -37,24 +37,13 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
         <Image
           src="/nextx-logo-dark.png"
           alt="NextX"
-          width={80}
-          height={34}
-          className="object-contain"
+          width={104}
+          height={41}
+          className="w-[92px] object-contain lg:w-[104px]"
+          style={{ height: 'auto' }}
           priority
         />
       </Link>
-      <div className="hidden lg:flex items-center gap-3 pt-1 text-[9px] font-light uppercase tracking-[0.28em]" style={{ color: 'var(--w-muted)' }}>
-        <span style={{ color: 'var(--w-border-gold)' }}>NextX</span>
-        {brandLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="transition-opacity hover:opacity-100 opacity-70"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </div>
     </div>
   )
 
@@ -64,59 +53,89 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
         className={`watches-header ${scrolled ? 'scrolled' : ''}`}
         style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
-        <div className="flex items-center justify-between h-16 lg:h-20 px-6 lg:px-12 max-w-screen-2xl mx-auto">
-          <LogoLockup />
-
-          {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-10" aria-label="Primary navigation">
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-[11px] font-light tracking-[0.2em] uppercase transition-opacity hover:opacity-100 opacity-60"
-                style={{ color: 'var(--w-cream)' }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              className="p-2 transition-opacity hover:opacity-100 opacity-50"
-              style={{ color: 'var(--w-cream)' }}
-              aria-label="Search"
+        <div className="px-6 lg:px-12 max-w-screen-2xl mx-auto">
+          <div
+            className="hidden h-6 items-center justify-between border-b sm:flex"
+            style={{ borderColor: 'var(--w-border)' }}
+          >
+            <p
+              className="text-[9px] font-light uppercase tracking-[0.28em]"
+              style={{ color: 'var(--w-muted)' }}
             >
-              <Search size={17} strokeWidth={1.5} />
-            </button>
+              Part of NextX
+            </p>
 
-            <button
-              onClick={onCartClick}
-              className="relative p-2 transition-opacity hover:opacity-100 opacity-70"
-              style={{ color: 'var(--w-cream)' }}
-              aria-label={`Cart (${cartCount} items)`}
-            >
-              <ShoppingBag size={17} strokeWidth={1.5} />
-              {cartCount > 0 && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 min-w-4 h-4 flex items-center justify-center text-[9px] font-medium rounded-full px-0.5"
-                  style={{ background: 'var(--w-gold)', color: '#09090B' }}
+            <div className="flex items-center gap-2.5 text-[10px] font-light uppercase tracking-[0.24em]" style={{ color: 'var(--w-cream-2)' }}>
+              <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
+              {brandLinks.map((link, index) => (
+                <div key={link.href} className="flex items-center gap-2.5 whitespace-nowrap">
+                  {index > 0 && <span style={{ color: 'var(--w-gold)' }}>•</span>}
+                  <Link
+                    href={link.href}
+                    className="transition-colors hover:opacity-100"
+                    style={{ color: 'var(--w-cream-2)', opacity: 0.88 }}
+                  >
+                    {link.label}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex h-16 items-center justify-between sm:h-10 lg:h-14">
+            <LogoLockup />
+
+            {/* Desktop nav */}
+            <nav className="hidden items-center gap-10 lg:flex" aria-label="Primary navigation">
+              {navLinks.map(link => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-[11px] font-light tracking-[0.2em] uppercase transition-opacity hover:opacity-100 opacity-60"
+                  style={{ color: 'var(--w-cream)' }}
                 >
-                  {cartCount}
-                </span>
-              )}
-            </button>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
 
-            {/* Mobile menu toggle */}
-            <button
-              className="lg:hidden p-2 transition-opacity hover:opacity-100 opacity-70"
-              style={{ color: 'var(--w-cream)' }}
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu size={20} strokeWidth={1.5} />
-            </button>
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+              <button
+                className="p-2 transition-opacity hover:opacity-100 opacity-50"
+                style={{ color: 'var(--w-cream)' }}
+                aria-label="Search"
+              >
+                <Search size={17} strokeWidth={1.5} />
+              </button>
+
+              <button
+                onClick={onCartClick}
+                className="relative p-2 transition-opacity hover:opacity-100 opacity-70"
+                style={{ color: 'var(--w-cream)' }}
+                aria-label={`Cart (${cartCount} items)`}
+              >
+                <ShoppingBag size={17} strokeWidth={1.5} />
+                {cartCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-4 h-4 flex items-center justify-center text-[9px] font-medium rounded-full px-0.5"
+                    style={{ background: 'var(--w-gold)', color: '#09090B' }}
+                  >
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Mobile menu toggle */}
+              <button
+                className="p-2 transition-opacity hover:opacity-100 opacity-70 lg:hidden"
+                style={{ color: 'var(--w-cream)' }}
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open menu"
+              >
+                <Menu size={20} strokeWidth={1.5} />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -161,23 +180,27 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             ))}
           </nav>
 
-          <div className="mt-auto px-6 pb-12 flex items-center justify-between gap-4">
-            <Link
-              href="/audio"
-              onClick={() => setMobileOpen(false)}
-              className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
-              style={{ color: 'var(--w-cream)' }}
-            >
-              Audio
-            </Link>
-            <Link
-              href="/"
-              onClick={() => setMobileOpen(false)}
-              className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
-              style={{ color: 'var(--w-cream)' }}
-            >
-              Portal
-            </Link>
+          <div className="mt-auto px-6 pb-12">
+            <div className="flex items-center gap-2.5 border-t pt-4 text-[11px] font-light uppercase tracking-[0.22em]" style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}>
+              <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
+              <Link
+                href="/audio"
+                onClick={() => setMobileOpen(false)}
+                className="transition-opacity hover:opacity-100"
+                style={{ opacity: 0.88 }}
+              >
+                Audio
+              </Link>
+              <span style={{ color: 'var(--w-gold)' }}>•</span>
+              <Link
+                href="/"
+                onClick={() => setMobileOpen(false)}
+                className="transition-opacity hover:opacity-100"
+                style={{ opacity: 0.88 }}
+              >
+                Portal
+              </Link>
+            </div>
           </div>
         </div>
       )}
