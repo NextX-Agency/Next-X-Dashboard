@@ -14,21 +14,21 @@ function PageHeaderComponent({
   return (
     <div className="bg-card/95 border-b border-border lg:sticky lg:top-0 z-10 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 lg:py-6">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
             {icon && (
-              <div className="hidden sm:flex w-10 h-10 rounded-xl bg-[hsl(var(--primary-muted))] items-center justify-center flex-shrink-0">
+              <div className="flex w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[hsl(var(--primary-muted))] items-center justify-center shrink-0">
                 <div className="text-primary">{icon}</div>
               </div>
             )}
             <div className="min-w-0 flex-1">
               <h1 className="text-base sm:text-lg lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
               {subtitle && (
-                <p className="text-xs lg:text-sm text-muted-foreground mt-0.5 truncate hidden sm:block">{subtitle}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed sm:truncate">{subtitle}</p>
               )}
             </div>
           </div>
-          {action && <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">{action}</div>}
+          {action && <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto flex-wrap">{action}</div>}
         </div>
       </div>
     </div>
@@ -158,9 +158,9 @@ function ButtonComponent({
   }
 
   const sizes = {
-    sm: 'px-3 py-2 text-xs gap-1.5 min-h-[36px] sm:min-h-[32px]',
-    md: 'px-4 py-2.5 text-sm gap-2 min-h-[44px] sm:min-h-[40px]',
-    lg: 'px-5 py-3 text-base gap-2 min-h-[48px] sm:min-h-[44px]',
+    sm: 'px-3 py-2 text-xs gap-1.5 min-h-9 sm:min-h-8',
+    md: 'px-4 py-2.5 text-sm gap-2 min-h-11 sm:min-h-10',
+    lg: 'px-5 py-3 text-base gap-2 min-h-12 sm:min-h-11',
   }
 
   const isDisabled = disabled || loading
@@ -307,14 +307,14 @@ function CurrencyToggleComponent({
       <button
         type="button"
         onClick={() => onChange('SRD')}
-        className={`currency-toggle-btn min-h-[40px] sm:min-h-[36px] ${value === 'SRD' ? 'active' : ''}`}
+        className={`currency-toggle-btn min-h-10 sm:min-h-9 ${value === 'SRD' ? 'active' : ''}`}
       >
         SRD
       </button>
       <button
         type="button"
         onClick={() => onChange('USD')}
-        className={`currency-toggle-btn min-h-[40px] sm:min-h-[36px] ${value === 'USD' ? 'active' : ''}`}
+        className={`currency-toggle-btn min-h-10 sm:min-h-9 ${value === 'USD' ? 'active' : ''}`}
       >
         USD
       </button>
@@ -444,7 +444,7 @@ function ModalUIComponent({
             <h2 className="text-base sm:text-lg font-semibold text-foreground pr-8">{title}</h2>
             <button
               onClick={onClose}
-              className="absolute right-3 sm:right-4 top-3 sm:top-4 p-2 rounded-lg hover:bg-muted transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="absolute right-3 sm:right-4 top-3 sm:top-4 p-2 rounded-lg hover:bg-muted transition-colors min-h-11 min-w-11 flex items-center justify-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>

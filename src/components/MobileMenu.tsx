@@ -1,6 +1,6 @@
 'use client'
 
-import { X, ChevronDown, ChevronRight, Search } from 'lucide-react'
+import { X, ChevronDown, Search, Headphones, Watch } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { 
@@ -28,7 +28,7 @@ import {
   ClipboardList,
   Newspaper
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -132,6 +132,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     },
   ]
 
+  const isItemActive = useMemo(() => (path: string) => {
+    return pathname === path || (path !== '/dashboard' && path !== '/catalog' && pathname.startsWith(path))
+  }, [pathname])
+
+  const currentNavItem = useMemo(() => {
+    return navSections.flatMap((section) => section.items).find((item) => isItemActive(item.path))
+  }, [isItemActive, navSections])
+
+  const currentSection = useMemo(() => getCurrentSection(), [pathname])
+
   const toggleSection = (title: string) => {
     setExpandedSections(prev => ({ ...prev, [title]: !prev[title] }))
   }
@@ -146,14 +156,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   }
 
   // Filter items based on search
-  const filteredSections = searchQuery
-    ? navSections.map(section => ({
+  const filteredSections = useMemo(() => {
+    if (!searchQuery) return navSections
+
+    return navSections
+      .map((section) => ({
         ...section,
-        items: section.items.filter(item => 
-          item.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      })).filter(section => section.items.length > 0)
-    : navSections
+        items: section.items.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase())),
+      }))
+      .filter((section) => section.items.length > 0)
+  }, [navSections, searchQuery])
 
   if (!isOpen) return null
 
@@ -166,32 +178,49 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       />
       
       {/* Menu Panel */}
-      <div className="lg:hidden fixed top-0 left-0 h-full w-[85vw] max-w-[320px] bg-gray-900 text-white z-50 animate-in slide-in-from-left duration-300 flex flex-col">
+      <div className="lg:hidden fixed top-0 left-0 h-full w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-50 animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)]">
         {/* Header */}
-        <div className="p-4 border-b border-gray-800/50 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative h-9 w-28">
-              <Image
-                src="/nextx-logo-dark.png"
-                alt="NextX Logo"
-                width={112}
-                height={36}
-                className="object-contain"
-                priority
-              />
+        <div className="relative overflow-hidden p-4 border-b border-gray-800/50 shrink-0">
+          <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 via-transparent to-white/5" />
+          <div className="relative flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="relative h-9 w-28 shrink-0">
+                <Image
+                  src="/nextx-logo-dark.png"
+                  alt="NextX Logo"
+                  width={112}
+                  height={36}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={onClose}
+              className="p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
+              aria-label="Close menu"
+            >
+              <X size={22} />
+            </button>
+          </div>
+
+          <div className="relative mt-4 rounded-2xl border border-gray-800/70 bg-gray-900/80 p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Current Workspace</div>
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-white">{currentNavItem?.name || 'Dashboard'}</div>
+                <div className="text-xs text-gray-400">{currentSection} section</div>
+              </div>
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-2.5 py-1.5 text-xs font-semibold text-orange-300 shrink-0">
+                {currentSection}
+              </div>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
-            aria-label="Close menu"
-          >
-            <X size={22} />
-          </button>
         </div>
 
         {/* Search */}
-        <div className="p-3 border-b border-gray-800/30 flex-shrink-0">
+        <div className="p-3 border-b border-gray-800/30 shrink-0">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -201,61 +230,101 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-700/70 hover:text-gray-200 transition-colors"
+                aria-label="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
+          <p className="mt-2 text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-3 px-2 overscroll-contain">
-          <div className="space-y-1">
-            {filteredSections.map((section) => (
-              <div key={section.title} className="mb-1">
-                {/* Section Header */}
-                <button
-                  onClick={() => toggleSection(section.title)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
-                >
-                  <span>{section.title}</span>
-                  <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
-                    <ChevronDown size={16} />
-                  </div>
-                </button>
+          {filteredSections.length === 0 ? (
+            <div className="rounded-2xl border border-gray-800/70 bg-gray-900/70 p-4 text-center">
+              <div className="text-sm font-semibold text-white">No menu results</div>
+              <p className="mt-1 text-xs text-gray-400">Try a different term or clear the current search.</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredSections.map((section) => (
+                <div key={section.title} className="mb-1">
+                  {/* Section Header */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.title)}
+                    aria-expanded={expandedSections[section.title]}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
+                  >
+                    <span>{section.title}</span>
+                    <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
 
-                {/* Section Items */}
-                <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="space-y-0.5 py-1">
-                    {section.items.map((item) => {
-                      const Icon = item.icon
-                      const isActive = pathname === item.path || (item.path !== '/dashboard' && item.path !== '/catalog' && pathname.startsWith(item.path))
-                      
-                      return (
-                        <button
-                          key={item.path}
-                          onClick={() => handleNavigation(item.path, item.external)}
-                          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
-                            isActive 
-                              ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                              : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
-                          }`}
-                        >
-                          <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
-                            <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                          </div>
-                          <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                          {item.external && (
-                            <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
-                          )}
-                        </button>
-                      )
-                    })}
+                  {/* Section Items */}
+                  <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-0.5 py-1">
+                      {section.items.map((item) => {
+                        const Icon = item.icon
+                        const isActive = isItemActive(item.path)
+                        
+                        return (
+                          <button
+                            type="button"
+                            key={item.path}
+                            onClick={() => handleNavigation(item.path, item.external)}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
+                              isActive 
+                                ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                                : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
+                              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                            </div>
+                            <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
+                            {item.external && (
+                              <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-800/50 bg-gray-900/80 flex-shrink-0">
+        <div className="p-4 border-t border-gray-800/50 bg-gray-950/90 shrink-0">
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => handleNavigation('/audio')}
+              className="flex items-center gap-2 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3 text-sm font-medium text-gray-200 hover:border-orange-500/30 hover:text-white transition-colors"
+            >
+              <Headphones size={16} className="text-orange-300" />
+              Audio
+            </button>
+            <button
+              type="button"
+              onClick={() => handleNavigation('/watches')}
+              className="flex items-center gap-2 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3 text-sm font-medium text-gray-200 hover:border-orange-500/30 hover:text-white transition-colors"
+            >
+              <Watch size={16} className="text-orange-300" />
+              Watches
+            </button>
+          </div>
           <div className="text-center text-xs text-gray-500">
             <p className="font-semibold">NextX Dashboard v1.0</p>
             <p className="mt-0.5">© 2025 All rights reserved</p>

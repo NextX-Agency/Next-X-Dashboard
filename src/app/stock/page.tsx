@@ -1,21 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus } from 'lucide-react'
+import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
 import { logActivity } from '@/lib/activityLog'
-
-type Item = Database['public']['Tables']['items']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type Stock = Database['public']['Tables']['stock']['Row']
-
-interface StockWithDetails extends Stock {
-  items?: Item | null
-  locations?: Location | null
-}
+import type { StockPageDataResponse, StockPageItem as Item, StockPageLocation as Location, StockPageRow as StockWithDetails } from '@/types/stock'
 
 type SortField = 'item' | 'location' | 'quantity'
 type SortOrder = 'asc' | 'desc'
@@ -30,6 +21,8 @@ export default function StockPage() {
   const [showLowStock, setShowLowStock] = useState(false)
   const [removeModal, setRemoveModal] = useState<{ stock: StockWithDetails; removeQty: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [addForm, setAddForm] = useState({
     item_id: '',
@@ -48,76 +41,47 @@ export default function StockPage() {
   const [sortField, setSortField] = useState<SortField>('quantity')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
-  const loadData = async () => {
-    setLoading(true)
-    const [itemsRes, locationsRes] = await Promise.all([
-      supabase.from('items').select('*').is('deleted_at', null).order('name'),
-      supabase.from('locations').select('*').order('name')
-    ])
-    // Filter out combo items from the items list for stock management
-    if (itemsRes.data) setItems(itemsRes.data.filter(item => !item.is_combo))
-    if (locationsRes.data) setLocations(locationsRes.data)
-    await loadAllStock()
-    setLoading(false)
-  }
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+    if (showLoadingState) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    setLoadError(null)
 
-  const loadAllStock = async () => {
-    const { data, error } = await supabase
-      .from('stock')
-      .select(`
-        *,
-        items (*),
-        locations (*)
-      `)
-      .order('quantity', { ascending: false })
-    
-    if (error) {
-      console.error('Error loading stock:', error)
-      return
-    }
-    
-    // Filter out combo items - they don't have physical stock
-    if (data) {
-      const filteredData = data.filter(stock => !stock.items?.is_combo)
-      setStocks(filteredData as StockWithDetails[])
-    }
-  }
+    try {
+      const response = await fetch('/api/stock', {
+        cache: 'no-store',
+      })
 
-  const loadStockByLocation = async (locationId: string) => {
-    const { data, error } = await supabase
-      .from('stock')
-      .select(`
-        *,
-        items (*),
-        locations (*)
-      `)
-      .eq('location_id', locationId)
-      .order('quantity', { ascending: false })
-    
-    if (error) {
-      console.error('Error loading stock by location:', error)
-      return
-    }
-    
-    // Filter out combo items - they don't have physical stock
-    if (data) {
-      const filteredData = data.filter(stock => !stock.items?.is_combo)
-      setStocks(filteredData as StockWithDetails[])
-    }
-  }
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
 
-  useEffect(() => {
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        if (response.status === 403) {
+          throw new Error('You no longer have access to stock data.')
+        }
+
+        throw new Error('Unable to load stock data right now.')
+      }
+
+      const payload = await response.json() as StockPageDataResponse
+      setItems(payload.data.items.filter((item) => !item.is_combo))
+      setLocations(payload.data.locations)
+      setStocks(payload.data.stocks.filter((stock) => !stock.items?.is_combo))
+    } catch (error) {
+      console.error('Error loading stock data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load stock data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
 
   useEffect(() => {
-    if (selectedLocation) {
-      loadStockByLocation(selectedLocation)
-    } else {
-      loadAllStock()
-    }
-  }, [selectedLocation])
+    void loadData(true)
+  }, [loadData])
 
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,11 +123,7 @@ export default function StockPage() {
 
       setAddForm({ item_id: '', location_id: '', quantity: '' })
       setShowAddForm(false)
-      if (selectedLocation) {
-        await loadStockByLocation(selectedLocation)
-      } else {
-        await loadAllStock()
-      }
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -241,11 +201,7 @@ export default function StockPage() {
 
       setTransferForm({ item_id: '', from_location_id: '', to_location_id: '', quantity: '' })
       setShowTransferForm(false)
-      if (selectedLocation) {
-        await loadStockByLocation(selectedLocation)
-      } else {
-        await loadAllStock()
-      }
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -270,42 +226,48 @@ export default function StockPage() {
       await supabase.from('stock').update({ quantity: newQty }).eq('id', stock.id)
     }
     setRemoveModal(null)
-    if (selectedLocation) {
-      await loadStockByLocation(selectedLocation)
-    } else {
-      await loadAllStock()
-    }
+    await loadData()
   }
 
-  const filteredStocks = showLowStock 
-    ? stocks.filter(s => s.quantity < 5)
-    : stocks
+  const scopedStocks = useMemo(() => {
+    return selectedLocation
+      ? stocks.filter((stock) => stock.location_id === selectedLocation)
+      : stocks
+  }, [selectedLocation, stocks])
+
+  const filteredStocks = useMemo(() => (
+    showLowStock
+      ? scopedStocks.filter((stock) => stock.quantity < 5)
+      : scopedStocks
+  ), [scopedStocks, showLowStock])
     
   // Search and sort filtered stocks
-  const searchedAndSortedStocks = filteredStocks
-    .filter(stock => {
-      if (!searchQuery) return true
-      const query = searchQuery.toLowerCase()
-      return (
-        stock.items?.name?.toLowerCase().includes(query) ||
-        stock.locations?.name?.toLowerCase().includes(query)
-      )
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'item':
-          comparison = (a.items?.name || '').localeCompare(b.items?.name || '')
-          break
-        case 'location':
-          comparison = (a.locations?.name || '').localeCompare(b.locations?.name || '')
-          break
-        case 'quantity':
-          comparison = a.quantity - b.quantity
-          break
-      }
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
+  const searchedAndSortedStocks = useMemo(() => {
+    return filteredStocks
+      .filter(stock => {
+        if (!searchQuery) return true
+        const query = searchQuery.toLowerCase()
+        return (
+          stock.items?.name?.toLowerCase().includes(query) ||
+          stock.locations?.name?.toLowerCase().includes(query)
+        )
+      })
+      .sort((a, b) => {
+        let comparison = 0
+        switch (sortField) {
+          case 'item':
+            comparison = (a.items?.name || '').localeCompare(b.items?.name || '')
+            break
+          case 'location':
+            comparison = (a.locations?.name || '').localeCompare(b.locations?.name || '')
+            break
+          case 'quantity':
+            comparison = a.quantity - b.quantity
+            break
+        }
+        return sortOrder === 'asc' ? comparison : -comparison
+      })
+  }, [filteredStocks, searchQuery, sortField, sortOrder])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -326,15 +288,47 @@ export default function StockPage() {
 
   const hasActiveFilters = searchQuery || selectedLocation || showLowStock
 
-  const lowStockCount = stocks.filter(s => s.quantity < 5).length
-  const totalItems = stocks.length
-  const totalQuantity = stocks.reduce((sum, s) => sum + s.quantity, 0)
+  const lowStockCount = scopedStocks.filter((stock) => stock.quantity < 5).length
+  const totalItems = scopedStocks.length
+  const totalQuantity = scopedStocks.reduce((sum, stock) => sum + stock.quantity, 0)
+  const hasLoadedData = items.length > 0 || locations.length > 0 || stocks.length > 0
 
   if (loading) {
     return (
       <div className="min-h-screen">
         <PageHeader title="Stock Management" subtitle="Track inventory across locations" />
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen pb-20 lg:pb-0">
+        <PageHeader
+          title="Stock Management"
+          subtitle="Inventory data is temporarily unavailable"
+          icon={<Package size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCcw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load stock data"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCcw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
       </div>
     )
   }
@@ -346,7 +340,11 @@ export default function StockPage() {
         subtitle="Track inventory across locations"
         icon={<Package size={24} />}
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCcw size={18} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
             <Button onClick={() => setShowTransferForm(true)} variant="secondary">
               <ArrowRightLeft size={20} />
               <span className="hidden sm:inline">Transfer</span>
@@ -360,6 +358,12 @@ export default function StockPage() {
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox label="Total Items" value={totalItems.toString()} icon={<Package size={20} />} />
@@ -594,14 +598,14 @@ export default function StockPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setRemoveModal(null)}
-                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-11 touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmRemoveStock}
                 disabled={(() => { const q = parseInt(removeModal.removeQty); return isNaN(q) || q <= 0 || q > removeModal.stock.quantity })()}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-[44px] touch-manipulation flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-11 touch-manipulation flex items-center justify-center gap-2"
               >
                 <Minus size={16} /> Remove
               </button>
