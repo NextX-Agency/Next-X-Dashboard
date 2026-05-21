@@ -841,12 +841,14 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         storeName={settings.store_name}
         storeUrl={storeUrl}
         storeDescription={settings.store_description || SEO_CONTENT.defaultDescription}
+        catalogBasePath="/audio"
       />
       {items.length > 0 && (
         <ProductListSchema
           products={productsForSchema}
           storeName={settings.store_name}
           storeUrl={storeUrl}
+          catalogBasePath="/audio"
         />
       )}
 
@@ -863,6 +865,11 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedCategory={selectedCategory}
+        catalogBasePath="/audio"
+        brandLinks={[
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
+        ]}
         onCategoryChange={(catId) => {
           setSelectedCategory(catId)
           setSearchQuery('')
@@ -967,6 +974,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                       onQuickView={() => setSelectedItem(item)}
                       stockStatus={stockInfo.status}
                       stockLevel={stockInfo.available}
+                      catalogBasePath="/audio"
                     />
                   )
                 })}
@@ -1034,6 +1042,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                       })) : undefined}
                       stockStatus={stockInfo.status}
                       stockLevel={stockInfo.available}
+                      catalogBasePath="/audio"
                     />
                   )
                 })}
@@ -1068,6 +1077,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 onAddToCart={addToCartById}
                 bgColor="neutral-50"
                 isComboCarousel={true}
+                catalogBasePath="/audio"
               />
             )}
 
@@ -1083,6 +1093,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 }))}
                 currency={currency}
                 onAddToCart={addToCartById}
+                catalogBasePath="/audio"
               />
             )}
 
@@ -1119,6 +1130,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                   products={collectionProducts}
                   currency={currency}
                   onAddToCart={addToCartById}
+                  catalogBasePath="/audio"
                 />
               )
             })}
@@ -1153,6 +1165,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                   }, 50)
                 }}
                 bgColor={index % 2 === 1 ? 'neutral-50' : 'white'}
+                catalogBasePath="/audio"
               />
             ))}
 
@@ -1176,6 +1189,10 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         whatsappNumber={settings.whatsapp_number}
         storeEmail={settings.store_email}
         categories={categories}
+        brandLinks={[
+          { href: '/watches', label: 'Bekijk Watches' },
+          { href: '/', label: 'NextX Portal' },
+        ]}
         onCategoryClick={(catId) => {
           setSelectedCategory(catId)
           setSearchQuery('')
@@ -1248,6 +1265,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
           storeAddress={settings.store_address}
           whatsappNumber={settings.whatsapp_number}
           storeName={settings.store_name}
+          catalogBasePath="/audio"
           onAddToCart={(quantity) => {
             addToCartWithQuantity(selectedItem, quantity)
           }}

@@ -30,7 +30,7 @@ function WatchesFooterComponent({
     {
       heading: 'Info',
       links: [
-        { label: 'About NextX', href: '/' },
+        { label: 'NextX Portal', href: '/' },
         { label: 'Audio Catalog', href: '/audio' },
       ],
     },

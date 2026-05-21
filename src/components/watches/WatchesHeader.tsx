@@ -24,6 +24,8 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
     { label: 'Collections', href: '/watches#collections' },
     { label: 'New Arrivals', href: '/watches#new' },
     { label: 'About', href: '/watches#about' },
+    { label: 'Audio', href: '/audio' },
+    { label: 'Portal', href: '/' },
   ]
 
   const LogoLockup = ({ onClick }: { onClick?: () => void }) => (
@@ -142,14 +144,22 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             ))}
           </nav>
 
-          <div className="mt-auto px-6 pb-12 flex items-center justify-between">
+          <div className="mt-auto px-6 pb-12 flex items-center justify-between gap-4">
+            <Link
+              href="/audio"
+              onClick={() => setMobileOpen(false)}
+              className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
+              style={{ color: 'var(--w-cream)' }}
+            >
+              Audio Catalog
+            </Link>
             <Link
               href="/"
               onClick={() => setMobileOpen(false)}
               className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
               style={{ color: 'var(--w-cream)' }}
             >
-              ← Back to NextX
+              NextX Portal
             </Link>
           </div>
         </div>

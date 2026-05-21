@@ -630,6 +630,11 @@ export default function ProductDetailPage() {
         searchQuery=""
         onSearchChange={() => {}}
         selectedCategory=""
+        catalogBasePath="/audio"
+        brandLinks={[
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
+        ]}
         onCategoryChange={() => {}}
         onLogoClick={() => router.push('/audio')}
       />
@@ -1110,6 +1115,10 @@ export default function ProductDetailPage() {
         whatsappNumber={settings.whatsapp_number}
         storeEmail={settings.store_email || ''}
         categories={categories}
+        brandLinks={[
+          { href: '/watches', label: 'Bekijk Watches' },
+          { href: '/', label: 'NextX Portal' },
+        ]}
         onCategoryClick={() => {}}
       />
       

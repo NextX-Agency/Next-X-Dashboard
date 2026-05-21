@@ -10,6 +10,11 @@ interface Category {
   name: string
 }
 
+interface BrandLink {
+  href: string
+  label: string
+}
+
 interface NewFooterProps {
   storeName: string
   logoUrl?: string
@@ -19,6 +24,7 @@ interface NewFooterProps {
   storeEmail?: string
   categories: Category[]
   onCategoryClick: (categoryId: string) => void
+  brandLinks?: BrandLink[]
 }
 
 export function NewFooter({
@@ -29,7 +35,8 @@ export function NewFooter({
   whatsappNumber,
   storeEmail,
   categories,
-  onCategoryClick
+  onCategoryClick,
+  brandLinks = []
 }: NewFooterProps) {
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
   const currentYear = new Date().getFullYear()
@@ -100,6 +107,20 @@ export function NewFooter({
                 />
               </a>
             </div>
+
+            {brandLinks.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {brandLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="inline-flex items-center rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Categories */}

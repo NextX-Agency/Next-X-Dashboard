@@ -154,9 +154,10 @@ interface ProductSchemaProps {
   }>
   storeName: string
   storeUrl: string
+  catalogBasePath?: string
 }
 
-export function ProductListSchema({ products, storeName, storeUrl }: ProductSchemaProps) {
+export function ProductListSchema({ products, storeName, storeUrl, catalogBasePath = '/catalog' }: ProductSchemaProps) {
   const itemListSchema = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -168,14 +169,14 @@ export function ProductListSchema({ products, storeName, storeUrl }: ProductSche
       "position": index + 1,
       "item": {
         "@type": "Product",
-        "@id": `${storeUrl}/catalog/${product.id}`,
+          "@id": `${storeUrl}${catalogBasePath}/${product.id}`,
         "name": product.name,
         "description": product.description || `${product.name} - Available at ${storeName} in Suriname`,
         "image": product.image_url || `${storeUrl}/placeholder-product.jpg`,
-        "url": `${storeUrl}/catalog/${product.id}`,
+          "url": `${storeUrl}${catalogBasePath}/${product.id}`,
         "offers": {
           "@type": "Offer",
-          "url": `${storeUrl}/catalog/${product.id}`,
+            "url": `${storeUrl}${catalogBasePath}/${product.id}`,
           "priceCurrency": "SRD",
           "price": product.selling_price_srd || 0,
           "availability": product.stockStatus === 'out-of-stock' 
@@ -319,9 +320,10 @@ interface WebsiteSchemaProps {
   storeName: string
   storeUrl: string
   storeDescription: string
+  catalogBasePath?: string
 }
 
-export function WebsiteSchema({ storeName, storeUrl, storeDescription }: WebsiteSchemaProps) {
+export function WebsiteSchema({ storeName, storeUrl, storeDescription, catalogBasePath = '/catalog' }: WebsiteSchemaProps) {
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
@@ -332,7 +334,7 @@ export function WebsiteSchema({ storeName, storeUrl, storeDescription }: Website
       "@type": "SearchAction",
       "target": {
         "@type": "EntryPoint",
-        "urlTemplate": `${storeUrl}/catalog?search={search_term_string}`
+        "urlTemplate": `${storeUrl}${catalogBasePath}?search={search_term_string}`
       },
       "query-input": "required name=search_term_string"
     }

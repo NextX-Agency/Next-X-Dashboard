@@ -11,6 +11,11 @@ interface Category {
   name: string
 }
 
+interface BrandLink {
+  href: string
+  label: string
+}
+
 interface NewHeaderProps {
   storeName: string
   logoUrl?: string
@@ -25,6 +30,8 @@ interface NewHeaderProps {
   selectedCategory: string
   onCategoryChange: (categoryId: string) => void
   onLogoClick?: () => void
+  catalogBasePath?: string
+  brandLinks?: BrandLink[]
 }
 
 export function NewHeader({
@@ -40,7 +47,9 @@ export function NewHeader({
   onSearchChange,
   selectedCategory,
   onCategoryChange,
-  onLogoClick
+  onLogoClick,
+  catalogBasePath = '/catalog',
+  brandLinks = []
 }: NewHeaderProps) {
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
@@ -85,7 +94,7 @@ export function NewHeader({
         <div className={catalogShellClassName}>
           <div className="flex h-14 items-center justify-between gap-3 sm:h-16 sm:gap-4">
             <Link
-              href="/catalog"
+              href={catalogBasePath}
               className="shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
               aria-label="Ga naar homepagina"
               onClick={(e) => {
@@ -146,6 +155,15 @@ export function NewHeader({
                   </div>
                 </div>
               )}
+              {brandLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-medium text-[#141c2e]/60 transition-colors hover:text-[#141c2e]"
+                >
+                  {link.label}
+                </Link>
+              ))}
               <a
                 href="https://www.nextxagency.com"
                 target="_blank"
@@ -277,6 +295,24 @@ export function NewHeader({
                   Alle Producten
                 </button>
               </div>
+
+              {brandLinks.length > 0 && (
+                <div className="mb-3 border-b border-neutral-100 pb-3">
+                  <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">NextX</p>
+                  <div className="space-y-1">
+                    {brandLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setShowMobileMenu(false)}
+                        className="block w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-[#141c2e]/70 transition-colors hover:bg-neutral-50"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">Categorieën</p>
               {categories.map((cat) => (

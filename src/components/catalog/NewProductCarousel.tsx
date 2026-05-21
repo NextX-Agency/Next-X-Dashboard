@@ -31,6 +31,7 @@ interface NewProductCarouselProps {
   viewAllClick?: () => void
   bgColor?: 'white' | 'neutral-50'
   isComboCarousel?: boolean
+  catalogBasePath?: string
 }
 
 export function NewProductCarousel({ 
@@ -42,7 +43,8 @@ export function NewProductCarousel({
   viewAllHref,
   viewAllClick,
   bgColor = 'white',
-  isComboCarousel = false
+  isComboCarousel = false,
+  catalogBasePath = '/catalog'
 }: NewProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
@@ -142,6 +144,7 @@ export function NewProductCarousel({
             {products.map((product) => {
               const isOutOfStock = product.stockStatus === 'out-of-stock'
               const isLowStock = product.stockStatus === 'low-stock'
+              const productHref = `${catalogBasePath}/${product.id}`
               const stockBadgeText = isLowStock && product.stockLevel && product.stockLevel > 0
                 ? `Nog ${product.stockLevel}`
                 : getStockBadgeText(product.stockStatus || 'in-stock')
@@ -156,7 +159,7 @@ export function NewProductCarousel({
                         : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
                   }`}>
                     {/* Image */}
-                    <Link href={`/catalog/${product.id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden">
+                    <Link href={productHref} className="block relative aspect-square bg-neutral-50 overflow-hidden">
                       {product.image_url ? (
                         <Image
                           src={product.image_url}
@@ -214,7 +217,7 @@ export function NewProductCarousel({
                     
                     {/* Info */}
                     <div className="p-3 flex-1 flex flex-col">
-                      <Link href={`/catalog/${product.id}`} className="block flex-1">
+                      <Link href={productHref} className="block flex-1">
                         <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-10">
                           {product.name}
                         </h3>
@@ -241,7 +244,7 @@ export function NewProductCarousel({
                           isOutOfStock ? (
                             /* Notify button for out of stock */
                             <Link
-                              href={`/catalog/${product.id}`}
+                              href={productHref}
                               onClick={(e) => e.stopPropagation()}
                               className="lg:hidden shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-500"
                               aria-label="Bekijk product"

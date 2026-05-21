@@ -23,6 +23,7 @@ interface NewQuickViewModalProps {
   onAddToCart: (quantity: number) => void
   stockLevel?: number
   stockStatus?: StockStatus
+  catalogBasePath?: string
 }
 
 export function NewQuickViewModal({
@@ -40,7 +41,8 @@ export function NewQuickViewModal({
   storeName = '',
   onAddToCart,
   stockLevel = Infinity,
-  stockStatus = 'in-stock'
+  stockStatus = 'in-stock',
+  catalogBasePath = '/catalog'
 }: NewQuickViewModalProps) {
   const [quantity, setQuantity] = useState(1)
   
@@ -49,6 +51,7 @@ export function NewQuickViewModal({
   const isLowStock = stockStatus === 'low-stock' || (stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock)
   const maxQuantity = isOutOfStock ? 0 : stockLevel
   const canIncrement = quantity < maxQuantity
+  const productHref = `${catalogBasePath}/${id}`
 
   if (!isOpen) return null
 
@@ -269,7 +272,7 @@ export function NewQuickViewModal({
                 )}
                 
                 <Link
-                  href={`/catalog/${id}`}
+                  href={productHref}
                   className="w-full h-12 rounded-xl border border-neutral-200 text-[#141c2e] font-medium flex items-center justify-center gap-2 hover:bg-[#f97015]/5 hover:border-[#f97015]/30 transition-colors"
                 >
                   Bekijk details

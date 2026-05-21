@@ -34,6 +34,7 @@ interface NewProductCardProps {
   stockStatus?: StockStatus
   stockLevel?: number
   showExactStock?: boolean // Whether to show exact "X left" count
+  catalogBasePath?: string
 }
 
 // Generate SEO-friendly alt text for product images
@@ -64,7 +65,8 @@ export function NewProductCard({
   comboItems,
   stockStatus = 'in-stock',
   stockLevel = 0,
-  showExactStock = true // Default to showing exact count for low stock
+  showExactStock = true, // Default to showing exact count for low stock
+  catalogBasePath = '/catalog'
 }: NewProductCardProps) {
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
@@ -73,6 +75,7 @@ export function NewProductCard({
   const stockBadgeText = isLowStock && showExactStock && stockLevel > 0
     ? `Nog ${stockLevel}`
     : getStockBadgeText(stockStatus)
+  const productHref = `${catalogBasePath}/${id}`
 
   // Generate SEO-friendly alt text
   const altText = generateAltText(name, categoryName, isCombo)
@@ -102,7 +105,7 @@ export function NewProductCard({
       </span>
 
       {/* Image Container */}
-      <Link href={`/catalog/${id}`} className="block relative aspect-square bg-neutral-50 overflow-hidden" itemProp="url">
+      <Link href={productHref} className="block relative aspect-square bg-neutral-50 overflow-hidden" itemProp="url">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -189,7 +192,7 @@ export function NewProductCard({
       {/* Content */}
       <div className="p-3 sm:p-4 flex-1 flex flex-col">
         {/* Name */}
-        <Link href={`/catalog/${id}`} className="block shrink-0">
+        <Link href={productHref} className="block shrink-0">
           <h3 className="font-semibold text-[#141c2e] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-10 sm:min-h-11">
             {name}
           </h3>
@@ -254,7 +257,7 @@ export function NewProductCard({
                 e.stopPropagation()
                 e.preventDefault()
                 // Open product page where notification can be set up
-                window.location.href = `/catalog/${id}`
+                window.location.href = productHref
               }}
               className="shrink-0 px-3 h-9 sm:h-10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-xs font-medium"
               aria-label="Melding bij beschikbaarheid"
