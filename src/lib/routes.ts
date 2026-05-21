@@ -62,6 +62,7 @@ export const PROTECTED_API_ROUTES = [
   '/api/dashboard',
   '/api/reports',
   '/api/stock',
+  '/api/orders',
   '/api/upload',
   '/api/delete',
   '/api/migrate',

@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 /**
- * Middleware for server-side route protection
- * 
- * Note: This middleware provides an additional layer of security by checking
+ * Proxy for server-side route protection
+ *
+ * Note: This proxy provides an additional layer of security by checking
  * cookies for session data. The primary authentication is handled client-side
  * by AuthGuard, but this prevents unnecessary server-side rendering of protected pages.
  */
@@ -27,6 +27,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/dashboard',
   '/api/reports',
   '/api/stock',
+  '/api/orders',
   '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
   '/api/delete-commissions', '/api/recalculate-commissions', '/api/fix-combo-price',
   '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
@@ -49,14 +50,14 @@ function isProtectedApiRoute(pathname: string): boolean {
   return PROTECTED_API_PREFIXES.some(prefix => pathname.startsWith(prefix))
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip middleware for static files and Next.js internals
+  // Skip proxy for static files and Next.js internals
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.') // Static files
+    pathname.includes('.')
   ) {
     return NextResponse.next()
   }
@@ -68,20 +69,20 @@ export function middleware(request: NextRequest) {
 
   // Get session data from cookie (set by client-side auth)
   const sessionCookie = request.cookies.get('auth_session')
-  
+
   // For API routes
   if (pathname.startsWith('/api/')) {
     // Check if it's a protected API route
     if (isProtectedApiRoute(pathname)) {
       // For API routes, we'll let the API handler do the full validation
-      // The middleware just checks for basic auth presence
+      // The proxy just checks for basic auth presence
       if (!sessionCookie) {
         return NextResponse.json(
           { error: 'Unauthorized', message: 'Authentication required' },
           { status: 401 }
         )
       }
-      
+
       try {
         const session = JSON.parse(sessionCookie.value)
         if (session.role !== 'admin') {
@@ -128,12 +129,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }

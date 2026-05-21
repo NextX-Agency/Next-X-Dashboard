@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useContext } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, ArrowRight, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
+import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw } from 'lucide-react'
+import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -13,20 +12,14 @@ import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/utils'
-
-type Item = Database['public']['Tables']['items']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type Wallet = Database['public']['Tables']['wallets']['Row']
-type Client = Database['public']['Tables']['clients']['Row']
-type PurchaseOrder = Database['public']['Tables']['purchase_orders']['Row']
-type PurchaseOrderItem = Database['public']['Tables']['purchase_order_items']['Row']
-
-interface OrderWithDetails extends PurchaseOrder {
-  wallets?: Wallet
-  locations?: Location
-  clients?: Client | null
-  purchase_order_items?: (PurchaseOrderItem & { items?: Item })[]
-}
+import type {
+  OrdersPageClient as Client,
+  OrdersPageDataResponse,
+  OrdersPageItem as Item,
+  OrdersPageLocation as Location,
+  OrdersPageOrder as OrderWithDetails,
+  OrdersPageWallet as Wallet,
+} from '@/types/orders'
 
 type OrderStatus = 'pending' | 'ordered' | 'shipped' | 'partially_received' | 'received' | 'cancelled'
 type SortField = 'date' | 'amount' | 'status'
@@ -65,6 +58,8 @@ export default function OrdersPage() {
   const [receiveItems, setReceiveItems] = useState<ReceiveItemForm[]>([])
   const [editingOrder, setEditingOrder] = useState<OrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
 
@@ -88,27 +83,49 @@ export default function OrdersPage() {
   const [sortField, setSortField] = useState<SortField>('date')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
 
-  const loadData = async () => {
-    setLoading(true)
-    const [ordersRes, itemsRes, locationsRes, walletsRes, clientsRes] = await Promise.all([
-      supabase.from('purchase_orders').select('*, wallets(*), locations(*), clients(*), purchase_order_items(*, items(*))').order('created_at', { ascending: false }),
-      supabase.from('items').select('*').is('deleted_at', null).order('name'),
-      supabase.from('locations').select('*').order('name'),
-      supabase.from('wallets').select('*').order('person_name'),
-      supabase.from('clients').select('*').order('name')
-    ])
-    
-    if (ordersRes.data) setOrders(ordersRes.data as OrderWithDetails[])
-    if (itemsRes.data) setItems(itemsRes.data)
-    if (locationsRes.data) setLocations(locationsRes.data)
-    if (walletsRes.data) setWallets(walletsRes.data)
-    if (clientsRes.data) setClients(clientsRes.data)
-    setLoading(false)
-  }
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+    if (showLoadingState) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    setLoadError(null)
+
+    try {
+      const response = await fetch('/api/orders', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to order data.')
+        }
+
+        throw new Error('Unable to load order data right now.')
+      }
+
+      const payload = await response.json() as OrdersPageDataResponse
+      setOrders(payload.data.orders)
+      setItems(payload.data.items)
+      setLocations(payload.data.locations)
+      setWallets(payload.data.wallets)
+      setClients(payload.data.clients)
+    } catch (error) {
+      console.error('Error loading order data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load order data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   const resetOrderForm = () => {
     setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
@@ -383,7 +400,7 @@ export default function OrdersPage() {
       }
 
       resetOrderForm()
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error saving order:', error)
       alert('Error saving order')
@@ -450,7 +467,7 @@ export default function OrdersPage() {
       }
 
       await supabase.from('purchase_orders').update({ status: 'cancelled' }).eq('id', order.id)
-      loadData()
+      await loadData()
       return
     }
 
@@ -470,7 +487,7 @@ export default function OrdersPage() {
       userId: user?.id
     })
     
-    loadData()
+    await loadData()
   }
 
   // Open receive modal with editable quantities
@@ -568,7 +585,7 @@ export default function OrdersPage() {
 
       setShowReceiveModal(false)
       setReceivingOrder(null)
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error receiving shipment:', error)
       alert('Error processing receipt')
@@ -671,7 +688,7 @@ export default function OrdersPage() {
       userId: user?.id
     })
 
-    loadData()
+    await loadData()
   }
 
   const getStatusIcon = (status: string) => {
@@ -740,11 +757,44 @@ export default function OrdersPage() {
     return displayCurrency === 'USD' ? totalUSD / nonCancelled.length : (totalUSD * exchangeRate) / nonCancelled.length
   }
 
+  const hasLoadedData = orders.length > 0 || items.length > 0 || locations.length > 0 || wallets.length > 0 || clients.length > 0
+
   if (loading) {
     return (
       <div className="min-h-screen">
         <PageHeader title="Orders" subtitle="Manage purchase orders and inventory" />
         <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen pb-20 lg:pb-0">
+        <PageHeader
+          title="Orders"
+          subtitle="Order data is temporarily unavailable"
+          icon={<ClipboardList size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCcw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load orders"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCcw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
       </div>
     )
   }
@@ -756,14 +806,26 @@ export default function OrdersPage() {
         subtitle="Manage purchase orders and inventory"
         icon={<ClipboardList size={24} />}
         action={
-          <Button onClick={() => setShowOrderForm(true)} variant="primary">
-            <Plus size={20} />
-            <span className="hidden sm:inline">New Order</span>
-          </Button>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCcw size={18} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button onClick={() => setShowOrderForm(true)} variant="primary">
+              <Plus size={20} />
+              <span className="hidden sm:inline">New Order</span>
+            </Button>
+          </div>
         }
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox 
@@ -798,7 +860,7 @@ export default function OrdersPage() {
               Filters & Sort
             </h2>
             {hasActiveFilters && (
-              <Button onClick={clearFilters} variant="ghost" size="sm" className="min-h-[40px] touch-manipulation">
+              <Button onClick={clearFilters} variant="ghost" size="sm" className="min-h-10 touch-manipulation">
                 <X size={16} />
                 Clear
               </Button>
@@ -813,13 +875,13 @@ export default function OrdersPage() {
                 placeholder="Search orders, items, supplier..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 min-h-[48px] bg-muted border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-9 pr-3 py-2 min-h-12 bg-muted border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <Select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="min-h-[48px]"
+              className="min-h-12"
             >
               <option value="">All Statuses</option>
               <option value="pending">Pending</option>
@@ -832,7 +894,7 @@ export default function OrdersPage() {
             <Select
               value={filterLocation}
               onChange={(e) => setFilterLocation(e.target.value)}
-              className="min-h-[48px]"
+              className="min-h-12"
             >
               <option value="">All Locations</option>
               {locations.map(loc => (
@@ -844,7 +906,7 @@ export default function OrdersPage() {
             <Select
               value={filterWallet}
               onChange={(e) => setFilterWallet(e.target.value)}
-              className="min-h-[48px]"
+              className="min-h-12"
             >
               <option value="">All Wallets</option>
               {wallets.map(w => (
@@ -856,21 +918,21 @@ export default function OrdersPage() {
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               placeholder="From date"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
             <Input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               placeholder="To date"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
             <div className="flex gap-2">
               <Button
                 onClick={() => toggleSort('date')}
                 variant={sortField === 'date' ? 'primary' : 'secondary'}
                 size="sm"
-                className="flex-1 min-h-[44px] touch-manipulation"
+                className="flex-1 min-h-11 touch-manipulation"
               >
                 <ArrowUpDown size={14} />
                 Date
@@ -879,7 +941,7 @@ export default function OrdersPage() {
                 onClick={() => toggleSort('amount')}
                 variant={sortField === 'amount' ? 'primary' : 'secondary'}
                 size="sm"
-                className="flex-1 min-h-[44px] touch-manipulation"
+                className="flex-1 min-h-11 touch-manipulation"
               >
                 <ArrowUpDown size={14} />
                 Amount
@@ -951,7 +1013,7 @@ export default function OrdersPage() {
                           onClick={() => handleUpdateStatus(order, 'ordered')} 
                           variant="secondary" 
                           size="sm"
-                          className="min-h-[40px] touch-manipulation"
+                          className="min-h-10 touch-manipulation"
                         >
                           <Package size={14} />
                           <span className="hidden xs:inline">Mark</span> Ordered
@@ -962,7 +1024,7 @@ export default function OrdersPage() {
                           onClick={() => handleUpdateStatus(order, 'shipped')} 
                           variant="secondary" 
                           size="sm"
-                          className="min-h-[40px] touch-manipulation"
+                          className="min-h-10 touch-manipulation"
                         >
                           <Truck size={14} />
                           <span className="hidden xs:inline">Mark</span> Shipped
@@ -973,7 +1035,7 @@ export default function OrdersPage() {
                           onClick={() => handleUpdateStatus(order, 'received')} 
                           variant="primary" 
                           size="sm"
-                          className="min-h-[40px] touch-manipulation"
+                          className="min-h-10 touch-manipulation"
                         >
                           <Download size={14} />
                           Receive
@@ -984,7 +1046,7 @@ export default function OrdersPage() {
                           onClick={() => handleUpdateStatus(order, 'received')} 
                           variant="primary" 
                           size="sm"
-                          className="min-h-[40px] touch-manipulation"
+                          className="min-h-10 touch-manipulation"
                         >
                           <PackageCheck size={14} />
                           Receive More
@@ -995,23 +1057,23 @@ export default function OrdersPage() {
                           onClick={() => handleUpdateStatus(order, 'cancelled')} 
                           variant="ghost" 
                           size="sm"
-                          className="text-destructive hover:text-destructive min-h-[40px] touch-manipulation"
+                          className="text-destructive hover:text-destructive min-h-10 touch-manipulation"
                         >
                           <XCircle size={14} />
                           Cancel
                         </Button>
                       )}
                       {/* Action buttons */}
-                      <Button onClick={() => handleViewOrder(order)} variant="ghost" size="sm" className="min-h-[40px] min-w-[40px] touch-manipulation">
+                      <Button onClick={() => handleViewOrder(order)} variant="ghost" size="sm" className="min-h-10 min-w-10 touch-manipulation">
                         <Eye size={14} />
                       </Button>
                       {order.status === 'pending' && (
-                        <Button onClick={() => handleEditOrder(order)} variant="ghost" size="sm" className="min-h-[40px] min-w-[40px] touch-manipulation">
+                        <Button onClick={() => handleEditOrder(order)} variant="ghost" size="sm" className="min-h-10 min-w-10 touch-manipulation">
                           <Edit size={14} />
                         </Button>
                       )}
                       {(order.status === 'pending' || order.status === 'cancelled') && (
-                        <Button onClick={() => handleDeleteOrder(order)} variant="ghost" size="sm" className="text-destructive hover:text-destructive min-h-[40px] min-w-[40px] touch-manipulation">
+                        <Button onClick={() => handleDeleteOrder(order)} variant="ghost" size="sm" className="text-destructive hover:text-destructive min-h-10 min-w-10 touch-manipulation">
                           <Trash2 size={14} />
                         </Button>
                       )}
@@ -1037,7 +1099,7 @@ export default function OrdersPage() {
               <Select
                 value={orderForm.wallet_id}
                 onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
-                className="min-h-[48px]"
+                className="min-h-12"
                 required
               >
                 <option value="">Select wallet</option>
@@ -1053,7 +1115,7 @@ export default function OrdersPage() {
               <Select
                 value={orderForm.location_id}
                 onChange={(e) => setOrderForm({ ...orderForm, location_id: e.target.value })}
-                className="min-h-[48px]"
+                className="min-h-12"
                 required
               >
                 <option value="">Select location</option>
@@ -1070,7 +1132,7 @@ export default function OrdersPage() {
               <Select
                 value={orderForm.currency}
                 onChange={(e) => setOrderForm({ ...orderForm, currency: e.target.value as Currency })}
-                className="min-h-[48px]"
+                className="min-h-12"
                 required
               >
                 <option value="USD">USD</option>
@@ -1082,7 +1144,7 @@ export default function OrdersPage() {
               <Select
                 value={orderForm.supplier_id}
                 onChange={(e) => setOrderForm({ ...orderForm, supplier_id: e.target.value })}
-                className="min-h-[48px]"
+                className="min-h-12"
               >
                 <option value="">No supplier</option>
                 {clients.map(c => (
@@ -1096,7 +1158,7 @@ export default function OrdersPage() {
                 type="date"
                 value={orderForm.expected_arrival}
                 onChange={(e) => setOrderForm({ ...orderForm, expected_arrival: e.target.value })}
-                className="min-h-[48px]"
+                className="min-h-12"
               />
             </div>
           </div>
@@ -1119,7 +1181,7 @@ export default function OrdersPage() {
           <div className="border border-border rounded-lg p-3 sm:p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-medium">Order Items</h3>
-              <Button type="button" onClick={addOrderItem} variant="secondary" size="sm" className="min-h-[40px] touch-manipulation">
+              <Button type="button" onClick={addOrderItem} variant="secondary" size="sm" className="min-h-10 touch-manipulation">
                 <Plus size={14} />
                 Add Item
               </Button>
@@ -1132,7 +1194,7 @@ export default function OrdersPage() {
                     <Select
                       value={orderItem.item_id}
                       onChange={(e) => updateOrderItem(index, 'item_id', e.target.value)}
-                      className="min-h-[48px]"
+                      className="min-h-12"
                       required
                     >
                       <option value="">Select item</option>
@@ -1152,7 +1214,7 @@ export default function OrdersPage() {
                         placeholder="Qty"
                         value={orderItem.quantity}
                         onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
-                        className="min-h-[48px]"
+                        className="min-h-12"
                         required
                       />
                     </div>
@@ -1167,7 +1229,7 @@ export default function OrdersPage() {
                           placeholder="Unit cost"
                           value={orderItem.unit_cost}
                           onChange={(e) => updateOrderItem(index, 'unit_cost', e.target.value)}
-                          className={cn("min-h-[48px]", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
+                          className={cn("min-h-12", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
                           required
                         />
                         {priceChanges[orderItem.item_id] !== undefined && (
@@ -1189,7 +1251,7 @@ export default function OrdersPage() {
                       onClick={() => removeOrderItem(index)}
                       variant="ghost"
                       size="sm"
-                      className="text-destructive min-h-[40px] w-full sm:w-auto touch-manipulation"
+                      className="text-destructive min-h-10 w-full sm:w-auto touch-manipulation"
                     >
                       <X size={14} />
                       <span className="sm:hidden ml-1">Remove</span>
@@ -1216,10 +1278,10 @@ export default function OrdersPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-            <Button type="button" onClick={resetOrderForm} variant="secondary" className="min-h-[48px] touch-manipulation order-2 sm:order-1">
+            <Button type="button" onClick={resetOrderForm} variant="secondary" className="min-h-12 touch-manipulation order-2 sm:order-1">
               Cancel
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting} className="min-h-[48px] touch-manipulation order-1 sm:order-2">
+            <Button type="submit" variant="primary" disabled={submitting} className="min-h-12 touch-manipulation order-1 sm:order-2">
               {submitting ? 'Saving...' : editingOrder ? 'Update Order' : 'Create Order'}
             </Button>
           </div>
@@ -1321,7 +1383,7 @@ export default function OrdersPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={() => { setShowViewOrder(false); setViewingOrder(null) }} variant="secondary" className="min-h-[48px] touch-manipulation">
+              <Button onClick={() => { setShowViewOrder(false); setViewingOrder(null) }} variant="secondary" className="min-h-12 touch-manipulation">
                 Close
               </Button>
             </div>
@@ -1366,7 +1428,7 @@ export default function OrdersPage() {
                           const val = Math.max(0, Math.min(ri.remaining, parseInt(e.target.value) || 0))
                           setReceiveItems(prev => prev.map((item, i) => i === idx ? { ...item, receiving: val.toString() } : item))
                         }}
-                        className="w-24 min-h-[44px]"
+                        className="w-24 min-h-11"
                       />
                       <span className="text-xs text-muted-foreground">/ {ri.remaining} remaining</span>
                     </div>
@@ -1389,7 +1451,7 @@ export default function OrdersPage() {
                 type="button"
                 onClick={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]) }}
                 variant="secondary"
-                className="min-h-[48px] touch-manipulation"
+                className="min-h-12 touch-manipulation"
               >
                 Cancel
               </Button>
@@ -1398,7 +1460,7 @@ export default function OrdersPage() {
                 onClick={handleReceiveShipment}
                 variant="primary"
                 disabled={submitting || receiveItems.reduce((s, i) => s + (parseInt(i.receiving) || 0), 0) === 0}
-                className="min-h-[48px] touch-manipulation"
+                className="min-h-12 touch-manipulation"
               >
                 {submitting ? 'Processing...' : 'Confirm Receipt'}
               </Button>
