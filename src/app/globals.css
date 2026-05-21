@@ -1616,14 +1616,16 @@ button, a, input, select, textarea {
   align-items: flex-end;
 }
 
-.portal-eyebrow {
+.portal-brandmark {
   display: block;
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  margin-bottom: 0.6rem;
+  width: clamp(118px, 11vw, 184px);
+  margin-bottom: 0.95rem;
+}
+
+.portal-brandmark-image {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .portal-title {

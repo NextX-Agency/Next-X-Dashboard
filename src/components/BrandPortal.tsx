@@ -36,7 +36,15 @@ export default function BrandPortal() {
         <div className="portal-overlay portal-audio-overlay" aria-hidden="true" />
 
         <div className="portal-content portal-audio-content">
-          <span className="portal-eyebrow">NextX</span>
+          <span className="portal-brandmark">
+            <Image
+              src="/nextx-logo-dark.png"
+              alt="NextX"
+              width={960}
+              height={381}
+              className="portal-brandmark-image"
+            />
+          </span>
           <h2 className="portal-title portal-audio-title">Audio</h2>
           <p className="portal-sub">Premium In-Ear Monitors &amp; Audiophile Gear</p>
           <span className="portal-cta">Explore Collection →</span>
@@ -65,7 +73,15 @@ export default function BrandPortal() {
         <div className="portal-overlay portal-watches-overlay" aria-hidden="true" />
 
         <div className="portal-content portal-watches-content">
-          <span className="portal-eyebrow">NextX</span>
+          <span className="portal-brandmark">
+            <Image
+              src="/nextx-logo-dark.png"
+              alt="NextX"
+              width={960}
+              height={381}
+              className="portal-brandmark-image"
+            />
+          </span>
           <h2 className="portal-title portal-watches-title">Watches</h2>
           <p className="portal-sub">Curated Luxury Timepieces</p>
           <span className="portal-cta">← Explore Collection</span>
