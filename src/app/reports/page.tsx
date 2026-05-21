@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
 import {
   BarChart3, TrendingUp, Package, DollarSign, Calendar,
   Award, ShoppingBag, Wallet, MapPin, Layers, Sparkles, Users,
@@ -13,45 +11,23 @@ import {
 import { PageHeader, Badge } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
+import type {
+  ReportCategory as Category,
+  ReportComboItem as ComboItem,
+  ReportCommission as CommissionWithSale,
+  ReportExpense as ExpenseWithCategory,
+  ReportExpenseCategory as ExpenseCategory,
+  ReportItem as Item,
+  ReportLocation as Location,
+  ReportReservation as ReservationWithItem,
+  ReportsDataResponse,
+  ReportSale as SaleWithItems,
+  ReportStock as Stock,
+  ReportWallet as WalletRow,
+  ReportSeller as Seller,
+} from '@/types/reports'
 
 // ─── Types ───────────────────────────────────────────────────────────
-type Sale = Database['public']['Tables']['sales']['Row']
-type Item = Database['public']['Tables']['items']['Row']
-type Stock = Database['public']['Tables']['stock']['Row']
-type Expense = Database['public']['Tables']['expenses']['Row']
-type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
-type Commission = Database['public']['Tables']['commissions']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type WalletRow = Database['public']['Tables']['wallets']['Row']
-type Reservation = Database['public']['Tables']['reservations']['Row']
-type ComboItem = Database['public']['Tables']['combo_items']['Row']
-type Seller = Database['public']['Tables']['sellers']['Row']
-type Category = Database['public']['Tables']['categories']['Row']
-
-interface SaleWithItems extends Sale {
-  sale_items?: Array<{
-    item_id: string
-    quantity: number
-    unit_price: number
-    subtotal: number
-  }>
-}
-
-interface CommissionWithSale extends Commission {
-  sales?: {
-    currency: string
-  }
-}
-
-interface ExpenseWithCategory extends Expense {
-  expense_categories?: ExpenseCategory
-}
-
-interface ReservationWithItem extends Reservation {
-  items?: Item
-  clients?: { name: string }
-}
-
 interface MonthlySales {
   month: string
   monthKey: string
@@ -184,6 +160,7 @@ export default function ReportsPage() {
   const [sellers, setSellers] = useState<Seller[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<PeriodType>('monthly')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
@@ -224,36 +201,44 @@ export default function ReportsPage() {
   // ─── Data Loading ───
   const loadData = useCallback(async () => {
     setLoading(true)
-    const [
-      salesRes, itemsRes, stocksRes, locationsRes,
-      expensesRes, commissionsRes, walletsRes,
-      reservationsRes, comboItemsRes, sellersRes, categoriesRes
-    ] = await Promise.all([
-      supabase.from('sales').select('*, sale_items(*)').order('created_at', { ascending: false }),
-      supabase.from('items').select('*'),
-      supabase.from('stock').select('*'),
-      supabase.from('locations').select('*'),
-      supabase.from('expenses').select('*, expense_categories(*)').order('created_at', { ascending: false }),
-      supabase.from('commissions').select('*, sales(currency)').order('created_at', { ascending: false }),
-      supabase.from('wallets').select('*'),
-      supabase.from('reservations').select('*, items(*), clients(name)').order('created_at', { ascending: false }),
-      supabase.from('combo_items').select('*'),
-      supabase.from('sellers').select('*'),
-      supabase.from('categories').select('*'),
-    ])
+    setLoadError(null)
 
-    if (salesRes.data) setAllSales(salesRes.data as SaleWithItems[])
-    if (itemsRes.data) setItems(itemsRes.data as Item[])
-    if (stocksRes.data) setStocks(stocksRes.data)
-    if (locationsRes.data) setLocations(locationsRes.data)
-    if (expensesRes.data) setAllExpenses(expensesRes.data as ExpenseWithCategory[])
-    if (commissionsRes.data) setAllCommissions(commissionsRes.data as CommissionWithSale[])
-    if (walletsRes.data) setWallets(walletsRes.data)
-    if (reservationsRes.data) setReservations(reservationsRes.data as ReservationWithItem[])
-    if (comboItemsRes.data) setComboItems(comboItemsRes.data)
-    if (sellersRes.data) setSellers(sellersRes.data)
-    if (categoriesRes.data) setCategories(categoriesRes.data)
-    setLoading(false)
+    try {
+      const response = await fetch('/api/reports', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to this report.')
+        }
+
+        throw new Error('Unable to load report data right now.')
+      }
+
+      const payload = await response.json() as ReportsDataResponse
+
+      setAllSales(payload.data.sales)
+      setItems(payload.data.items)
+      setStocks(payload.data.stocks)
+      setLocations(payload.data.locations)
+      setAllExpenses(payload.data.expenses)
+      setAllCommissions(payload.data.commissions)
+      setWallets(payload.data.wallets)
+      setReservations(payload.data.reservations)
+      setComboItems(payload.data.comboItems)
+      setSellers(payload.data.sellers)
+      setCategories(payload.data.categories)
+    } catch (error) {
+      console.error('Error loading reports data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load report data right now.')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
@@ -406,7 +391,7 @@ export default function ReportsPage() {
     [displayCurrency, rate]
   )
 
-  const expenseInDisplay = useCallback((exp: Expense): number => {
+  const expenseInDisplay = useCallback((exp: ExpenseWithCategory): number => {
     if (displayCurrency === 'USD') {
       return exp.currency === 'USD' ? exp.amount : exp.amount / 40  // Use 40 as standard rate
     }
@@ -884,11 +869,26 @@ export default function ReportsPage() {
     }
   }, [isCurrentTab, period, now, totalRevenue, netProfit])
 
+  const hasLoadedData = allSales.length > 0 || items.length > 0 || locations.length > 0 || allExpenses.length > 0 || wallets.length > 0
+
   // ─── Loading ───
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--background)] pb-20">
-        <PageHeader title="Reports & Insights" subtitle="Loading financial data..." icon={<BarChart3 className="w-6 h-6" />} />
+      <div className="min-h-screen bg-(--background) pb-20">
+        <PageHeader
+          title="Reports & Insights"
+          subtitle="Loading financial data..."
+          icon={<BarChart3 className="w-6 h-6" />}
+          action={
+            <button
+              type="button"
+              disabled
+              className="inline-flex items-center rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground opacity-70"
+            >
+              Syncing...
+            </button>
+          }
+        />
         <div className="px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -897,6 +897,43 @@ export default function ReportsPage() {
                 <div className="h-8 w-32 bg-muted rounded" />
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-(--background) pb-20">
+        <PageHeader
+          title="Reports & Insights"
+          subtitle="Financial reporting is temporarily unavailable"
+          icon={<BarChart3 className="w-6 h-6" />}
+          action={
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="inline-flex items-center rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              Retry
+            </button>
+          }
+        />
+        <div className="px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6">
+          <div className="card-premium border border-red-500/20 bg-red-500/5 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-red-500/10 p-2 text-red-500">
+                <BarChart3 size={18} />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Report data could not be loaded</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  The page now loads through a single protected API request. Retrying will re-fetch the full report dataset without leaving the page.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -933,14 +970,29 @@ export default function ReportsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-[var(--background)] pb-20">
+    <div className="min-h-screen bg-(--background) pb-20">
       <PageHeader
         title="Reports & Insights"
         subtitle="Comprehensive financial analytics and performance metrics"
         icon={<BarChart3 className="w-6 h-6" />}
+        action={
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            className="inline-flex items-center rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
+          >
+            Refresh Data
+          </button>
+        }
       />
 
       <div className="px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 space-y-3 sm:space-y-5">
+        {loadError && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Report sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* ─── Tab Switcher ─── */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex gap-1 p-1.5 bg-card rounded-2xl shadow-sm border border-border">
@@ -948,7 +1000,7 @@ export default function ReportsPage() {
               onClick={() => setActiveTab('current')}
               className={`flex-1 sm:flex-none px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                 activeTab === 'current'
-                  ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25'
+                  ? 'bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
@@ -959,7 +1011,7 @@ export default function ReportsPage() {
               onClick={() => setActiveTab('historical')}
               className={`flex-1 sm:flex-none px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                 activeTab === 'historical'
-                  ? 'bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25'
+                  ? 'bg-linear-to-r from-purple-500 via-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/25'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
@@ -975,7 +1027,7 @@ export default function ReportsPage() {
             <div className="flex gap-1 overflow-x-auto p-1.5 bg-card rounded-2xl shadow-sm border border-border scrollbar-thin">
               {(['daily', 'weekly', 'monthly', 'yearly'] as PeriodType[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)} className={`px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold whitespace-nowrap text-sm transition-all duration-200 ${
-                  period === p ? 'bg-gradient-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  period === p ? 'bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
                   {p.charAt(0).toUpperCase() + p.slice(1)}
                 </button>
@@ -1275,11 +1327,11 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Revenue */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-blue-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
                     <DollarSign className="w-4 h-4 text-blue-600" />
                   </div>
                   <span className="text-xs sm:text-sm text-muted-foreground font-medium">Revenue</span>
@@ -1293,11 +1345,11 @@ export default function ReportsPage() {
 
           {/* Gross Profit */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-green-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-green-500/10 to-green-600/10 border border-green-500/20 flex items-center justify-center">
                     <TrendingUp className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-xs sm:text-sm text-muted-foreground font-medium">Gross Profit</span>
@@ -1311,11 +1363,11 @@ export default function ReportsPage() {
 
           {/* Net Profit */}
           <div className="card-premium group relative overflow-hidden">
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent blur-2xl`} />
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent blur-2xl`} />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
                     <Target className={`w-4 h-4 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
                   </div>
                   <span className="text-xs sm:text-sm text-muted-foreground font-medium">Net Profit</span>
@@ -1331,11 +1383,11 @@ export default function ReportsPage() {
 
           {/* Expenses */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-red-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20 flex items-center justify-center">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-red-500/10 to-red-600/10 border border-red-500/20 flex items-center justify-center">
                     <Wallet className="w-4 h-4 text-red-600" />
                   </div>
                   <span className="text-xs sm:text-sm text-muted-foreground font-medium">Expenses</span>
@@ -1349,10 +1401,10 @@ export default function ReportsPage() {
 
           {/* Commissions */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-orange-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
                   <Users className="w-4 h-4 text-orange-600" />
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground font-medium">Commissions</span>
@@ -1364,10 +1416,10 @@ export default function ReportsPage() {
 
           {/* Avg Transaction */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-purple-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/20 flex items-center justify-center">
                   <ShoppingBag className="w-4 h-4 text-purple-600" />
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground font-medium">Avg Transaction</span>
@@ -1379,10 +1431,10 @@ export default function ReportsPage() {
 
           {/* Combos */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-pink-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/20 flex items-center justify-center">
                   <Layers className="w-4 h-4 text-pink-600" />
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground font-medium">Combos Sold</span>
@@ -1394,10 +1446,10 @@ export default function ReportsPage() {
 
           {/* Wallet Balance */}
           <div className="card-premium group relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-transparent blur-2xl" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-linear-to-br from-cyan-500/10 to-transparent blur-2xl" />
             <div className="relative">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
                   <CreditCard className="w-4 h-4 text-cyan-600" />
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground font-medium">Wallet Balance</span>
@@ -1415,18 +1467,18 @@ export default function ReportsPage() {
             <div className="px-4 pb-4 space-y-4">
               {/* P&L Flow */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-2 sm:gap-3 items-center">
-                <div className="rounded-xl p-3 sm:p-4 bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/20 text-center">
+                <div className="rounded-xl p-3 sm:p-4 bg-linear-to-br from-blue-500/10 to-transparent border border-blue-500/20 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Revenue</div>
                   <div className="text-xl sm:text-2xl font-bold text-blue-600">{formatCurrency(totalRevenue, displayCurrency)}</div>
                 </div>
                 <div className="hidden md:flex items-center justify-center"><ArrowRight size={20} className="text-muted-foreground" /></div>
-                <div className="rounded-xl p-4 bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 text-center">
+                <div className="rounded-xl p-4 bg-linear-to-br from-green-500/10 to-transparent border border-green-500/20 text-center">
                   <div className="text-xs text-muted-foreground mb-1">Gross Profit</div>
                   <div className="text-2xl font-bold text-green-600">{formatCurrency(totalGrossProfit, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">{grossMarginPct.toFixed(1)}% margin</div>
                 </div>
                 <div className="hidden md:flex items-center justify-center"><ArrowRight size={20} className="text-muted-foreground" /></div>
-                <div className={`rounded-xl p-4 bg-gradient-to-br ${netProfit >= 0 ? 'from-emerald-500/10 border-emerald-500/20' : 'from-red-500/10 border-red-500/20'} to-transparent border text-center`}>
+                <div className={`rounded-xl p-4 bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10 border-emerald-500/20' : 'from-red-500/10 border-red-500/20'} to-transparent border text-center`}>
                   <div className="text-xs text-muted-foreground mb-1">Net Profit</div>
                   <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(netProfit, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">{netMarginPct.toFixed(1)}% net margin</div>
@@ -1435,17 +1487,17 @@ export default function ReportsPage() {
 
               {/* Deductions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
+                <div className="p-3 sm:p-4 bg-linear-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
                   <div className="text-xs text-muted-foreground mb-1">Operating Expenses</div>
                   <div className="text-lg sm:text-xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">{expensesByCategory.included.length} categories</div>
                 </div>
-                <div className="p-4 bg-gradient-to-r from-orange-500/10 to-transparent rounded-xl border border-orange-500/20">
+                <div className="p-4 bg-linear-to-r from-orange-500/10 to-transparent rounded-xl border border-orange-500/20">
                   <div className="text-xs text-muted-foreground mb-1">Commissions</div>
                   <div className="text-xl font-bold text-orange-600">{formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">{filteredCommissions.length} payments</div>
                 </div>
-                <div className="p-4 bg-gradient-to-r from-purple-500/10 to-transparent rounded-xl border border-purple-500/20">
+                <div className="p-4 bg-linear-to-r from-purple-500/10 to-transparent rounded-xl border border-purple-500/20">
                   <div className="text-xs text-muted-foreground mb-1">Total Obligations</div>
                   <div className="text-xl font-bold text-purple-600">{formatCurrency(totalExpensesAmt + totalCommissionsAmt, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">
@@ -1456,7 +1508,7 @@ export default function ReportsPage() {
 
               {/* Projection (monthly only) */}
               {projection && (
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-indigo-500/10 to-transparent rounded-xl border border-indigo-500/20">
+                <div className="p-3 sm:p-4 bg-linear-to-r from-indigo-500/10 to-transparent rounded-xl border border-indigo-500/20">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
                     <div className="flex items-center gap-2">
                       <Target size={16} className="text-indigo-600" />
@@ -1477,7 +1529,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all"
+                    <div className="h-full bg-linear-to-r from-indigo-500 to-indigo-600 rounded-full transition-all"
                       style={{ width: `${Math.min(100, (projection.daysElapsed / projection.daysInMonth) * 100)}%` }} />
                   </div>
                 </div>
@@ -1485,7 +1537,7 @@ export default function ReportsPage() {
 
               {/* Pending Reservations */}
               {reservationSummary.activeCount > 0 && (
-                <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-500/10 to-transparent rounded-xl border border-amber-500/20">
+                <div className="p-3 sm:p-4 bg-linear-to-r from-amber-500/10 to-transparent rounded-xl border border-amber-500/20">
                   <div className="flex items-center gap-2 mb-2 sm:mb-1">
                     <Clock size={16} className="text-amber-600" />
                     <span className="text-sm font-bold text-foreground">Pending Reservations</span>
@@ -1649,7 +1701,7 @@ export default function ReportsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-primary to-orange-600 rounded-full" style={{ width: `${pm.pct}%` }} />
+                      <div className="h-full bg-linear-to-r from-primary to-orange-600 rounded-full" style={{ width: `${pm.pct}%` }} />
                     </div>
                     <span className="text-xs font-medium text-muted-foreground w-12 text-right">{pm.pct.toFixed(1)}%</span>
                   </div>
@@ -1706,14 +1758,14 @@ export default function ReportsPage() {
                   {expensesByCategory.included.map((exp, i) => {
                     const pct = totalExpensesAmt > 0 ? (exp.amount / totalExpensesAmt) * 100 : 0
                     return (
-                      <div key={i} className="p-3 bg-gradient-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
+                      <div key={i} className="p-3 bg-linear-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
                         <div className="flex justify-between items-center mb-2">
                           <span className="font-bold text-sm sm:text-base">{exp.categoryName}</span>
                           <span className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(exp.amount, displayCurrency)}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-linear-to-r from-red-500 to-red-600 rounded-full" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="text-xs font-medium text-muted-foreground w-12 text-right">{pct.toFixed(1)}%</span>
                         </div>
@@ -1743,9 +1795,9 @@ export default function ReportsPage() {
                 const prev = monthlySalesHistory[i + 1]
                 const growth = prev ? pctChange(monthData.totalSales, prev.totalSales) : null
                 return (
-                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all gap-2 sm:gap-3">
+                  <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-linear-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all gap-2 sm:gap-3">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/10 to-primary/5 border border-primary/20 flex items-center justify-center">
                         <Calendar className="w-5 h-5 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1789,9 +1841,9 @@ export default function ReportsPage() {
           {expandedSections.topItems && (
             <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {topSellingItems.map((item, i) => (
-                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-gradient-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all">
+                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-linear-to-r from-muted/30 to-transparent rounded-xl border border-border/60 hover:border-primary/30 transition-all">
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 font-bold text-xs text-primary">
+                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-linear-to-br from-primary/10 to-primary/5 border border-primary/20 font-bold text-xs text-primary">
                       #{i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1800,7 +1852,7 @@ export default function ReportsPage() {
                     </div>
                   </div>
                   <div className="text-right ml-2 sm:ml-3">
-                    <div className="text-base sm:text-lg font-bold text-[hsl(var(--success))]">{formatCurrency(item.revenue, displayCurrency)}</div>
+                    <div className="text-base sm:text-lg font-bold text-success">{formatCurrency(item.revenue, displayCurrency)}</div>
                   </div>
                 </div>
               ))}
@@ -1817,9 +1869,9 @@ export default function ReportsPage() {
           {expandedSections.topCombos && (
             <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {topCombos.map((combo, i) => (
-                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-gradient-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 transition-all">
+                <div key={i} className="flex justify-between items-center p-2.5 sm:p-3 bg-linear-to-r from-pink-500/10 to-transparent rounded-xl border border-pink-500/20 hover:border-pink-500/40 transition-all">
                   <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-xs text-pink-600">
+                    <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-linear-to-br from-pink-500/20 to-pink-600/10 border border-pink-500/30 font-bold text-xs text-pink-600">
                       #{i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1873,17 +1925,17 @@ export default function ReportsPage() {
               </label>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+                <div className="rounded-2xl p-4 sm:p-5 bg-linear-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
                   <ShoppingBag className="w-6 h-6 sm:w-7 sm:h-7 text-orange-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Stock Value (Cost)</div>
                   <div className="text-xl sm:text-2xl font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
                 </div>
-                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+                <div className="rounded-2xl p-4 sm:p-5 bg-linear-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
                   <DollarSign className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Potential Revenue</div>
                   <div className="text-xl sm:text-2xl font-bold text-blue-600">{formatCurrency(inventoryAnalysis.potentialRevenueDisplay, displayCurrency)}</div>
                 </div>
-                <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+                <div className="rounded-2xl p-4 sm:p-5 bg-linear-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
                   <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Potential Profit</div>
                   <div className="text-xl sm:text-2xl font-bold text-green-600">{formatCurrency(inventoryAnalysis.potentialProfit, displayCurrency)}</div>
@@ -1918,3 +1970,4 @@ export default function ReportsPage() {
     </div>
   )
 }
+

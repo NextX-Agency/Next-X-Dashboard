@@ -23,10 +23,17 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
-          <p className="text-neutral-500 text-sm">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+        <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gray-900/90 p-8 shadow-2xl shadow-black/30">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400">
+              <Loader2 className="w-7 h-7 animate-spin" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-white">Preparing your workspace</p>
+              <p className="mt-1 text-sm text-gray-400">Checking access and loading the admin shell.</p>
+            </div>
+          </div>
         </div>
       </div>
     )

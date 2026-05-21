@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { 
@@ -20,7 +20,6 @@ import {
   Activity,
   ClipboardList,
   Settings,
-  Store,
   ExternalLink,
   Layers,
   ChevronDown,
@@ -28,7 +27,18 @@ import {
   Headphones,
   Watch
 } from 'lucide-react'
-import { useState } from 'react'
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'nextx:sidebar-collapsed'
+const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
+
+const DEFAULT_EXPANDED_SECTIONS: Record<string, boolean> = {
+  Store: true,
+  Storefronts: true,
+  Operations: true,
+  Finance: true,
+  Analytics: true,
+  System: true,
+}
 
 interface NavItem {
   name: string
@@ -46,14 +56,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    'Store': true,
-    'Storefronts': true,
-    'Operations': true,
-    'Finance': true,
-    'Analytics': true,
-    'System': true,
-  })
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(DEFAULT_EXPANDED_SECTIONS)
 
   // Memoize navigation sections to prevent recreation on each render
   const navSections: NavSection[] = useMemo(() => [
@@ -107,6 +110,54 @@ export default function Sidebar() {
     },
   ], [])
 
+  const isItemActive = useCallback((path: string) => {
+    return pathname === path || (path !== '/dashboard' && path !== '/catalog' && pathname.startsWith(path))
+  }, [pathname])
+
+  const currentNavSection = useMemo(() => (
+    navSections.find((section) => section.items.some((item) => isItemActive(item.path)))
+  ), [navSections, isItemActive])
+
+  const currentNavItem = useMemo(() => (
+    currentNavSection?.items.find((item) => isItemActive(item.path))
+  ), [currentNavSection, isItemActive])
+
+  useEffect(() => {
+    try {
+      const storedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)
+      const storedSections = localStorage.getItem(SIDEBAR_EXPANDED_STORAGE_KEY)
+
+      if (storedCollapsed !== null) {
+        setIsCollapsed(storedCollapsed === 'true')
+      }
+
+      if (storedSections) {
+        setExpandedSections({
+          ...DEFAULT_EXPANDED_SECTIONS,
+          ...JSON.parse(storedSections) as Record<string, boolean>,
+        })
+      }
+    } catch (error) {
+      console.error('Unable to restore sidebar state:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isCollapsed))
+    } catch {
+      // Ignore persistence failures for local navigation preferences.
+    }
+  }, [isCollapsed])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_EXPANDED_STORAGE_KEY, JSON.stringify(expandedSections))
+    } catch {
+      // Ignore persistence failures for local navigation preferences.
+    }
+  }, [expandedSections])
+
   const toggleSection = useCallback((title: string) => {
     setExpandedSections(prev => ({ ...prev, [title]: !prev[title] }))
   }, [])
@@ -125,7 +176,7 @@ export default function Sidebar() {
 
   return (
     <aside 
-      className={`hidden lg:flex flex-col bg-gradient-to-b from-gray-900 via-gray-900 to-black text-white transition-all duration-300 h-screen sticky top-0 border-r border-gray-800/50 ${
+      className={`hidden lg:flex flex-col bg-linear-to-b from-slate-950 via-gray-950 to-black text-white transition-all duration-300 h-screen sticky top-0 border-r border-gray-800/50 ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
     >
@@ -167,7 +218,9 @@ export default function Sidebar() {
               {/* Section Header */}
               {!isCollapsed && (
                 <button
+                  type="button"
                   onClick={() => toggleSection(section.title)}
+                  aria-expanded={expandedSections[section.title]}
                   className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
                 >
                   <span>{section.title}</span>
@@ -184,16 +237,18 @@ export default function Sidebar() {
                 <div className="space-y-1">
                   {section.items.map((item) => {
                     const Icon = item.icon
-                    const isActive = pathname === item.path || (item.path !== '/dashboard' && item.path !== '/catalog' && pathname.startsWith(item.path))
+                    const isActive = isItemActive(item.path)
                     const isExternal = item.external
                     
                     return (
                       <button
+                        type="button"
                         key={item.path}
                         onClick={() => handleNavigation(item.path, isExternal)}
+                        aria-current={isActive ? 'page' : undefined}
                         className={`relative w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group overflow-hidden ${
                           isActive 
-                            ? 'bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' 
+                            ? 'bg-linear-to-br from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25' 
                             : 'text-gray-400 hover:bg-gray-800/60 hover:text-white'
                         }`}
                         title={isCollapsed ? item.name : undefined}
@@ -222,7 +277,7 @@ export default function Sidebar() {
                         
                         {/* Hover shine effect */}
                         {!isActive && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-500" />
                         )}
                       </button>
                     )
@@ -234,9 +289,22 @@ export default function Sidebar() {
         </div>
       </nav>
 
+      {!isCollapsed && currentNavItem && (
+        <div className="px-3 pb-3">
+          <div className="rounded-2xl border border-gray-800/70 bg-gray-900/80 p-3 shadow-inner shadow-black/20">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">Focused View</div>
+            <div className="mt-2 text-sm font-semibold text-white">{currentNavItem.name}</div>
+            <div className="mt-1 text-xs text-gray-400">
+              {currentNavSection?.title} workspace
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-gray-800/50">
         <button
+          type="button"
           onClick={toggleCollapse}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800/60 hover:text-white transition-all"
         >

@@ -1,35 +1,26 @@
 'use client'
 
-import { Bell, Search, Menu, DollarSign, LogOut, X } from 'lucide-react'
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
+import { Bell, Menu, DollarSign, LogOut } from 'lucide-react'
+import { useState, useCallback, useMemo, memo } from 'react'
 import Image from 'next/image'
 import MobileMenu from './MobileMenu'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+
+type RouteMeta = {
+  title: string
+  subtitle: string
+  section: string
+}
 
 function TopBarComponent() {
-  const [searchQuery, setSearchQuery] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showMobileSearch, setShowMobileSearch] = useState(false)
   const { displayCurrency, setDisplayCurrency, exchangeRate } = useCurrency()
   const { user, logout } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
-  // Close mobile search when navigating
-  useEffect(() => {
-    setShowMobileSearch(false)
-  }, [pathname])
-
-  // Focus search input when opened
-  useEffect(() => {
-    if (showMobileSearch && searchInputRef.current) {
-      searchInputRef.current.focus()
-    }
-  }, [showMobileSearch])
 
   const handleLogout = useCallback(async () => {
     await logout()
@@ -37,22 +28,165 @@ function TopBarComponent() {
   }, [logout, router])
 
   // Memoize page title computation
-  const pageTitle = useMemo(() => {
-    const path = pathname.split('/').filter(Boolean)
-    if (path.length === 0) return 'Dashboard'
-    if (path[0] === 'cms') {
-      if (path.length === 1) return 'CMS Hub'
-      return path[1].charAt(0).toUpperCase() + path[1].slice(1)
+  const routeMeta = useMemo<RouteMeta>(() => {
+    const routeEntries: Array<{ match: (path: string) => boolean; meta: RouteMeta }> = [
+      {
+        match: (path) => path === '/dashboard',
+        meta: {
+          title: 'Dashboard',
+          subtitle: 'Track sales momentum, inventory pressure, and the live exchange rate in one place.',
+          section: 'Store',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/items'),
+        meta: {
+          title: 'Products',
+          subtitle: 'Manage active inventory, pricing, and product readiness across the storefront.',
+          section: 'Store',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/stock'),
+        meta: {
+          title: 'Stock Management',
+          subtitle: 'Review stock health, transfers, and quantity changes across every location.',
+          section: 'Store',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/locations'),
+        meta: {
+          title: 'Locations',
+          subtitle: 'Compare store performance and operational setup by location.',
+          section: 'Store',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/orders'),
+        meta: {
+          title: 'Orders',
+          subtitle: 'Monitor order flow, fulfillment state, and operational handoff.',
+          section: 'Operations',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/sales'),
+        meta: {
+          title: 'Sales',
+          subtitle: 'Record new transactions quickly and keep recent sales accessible.',
+          section: 'Operations',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/reservations'),
+        meta: {
+          title: 'Reservations',
+          subtitle: 'Track pending reservations and their revenue impact before conversion.',
+          section: 'Operations',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/invoices'),
+        meta: {
+          title: 'Invoices',
+          subtitle: 'Keep issued invoices organized and ready for follow-up.',
+          section: 'Operations',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/exchange'),
+        meta: {
+          title: 'Exchange Rates',
+          subtitle: 'Set the active conversion rate used across reporting and checkout.',
+          section: 'Finance',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/wallets'),
+        meta: {
+          title: 'Wallets',
+          subtitle: 'See the cash position behind every location and payment channel.',
+          section: 'Finance',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/expenses'),
+        meta: {
+          title: 'Expenses',
+          subtitle: 'Review outgoing cash and keep operating costs visible.',
+          section: 'Finance',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/commissions'),
+        meta: {
+          title: 'Commissions',
+          subtitle: 'Follow seller payouts and margin impact without leaving the dashboard shell.',
+          section: 'Finance',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/budgets'),
+        meta: {
+          title: 'Budgets',
+          subtitle: 'Compare spending plans to actual outflow before the month gets away from you.',
+          section: 'Finance',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/reports'),
+        meta: {
+          title: 'Reports & Insights',
+          subtitle: 'Analyze profitability, costs, reservations, and performance trends from one report surface.',
+          section: 'Analytics',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/activity'),
+        meta: {
+          title: 'Activity Log',
+          subtitle: 'Audit changes and recent admin actions across the business.',
+          section: 'Analytics',
+        },
+      },
+      {
+        match: (path) => path.startsWith('/settings'),
+        meta: {
+          title: 'Settings',
+          subtitle: 'Adjust system defaults, storefront configuration, and admin behavior.',
+          section: 'System',
+        },
+      },
+      {
+        match: (path) => path === '/cms' || path.startsWith('/cms/'),
+        meta: {
+          title: pathname === '/cms' ? 'CMS Hub' : 'Content Management',
+          subtitle: 'Manage public content, campaigns, and store presentation without leaving the admin shell.',
+          section: 'System',
+        },
+      },
+    ]
+
+    const matchedRoute = routeEntries.find((entry) => entry.match(pathname))
+    if (matchedRoute) return matchedRoute.meta
+
+    const pathSegments = pathname.split('/').filter(Boolean)
+    const fallbackTitle = pathSegments[0]
+      ? pathSegments[0].charAt(0).toUpperCase() + pathSegments[0].slice(1).replace(/-/g, ' ')
+      : 'Dashboard'
+
+    return {
+      title: fallbackTitle,
+      subtitle: 'Manage the admin workspace with faster navigation and clearer context.',
+      section: 'Workspace',
     }
-    return path[0].charAt(0).toUpperCase() + path[0].slice(1)
   }, [pathname])
 
   // Memoize handlers
   const openMobileMenu = useCallback(() => setIsMobileMenuOpen(true), [])
-  const toggleMobileSearch = useCallback(() => setShowMobileSearch(prev => !prev), [])
   const toggleUserMenu = useCallback(() => setShowUserMenu(prev => !prev), [])
   const closeUserMenu = useCallback(() => setShowUserMenu(false), [])
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value), [])
   const setUSD = useCallback(() => setDisplayCurrency('USD'), [setDisplayCurrency])
   const setSRD = useCallback(() => setDisplayCurrency('SRD'), [setDisplayCurrency])
 
@@ -67,7 +201,7 @@ function TopBarComponent() {
   return (
     <>
       <header className="bg-gray-900/98 border-b border-gray-800/80 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-3 lg:px-6 py-2.5 lg:py-3">
+        <div className="flex items-center justify-between px-3 lg:px-6 py-3 lg:py-4">
           {/* Left Section - Mobile Menu & Logo/Title */}
           <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
             <button 
@@ -80,7 +214,7 @@ function TopBarComponent() {
           
             {/* Mobile: Logo + Page Title */}
             <div className="lg:hidden flex items-center gap-2 min-w-0">
-              <div className="relative h-7 w-16 flex-shrink-0">
+              <div className="relative h-7 w-16 shrink-0">
                 <Image
                   src="/nextx-logo-dark.png"
                   alt="NextX"
@@ -91,19 +225,21 @@ function TopBarComponent() {
                 />
               </div>
               <div className="w-px h-5 bg-gray-700" />
-              <span className="text-sm font-semibold text-gray-300 truncate">{pageTitle}</span>
+              <span className="text-sm font-semibold text-gray-300 truncate">{routeMeta.title}</span>
             </div>
 
-            {/* Search Bar - Desktop */}
-            <div className="hidden lg:flex items-center gap-3 bg-gray-800/50 rounded-xl px-4 py-2.5 w-full max-w-md border border-gray-700/50 focus-within:border-orange-500/50 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-gray-800/70 transition-all">
-              <Search size={18} className="text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search anything..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-500 w-full font-medium"
-              />
+            {/* Context Panel - Desktop */}
+            <div className="hidden lg:flex min-w-0 flex-col">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="rounded-full border border-gray-700/70 bg-gray-800/70 px-2.5 py-1 font-semibold uppercase tracking-[0.18em] text-gray-300">
+                  {routeMeta.section}
+                </span>
+                <span>Admin workspace</span>
+              </div>
+              <div className="mt-2 min-w-0">
+                <h1 className="text-xl font-semibold text-white truncate">{routeMeta.title}</h1>
+                <p className="text-sm text-gray-400 truncate">{routeMeta.subtitle}</p>
+              </div>
             </div>
           </div>
 
@@ -140,18 +276,9 @@ function TopBarComponent() {
               <span>1 USD = {exchangeRate} SRD</span>
             </div>
 
-            {/* Search Icon - Mobile */}
-            <button 
-              onClick={toggleMobileSearch}
-              className="lg:hidden p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
-              aria-label="Search"
-            >
-              {showMobileSearch ? (
-                <X size={20} className="text-gray-400" />
-              ) : (
-                <Search size={20} className="text-gray-400" />
-              )}
-            </button>
+            <div className="hidden md:flex items-center rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-1.5 text-xs font-medium text-gray-300">
+              {routeMeta.section}
+            </div>
 
             {/* Notifications */}
             <button className="relative p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors">
@@ -169,7 +296,7 @@ function TopBarComponent() {
                   <span className="text-sm font-semibold text-white">{userName}</span>
                   <span className="text-xs text-gray-400 capitalize">{user?.role || 'Admin'}</span>
                 </div>
-                <div className="w-8 h-8 lg:w-9 lg:h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/25">
+                <div className="w-8 h-8 lg:w-9 lg:h-9 bg-linear-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/25">
                   {userInitial}
                 </div>
               </button>
@@ -199,31 +326,6 @@ function TopBarComponent() {
             </div>
           </div>
         </div>
-
-        {/* Mobile Search Bar - Expandable */}
-        {showMobileSearch && (
-          <div className="lg:hidden px-3 pb-3 animate-in slide-in-from-top duration-200">
-            <div className="relative flex items-center gap-2 bg-gray-800/70 rounded-xl px-4 py-2.5 border border-gray-700/50 focus-within:border-orange-500/50 focus-within:ring-2 focus-within:ring-orange-500/20">
-              <Search size={18} className="text-gray-500 flex-shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="bg-transparent border-none outline-none text-sm text-white placeholder-gray-500 w-full font-medium"
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="p-1 hover:bg-gray-700 rounded-lg"
-                >
-                  <X size={16} className="text-gray-500" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </header>
 
       {/* Mobile Menu Drawer */}
