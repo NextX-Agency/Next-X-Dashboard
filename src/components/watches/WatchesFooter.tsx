@@ -28,10 +28,10 @@ function WatchesFooterComponent({
       ],
     },
     {
-      heading: 'Info',
+      heading: 'NextX',
       links: [
-        { label: 'NextX Portal', href: '/' },
-        { label: 'Audio Catalog', href: '/audio' },
+        { label: 'Audio', href: '/audio' },
+        { label: 'Portal', href: '/' },
       ],
     },
     {
@@ -169,7 +169,7 @@ function WatchesFooterComponent({
             className="text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
             style={{ color: 'var(--w-muted)' }}
           >
-            Back to NextX Portal
+            Portal
           </Link>
         </div>
       </div>

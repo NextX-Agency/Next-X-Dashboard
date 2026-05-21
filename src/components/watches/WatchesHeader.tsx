@@ -24,21 +24,38 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
     { label: 'Collections', href: '/watches#collections' },
     { label: 'New Arrivals', href: '/watches#new' },
     { label: 'About', href: '/watches#about' },
+  ]
+
+  const brandLinks = [
     { label: 'Audio', href: '/audio' },
     { label: 'Portal', href: '/' },
   ]
 
   const LogoLockup = ({ onClick }: { onClick?: () => void }) => (
-    <Link href="/watches" onClick={onClick} className="flex flex-col items-start leading-none shrink-0" aria-label="NextX Watches">
-      <Image
-        src="/nextx-logo-dark.png"
-        alt="NextX"
-        width={80}
-        height={34}
-        className="object-contain"
-        priority
-      />
-    </Link>
+    <div className="flex flex-col items-start leading-none shrink-0">
+      <Link href="/watches" onClick={onClick} className="flex flex-col items-start" aria-label="NextX Watches">
+        <Image
+          src="/nextx-logo-dark.png"
+          alt="NextX"
+          width={80}
+          height={34}
+          className="object-contain"
+          priority
+        />
+      </Link>
+      <div className="hidden lg:flex items-center gap-3 pt-1 text-[9px] font-light uppercase tracking-[0.28em]" style={{ color: 'var(--w-muted)' }}>
+        <span style={{ color: 'var(--w-border-gold)' }}>NextX</span>
+        {brandLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="transition-opacity hover:opacity-100 opacity-70"
+          >
+            {link.label}
+          </Link>
+        ))}
+      </div>
+    </div>
   )
 
   return (
@@ -151,7 +168,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
               className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
               style={{ color: 'var(--w-cream)' }}
             >
-              Audio Catalog
+              Audio
             </Link>
             <Link
               href="/"
@@ -159,7 +176,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
               className="text-[10px] font-light tracking-[0.2em] uppercase opacity-40 hover:opacity-80 transition-opacity"
               style={{ color: 'var(--w-cream)' }}
             >
-              NextX Portal
+              Portal
             </Link>
           </div>
         </div>

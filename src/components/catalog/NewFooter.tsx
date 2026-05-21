@@ -109,12 +109,13 @@ export function NewFooter({
             </div>
 
             {brandLinks.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-400">
+                <span className="text-neutral-400">Meer van NextX</span>
                 {brandLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="inline-flex items-center rounded-full border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+                    className="transition-colors hover:text-[#f97015]"
                   >
                     {link.label}
                   </Link>

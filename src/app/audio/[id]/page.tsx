@@ -1116,8 +1116,8 @@ export default function ProductDetailPage() {
         storeEmail={settings.store_email || ''}
         categories={categories}
         brandLinks={[
-          { href: '/watches', label: 'Bekijk Watches' },
-          { href: '/', label: 'NextX Portal' },
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
         ]}
         onCategoryClick={() => {}}
       />

@@ -93,33 +93,50 @@ export function NewHeader({
 
         <div className={catalogShellClassName}>
           <div className="flex h-14 items-center justify-between gap-3 sm:h-16 sm:gap-4">
-            <Link
-              href={catalogBasePath}
-              className="shrink-0 cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
-              aria-label="Ga naar homepagina"
-              onClick={(e) => {
-                if (onLogoClick) {
-                  e.preventDefault()
-                  onLogoClick()
-                }
-              }}
-            >
-              {logoUrl ? (
-                <Image
-                  src={logoUrl}
-                  alt={storeName}
-                  width={160}
-                  height={56}
-                  className="h-9 w-auto object-contain transition-all sm:h-10 lg:h-12"
-                  priority
-                />
-              ) : (
-                <span className="inline-block text-lg font-bold tracking-tight sm:text-xl">
-                  <span className="text-[#141c2e]">Next</span>
-                  <span className="text-[#f97015]">X</span>
-                </span>
+            <div className="shrink-0">
+              <Link
+                href={catalogBasePath}
+                className="block cursor-pointer transition-all duration-200 hover:opacity-80 active:scale-[0.98]"
+                aria-label="Ga naar homepagina"
+                onClick={(e) => {
+                  if (onLogoClick) {
+                    e.preventDefault()
+                    onLogoClick()
+                  }
+                }}
+              >
+                {logoUrl ? (
+                  <Image
+                    src={logoUrl}
+                    alt={storeName}
+                    width={160}
+                    height={56}
+                    className="h-9 w-auto object-contain transition-all sm:h-10 lg:h-12"
+                    priority
+                  />
+                ) : (
+                  <span className="inline-block text-lg font-bold tracking-tight sm:text-xl">
+                    <span className="text-[#141c2e]">Next</span>
+                    <span className="text-[#f97015]">X</span>
+                  </span>
+                )}
+              </Link>
+
+              {brandLinks.length > 0 && (
+                <div className="hidden lg:flex items-center gap-3 pt-1 text-[10px] font-medium uppercase tracking-[0.24em] text-neutral-400">
+                  <span className="text-neutral-300">NextX</span>
+                  {brandLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="transition-colors hover:text-[#f97015]"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
               )}
-            </Link>
+            </div>
 
             <nav className="hidden items-center gap-6 lg:flex">
               <button
@@ -155,15 +172,6 @@ export function NewHeader({
                   </div>
                 </div>
               )}
-              {brandLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-medium text-[#141c2e]/60 transition-colors hover:text-[#141c2e]"
-                >
-                  {link.label}
-                </Link>
-              ))}
               <a
                 href="https://www.nextxagency.com"
                 target="_blank"
@@ -296,24 +304,6 @@ export function NewHeader({
                 </button>
               </div>
 
-              {brandLinks.length > 0 && (
-                <div className="mb-3 border-b border-neutral-100 pb-3">
-                  <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">NextX</p>
-                  <div className="space-y-1">
-                    {brandLinks.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        onClick={() => setShowMobileMenu(false)}
-                        className="block w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-[#141c2e]/70 transition-colors hover:bg-neutral-50"
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <p className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">Categorieën</p>
               {categories.map((cat) => (
                 <button
@@ -329,6 +319,22 @@ export function NewHeader({
                   {cat.name}
                 </button>
               ))}
+
+              {brandLinks.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 pt-4 text-[10px] font-medium uppercase tracking-[0.22em] text-neutral-400">
+                  <span className="text-neutral-300">NextX</span>
+                  {brandLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setShowMobileMenu(false)}
+                      className="transition-colors hover:text-[#f97015]"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

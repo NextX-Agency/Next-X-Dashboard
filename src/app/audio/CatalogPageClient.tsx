@@ -1190,8 +1190,8 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         storeEmail={settings.store_email}
         categories={categories}
         brandLinks={[
-          { href: '/watches', label: 'Bekijk Watches' },
-          { href: '/', label: 'NextX Portal' },
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
         ]}
         onCategoryClick={(catId) => {
           setSelectedCategory(catId)
