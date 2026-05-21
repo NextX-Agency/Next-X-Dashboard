@@ -24,6 +24,7 @@ const ADMIN_PREFIXES = ['/cms/', '/api/']
 
 // Protected API routes
 const PROTECTED_API_PREFIXES = [
+  '/api/dashboard',
   '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
   '/api/delete-commissions', '/api/recalculate-commissions', '/api/fix-combo-price',
   '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
