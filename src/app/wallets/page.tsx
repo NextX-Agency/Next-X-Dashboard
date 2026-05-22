@@ -532,7 +532,7 @@ export default function WalletsPage() {
         <PageContainer>
           {/* Summary Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
+            <div className="col-span-2 lg:col-span-1 bg-linear-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
               <div className="flex items-center gap-2 text-primary mb-2">
                 <TrendingUp size={20} />
                 <span className="text-sm font-medium">Grand Total</span>
@@ -607,7 +607,7 @@ export default function WalletsPage() {
                   className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 transition-all"
                 >
                   {/* Location Header */}
-                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
+                  <div className="bg-linear-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -812,7 +812,7 @@ export default function WalletsPage() {
 
         {/* Grand Total Hero Card */}
         <div className="px-4 py-3">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[hsl(218,36%,18%)] to-[hsl(218,36%,13%)] border border-border p-5">
+          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-[hsl(218,36%,18%)] to-[hsl(218,36%,13%)] border border-border p-5">
             {/* Background decoration */}
             <div className="absolute right-0 top-0 w-32 h-32 opacity-10">
               <Wallet size={128} className="text-primary" />
@@ -1145,8 +1145,8 @@ export default function WalletsPage() {
         </div>
 
         {/* Sticky Bottom Action Bar - Mobile Only */}
-        <div className="fixed bottom-0 left-0 right-0 z-[60]">
-          <div className="bg-gradient-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-6 pb-8 px-5">
+        <div className="fixed bottom-0 left-0 right-0 z-60">
+          <div className="bg-linear-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-6 pb-8 px-5">
             <div className="flex items-center justify-center gap-4 max-w-sm mx-auto">
               <button
                 onClick={() => setShowTransferForm(true)}
@@ -1367,7 +1367,7 @@ export default function WalletsPage() {
         onClose={() => setShowTransactionHistory(false)} 
         title="Transaction History"
       >
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-3">
           {transactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No transactions yet

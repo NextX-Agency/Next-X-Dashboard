@@ -61,6 +61,7 @@ export const ADMIN_ROUTE_PREFIXES = [
 export const PROTECTED_API_ROUTES = [
   '/api/commissions',
   '/api/dashboard',
+  '/api/invoices',
   '/api/reports',
   '/api/sales',
   '/api/stock',

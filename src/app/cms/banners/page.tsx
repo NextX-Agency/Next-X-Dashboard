@@ -179,7 +179,7 @@ export default function BannersPage() {
     <PageContainer>
       {/* Header - Mobile optimized */}
       <div className="flex items-center gap-3 mb-4 lg:mb-6">
-        <Link href="/cms" className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 active:bg-gray-600 transition-colors flex-shrink-0">
+        <Link href="/cms" className="p-2 rounded-xl bg-gray-800 hover:bg-gray-700 active:bg-gray-600 transition-colors shrink-0">
           <ChevronLeft size={20} className="text-gray-400" />
         </Link>
         <div className="flex-1 min-w-0">
@@ -191,7 +191,7 @@ export default function BannersPage() {
             resetForm()
             setShowForm(true)
           }}
-          className="flex items-center gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all"
+          className="flex items-center gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-white font-medium text-sm hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all"
         >
           <Plus size={18} />
           <span className="hidden sm:inline">Add Banner</span>
@@ -227,7 +227,7 @@ export default function BannersPage() {
               <div className="lg:hidden">
                 <div className="flex gap-3 p-3">
                   {/* Banner Preview */}
-                  <div className="w-24 h-20 flex-shrink-0 bg-gray-700 rounded-xl overflow-hidden">
+                  <div className="w-24 h-20 shrink-0 bg-gray-700 rounded-xl overflow-hidden">
                     <img 
                       src={banner.image_url} 
                       alt={banner.title}
@@ -294,7 +294,7 @@ export default function BannersPage() {
                 </div>
 
                 {/* Banner Preview */}
-                <div className="w-48 h-28 flex-shrink-0 bg-gray-700">
+                <div className="w-48 h-28 shrink-0 bg-gray-700">
                   <img 
                     src={banner.image_url} 
                     alt={banner.title}
@@ -369,7 +369,7 @@ export default function BannersPage() {
       {/* Banner Form Modal */}
       {showForm && (
         <Modal isOpen={showForm} onClose={() => { setShowForm(false); resetForm(); }}>
-          <form onSubmit={handleSave} className="p-6 max-h-[90vh] overflow-y-auto">
+          <form onSubmit={handleSave} className="p-6">
             <h3 className="text-lg font-semibold text-white mb-6">
               {editingBanner ? 'Edit Banner' : 'New Banner'}
             </h3>
@@ -383,7 +383,7 @@ export default function BannersPage() {
                     <img 
                       src={form.image_url} 
                       alt="Banner preview" 
-                      className="w-full aspect-[3/1] object-cover rounded-xl"
+                      className="w-full aspect-3/1 object-cover rounded-xl"
                     />
                     <button
                       type="button"
@@ -398,7 +398,7 @@ export default function BannersPage() {
                     value={null}
                     onChange={(url) => setForm({ ...form, image_url: url || '' })}
                     folder="banners"
-                    className="w-full aspect-[3/1]"
+                    className="w-full aspect-3/1"
                   />
                 )}
                 <p className="text-xs text-neutral-500 mt-1">Recommended: 1920x640px</p>

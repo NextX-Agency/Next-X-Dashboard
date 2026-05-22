@@ -434,7 +434,7 @@ function ModalUIComponent({
       />
       
       {/* Modal */}
-      <div className={`relative w-full ${sizeClasses[size]} max-h-[92vh] sm:max-h-[90vh] overflow-auto bg-card rounded-t-2xl sm:rounded-2xl shadow-xl border border-border`}>
+      <div className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-card rounded-t-2xl shadow-xl border border-border sm:max-h-[90vh] sm:rounded-2xl ${sizeClasses[size]}`}>
         {/* Drag handle for mobile */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
@@ -453,7 +453,7 @@ function ModalUIComponent({
             </button>
           </div>
         )}
-        <div className={title ? 'p-3 sm:p-4 lg:p-6' : 'p-3 sm:p-4 lg:p-6'}>
+        <div className={title ? 'min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6' : 'min-h-0 flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6'}>
           {children}
         </div>
       </div>

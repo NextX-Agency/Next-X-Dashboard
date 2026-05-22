@@ -1,84 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { Receipt, Search, Filter, Printer, Eye, Calendar, MapPin, User, Clock, ShoppingCart, ClipboardList, X, Download, FileText } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, Badge, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
+import type {
+  InvoicesPageDataPayload,
+  InvoicesPageDataResponse,
+  InvoicesPageInvoice,
+  InvoicesPageLocation,
+  InvoicesPageReservationGroup,
+  InvoicesPageSaleInvoice,
+  InvoicesPageStats,
+} from '@/types/invoices'
+import { Receipt, Search, Filter, Printer, Eye, Calendar, MapPin, User, Clock, ShoppingCart, ClipboardList, X, Download, FileText, RefreshCw } from 'lucide-react'
+import { PageHeader, PageContainer, Button, Select, Badge, LoadingSpinner } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
-
-type Sale = Database['public']['Tables']['sales']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type Item = Database['public']['Tables']['items']['Row']
-type Client = Database['public']['Tables']['clients']['Row']
-
-interface SaleItem {
-  id: string
-  item_id: string
-  quantity: number
-  unit_price: number
-  subtotal: number
-  is_custom_price?: boolean
-  original_price?: number | null
-  discount_reason?: string | null
-  items?: Item
-}
-
-interface SaleWithDetails extends Sale {
-  locations?: Location
-  sale_items?: SaleItem[]
-}
-
-interface ReservationGroup {
-  id: string
-  invoiceNumber: string
-  client_id: string
-  location_id: string
-  client_name: string
-  location_name: string
-  created_at: string
-  status: string
-  total_amount: number
-  currency: Currency
-  type: 'reservation'
-  items: Array<{
-    id: string
-    item_id: string
-    item_name: string
-    quantity: number
-    unit_price: number
-    subtotal: number
-    isCombo?: boolean
-    combo_id?: string | null
-    combo_price?: number | null
-  }>
-}
-
-interface SaleInvoice {
-  id: string
-  invoiceNumber: string
-  location_id: string
-  location_name: string
-  created_at: string
-  total_amount: number
-  currency: Currency
-  payment_method: string | null
-  type: 'sale'
-  items: Array<{
-    id: string
-    item_id: string
-    item_name: string
-    quantity: number
-    unit_price: number
-    subtotal: number
-    is_custom_price?: boolean
-    original_price?: number | null
-    discount_reason?: string | null
-  }>
-}
-
-type Invoice = ReservationGroup | SaleInvoice
 
 interface InvoiceViewData {
   invoiceNumber: string
@@ -103,9 +38,12 @@ interface InvoiceViewData {
 }
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
+  const [invoices, setInvoices] = useState<InvoicesPageInvoice[]>([])
+  const [locations, setLocations] = useState<InvoicesPageLocation[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [hasLoadedData, setHasLoadedData] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<'all' | 'sale' | 'reservation'>('all')
   const [locationFilter, setLocationFilter] = useState('')
@@ -115,195 +53,48 @@ export default function InvoicesPage() {
   const invoiceRef = useRef<HTMLDivElement>(null)
 
   // Statistics
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<InvoicesPageStats>({
     totalSales: 0,
     totalReservations: 0,
     todaySales: 0,
     todayReservations: 0
   })
 
-  const loadData = async () => {
-    setLoading(true)
+  const applyInvoicesData = useCallback((payload: InvoicesPageDataPayload) => {
+    setInvoices(payload.invoices)
+    setLocations(payload.locations)
+    setStats(payload.stats)
+  }, [])
+
+  const loadData = useCallback(async (showLoadingState = true) => {
+    if (showLoadingState && !hasLoadedData) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    setLoadError(null)
+
     try {
-      // Load locations
-      const { data: locationsData } = await supabase
-        .from('locations')
-        .select('*')
-        .order('name')
-      if (locationsData) setLocations(locationsData)
-
-      // Load sales with details
-      const { data: salesData } = await supabase
-        .from('sales')
-        .select(`
-          *,
-          locations (*),
-          sale_items (*, items (*))
-        `)
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      // Load reservations with details
-      const { data: reservationsData } = await supabase
-        .from('reservations')
-        .select('*, clients(*), items(*), locations(*)')
-        .in('status', ['completed', 'pending'])
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      const allInvoices: Invoice[] = []
-
-      // Convert sales to invoices
-      if (salesData) {
-        for (const sale of salesData as SaleWithDetails[]) {
-          const invoiceNumber = generateInvoiceNumberFromSale(sale)
-          allInvoices.push({
-            id: sale.id,
-            invoiceNumber,
-            location_id: sale.location_id,
-            location_name: sale.locations?.name || 'Unknown Location',
-            created_at: sale.created_at,
-            total_amount: sale.total_amount,
-            currency: sale.currency as Currency,
-            payment_method: sale.payment_method,
-            type: 'sale',
-            items: (sale.sale_items || []).map(item => ({
-              id: item.id,
-              item_id: item.item_id,
-              item_name: item.items?.name || 'Unknown Item',
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              subtotal: item.subtotal,
-              is_custom_price: item.is_custom_price,
-              original_price: item.original_price,
-              discount_reason: item.discount_reason
-            }))
-          })
-        }
+      const response = await fetch('/api/invoices', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(`Failed to load invoice data (${response.status})`)
       }
 
-      // Group reservations by timestamp (within 5 minutes) - same logic as reservation page
-      if (reservationsData) {
-        const groupedMap = new Map<string, ReservationGroup>()
-        const comboTracker = new Map<string, Set<string>>()
-        const comboPrices = new Map<string, number>()
-
-        // First pass: collect combo prices
-        reservationsData.forEach((res: any) => {
-          if (res.combo_id && res.combo_price !== null && res.combo_price !== undefined) {
-            comboPrices.set(res.combo_id, res.combo_price)
-          }
-        })
-
-        reservationsData.forEach((res: any) => {
-          const timestamp = new Date(res.created_at).getTime()
-          const roundedTime = Math.floor(timestamp / (5 * 60 * 1000)) * (5 * 60 * 1000)
-          const groupKey = `${res.client_id}-${res.location_id}-${roundedTime}`
-
-          const price = res.items?.selling_price_srd || 0
-          const subtotal = price * res.quantity
-
-          const comboId = res.combo_id
-
-          if (!comboTracker.has(groupKey)) {
-            comboTracker.set(groupKey, new Set())
-          }
-
-          let priceToAdd = 0
-          let displayPrice = price
-          let displaySubtotal = subtotal
-          let isComboItem = false
-
-          if (comboId) {
-            const trackedCombos = comboTracker.get(groupKey)!
-            isComboItem = true
-            if (!trackedCombos.has(comboId)) {
-              priceToAdd = comboPrices.get(comboId) || 0
-              trackedCombos.add(comboId)
-            }
-          } else {
-            priceToAdd = subtotal
-          }
-
-          if (groupedMap.has(groupKey)) {
-            const group = groupedMap.get(groupKey)!
-            group.items.push({
-              id: res.id,
-              item_id: res.item_id,
-              item_name: res.items?.name || 'Unknown Item',
-              quantity: res.quantity,
-              unit_price: displayPrice,
-              subtotal: displaySubtotal,
-              isCombo: isComboItem,
-              combo_id: comboId,
-              combo_price: res.combo_price
-            })
-            group.total_amount += priceToAdd
-          } else {
-            const invoiceNumber = `RES-${new Date(res.created_at).toISOString().slice(0,10).replace(/-/g, '')}-${groupKey.slice(-8)}`
-            groupedMap.set(groupKey, {
-              id: groupKey,
-              invoiceNumber,
-              client_id: res.client_id,
-              location_id: res.location_id,
-              client_name: res.clients?.name || 'Unknown Client',
-              location_name: res.locations?.name || 'Unknown Location',
-              created_at: res.created_at,
-              status: res.status,
-              total_amount: priceToAdd,
-              currency: 'SRD',
-              type: 'reservation',
-              items: [{
-                id: res.id,
-                item_id: res.item_id,
-                item_name: res.items?.name || 'Unknown Item',
-                quantity: res.quantity,
-                unit_price: displayPrice,
-                subtotal: displaySubtotal,
-                isCombo: isComboItem,
-                combo_id: comboId,
-                combo_price: res.combo_price
-              }]
-            })
-          }
-        })
-
-        allInvoices.push(...Array.from(groupedMap.values()))
-      }
-
-      // Sort by date
-      allInvoices.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      setInvoices(allInvoices)
-
-      // Calculate stats
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      setStats({
-        totalSales: allInvoices.filter(i => i.type === 'sale').length,
-        totalReservations: allInvoices.filter(i => i.type === 'reservation').length,
-        todaySales: allInvoices.filter(i => i.type === 'sale' && new Date(i.created_at) >= today).length,
-        todayReservations: allInvoices.filter(i => i.type === 'reservation' && new Date(i.created_at) >= today).length
-      })
+      const payload = await response.json() as InvoicesPageDataResponse
+      applyInvoicesData(payload.data)
+      setHasLoadedData(true)
     } catch (error) {
       console.error('Error loading invoices:', error)
+      setLoadError('Unable to load invoice history right now.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
-
-  const generateInvoiceNumberFromSale = (sale: Sale): string => {
-    const date = new Date(sale.created_at)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const shortId = sale.id.slice(-6)
-    return `INV-${year}${month}${day}-${shortId}`
-  }
+  }, [applyInvoicesData, hasLoadedData])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [loadData])
 
   // Memoize filtered invoices to prevent recalculation on every render
   const filteredInvoices = useMemo(() => {
@@ -347,7 +138,7 @@ export default function InvoicesPage() {
       filtered = filtered.filter(inv => {
         const matchesInvoiceNumber = inv.invoiceNumber.toLowerCase().includes(query)
         const matchesLocation = inv.location_name.toLowerCase().includes(query)
-        const matchesClient = inv.type === 'reservation' && (inv as ReservationGroup).client_name?.toLowerCase().includes(query)
+        const matchesClient = inv.type === 'reservation' && (inv as InvoicesPageReservationGroup).client_name?.toLowerCase().includes(query)
         const matchesItem = inv.items.some(item => item.item_name.toLowerCase().includes(query))
         return matchesInvoiceNumber || matchesLocation || matchesClient || matchesItem
       })
@@ -357,13 +148,13 @@ export default function InvoicesPage() {
   }, [invoices, typeFilter, locationFilter, dateFilter, searchQuery])
 
   // Memoize handlers to prevent recreation on each render
-  const handleViewInvoice = useCallback((invoice: Invoice) => {
+  const handleViewInvoice = useCallback((invoice: InvoicesPageInvoice) => {
     const viewData: InvoiceViewData = {
       invoiceNumber: invoice.invoiceNumber,
       date: new Date(invoice.created_at).toLocaleString(),
       type: invoice.type,
       location: invoice.location_name,
-      client: invoice.type === 'reservation' ? (invoice as ReservationGroup).client_name : undefined,
+      client: invoice.type === 'reservation' ? (invoice as InvoicesPageReservationGroup).client_name : undefined,
       items: invoice.items.map(item => ({
         name: item.item_name,
         quantity: item.quantity,
@@ -376,8 +167,8 @@ export default function InvoicesPage() {
       })),
       currency: invoice.currency,
       total: invoice.total_amount,
-      paymentMethod: invoice.type === 'sale' ? (invoice as SaleInvoice).payment_method || 'Cash' : 'Reservation',
-      status: invoice.type === 'reservation' ? (invoice as ReservationGroup).status : 'completed'
+      paymentMethod: invoice.type === 'sale' ? (invoice as InvoicesPageSaleInvoice).payment_method || 'Cash' : 'Reservation',
+      status: invoice.type === 'reservation' ? (invoice as InvoicesPageReservationGroup).status : 'completed'
     }
     
     setSelectedInvoice(viewData)
@@ -475,6 +266,26 @@ export default function InvoicesPage() {
     )
   }
 
+  if (loadError && !hasLoadedData) {
+    return (
+      <div className="min-h-screen pb-20 lg:pb-0">
+        <PageHeader title="Invoice History" subtitle="View all sales and reservation invoices" icon={<Receipt size={24} />} />
+        <PageContainer>
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
+            <h2 className="text-lg font-semibold text-foreground">Unable to load invoice history</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+            <div className="mt-4">
+              <Button onClick={() => loadData()} variant="secondary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </PageContainer>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
@@ -483,15 +294,21 @@ export default function InvoicesPage() {
         icon={<Receipt size={24} />}
         action={
           <div className="flex gap-2">
-            <Button onClick={loadData} variant="secondary">
-              <Clock size={20} />
-              <span className="hidden sm:inline">Refresh</span>
+            <Button onClick={() => loadData(false)} variant="secondary" disabled={refreshing}>
+              <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{refreshing ? 'Refreshing' : 'Refresh'}</span>
             </Button>
           </div>
         }
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {loadError}
+          </div>
+        )}
+
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
           <div className="bg-card rounded-xl p-4 border border-border">
@@ -552,7 +369,7 @@ export default function InvoicesPage() {
                 placeholder="Search invoices..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="input-field pl-10 w-full min-h-[48px]"
+                className="input-field pl-10 w-full min-h-12"
               />
             </div>
             {/* Filter selects - grid on mobile, flex on desktop */}
@@ -560,7 +377,7 @@ export default function InvoicesPage() {
               <Select
                 value={typeFilter}
                 onChange={handleTypeFilterChange}
-                className="w-full lg:w-40 min-h-[48px]"
+                className="w-full lg:w-40 min-h-12"
               >
                 <option value="all">All Types</option>
                 <option value="sale">Sales Only</option>
@@ -569,7 +386,7 @@ export default function InvoicesPage() {
               <Select
                 value={locationFilter}
                 onChange={handleLocationFilterChange}
-                className="w-full lg:w-48 min-h-[48px]"
+                className="w-full lg:w-48 min-h-12"
               >
                 <option value="">All Locations</option>
                 {locations.map((loc) => (
@@ -579,7 +396,7 @@ export default function InvoicesPage() {
               <Select
                 value={dateFilter}
                 onChange={handleDateFilterChange}
-                className="w-full lg:w-40 min-h-[48px] col-span-2 sm:col-span-1"
+                className="w-full lg:w-40 min-h-12 col-span-2 sm:col-span-1"
               >
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -636,10 +453,10 @@ export default function InvoicesPage() {
                           </Badge>
                           {invoice.type === 'reservation' && (
                             <Badge 
-                              variant={(invoice as ReservationGroup).status === 'completed' ? 'success' : 'warning'} 
+                              variant={(invoice as InvoicesPageReservationGroup).status === 'completed' ? 'success' : 'warning'} 
                               className="text-xs"
                             >
-                              {(invoice as ReservationGroup).status}
+                              {(invoice as InvoicesPageReservationGroup).status}
                             </Badge>
                           )}
                         </div>
@@ -660,7 +477,7 @@ export default function InvoicesPage() {
                       {invoice.type === 'reservation' && (
                         <span className="flex items-center gap-1.5">
                           <User size={14} />
-                          <span className="truncate max-w-[100px] sm:max-w-none">{(invoice as ReservationGroup).client_name}</span>
+                          <span className="truncate max-w-[100px] sm:max-w-none">{(invoice as InvoicesPageReservationGroup).client_name}</span>
                         </span>
                       )}
                       <span className="flex items-center gap-1.5">
@@ -679,7 +496,7 @@ export default function InvoicesPage() {
                       <Button 
                         variant="secondary" 
                         size="sm"
-                        className="min-h-[36px]"
+                        className="min-h-9"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleViewInvoice(invoice)
@@ -833,11 +650,11 @@ export default function InvoicesPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4">
-              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-[48px] order-1">
+              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-12 order-1">
                 <Printer size={18} />
                 Print Invoice
               </Button>
-              <Button onClick={closeInvoiceModal} variant="secondary" fullWidth className="min-h-[48px] order-2 sm:order-2">
+              <Button onClick={closeInvoiceModal} variant="secondary" fullWidth className="min-h-12 order-2 sm:order-2">
                 Close
               </Button>
             </div>

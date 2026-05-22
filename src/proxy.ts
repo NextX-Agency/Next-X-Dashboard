@@ -26,6 +26,7 @@ const ADMIN_PREFIXES = ['/cms/', '/api/']
 const PROTECTED_API_PREFIXES = [
   '/api/commissions',
   '/api/dashboard',
+  '/api/invoices',
   '/api/reports',
   '/api/sales',
   '/api/stock',

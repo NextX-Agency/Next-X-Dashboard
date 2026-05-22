@@ -1876,7 +1876,7 @@ export default function ReservationsPage() {
 
       {/* Recent Reservations History Modal */}
       <Modal isOpen={showHistory} onClose={() => setShowHistory(false)} title="Reservations History">
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+        <div className="space-y-3">
           {recentReservations.length === 0 ? (
             <div className="text-center py-12">
               <ClipboardList size={40} className="mx-auto mb-3 text-muted-foreground/30" />

@@ -1594,7 +1594,7 @@ export default function SalesPage() {
 
       {/* Recent Sales History Modal */}
       <Modal isOpen={showHistory} onClose={() => setShowHistory(false)} title="Recent Sales">
-        <div className="space-y-3 max-h-[60vh] overflow-y-auto -mx-1 px-1">
+        <div className="space-y-3 -mx-1 px-1">
           {recentSales.length === 0 ? (
             <div className="text-center py-12">
               <Receipt size={40} className="mx-auto mb-3 text-muted-foreground/30" />
