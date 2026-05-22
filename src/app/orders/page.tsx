@@ -1092,7 +1092,7 @@ export default function OrdersPage() {
         onClose={resetOrderForm}
         title={editingOrder ? 'Edit Order' : 'New Purchase Order'}
       >
-        <form onSubmit={handleSubmitOrder} className="space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmitOrder} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Wallet *</label>
@@ -1295,7 +1295,7 @@ export default function OrdersPage() {
         title={`Order #${viewingOrder?.id.slice(0, 8)}`}
       >
         {viewingOrder && (
-          <div className="space-y-4 max-h-[75vh] overflow-y-auto">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-sm text-muted-foreground">Status</span>
@@ -1398,7 +1398,7 @@ export default function OrdersPage() {
         title={`Receive Shipment — #${receivingOrder?.id.slice(0, 8)}`}
       >
         {receivingOrder && (
-          <div className="space-y-4 max-h-[75vh] overflow-y-auto">
+          <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Enter the quantity received for each item. Leave at 0 for items not yet delivered.
             </p>

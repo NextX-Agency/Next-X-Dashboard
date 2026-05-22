@@ -245,7 +245,7 @@ function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
         className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
-      <div className="relative bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+      <div className="relative bg-card rounded-2xl shadow-2xl max-w-lg w-full max-h-[88vh] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col">
         {/* Header */}
         <div className="bg-card border-b border-border px-4 sm:px-5 py-3.5 sm:py-4 flex items-center justify-between flex-shrink-0">
           <h2 className="text-lg sm:text-xl font-bold text-foreground">{title}</h2>
@@ -260,7 +260,7 @@ function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
           </button>
         </div>
         {/* Scrollable content */}
-        <div className="px-4 sm:px-5 py-4 overflow-y-auto flex-1 overscroll-contain">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-5 py-4 overscroll-contain">{children}</div>
       </div>
     </div>
   )

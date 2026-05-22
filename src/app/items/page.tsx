@@ -393,13 +393,13 @@ export default function ItemsPage() {
               placeholder="Search items, combos, or categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-11 min-h-[48px]"
+              className="input-field pl-11 min-h-12"
             />
           </div>
           <div className="flex gap-1 p-1 sm:p-1.5 bg-card rounded-xl sm:rounded-2xl border border-border overflow-x-auto">
             <button
               onClick={() => setActiveTab('items')}
-              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
+              className={`flex-1 min-w-20 px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'items'
                   ? 'bg-primary text-white shadow-md'
                   : 'text-muted-foreground hover:text-foreground active:bg-muted'
@@ -410,7 +410,7 @@ export default function ItemsPage() {
             </button>
             <button
               onClick={() => setActiveTab('combos')}
-              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
+              className={`flex-1 min-w-20 px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'combos'
                   ? 'bg-primary text-white shadow-md'
                   : 'text-muted-foreground hover:text-foreground active:bg-muted'
@@ -421,7 +421,7 @@ export default function ItemsPage() {
             </button>
             <button
               onClick={() => setActiveTab('categories')}
-              className={`flex-1 min-w-[80px] px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
+              className={`flex-1 min-w-20 px-3 sm:px-4 py-2.5 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 touch-manipulation whitespace-nowrap ${
                 activeTab === 'categories'
                   ? 'bg-primary text-white shadow-md'
                   : 'text-muted-foreground hover:text-foreground active:bg-muted'
@@ -535,7 +535,7 @@ export default function ItemsPage() {
                     
                     {/* Combo Badge - only show if no image */}
                     {!combo.image_url && (
-                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 flex items-center justify-between">
+                      <div className="bg-linear-to-r from-orange-500 to-amber-500 px-4 py-2 flex items-center justify-between">
                         <div className="flex items-center gap-2 text-white font-semibold">
                           <Layers size={18} />
                           Combo Deal
@@ -587,10 +587,10 @@ export default function ItemsPage() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleEditItem(combo)} className="min-h-[40px] min-w-[60px] touch-manipulation">
+                          <Button variant="ghost" size="sm" onClick={() => handleEditItem(combo)} className="min-h-10 min-w-[60px] touch-manipulation">
                             Edit
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive min-h-[40px] min-w-[60px] touch-manipulation" onClick={() => handleDeleteItem(combo.id)}>
+                          <Button variant="ghost" size="sm" className="text-destructive min-h-10 min-w-[60px] touch-manipulation" onClick={() => handleDeleteItem(combo.id)}>
                             Delete
                           </Button>
                         </div>
@@ -659,14 +659,14 @@ export default function ItemsPage() {
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
             placeholder="Enter category name"
-            className="min-h-[48px]"
+            className="min-h-12"
             required
           />
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button type="submit" variant="primary" fullWidth loading={submitting} className="min-h-[48px]">
+            <Button type="submit" variant="primary" fullWidth loading={submitting} className="min-h-12">
               Create Category
             </Button>
-            <Button type="button" variant="secondary" fullWidth onClick={() => setShowCategoryForm(false)} className="min-h-[48px]">
+            <Button type="button" variant="secondary" fullWidth onClick={() => setShowCategoryForm(false)} className="min-h-12">
               Cancel
             </Button>
           </div>
@@ -679,14 +679,14 @@ export default function ItemsPage() {
         onClose={resetItemForm} 
         title={editingItem ? 'Edit Item' : 'Create Item'}
       >
-        <form onSubmit={handleSubmitItem} className="space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmitItem} className="space-y-4">
           <Input
             label="Item Name"
             type="text"
             value={itemForm.name}
             onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
             placeholder="Enter item name"
-            className="min-h-[48px]"
+            className="min-h-12"
             required
           />
           <div>
@@ -695,7 +695,7 @@ export default function ItemsPage() {
               value={itemForm.description}
               onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
               placeholder="Enter product description for the catalog..."
-              className="input-field min-h-[80px] resize-none text-base"
+              className="input-field min-h-20 resize-none text-base"
               rows={3}
             />
           </div>
@@ -703,7 +703,7 @@ export default function ItemsPage() {
             label="Category"
             value={itemForm.category_id}
             onChange={(e) => setItemForm({ ...itemForm, category_id: e.target.value })}
-            className="min-h-[48px]"
+            className="min-h-12"
           >
             <option value="">No Category</option>
             {categories.map((cat) => (
@@ -719,7 +719,7 @@ export default function ItemsPage() {
             onChange={(e) => setItemForm({ ...itemForm, purchase_price_usd: e.target.value })}
             placeholder="0.00"
             prefix="$"
-            className="min-h-[48px]"
+            className="min-h-12"
             required
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -732,7 +732,7 @@ export default function ItemsPage() {
               onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
               placeholder="0.00"
               suffix="SRD"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
             <Input
               label="Selling Price (USD)"
@@ -743,7 +743,7 @@ export default function ItemsPage() {
               onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
               placeholder="0.00"
               prefix="$"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
           </div>
           <ImageUpload
@@ -755,7 +755,7 @@ export default function ItemsPage() {
           
           {/* Options */}
           <div className="space-y-3 pt-2 border-t border-border">
-            <div className="flex items-center gap-3 min-h-[44px]">
+            <div className="flex items-center gap-3 min-h-11">
               <input
                 type="checkbox"
                 id="is_public"
@@ -767,7 +767,7 @@ export default function ItemsPage() {
                 Show in public catalog (webshop)
               </label>
             </div>
-            <div className="flex items-center gap-3 min-h-[44px]">
+            <div className="flex items-center gap-3 min-h-11">
               <input
                 type="checkbox"
                 id="allow_custom_price"
@@ -781,7 +781,7 @@ export default function ItemsPage() {
               </label>
             </div>
             {/* Catalog type */}
-            <div className="flex items-center gap-3 min-h-[44px]">
+            <div className="flex items-center gap-3 min-h-11">
               <label className="text-sm font-medium text-foreground w-32">Catalog</label>
               <div className="flex gap-2">
                 {(['audio', 'watches'] as const).map(ct => (
@@ -803,7 +803,7 @@ export default function ItemsPage() {
             </div>
           </div>
           
-          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting} className="min-h-[48px]">
+          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting} className="min-h-12">
             {editingItem ? 'Update Item' : 'Create Item'}
           </Button>
         </form>
@@ -815,8 +815,8 @@ export default function ItemsPage() {
         onClose={resetItemForm} 
         title={editingItem ? 'Edit Combo' : 'Create Combo Deal'}
       >
-        <form onSubmit={handleSubmitItem} className="space-y-4 max-h-[75vh] overflow-y-auto">
-          <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-xl p-4">
+        <form onSubmit={handleSubmitItem} className="space-y-4">
+          <div className="bg-linear-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-xl p-4">
             <div className="flex items-center gap-2 text-orange-500 font-semibold mb-2">
               <Layers size={18} />
               Combo Deal
@@ -832,7 +832,7 @@ export default function ItemsPage() {
             value={itemForm.name}
             onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
             placeholder="e.g. In-Ear Monitor Starter Pack"
-            className="min-h-[48px]"
+            className="min-h-12"
             required
           />
           
@@ -855,7 +855,7 @@ export default function ItemsPage() {
               onChange={(e) => {
                 if (e.target.value) addComboItem(e.target.value)
               }}
-              className="min-h-[48px]"
+              className="min-h-12"
             >
               <option value="">Select an item to add...</option>
               {regularItems
@@ -884,7 +884,7 @@ export default function ItemsPage() {
                           {formatCurrency(item.selling_price_usd || 0, 'USD')} each
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                         <button
                           type="button"
                           onClick={() => updateComboItemQuantity(ci.item_id, ci.quantity - 1)}
@@ -904,7 +904,7 @@ export default function ItemsPage() {
                       <button
                         type="button"
                         onClick={() => removeComboItem(ci.item_id)}
-                        className="w-10 h-10 sm:w-8 sm:h-8 text-destructive hover:bg-destructive/10 active:scale-95 rounded-lg flex items-center justify-center touch-manipulation flex-shrink-0"
+                        className="w-10 h-10 sm:w-8 sm:h-8 text-destructive hover:bg-destructive/10 active:scale-95 rounded-lg flex items-center justify-center touch-manipulation shrink-0"
                       >
                         <X size={16} />
                       </button>
@@ -934,7 +934,7 @@ export default function ItemsPage() {
               onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
               placeholder="0.00"
               suffix="SRD"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
             <Input
               label="Combo Price (USD)"
@@ -945,7 +945,7 @@ export default function ItemsPage() {
               onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
               placeholder="0.00"
               prefix="$"
-              className="min-h-[48px]"
+              className="min-h-12"
             />
           </div>
           
@@ -956,7 +956,7 @@ export default function ItemsPage() {
             label="Combo Image"
           />
           
-          <div className="flex items-center gap-3 min-h-[44px]">
+          <div className="flex items-center gap-3 min-h-11">
             <input
               type="checkbox"
               id="combo_is_public"
@@ -976,7 +976,7 @@ export default function ItemsPage() {
             size="lg" 
             loading={submitting}
             disabled={comboItems.length < 2}
-            className="min-h-[48px]"
+            className="min-h-12"
           >
             {editingItem ? 'Update Combo' : 'Create Combo Deal'}
           </Button>

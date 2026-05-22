@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye } from 'lucide-react'
+import type { SalesPageDataPayload, SalesPageDataResponse, SalesPageRecentSale, SalesPageStats } from '@/types/sales'
+import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, CurrencyToggle, EmptyState, LoadingSpinner, Badge, Input } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -17,7 +18,7 @@ type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 type ExchangeRate = Database['public']['Tables']['exchange_rates']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
-type Sale = Database['public']['Tables']['sales']['Row']
+type SaleWithDetails = SalesPageRecentSale
 
 interface CartItem {
   item: Item
@@ -35,20 +36,6 @@ interface ComboSale {
   items: CartItem[]
   comboPrice: number
   originalPrice: number
-}
-
-interface SaleItem {
-  id: string
-  item_id: string
-  quantity: number
-  unit_price: number
-  subtotal: number
-  items?: Item
-}
-
-interface SaleWithDetails extends Sale {
-  locations?: Location
-  sale_items?: SaleItem[]
 }
 
 interface InvoiceData {
@@ -70,13 +57,6 @@ interface InvoiceData {
   invoiceNumber: string
 }
 
-interface SalesStats {
-  todaySales: number
-  todayOrders: number
-  weekSales: number
-  weekOrders: number
-}
-
 type WalletType = Database['public']['Tables']['wallets']['Row']
 
 export default function SalesPage() {
@@ -93,6 +73,9 @@ export default function SalesPage() {
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
   const [reservationsMap, setReservationsMap] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [hasLoadedData, setHasLoadedData] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   
   // New states for invoice/receipt and recent sales
@@ -109,7 +92,7 @@ export default function SalesPage() {
   const [quickComboPrice, setQuickComboPrice] = useState<string>('1400')
   
   // Sales statistics
-  const [salesStats, setSalesStats] = useState<SalesStats>({
+  const [salesStats, setSalesStats] = useState<SalesPageStats>({
     todaySales: 0,
     todayOrders: 0,
     weekSales: 0,
@@ -127,80 +110,39 @@ export default function SalesPage() {
   // Location wallets
   const [locationWallets, setLocationWallets] = useState<WalletType[]>([])
 
-  const loadData = async () => {
-    setLoading(true)
-    const [itemsRes, locationsRes, ratesRes] = await Promise.all([
-      supabase.from('items').select('*').is('deleted_at', null).order('name'),
-      supabase.from('locations').select('*').order('name'),
-      supabase.from('exchange_rates').select('*').eq('is_active', true).single()
-    ])
-    
-    if (itemsRes.data) setItems(itemsRes.data)
-    if (locationsRes.data) setLocations(locationsRes.data)
-    if (ratesRes.data) setCurrentRate(ratesRes.data)
-    await loadRecentSales()
-    await loadSalesStats()
-    setLoading(false)
-  }
+  const applySalesPageData = useCallback((payload: SalesPageDataPayload) => {
+    setItems(payload.items)
+    setLocations(payload.locations)
+    setCurrentRate(payload.currentRate)
+    setRecentSales(payload.recentSales)
+    setSalesStats(payload.salesStats)
+  }, [])
 
-  const loadSalesStats = async () => {
-    const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
-    
-    // Get today's sales
-    const { data: todaySalesData } = await supabase
-      .from('sales')
-      .select('total_amount, currency')
-      .gte('created_at', todayStart)
-    
-    // Get week's sales
-    const { data: weekSalesData } = await supabase
-      .from('sales')
-      .select('total_amount, currency')
-      .gte('created_at', weekStart)
-    
-    let todayTotal = 0
-    let weekTotal = 0
-    
-    if (todaySalesData) {
-      todaySalesData.forEach(sale => {
-        // Convert to SRD for consistent display
-        todayTotal += sale.currency === 'USD' && currentRate 
-          ? sale.total_amount * currentRate.usd_to_srd 
-          : sale.total_amount
-      })
+  const loadData = useCallback(async (showLoadingState = true) => {
+    if (showLoadingState && !hasLoadedData) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
     }
-    
-    if (weekSalesData) {
-      weekSalesData.forEach(sale => {
-        weekTotal += sale.currency === 'USD' && currentRate 
-          ? sale.total_amount * currentRate.usd_to_srd 
-          : sale.total_amount
-      })
-    }
-    
-    setSalesStats({
-      todaySales: todayTotal,
-      todayOrders: todaySalesData?.length || 0,
-      weekSales: weekTotal,
-      weekOrders: weekSalesData?.length || 0
-    })
-  }
+    setLoadError(null)
 
-  const loadRecentSales = async () => {
-    const { data } = await supabase
-      .from('sales')
-      .select(`
-        *,
-        locations (*),
-        sale_items (*, items (*))
-      `)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    
-    if (data) setRecentSales(data as SaleWithDetails[])
-  }
+    try {
+      const response = await fetch('/api/sales', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(`Failed to load sales data (${response.status})`)
+      }
+
+      const payload = await response.json() as SalesPageDataResponse
+      applySalesPageData(payload.data)
+      setHasLoadedData(true)
+    } catch (error) {
+      console.error('Error loading sales data:', error)
+      setLoadError('Unable to load sales data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [applySalesPageData, hasLoadedData])
 
   const loadStock = async (locationId: string) => {
     const { data } = await supabase
@@ -244,8 +186,8 @@ export default function SalesPage() {
   }
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [loadData])
 
   useEffect(() => {
     if (selectedLocation) {
@@ -718,8 +660,7 @@ export default function SalesPage() {
       setCart([])
       setCombos([])
       loadStock(selectedLocation)
-      await loadRecentSales()
-      await loadSalesStats()
+      await loadData(false)
       
       // Show success message and invoice
       setShowSuccess(true)
@@ -826,8 +767,7 @@ export default function SalesPage() {
       })
 
       // Reload data
-      await loadRecentSales()
-      await loadSalesStats()
+      await loadData(false)
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadLocationWallets(selectedLocation)
@@ -959,6 +899,26 @@ export default function SalesPage() {
     )
   }
 
+  if (loadError && !hasLoadedData) {
+    return (
+      <div className="min-h-screen pb-20 lg:pb-0">
+        <PageHeader title="Sales" subtitle="Process new sales" icon={<ShoppingCart size={24} />} />
+        <PageContainer>
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
+            <h2 className="text-lg font-semibold text-foreground">Unable to load sales</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+            <div className="mt-4">
+              <Button onClick={() => loadData()} variant="secondary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </PageContainer>
+      </div>
+    )
+  }
+
   const availableItems = items.filter(item => {
     const stock = getAvailableStock(item.id)
     const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
@@ -986,6 +946,10 @@ export default function SalesPage() {
         icon={<ShoppingCart size={24} />}
         action={
           <div className="flex gap-2">
+            <Button onClick={() => loadData(false)} variant="secondary" disabled={refreshing}>
+              <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">{refreshing ? 'Refreshing' : 'Refresh'}</span>
+            </Button>
             <Button onClick={() => setShowHistory(true)} variant="secondary">
               <History size={20} />
               <span className="hidden sm:inline">Recent Sales</span>
@@ -995,6 +959,12 @@ export default function SalesPage() {
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {loadError}
+          </div>
+        )}
+
         {/* Sales Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
           <div className="bg-card rounded-xl p-4 border border-border">
@@ -1080,14 +1050,14 @@ export default function SalesPage() {
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('cash')}
-                        className={`currency-toggle-btn min-h-[44px] ${paymentMethod === 'cash' ? 'active' : ''}`}
+                        className={`currency-toggle-btn min-h-11 ${paymentMethod === 'cash' ? 'active' : ''}`}
                       >
                         Cash
                       </button>
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('bank')}
-                        className={`currency-toggle-btn min-h-[44px] ${paymentMethod === 'bank' ? 'active' : ''}`}
+                        className={`currency-toggle-btn min-h-11 ${paymentMethod === 'bank' ? 'active' : ''}`}
                       >
                         Bank
                       </button>
@@ -1114,7 +1084,7 @@ export default function SalesPage() {
                   </div>
                   <button
                     onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
-                    className={`px-3 sm:px-4 py-2 min-h-[44px] rounded-xl font-semibold transition-all shrink-0 touch-manipulation text-sm sm:text-base ${
+                    className={`px-3 sm:px-4 py-2 min-h-11 rounded-xl font-semibold transition-all shrink-0 touch-manipulation text-sm sm:text-base ${
                       comboMode 
                         ? 'bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700' 
                         : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
@@ -1135,9 +1105,9 @@ export default function SalesPage() {
                         onChange={(e) => setQuickComboPrice(e.target.value)}
                         suffix={currency === 'SRD' ? 'SRD' : 'USD'}
                         placeholder="1400"
-                        className="flex-1 min-h-[48px]"
+                        className="flex-1 min-h-12"
                       />
-                      <Button onClick={createQuickCombo} variant="success" size="lg" className="min-h-[48px] w-full sm:w-auto">
+                      <Button onClick={createQuickCombo} variant="success" size="lg" className="min-h-12 w-full sm:w-auto">
                         <Check size={18} />
                         <span className="sm:hidden">Create Combo</span>
                         <span className="hidden sm:inline">Maak Combo</span>
@@ -1280,7 +1250,7 @@ export default function SalesPage() {
                       
                       {/* Combo Deals */}
                       {combos.map((combo) => (
-                        <div key={combo.id} className="p-3.5 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 rounded-xl border border-orange-500/30">
+                        <div key={combo.id} className="p-3.5 bg-linear-to-r from-orange-500/10 to-yellow-500/10 rounded-xl border border-orange-500/30">
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold text-foreground truncate flex items-center gap-2">
@@ -1445,14 +1415,14 @@ export default function SalesPage() {
                                       ? { ...c, customPrice: undefined, discountReason: undefined }
                                       : c
                                   ))}
-                                  className="text-xs text-orange-500 hover:text-orange-600 font-medium px-2 py-1 min-h-[36px] touch-manipulation"
+                                  className="text-xs text-orange-500 hover:text-orange-600 font-medium px-2 py-1 min-h-9 touch-manipulation"
                                 >
                                   Reset
                                 </button>
                               )}
                               <button
                                 onClick={() => removeFromCart(cartItem.item.id)}
-                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors px-2 py-1 min-h-[36px] touch-manipulation"
+                                className="ml-auto text-sm text-destructive hover:text-destructive/80 font-medium transition-colors px-2 py-1 min-h-9 touch-manipulation"
                               >
                                 Remove
                               </button>
@@ -1606,15 +1576,15 @@ export default function SalesPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 sm:pt-4">
-              <Button onClick={handlePreviewInvoice} variant="secondary" fullWidth className="min-h-[48px]">
+              <Button onClick={handlePreviewInvoice} variant="secondary" fullWidth className="min-h-12">
                 <Eye size={18} />
                 Preview
               </Button>
-              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-[48px]">
+              <Button onClick={handlePrintInvoice} variant="primary" fullWidth className="min-h-12">
                 <Printer size={18} />
                 Print Receipt
               </Button>
-              <Button onClick={() => setShowInvoice(false)} variant="secondary" fullWidth className="min-h-[48px]">
+              <Button onClick={() => setShowInvoice(false)} variant="secondary" fullWidth className="min-h-12">
                 Close
               </Button>
             </div>
@@ -1688,7 +1658,7 @@ export default function SalesPage() {
                     onClick={() => handleReprintInvoice(sale)}
                     variant="secondary"
                     size="sm"
-                    className="flex-1 min-h-[44px]"
+                    className="flex-1 min-h-11"
                   >
                     <Printer size={16} />
                     View Invoice
@@ -1697,7 +1667,7 @@ export default function SalesPage() {
                     onClick={() => handleUndoSale(sale)}
                     variant="danger"
                     size="sm"
-                    className="flex-1 min-h-[44px]"
+                    className="flex-1 min-h-11"
                   >
                     <Undo2 size={16} />
                     Undo Sale
