@@ -19,11 +19,13 @@ import type {
   ReportExpenseCategory as ExpenseCategory,
   ReportItem as Item,
   ReportLocation as Location,
+  ReportPurchaseOrder as PurchaseOrder,
   ReportReservation as ReservationWithItem,
   ReportsDataResponse,
   ReportSale as SaleWithItems,
   ReportStock as Stock,
   ReportWallet as WalletRow,
+  ReportWalletTransaction as WalletTransaction,
   ReportSeller as Seller,
 } from '@/types/reports'
 
@@ -36,6 +38,24 @@ interface MonthlySales {
   totalProfit: number
   totalExpenses: number
   salesCount: number
+}
+
+interface WalletActivitySummary {
+  creditTotal: number
+  debitTotal: number
+  netChange: number
+  salesCredits: number
+  saleRefunds: number
+  expenseDebits: number
+  expenseRefunds: number
+  commissionDebits: number
+  transferNet: number
+  adjustmentNet: number
+  correctionNet: number
+  otherNet: number
+  operationalNet: number
+  nonOperationalNet: number
+  transactionCount: number
 }
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -142,6 +162,21 @@ const toNum = (v: number | string | null): number => {
   return typeof v === 'string' ? parseFloat(v) || 0 : v
 }
 
+function classifyWalletTransaction(transaction: WalletTransaction): keyof Pick<
+  WalletActivitySummary,
+  'salesCredits' | 'saleRefunds' | 'expenseDebits' | 'expenseRefunds' | 'commissionDebits' | 'transferNet' | 'adjustmentNet' | 'correctionNet' | 'otherNet'
+> {
+  if (transaction.reference_type === 'commission_payout') return 'commissionDebits'
+  if (transaction.reference_type === 'transfer') return 'transferNet'
+  if (transaction.reference_type === 'expense_refund') return 'expenseRefunds'
+  if (transaction.reference_type === 'expense' || transaction.expense_id) return 'expenseDebits'
+  if (transaction.reference_type === 'sale_refund') return 'saleRefunds'
+  if (transaction.reference_type === 'adjustment') return 'adjustmentNet'
+  if (transaction.reference_type === 'correction') return 'correctionNet'
+  if (transaction.sale_id) return transaction.type === 'debit' ? 'saleRefunds' : 'salesCredits'
+  return 'otherNet'
+}
+
 // ─── Main Component ──────────────────────────────────────────────────
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
@@ -155,10 +190,12 @@ export default function ReportsPage() {
   const [allExpenses, setAllExpenses] = useState<ExpenseWithCategory[]>([])
   const [allCommissions, setAllCommissions] = useState<CommissionWithSale[]>([])
   const [wallets, setWallets] = useState<WalletRow[]>([])
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([])
   const [reservations, setReservations] = useState<ReservationWithItem[]>([])
   const [comboItems, setComboItems] = useState<ComboItem[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -183,6 +220,7 @@ export default function ReportsPage() {
   // collapsed sections
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     financial: true,
+    assetHealth: true,
     salesHistory: false,
     topItems: false,
     topCombos: false,
@@ -229,10 +267,12 @@ export default function ReportsPage() {
       setAllExpenses(payload.data.expenses)
       setAllCommissions(payload.data.commissions)
       setWallets(payload.data.wallets)
+      setWalletTransactions(payload.data.walletTransactions)
       setReservations(payload.data.reservations)
       setComboItems(payload.data.comboItems)
       setSellers(payload.data.sellers)
       setCategories(payload.data.categories)
+      setPurchaseOrders(payload.data.purchaseOrders)
     } catch (error) {
       console.error('Error loading reports data:', error)
       setLoadError(error instanceof Error ? error.message : 'Unable to load report data right now.')
@@ -363,6 +403,44 @@ export default function ReportsPage() {
     })
   }, [allCommissions, prevSales, selectedLocation, isCurrentTab])
 
+  const visibleWallets = useMemo(() => wallets.filter(wallet => {
+    if (selectedLocation && wallet.location_id !== selectedLocation) return false
+    return true
+  }), [wallets, selectedLocation])
+
+  const visibleWalletIds = useMemo(() => new Set(visibleWallets.map(wallet => wallet.id)), [visibleWallets])
+
+  const relevantWalletTransactions = useMemo(() => walletTransactions.filter(transaction =>
+    visibleWalletIds.has(transaction.wallet_id)
+  ), [walletTransactions, visibleWalletIds])
+
+  const filteredWalletTransactions = useMemo(() => relevantWalletTransactions.filter(transaction =>
+    inRange(transaction.created_at, activeBounds.start, activeBounds.end)
+  ), [relevantWalletTransactions, activeBounds])
+
+  const prevWalletTransactions = useMemo(() => {
+    if (!isCurrentTab) return []
+    return relevantWalletTransactions.filter(transaction =>
+      inRange(transaction.created_at, prevBounds.start, prevBounds.end)
+    )
+  }, [relevantWalletTransactions, prevBounds, isCurrentTab])
+
+  const relevantPurchaseOrders = useMemo(() => purchaseOrders.filter(order => {
+    if (selectedLocation && order.location_id !== selectedLocation) return false
+    return true
+  }), [purchaseOrders, selectedLocation])
+
+  const filteredPurchaseOrders = useMemo(() => relevantPurchaseOrders.filter(order =>
+    inRange(order.created_at, activeBounds.start, activeBounds.end)
+  ), [relevantPurchaseOrders, activeBounds])
+
+  const prevPurchaseOrders = useMemo(() => {
+    if (!isCurrentTab) return []
+    return relevantPurchaseOrders.filter(order =>
+      inRange(order.created_at, prevBounds.start, prevBounds.end)
+    )
+  }, [relevantPurchaseOrders, prevBounds, isCurrentTab])
+
   const activeReservations = useMemo(() =>
     reservations.filter(r => r.status === 'pending' || r.status === 'confirmed'),
     [reservations]
@@ -406,6 +484,76 @@ export default function ReportsPage() {
     displayCurrency === 'USD' ? profitUSD : profitUSD * rate,
     [displayCurrency, rate]
   )
+
+  const amountInDisplay = useCallback((amount: number, currency: string | null | undefined, sourceRate?: number | null): number => {
+    const conversionRate = sourceRate || rate
+    if (displayCurrency === 'USD') {
+      return currency === 'SRD' ? amount / conversionRate : amount
+    }
+    return currency === 'USD' ? amount * conversionRate : amount
+  }, [displayCurrency, rate])
+
+  const walletTransactionInDisplay = useCallback((transaction: WalletTransaction): number => {
+    const currency = transaction.currency || visibleWallets.find(wallet => wallet.id === transaction.wallet_id)?.currency || 'SRD'
+    return amountInDisplay(toNum(transaction.amount), currency)
+  }, [amountInDisplay, visibleWallets])
+
+  const signedWalletTransactionAmount = useCallback((transaction: WalletTransaction): number => {
+    const amount = walletTransactionInDisplay(transaction)
+    return transaction.type === 'debit' ? -amount : amount
+  }, [walletTransactionInDisplay])
+
+  const purchaseOrderTotalInDisplay = useCallback((order: PurchaseOrder): number =>
+    amountInDisplay(toNum(order.total_amount), order.currency, order.exchange_rate),
+  [amountInDisplay])
+
+  const purchaseOrderRemainingInDisplay = useCallback((order: PurchaseOrder): number => {
+    return (order.purchase_order_items || []).reduce((sum, item) => {
+      const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
+      return sum + amountInDisplay(remainingQuantity * toNum(item.unit_cost), order.currency, order.exchange_rate)
+    }, 0)
+  }, [amountInDisplay])
+
+  const summarizeWalletActivity = useCallback((transactions: WalletTransaction[]): WalletActivitySummary => {
+    const summary: WalletActivitySummary = {
+      creditTotal: 0,
+      debitTotal: 0,
+      netChange: 0,
+      salesCredits: 0,
+      saleRefunds: 0,
+      expenseDebits: 0,
+      expenseRefunds: 0,
+      commissionDebits: 0,
+      transferNet: 0,
+      adjustmentNet: 0,
+      correctionNet: 0,
+      otherNet: 0,
+      operationalNet: 0,
+      nonOperationalNet: 0,
+      transactionCount: transactions.length,
+    }
+
+    transactions.forEach(transaction => {
+      const amount = walletTransactionInDisplay(transaction)
+      const signedAmount = transaction.type === 'debit' ? -amount : amount
+      const bucket = classifyWalletTransaction(transaction)
+
+      if (transaction.type === 'debit') summary.debitTotal += amount
+      else summary.creditTotal += amount
+
+      if (bucket === 'salesCredits' || bucket === 'saleRefunds' || bucket === 'expenseDebits' || bucket === 'expenseRefunds' || bucket === 'commissionDebits') {
+        summary[bucket] += amount
+      } else {
+        summary[bucket] += signedAmount
+      }
+    })
+
+    summary.netChange = summary.creditTotal - summary.debitTotal
+    summary.operationalNet = summary.salesCredits + summary.expenseRefunds - summary.saleRefunds - summary.expenseDebits - summary.commissionDebits
+    summary.nonOperationalNet = summary.transferNet + summary.adjustmentNet + summary.correctionNet + summary.otherNet
+
+    return summary
+  }, [walletTransactionInDisplay])
 
   const expenseInDisplay = useCallback((exp: ExpenseWithCategory): number => {
     if (displayCurrency === 'USD') {
@@ -759,15 +907,15 @@ export default function ReportsPage() {
   // ─── Wallet Balances ───
   const walletSummary = useMemo(() => {
     let totalUSD = 0; let totalSRD = 0
-    wallets.forEach(w => {
+    visibleWallets.forEach(w => {
       if (w.currency === 'USD') totalUSD += w.balance
       else totalSRD += w.balance
     })
     const totalInDisplay = displayCurrency === 'USD'
       ? totalUSD + totalSRD / rate
       : totalSRD + totalUSD * rate
-    return { totalUSD, totalSRD, totalInDisplay, count: wallets.length }
-  }, [wallets, displayCurrency, rate])
+    return { totalUSD, totalSRD, totalInDisplay, count: visibleWallets.length }
+  }, [visibleWallets, displayCurrency, rate])
 
   // ─── Reservations ───
   const reservationSummary = useMemo(() => {
@@ -845,6 +993,49 @@ export default function ReportsPage() {
     }
   }, [stocks, items, displayCurrency, rate, excludeLowValueItems, filteredSales, activeBounds])
 
+  const walletActivity = useMemo(() => summarizeWalletActivity(filteredWalletTransactions), [filteredWalletTransactions, summarizeWalletActivity])
+  const prevWalletActivity = useMemo(() => summarizeWalletActivity(prevWalletTransactions), [prevWalletTransactions, summarizeWalletActivity])
+
+  const purchaseCapitalDeployed = useMemo(() => filteredPurchaseOrders
+    .filter(order => order.status !== 'cancelled')
+    .reduce((sum, order) => sum + purchaseOrderTotalInDisplay(order), 0),
+  [filteredPurchaseOrders, purchaseOrderTotalInDisplay])
+
+  const prevPurchaseCapitalDeployed = useMemo(() => prevPurchaseOrders
+    .filter(order => order.status !== 'cancelled')
+    .reduce((sum, order) => sum + purchaseOrderTotalInDisplay(order), 0),
+  [prevPurchaseOrders, purchaseOrderTotalInDisplay])
+
+  const openPurchaseCommitment = useMemo(() => relevantPurchaseOrders
+    .filter(order => order.status !== 'cancelled')
+    .reduce((sum, order) => sum + purchaseOrderRemainingInDisplay(order), 0),
+  [relevantPurchaseOrders, purchaseOrderRemainingInDisplay])
+
+  const totalAssetPosition = walletSummary.totalInDisplay + inventoryAnalysis.stockValueDisplay + openPurchaseCommitment
+  const liquidAssetShare = totalAssetPosition > 0 ? (walletSummary.totalInDisplay / totalAssetPosition) * 100 : 0
+  const stockAssetShare = totalAssetPosition > 0 ? (inventoryAnalysis.stockValueDisplay / totalAssetPosition) * 100 : 0
+  const committedAssetShare = totalAssetPosition > 0 ? (openPurchaseCommitment / totalAssetPosition) * 100 : 0
+
+  const realizedCogs = totalRevenue - totalGrossProfit
+  const prevRealizedCogs = prevRevenue - prevGrossProfit
+
+  const walletLinkedSales = useMemo(() => filteredSales
+    .filter(sale => sale.wallet_id && visibleWalletIds.has(sale.wallet_id))
+    .reduce((sum, sale) => sum + saleAmountInDisplay(sale), 0),
+  [filteredSales, visibleWalletIds, saleAmountInDisplay])
+
+  const walletLinkedExpenses = useMemo(() => filteredExpenses
+    .filter(expense => expense.wallet_id && visibleWalletIds.has(expense.wallet_id))
+    .reduce((sum, expense) => sum + expenseInDisplay(expense), 0),
+  [filteredExpenses, visibleWalletIds, expenseInDisplay])
+
+  const unmappedRevenue = totalRevenue - walletLinkedSales
+  const salesCreditGap = walletActivity.salesCredits - walletLinkedSales
+  const expenseDebitGap = walletActivity.expenseDebits - walletLinkedExpenses
+  const currentOpenOrderCount = relevantPurchaseOrders.filter(order => order.status !== 'received' && order.status !== 'cancelled').length
+  const assetCreationSignal = netProfit
+  const previousAssetCreationSignal = prevNetProfit
+
   // ─── Monthly Sales History ───
   const monthlySalesHistory = useMemo(() => {
     const monthlyData = new Map<string, MonthlySales>()
@@ -885,7 +1076,7 @@ export default function ReportsPage() {
     }
   }, [isCurrentTab, period, now, totalRevenue, netProfit])
 
-  const hasLoadedData = allSales.length > 0 || items.length > 0 || locations.length > 0 || allExpenses.length > 0 || wallets.length > 0
+  const hasLoadedData = allSales.length > 0 || items.length > 0 || locations.length > 0 || allExpenses.length > 0 || wallets.length > 0 || walletTransactions.length > 0 || purchaseOrders.length > 0
 
   // ─── Loading ───
   if (loading) {
@@ -1599,6 +1790,259 @@ export default function ReportsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ═══════════════ FINANCIAL HEALTH ═══════════════ */}
+        <div className="card-premium">
+          <SectionHeader
+            title="Financial Health & Reconciliation"
+            icon={<Activity size={20} />}
+            sectionKey="assetHealth"
+            badge={formatCurrency(totalAssetPosition, displayCurrency)}
+          />
+          {expandedSections.assetHealth && (
+            <div className="px-4 pb-4 space-y-4">
+              <div className="rounded-2xl border border-primary/20 bg-linear-to-r from-primary/10 via-transparent to-cyan-500/10 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Management view</div>
+                    <div className="text-lg sm:text-xl font-bold text-foreground">Profit, liquidity, and stock are separate signals.</div>
+                    <div className="max-w-3xl text-sm text-muted-foreground">
+                      Revenue is turnover. Gross profit removes stock cost. Net profit removes operating expenses and commissions.
+                      Wallet balance is liquid cash, not profit. Asset position combines liquid cash, stock at cost, and inventory already funded but not fully received.
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
+                    <div className="text-xs text-muted-foreground">Business value created this period</div>
+                    <div className={`mt-1 text-2xl font-bold ${assetCreationSignal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {formatCurrency(assetCreationSignal, displayCurrency)}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      {assetCreationSignal >= 0 ? <ArrowUpRight size={14} className="text-emerald-600" /> : <ArrowDownRight size={14} className="text-red-600" />}
+                      <span>This is net profit, not wallet balance.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+                <div className="rounded-2xl border border-cyan-500/20 bg-linear-to-br from-cyan-500/10 to-transparent p-4">
+                  <div className="text-xs text-muted-foreground">Total Asset Position</div>
+                  <div className="mt-1 text-2xl font-bold text-cyan-600">{formatCurrency(totalAssetPosition, displayCurrency)}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">Wallets + stock cost + inventory on order</div>
+                </div>
+                <div className="rounded-2xl border border-blue-500/20 bg-linear-to-br from-blue-500/10 to-transparent p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Liquid Wallet Balance</div>
+                      <div className="mt-1 text-2xl font-bold text-blue-600">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
+                    </div>
+                    <div className="text-right">
+                      {isCurrentTab && <TrendBadge current={walletActivity.netChange} previous={prevWalletActivity.netChange} />}
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">{liquidAssetShare.toFixed(1)}% of current asset position</div>
+                </div>
+                <div className="rounded-2xl border border-orange-500/20 bg-linear-to-br from-orange-500/10 to-transparent p-4">
+                  <div className="text-xs text-muted-foreground">Stock at Cost</div>
+                  <div className="mt-1 text-2xl font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{stockAssetShare.toFixed(1)}% of current asset position</div>
+                </div>
+                <div className="rounded-2xl border border-violet-500/20 bg-linear-to-br from-violet-500/10 to-transparent p-4">
+                  <div className="text-xs text-muted-foreground">Inventory on Order</div>
+                  <div className="mt-1 text-2xl font-bold text-violet-600">{formatCurrency(openPurchaseCommitment, displayCurrency)}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{currentOpenOrderCount} open orders · {committedAssetShare.toFixed(1)}% of assets</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">Net Profit</span>
+                    {isCurrentTab && <TrendBadge current={netProfit} previous={previousAssetCreationSignal} />}
+                  </div>
+                  <div className={`mt-2 text-xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(netProfit, displayCurrency)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Revenue after cost of goods, expenses, and commissions.</div>
+                </div>
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">Tracked Wallet Movement</span>
+                    {isCurrentTab && <TrendBadge current={walletActivity.netChange} previous={prevWalletActivity.netChange} />}
+                  </div>
+                  <div className={`mt-2 text-xl font-bold ${walletActivity.netChange >= 0 ? 'text-cyan-600' : 'text-red-600'}`}>{formatCurrency(walletActivity.netChange, displayCurrency)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Credits minus debits recorded in wallet transactions for this period.</div>
+                </div>
+                <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">Inventory Capital Deployed</span>
+                    {isCurrentTab && <TrendBadge current={purchaseCapitalDeployed} previous={prevPurchaseCapitalDeployed} invert />}
+                  </div>
+                  <div className="mt-2 text-xl font-bold text-violet-600">{formatCurrency(purchaseCapitalDeployed, displayCurrency)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Purchase orders created in this period. This is capital moved into stock, not operating expense.</div>
+                </div>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">Cost of Goods Sold</span>
+                    {isCurrentTab && <TrendBadge current={realizedCogs} previous={prevRealizedCogs} invert />}
+                  </div>
+                  <div className="mt-2 text-xl font-bold text-amber-600">{formatCurrency(realizedCogs, displayCurrency)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">The stock cost consumed to generate the revenue above.</div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <div className="text-sm font-bold text-foreground">Asset Mix</div>
+                    <div className="text-xs text-muted-foreground">Where the business value currently sits.</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">Wallets {liquidAssetShare.toFixed(1)}% · Stock {stockAssetShare.toFixed(1)}% · On order {committedAssetShare.toFixed(1)}%</div>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-muted">
+                  <div className="flex h-full w-full overflow-hidden rounded-full">
+                    <div className="bg-cyan-500" style={{ width: `${liquidAssetShare}%` }} />
+                    <div className="bg-orange-500" style={{ width: `${stockAssetShare}%` }} />
+                    <div className="bg-violet-500" style={{ width: `${committedAssetShare}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen size={16} className="text-primary" />
+                    <div className="text-sm font-bold text-foreground">Profit Structure</div>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-foreground">Revenue</div>
+                        <div className="text-xs text-muted-foreground">Turnover booked from sales.</div>
+                      </div>
+                      <div className="text-right font-bold text-blue-600">{formatCurrency(totalRevenue, displayCurrency)}</div>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-foreground">Gross Profit</div>
+                        <div className="text-xs text-muted-foreground">Revenue after subtracting cost of goods sold.</div>
+                      </div>
+                      <div className="text-right font-bold text-green-600">{formatCurrency(totalGrossProfit, displayCurrency)}</div>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-foreground">Net Profit</div>
+                        <div className="text-xs text-muted-foreground">Gross profit after operating expenses and commissions.</div>
+                      </div>
+                      <div className={`text-right font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(netProfit, displayCurrency)}</div>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-3">
+                      <div>
+                        <div className="font-semibold text-foreground">Wallet Balance</div>
+                        <div className="text-xs text-muted-foreground">Liquid cash currently sitting in selected wallets.</div>
+                      </div>
+                      <div className="text-right font-bold text-cyan-600">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-foreground">Asset Position</div>
+                        <div className="text-xs text-muted-foreground">Wallets plus stock value plus funded inventory still on order.</div>
+                      </div>
+                      <div className="text-right font-bold text-violet-600">{formatCurrency(totalAssetPosition, displayCurrency)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CreditCard size={16} className="text-primary" />
+                    <div className="text-sm font-bold text-foreground">Wallet Reconciliation</div>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-foreground">Sales mapped to wallets</span>
+                        <span className="font-bold text-blue-600">{formatCurrency(walletLinkedSales, displayCurrency)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Wallet sale credits recorded</span>
+                        <span className={`font-semibold ${Math.abs(salesCreditGap) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {formatCurrency(walletActivity.salesCredits, displayCurrency)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Gap</span>
+                        <span className={`font-semibold ${Math.abs(salesCreditGap) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {Math.abs(salesCreditGap) < 0.01 ? 'In sync' : formatCurrency(salesCreditGap, displayCurrency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-foreground">Expenses paid from wallets</span>
+                        <span className="font-bold text-red-600">{formatCurrency(walletLinkedExpenses, displayCurrency)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Wallet expense debits recorded</span>
+                        <span className={`font-semibold ${Math.abs(expenseDebitGap) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {formatCurrency(walletActivity.expenseDebits, displayCurrency)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Gap</span>
+                        <span className={`font-semibold ${Math.abs(expenseDebitGap) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {Math.abs(expenseDebitGap) < 0.01 ? 'In sync' : formatCurrency(expenseDebitGap, displayCurrency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+                        <div className="text-xs text-muted-foreground">Commission payouts</div>
+                        <div className="mt-1 text-lg font-bold text-orange-600">{formatCurrency(walletActivity.commissionDebits, displayCurrency)}</div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                        <div className="text-xs text-muted-foreground">Expense refunds</div>
+                        <div className="mt-1 text-lg font-bold text-emerald-600">{formatCurrency(walletActivity.expenseRefunds, displayCurrency)}</div>
+                      </div>
+                      <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+                        <div className="text-xs text-muted-foreground">Transfers</div>
+                        <div className={`mt-1 text-lg font-bold ${walletActivity.transferNet >= 0 ? 'text-cyan-600' : 'text-red-600'}`}>{formatCurrency(walletActivity.transferNet, displayCurrency)}</div>
+                      </div>
+                      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                        <div className="text-xs text-muted-foreground">Adjustments & corrections</div>
+                        <div className={`mt-1 text-lg font-bold ${walletActivity.adjustmentNet + walletActivity.correctionNet >= 0 ? 'text-violet-600' : 'text-red-600'}`}>
+                          {formatCurrency(walletActivity.adjustmentNet + walletActivity.correctionNet, displayCurrency)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-foreground">Revenue not mapped to a wallet</span>
+                        <span className={`font-bold ${unmappedRevenue > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          {formatCurrency(unmappedRevenue, displayCurrency)}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        If this is high, revenue can look strong while wallets do not move the way you expect.
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-foreground">Purchase orders funded this period</span>
+                        <span className="font-bold text-violet-600">{formatCurrency(purchaseCapitalDeployed, displayCurrency)}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        This money is converted into inventory capital. It is not operating expense, which is why wallet movement and net profit can move differently.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

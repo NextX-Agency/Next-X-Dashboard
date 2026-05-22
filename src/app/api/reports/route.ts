@@ -8,6 +8,8 @@ import type {
   ReportExpense,
   ReportItem,
   ReportLocation,
+  ReportPurchaseOrder,
+  ReportPurchaseOrderItem,
   ReportReservation,
   ReportSale,
   ReportSaleItem,
@@ -15,6 +17,7 @@ import type {
   ReportSeller,
   ReportStock,
   ReportWallet,
+  ReportWalletTransaction,
 } from '@/types/reports'
 
 function toNumber(value: unknown): number {
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const [sales, items, stocks, locations, expenses, commissions, wallets, reservations, comboItems, sellers, categories] = await Promise.all([
+    const [sales, items, stocks, locations, expenses, commissions, wallets, walletTransactions, reservations, comboItems, sellers, categories, purchaseOrders] = await Promise.all([
       prisma.sale.findMany({
         select: {
           id: true,
@@ -156,6 +159,24 @@ export async function GET(request: NextRequest) {
           updatedAt: true,
         },
       }),
+      prisma.wallet_transactions.findMany({
+        select: {
+          id: true,
+          wallet_id: true,
+          sale_id: true,
+          type: true,
+          amount: true,
+          balance_before: true,
+          balance_after: true,
+          description: true,
+          created_at: true,
+          expense_id: true,
+          currency: true,
+          reference_type: true,
+          reference_id: true,
+        },
+        orderBy: { created_at: 'desc' },
+      }),
       prisma.reservation.findMany({
         select: {
           id: true,
@@ -212,6 +233,31 @@ export async function GET(request: NextRequest) {
           createdAt: true,
         },
         orderBy: { name: 'asc' },
+      }),
+      prisma.purchaseOrder.findMany({
+        select: {
+          id: true,
+          walletId: true,
+          locationId: true,
+          totalAmount: true,
+          currency: true,
+          exchange_rate: true,
+          status: true,
+          createdAt: true,
+          purchase_order_items: {
+            select: {
+              id: true,
+              order_id: true,
+              itemId: true,
+              quantity: true,
+              unit_cost: true,
+              subtotal: true,
+              quantity_received: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
       }),
     ])
 
@@ -291,6 +337,21 @@ export async function GET(request: NextRequest) {
         created_at: toIsoString(wallet.createdAt),
         updated_at: toIsoString(wallet.updatedAt),
       })),
+      walletTransactions: walletTransactions.map<ReportWalletTransaction>((transaction) => ({
+        id: transaction.id,
+        wallet_id: transaction.wallet_id,
+        sale_id: transaction.sale_id,
+        type: transaction.type,
+        amount: toNumber(transaction.amount),
+        balance_before: toNumber(transaction.balance_before),
+        balance_after: toNumber(transaction.balance_after),
+        description: transaction.description,
+        created_at: toIsoString(transaction.created_at),
+        expense_id: transaction.expense_id,
+        currency: transaction.currency,
+        reference_type: transaction.reference_type,
+        reference_id: transaction.reference_id,
+      })),
       reservations: reservations.map<ReportReservation>((reservation) => ({
         id: reservation.id,
         client_id: reservation.clientId,
@@ -324,6 +385,26 @@ export async function GET(request: NextRequest) {
         id: category.id,
         name: category.name,
         created_at: toIsoString(category.createdAt),
+      })),
+      purchaseOrders: purchaseOrders.map<ReportPurchaseOrder>((order) => ({
+        id: order.id,
+        wallet_id: order.walletId,
+        location_id: order.locationId,
+        total_amount: toNumber(order.totalAmount),
+        currency: order.currency,
+        exchange_rate: order.exchange_rate == null ? null : toNumber(order.exchange_rate),
+        status: order.status,
+        created_at: toIsoString(order.createdAt),
+        purchase_order_items: order.purchase_order_items.map<ReportPurchaseOrderItem>((item) => ({
+          id: item.id,
+          order_id: item.order_id,
+          item_id: item.itemId,
+          quantity: item.quantity,
+          unit_cost: toNumber(item.unit_cost),
+          subtotal: toNumber(item.subtotal),
+          quantity_received: item.quantity_received,
+          created_at: toIsoString(item.createdAt),
+        })),
       })),
     }
 

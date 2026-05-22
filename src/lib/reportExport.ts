@@ -14,10 +14,58 @@ export interface ReportExportSummary {
   totalUnitsSold: number
   totalRevenueSrd: number
   totalRevenueUsd: number
+  totalCogsSrd: number
+  totalCogsUsd: number
+  totalGrossProfitSrd: number
+  totalGrossProfitUsd: number
   totalExpensesSrd: number
   totalExpensesUsd: number
   totalCommissionsSrd: number
   totalCommissionsUsd: number
+  totalNetProfitSrd: number
+  totalNetProfitUsd: number
+}
+
+export interface ReportExportFinancialHealth {
+  walletBalanceSrd: number
+  walletBalanceUsd: number
+  stockValueSrd: number
+  stockValueUsd: number
+  onOrderCommitmentSrd: number
+  onOrderCommitmentUsd: number
+  totalAssetPositionSrd: number
+  totalAssetPositionUsd: number
+  walletNetChangeSrd: number
+  walletNetChangeUsd: number
+  walletSalesCreditsSrd: number
+  walletSalesCreditsUsd: number
+  salesMappedToWalletsSrd: number
+  salesMappedToWalletsUsd: number
+  walletExpenseDebitsSrd: number
+  walletExpenseDebitsUsd: number
+  expensesBookedToWalletsSrd: number
+  expensesBookedToWalletsUsd: number
+  walletExpenseRefundsSrd: number
+  walletExpenseRefundsUsd: number
+  commissionPayoutsSrd: number
+  commissionPayoutsUsd: number
+  transferNetSrd: number
+  transferNetUsd: number
+  adjustmentNetSrd: number
+  adjustmentNetUsd: number
+  purchaseCapitalDeployedSrd: number
+  purchaseCapitalDeployedUsd: number
+  unmappedRevenueSrd: number
+  unmappedRevenueUsd: number
+  salesCreditGapSrd: number
+  salesCreditGapUsd: number
+  expenseDebitGapSrd: number
+  expenseDebitGapUsd: number
+  liquidAssetSharePct: number
+  stockAssetSharePct: number
+  committedAssetSharePct: number
+  openOrderCount: number
+  walletCount: number
 }
 
 export interface ReportExportLocationRow {
@@ -60,6 +108,7 @@ export interface ReportExportData {
   generatedAt: string
   branding: ReportExportBranding
   summary: ReportExportSummary
+  financialHealth: ReportExportFinancialHealth
   locations: ReportExportLocationRow[]
   payments: ReportExportPaymentRow[]
   items: ReportExportItemRow[]
@@ -102,6 +151,30 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
+function toUsd(amount: number, currency: string | null | undefined, rate = DEFAULT_EXCHANGE_RATE) {
+  return currency === 'SRD' ? amount / rate : amount
+}
+
+function toSrd(amount: number, currency: string | null | undefined, rate = DEFAULT_EXCHANGE_RATE) {
+  return currency === 'USD' ? amount * rate : amount
+}
+
+function classifyWalletTransaction(transaction: {
+  sale_id: string | null
+  expense_id: string | null
+  reference_type: string | null
+  type: string
+}) {
+  if (transaction.reference_type === 'commission_payout') return 'commission'
+  if (transaction.reference_type === 'transfer') return 'transfer'
+  if (transaction.reference_type === 'expense_refund') return 'expenseRefund'
+  if (transaction.reference_type === 'expense' || transaction.expense_id) return 'expense'
+  if (transaction.reference_type === 'sale_refund') return 'saleRefund'
+  if (transaction.reference_type === 'adjustment' || transaction.reference_type === 'correction') return 'adjustment'
+  if (transaction.sale_id) return transaction.type === 'debit' ? 'saleRefund' : 'sale'
+  return 'other'
+}
+
 function truncateText(font: PDFFont, text: string, size: number, maxWidth: number) {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return text
 
@@ -128,12 +201,13 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     ...(locationId ? { locationId } : {}),
   }
 
-  const [sales, expenses, locations, settings] = await Promise.all([
+  const [sales, expenses, locations, settings, wallets, stocks, periodPurchaseOrders, openPurchaseOrders] = await Promise.all([
     prisma.sale.findMany({
       where: salesWhere,
       select: {
         id: true,
         locationId: true,
+        wallet_id: true,
         currency: true,
         exchangeRate: true,
         totalAmount: true,
@@ -147,6 +221,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
               select: {
                 id: true,
                 name: true,
+                purchasePriceUsd: true,
                 category: {
                   select: {
                     name: true,
@@ -170,6 +245,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
       select: {
         amount: true,
         currency: true,
+        walletId: true,
       },
     }),
     prisma.location.findMany({
@@ -186,9 +262,64 @@ export async function buildReportExportData(period: ReportExportPeriod, location
         value: true,
       },
     }),
+    prisma.wallet.findMany({
+      where: locationId ? { location_id: locationId } : undefined,
+      select: {
+        id: true,
+        currency: true,
+        balance: true,
+      },
+    }),
+    prisma.stock.findMany({
+      where: locationId ? { locationId } : undefined,
+      select: {
+        quantity: true,
+        item: {
+          select: {
+            purchasePriceUsd: true,
+          },
+        },
+      },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: {
+        createdAt: {
+          gte: bounds.start,
+          lte: bounds.end,
+        },
+        ...(locationId ? { locationId } : {}),
+      },
+      select: {
+        totalAmount: true,
+        currency: true,
+        exchange_rate: true,
+        status: true,
+      },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: {
+        ...(locationId ? { locationId } : {}),
+        status: {
+          not: 'cancelled',
+        },
+      },
+      select: {
+        status: true,
+        currency: true,
+        exchange_rate: true,
+        purchase_order_items: {
+          select: {
+            quantity: true,
+            quantity_received: true,
+            unit_cost: true,
+          },
+        },
+      },
+    }),
   ])
 
   const saleIds = sales.map((sale) => sale.id)
+  const walletIds = wallets.map((wallet) => wallet.id)
   const commissions = saleIds.length > 0
     ? await prisma.commission.findMany({
         where: {
@@ -206,6 +337,26 @@ export async function buildReportExportData(period: ReportExportPeriod, location
         },
       })
     : []
+  const walletTransactions = walletIds.length > 0
+    ? await prisma.wallet_transactions.findMany({
+        where: {
+          wallet_id: { in: walletIds },
+          created_at: {
+            gte: bounds.start,
+            lte: bounds.end,
+          },
+        },
+        select: {
+          wallet_id: true,
+          sale_id: true,
+          expense_id: true,
+          reference_type: true,
+          type: true,
+          amount: true,
+          currency: true,
+        },
+      })
+    : []
 
   const locationNameById = new Map(locations.map((location) => [location.id, location.name]))
   const selectedLocationName = locationId ? locationNameById.get(locationId) || 'Unknown location' : 'All locations'
@@ -217,10 +368,13 @@ export async function buildReportExportData(period: ReportExportPeriod, location
   const itemRows = new Map<string, ReportExportItemRow>()
   const locationRows = new Map<string, ReportExportLocationRow>()
   const paymentRows = new Map<string, ReportExportPaymentRow>()
+  const walletCurrencyById = new Map(wallets.map((wallet) => [wallet.id, wallet.currency]))
 
   let totalUnitsSold = 0
   let totalRevenueSrd = 0
   let totalRevenueUsd = 0
+  let totalCogsSrd = 0
+  let totalCogsUsd = 0
 
   for (const sale of sales) {
     const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
@@ -271,6 +425,10 @@ export async function buildReportExportData(period: ReportExportPeriod, location
       currentItemRow.revenueUsd += revenueUsd
       itemRows.set(rowKey, currentItemRow)
 
+      const itemCostUsd = toNumber(saleItem.item?.purchasePriceUsd) * saleItem.quantity
+      totalCogsUsd += itemCostUsd
+      totalCogsSrd += itemCostUsd * saleRate
+
       totalUnitsSold += saleItem.quantity
       locationEntry.quantitySold += saleItem.quantity
     }
@@ -301,6 +459,130 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     return sum + ((commission.sale?.currency || 'USD') === 'USD' ? amount : amount / rate)
   }, 0)
 
+  const totalGrossProfitSrd = totalRevenueSrd - totalCogsSrd
+  const totalGrossProfitUsd = totalRevenueUsd - totalCogsUsd
+  const totalNetProfitSrd = totalGrossProfitSrd - totalExpensesSrd - totalCommissionsSrd
+  const totalNetProfitUsd = totalGrossProfitUsd - totalExpensesUsd - totalCommissionsUsd
+
+  const walletBalanceSrd = wallets.reduce((sum, wallet) => sum + toSrd(toNumber(wallet.balance), wallet.currency), 0)
+  const walletBalanceUsd = wallets.reduce((sum, wallet) => sum + toUsd(toNumber(wallet.balance), wallet.currency), 0)
+
+  const stockValueUsd = stocks.reduce((sum, stock) => sum + (toNumber(stock.item?.purchasePriceUsd) * stock.quantity), 0)
+  const stockValueSrd = stockValueUsd * DEFAULT_EXCHANGE_RATE
+
+  const onOrderCommitmentUsd = openPurchaseOrders.reduce((sum, order) => {
+    const orderRate = toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE
+    const remainingInOrderCurrency = order.purchase_order_items.reduce((lineSum, item) => {
+      const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
+      return lineSum + (remainingQuantity * toNumber(item.unit_cost))
+    }, 0)
+    return sum + toUsd(remainingInOrderCurrency, order.currency, orderRate)
+  }, 0)
+  const onOrderCommitmentSrd = openPurchaseOrders.reduce((sum, order) => {
+    const orderRate = toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE
+    const remainingInOrderCurrency = order.purchase_order_items.reduce((lineSum, item) => {
+      const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
+      return lineSum + (remainingQuantity * toNumber(item.unit_cost))
+    }, 0)
+    return sum + toSrd(remainingInOrderCurrency, order.currency, orderRate)
+  }, 0)
+
+  const purchaseCapitalDeployedUsd = periodPurchaseOrders
+    .filter((order) => order.status !== 'cancelled')
+    .reduce((sum, order) => sum + toUsd(toNumber(order.totalAmount), order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE), 0)
+  const purchaseCapitalDeployedSrd = periodPurchaseOrders
+    .filter((order) => order.status !== 'cancelled')
+    .reduce((sum, order) => sum + toSrd(toNumber(order.totalAmount), order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE), 0)
+
+  const walletSalesMappedUsd = sales.reduce((sum, sale) => {
+    if (!sale.wallet_id || !walletCurrencyById.has(sale.wallet_id)) return sum
+    const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    return sum + toUsd(toNumber(sale.totalAmount), sale.currency, saleRate)
+  }, 0)
+  const walletSalesMappedSrd = sales.reduce((sum, sale) => {
+    if (!sale.wallet_id || !walletCurrencyById.has(sale.wallet_id)) return sum
+    const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    return sum + toSrd(toNumber(sale.totalAmount), sale.currency, saleRate)
+  }, 0)
+
+  const expensesBookedToWalletsUsd = expenses.reduce((sum, expense) => {
+    if (!expense.walletId || !walletCurrencyById.has(expense.walletId)) return sum
+    return sum + toUsd(toNumber(expense.amount), expense.currency)
+  }, 0)
+  const expensesBookedToWalletsSrd = expenses.reduce((sum, expense) => {
+    if (!expense.walletId || !walletCurrencyById.has(expense.walletId)) return sum
+    return sum + toSrd(toNumber(expense.amount), expense.currency)
+  }, 0)
+
+  const walletMetrics = walletTransactions.reduce((summary, transaction) => {
+    const currency = transaction.currency || walletCurrencyById.get(transaction.wallet_id) || 'SRD'
+    const amountUsd = toUsd(toNumber(transaction.amount), currency)
+    const amountSrd = toSrd(toNumber(transaction.amount), currency)
+    const signedUsd = transaction.type === 'debit' ? -amountUsd : amountUsd
+    const signedSrd = transaction.type === 'debit' ? -amountSrd : amountSrd
+    const bucket = classifyWalletTransaction(transaction)
+
+    if (transaction.type === 'debit') {
+      summary.walletNetChangeUsd -= amountUsd
+      summary.walletNetChangeSrd -= amountSrd
+    } else {
+      summary.walletNetChangeUsd += amountUsd
+      summary.walletNetChangeSrd += amountSrd
+    }
+
+    if (bucket === 'sale') {
+      summary.walletSalesCreditsUsd += amountUsd
+      summary.walletSalesCreditsSrd += amountSrd
+    } else if (bucket === 'saleRefund') {
+      summary.walletSalesCreditsUsd -= amountUsd
+      summary.walletSalesCreditsSrd -= amountSrd
+    } else if (bucket === 'expense') {
+      summary.walletExpenseDebitsUsd += amountUsd
+      summary.walletExpenseDebitsSrd += amountSrd
+    } else if (bucket === 'expenseRefund') {
+      summary.walletExpenseRefundsUsd += amountUsd
+      summary.walletExpenseRefundsSrd += amountSrd
+    } else if (bucket === 'commission') {
+      summary.commissionPayoutsUsd += amountUsd
+      summary.commissionPayoutsSrd += amountSrd
+    } else if (bucket === 'transfer') {
+      summary.transferNetUsd += signedUsd
+      summary.transferNetSrd += signedSrd
+    } else if (bucket === 'adjustment') {
+      summary.adjustmentNetUsd += signedUsd
+      summary.adjustmentNetSrd += signedSrd
+    }
+
+    return summary
+  }, {
+    walletNetChangeUsd: 0,
+    walletNetChangeSrd: 0,
+    walletSalesCreditsUsd: 0,
+    walletSalesCreditsSrd: 0,
+    walletExpenseDebitsUsd: 0,
+    walletExpenseDebitsSrd: 0,
+    walletExpenseRefundsUsd: 0,
+    walletExpenseRefundsSrd: 0,
+    commissionPayoutsUsd: 0,
+    commissionPayoutsSrd: 0,
+    transferNetUsd: 0,
+    transferNetSrd: 0,
+    adjustmentNetUsd: 0,
+    adjustmentNetSrd: 0,
+  })
+
+  const totalAssetPositionUsd = walletBalanceUsd + stockValueUsd + onOrderCommitmentUsd
+  const totalAssetPositionSrd = walletBalanceSrd + stockValueSrd + onOrderCommitmentSrd
+  const liquidAssetSharePct = totalAssetPositionUsd > 0 ? (walletBalanceUsd / totalAssetPositionUsd) * 100 : 0
+  const stockAssetSharePct = totalAssetPositionUsd > 0 ? (stockValueUsd / totalAssetPositionUsd) * 100 : 0
+  const committedAssetSharePct = totalAssetPositionUsd > 0 ? (onOrderCommitmentUsd / totalAssetPositionUsd) * 100 : 0
+  const unmappedRevenueUsd = totalRevenueUsd - walletSalesMappedUsd
+  const unmappedRevenueSrd = totalRevenueSrd - walletSalesMappedSrd
+  const salesCreditGapUsd = walletMetrics.walletSalesCreditsUsd - walletSalesMappedUsd
+  const salesCreditGapSrd = walletMetrics.walletSalesCreditsSrd - walletSalesMappedSrd
+  const expenseDebitGapUsd = walletMetrics.walletExpenseDebitsUsd - expensesBookedToWalletsUsd
+  const expenseDebitGapSrd = walletMetrics.walletExpenseDebitsSrd - expensesBookedToWalletsSrd
+
   return {
     period,
     periodLabel,
@@ -318,10 +600,57 @@ export async function buildReportExportData(period: ReportExportPeriod, location
       totalUnitsSold,
       totalRevenueSrd,
       totalRevenueUsd,
+      totalCogsSrd,
+      totalCogsUsd,
+      totalGrossProfitSrd,
+      totalGrossProfitUsd,
       totalExpensesSrd,
       totalExpensesUsd,
       totalCommissionsSrd,
       totalCommissionsUsd,
+      totalNetProfitSrd,
+      totalNetProfitUsd,
+    },
+    financialHealth: {
+      walletBalanceSrd,
+      walletBalanceUsd,
+      stockValueSrd,
+      stockValueUsd,
+      onOrderCommitmentSrd,
+      onOrderCommitmentUsd,
+      totalAssetPositionSrd,
+      totalAssetPositionUsd,
+      walletNetChangeSrd: walletMetrics.walletNetChangeSrd,
+      walletNetChangeUsd: walletMetrics.walletNetChangeUsd,
+      walletSalesCreditsSrd: walletMetrics.walletSalesCreditsSrd,
+      walletSalesCreditsUsd: walletMetrics.walletSalesCreditsUsd,
+      salesMappedToWalletsSrd: walletSalesMappedSrd,
+      salesMappedToWalletsUsd: walletSalesMappedUsd,
+      walletExpenseDebitsSrd: walletMetrics.walletExpenseDebitsSrd,
+      walletExpenseDebitsUsd: walletMetrics.walletExpenseDebitsUsd,
+      expensesBookedToWalletsSrd: expensesBookedToWalletsSrd,
+      expensesBookedToWalletsUsd: expensesBookedToWalletsUsd,
+      walletExpenseRefundsSrd: walletMetrics.walletExpenseRefundsSrd,
+      walletExpenseRefundsUsd: walletMetrics.walletExpenseRefundsUsd,
+      commissionPayoutsSrd: walletMetrics.commissionPayoutsSrd,
+      commissionPayoutsUsd: walletMetrics.commissionPayoutsUsd,
+      transferNetSrd: walletMetrics.transferNetSrd,
+      transferNetUsd: walletMetrics.transferNetUsd,
+      adjustmentNetSrd: walletMetrics.adjustmentNetSrd,
+      adjustmentNetUsd: walletMetrics.adjustmentNetUsd,
+      purchaseCapitalDeployedSrd,
+      purchaseCapitalDeployedUsd,
+      unmappedRevenueSrd,
+      unmappedRevenueUsd,
+      salesCreditGapSrd,
+      salesCreditGapUsd,
+      expenseDebitGapSrd,
+      expenseDebitGapUsd,
+      liquidAssetSharePct,
+      stockAssetSharePct,
+      committedAssetSharePct,
+      openOrderCount: openPurchaseOrders.filter((order) => order.status !== 'received').length,
+      walletCount: wallets.length,
     },
     locations: Array.from(locationRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),
     payments: Array.from(paymentRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),
@@ -342,8 +671,10 @@ export async function buildReportPdf(data: ReportExportData) {
   const line = rgb(0.9, 0.91, 0.93)
   const white = rgb(0.99, 0.99, 0.99)
 
-  const netSrd = data.summary.totalRevenueSrd - data.summary.totalExpensesSrd - data.summary.totalCommissionsSrd
-  const netUsd = data.summary.totalRevenueUsd - data.summary.totalExpensesUsd - data.summary.totalCommissionsUsd
+  const netSrd = data.summary.totalNetProfitSrd
+  const netUsd = data.summary.totalNetProfitUsd
+  const grossSrd = data.summary.totalGrossProfitSrd
+  const grossUsd = data.summary.totalGrossProfitUsd
   const avgSaleSrd = data.summary.totalSales > 0 ? data.summary.totalRevenueSrd / data.summary.totalSales : 0
   const avgSaleUsd = data.summary.totalSales > 0 ? data.summary.totalRevenueUsd / data.summary.totalSales : 0
   const avgUnitSrd = data.summary.totalUnitsSold > 0 ? data.summary.totalRevenueSrd / data.summary.totalUnitsSold : 0
@@ -743,17 +1074,26 @@ export async function buildReportPdf(data: ReportExportData) {
   ensureSpace(190)
   const cardsTop = y
   drawMetricCard(PAGE_MARGIN, cardsTop, cardWidth, cardHeight, 'Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), `${formatMoney(data.summary.totalRevenueSrd, 'SRD')} total revenue`, brand)
-  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop, cardWidth, cardHeight, 'Net Position', formatMoney(netUsd, 'USD'), `${formatMoney(netSrd, 'SRD')} after expenses and commissions`, darkMuted)
-  drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Sales Activity', `${data.summary.totalSales.toLocaleString()} sales`, `${data.summary.totalUnitsSold.toLocaleString()} units sold in this period`, rgb(0.11, 0.55, 0.33))
-  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Cost Pressure', formatMoney(data.summary.totalExpensesUsd + data.summary.totalCommissionsUsd, 'USD'), `${formatMoney(data.summary.totalExpensesUsd, 'USD')} expenses • ${formatMoney(data.summary.totalCommissionsUsd, 'USD')} commissions`, rgb(0.62, 0.2, 0.2))
+  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop, cardWidth, cardHeight, 'Gross Profit', formatMoney(grossUsd, 'USD'), `${formatMoney(grossSrd, 'SRD')} after stock cost`, rgb(0.11, 0.55, 0.33))
+  drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Net Profit', formatMoney(netUsd, 'USD'), `${formatMoney(netSrd, 'SRD')} after expenses and commissions`, darkMuted)
+  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Asset Position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), `${formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD')} wallets + stock + on-order`, rgb(0.37, 0.24, 0.72))
   y = cardsTop - (cardHeight * 2) - 28
 
   drawInsightPanel('Key Signals', [
     `Average sale value: ${formatMoney(avgSaleUsd, 'USD')} • ${formatMoney(avgSaleSrd, 'SRD')}.`,
     `Average unit revenue: ${formatMoney(avgUnitUsd, 'USD')} • ${formatMoney(avgUnitSrd, 'SRD')}.`,
+    `Gross profit: ${formatMoney(grossUsd, 'USD')} • Net profit: ${formatMoney(netUsd, 'USD')}.`,
     topLocation ? `Top location: ${topLocation.locationName} with ${formatMoney(topLocation.revenueUsd, 'USD')} across ${topLocation.salesCount.toLocaleString()} sales.` : 'Top location: no sales recorded in this period.',
     topItem ? `Top item: ${topItem.itemName} (${topItem.quantitySold.toLocaleString()} units • ${formatMoney(topItem.revenueUsd, 'USD')}).` : 'Top item: no item sales recorded in this period.',
     topPayment ? `Strongest payment method: ${topPayment.paymentMethod} at ${formatMoney(topPayment.revenueUsd, 'USD')}.` : 'Payment methods: no payment mix recorded in this period.',
+  ])
+
+  drawInsightPanel('Financial Health', [
+    `Wallet balance: ${formatMoney(data.financialHealth.walletBalanceUsd, 'USD')} • Stock at cost: ${formatMoney(data.financialHealth.stockValueUsd, 'USD')}.`,
+    `Inventory on order: ${formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD')} across ${data.financialHealth.openOrderCount.toLocaleString()} open orders.`,
+    `Tracked wallet movement this period: ${formatMoney(data.financialHealth.walletNetChangeUsd, 'USD')}.`,
+    `Purchase orders funded this period: ${formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD')} (capital deployment, not operating expense).`,
+    `Revenue not mapped to a wallet: ${formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD')}.`,
   ])
 
   drawInsightPanel('Report Context', [
@@ -763,6 +1103,33 @@ export async function buildReportPdf(data: ReportExportData) {
     data.branding.storeAddress ? `Address: ${data.branding.storeAddress}.` : 'Address: not configured in store settings.',
     data.branding.storeEmail ? `Contact: ${data.branding.storeEmail}.` : 'Contact: no report email configured in store settings.',
   ])
+
+  drawTable(
+    'Financial Reconciliation Snapshot',
+    [
+      { header: 'Metric', width: 215 },
+      { header: 'USD', width: 120, align: 'right' },
+      { header: 'SRD', width: 120, align: 'right' },
+      { header: 'Meaning', width: 104 },
+    ],
+    [
+      ['Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), formatMoney(data.summary.totalRevenueSrd, 'SRD'), 'Turnover'],
+      ['Cost of goods sold', formatMoney(data.summary.totalCogsUsd, 'USD'), formatMoney(data.summary.totalCogsSrd, 'SRD'), 'Stock cost used'],
+      ['Gross profit', formatMoney(data.summary.totalGrossProfitUsd, 'USD'), formatMoney(data.summary.totalGrossProfitSrd, 'SRD'), 'Revenue minus COGS'],
+      ['Net profit', formatMoney(data.summary.totalNetProfitUsd, 'USD'), formatMoney(data.summary.totalNetProfitSrd, 'SRD'), 'After expenses and commissions'],
+      ['Wallet balance', formatMoney(data.financialHealth.walletBalanceUsd, 'USD'), formatMoney(data.financialHealth.walletBalanceSrd, 'SRD'), 'Liquid cash'],
+      ['Stock at cost', formatMoney(data.financialHealth.stockValueUsd, 'USD'), formatMoney(data.financialHealth.stockValueSrd, 'SRD'), 'Inventory held'],
+      ['Inventory on order', formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD'), formatMoney(data.financialHealth.onOrderCommitmentSrd, 'SRD'), 'Funded, not fully received'],
+      ['Total asset position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD'), 'Wallets + stock + on-order'],
+      ['Tracked wallet movement', formatMoney(data.financialHealth.walletNetChangeUsd, 'USD'), formatMoney(data.financialHealth.walletNetChangeSrd, 'SRD'), 'Wallet transaction delta'],
+      ['Sales mapped to wallets', formatMoney(data.financialHealth.salesMappedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.salesMappedToWalletsSrd, 'SRD'), 'Expected wallet sales'],
+      ['Wallet sale credits', formatMoney(data.financialHealth.walletSalesCreditsUsd, 'USD'), formatMoney(data.financialHealth.walletSalesCreditsSrd, 'SRD'), 'Recorded wallet sales'],
+      ['Expense booked to wallets', formatMoney(data.financialHealth.expensesBookedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.expensesBookedToWalletsSrd, 'SRD'), 'Expected wallet expenses'],
+      ['Wallet expense debits', formatMoney(data.financialHealth.walletExpenseDebitsUsd, 'USD'), formatMoney(data.financialHealth.walletExpenseDebitsSrd, 'SRD'), 'Recorded wallet expenses'],
+      ['Purchase capital deployed', formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD'), formatMoney(data.financialHealth.purchaseCapitalDeployedSrd, 'SRD'), 'Inventory funding'],
+      ['Revenue not mapped', formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD'), formatMoney(data.financialHealth.unmappedRevenueSrd, 'SRD'), 'Sales outside wallet map'],
+    ],
+  )
 
   drawTable(
     'Location Breakdown',
