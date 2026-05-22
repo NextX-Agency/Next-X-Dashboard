@@ -5,9 +5,9 @@ import { supabase } from '@/lib/supabase'
 import { 
   Wallet, Plus, DollarSign, Edit, Trash2, ArrowUpRight, ArrowDownLeft, 
   TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft,
-  ChevronDown, ChevronUp, MapPin, AlertTriangle, RefreshCcw
+  ChevronDown, ChevronUp, MapPin, AlertTriangle, RefreshCcw, PiggyBank, Search, X
 } from 'lucide-react'
-import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
+import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge, Input, Select } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -34,6 +34,11 @@ interface TransactionWithDetails extends WalletTransaction {
   wallets?: WalletType & { locations?: Location | null } | null
 }
 
+type ViewMode = 'locations' | 'all' | 'savings'
+type BalanceFilter = 'all' | 'positive' | 'zero' | 'negative'
+type WalletSort = 'location' | 'highest' | 'lowest' | 'recent'
+type HistoryFilter = 'all' | 'credit' | 'debit' | 'adjustment'
+
 // Approximate USD to SRD exchange rate (can be made dynamic)
 const USD_TO_SRD_RATE = 35.6
 
@@ -53,8 +58,18 @@ export default function WalletsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   
-  // View mode: 'locations' (grouped by location) or 'all' (flat list)
-  const [viewMode, setViewMode] = useState<'locations' | 'all'>('locations')
+  // View mode: 'locations' (grouped by location), 'all' (flat list) or 'savings'
+  const [viewMode, setViewMode] = useState<ViewMode>('locations')
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterLocation, setFilterLocation] = useState('')
+  const [filterType, setFilterType] = useState<'all' | 'cash' | 'bank'>('all')
+  const [filterCurrency, setFilterCurrency] = useState<'all' | Currency>('all')
+  const [filterBalance, setFilterBalance] = useState<BalanceFilter>('all')
+  const [sortBy, setSortBy] = useState<WalletSort>('location')
+  const [historySearchQuery, setHistorySearchQuery] = useState('')
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<HistoryFilter>('all')
+  const [historyWalletFilter, setHistoryWalletFilter] = useState('')
   
   // Expanded locations for accordion
   const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set())
@@ -388,8 +403,23 @@ export default function WalletsPage() {
     }
   }
 
+  const getWalletLocationName = (wallet: WalletWithLocation) => wallet.locations?.name || 'No location'
+
+  const matchesBalanceFilter = (wallet: WalletWithLocation) => {
+    switch (filterBalance) {
+      case 'positive':
+        return wallet.balance > 0
+      case 'zero':
+        return wallet.balance === 0
+      case 'negative':
+        return wallet.balance < 0
+      default:
+        return true
+    }
+  }
+
   // Group wallets by location
-  const getLocationWallets = (): LocationWithWallets[] => {
+  const getLocationWallets = (sourceWallets: WalletWithLocation[] = wallets): LocationWithWallets[] => {
     const locationMap = new Map<string, LocationWithWallets>()
     
     locations.forEach(loc => {
@@ -401,7 +431,7 @@ export default function WalletsPage() {
       })
     })
     
-    wallets.forEach(wallet => {
+    sourceWallets.forEach(wallet => {
       if (wallet.location_id && locationMap.has(wallet.location_id)) {
         const loc = locationMap.get(wallet.location_id)!
         loc.wallets.push(wallet)
@@ -416,20 +446,167 @@ export default function WalletsPage() {
     return Array.from(locationMap.values()).filter(l => l.wallets.length > 0)
   }
 
+  const filteredWallets = [...wallets]
+    .filter((wallet) => {
+      const searchValue = searchQuery.trim().toLowerCase()
+      const matchesSearch = !searchValue
+        || getWalletLocationName(wallet).toLowerCase().includes(searchValue)
+        || wallet.type.toLowerCase().includes(searchValue)
+        || wallet.currency.toLowerCase().includes(searchValue)
+        || wallet.person_name.toLowerCase().includes(searchValue)
+
+      const matchesLocation = !filterLocation || wallet.location_id === filterLocation
+      const matchesCurrency = filterCurrency === 'all' || wallet.currency === filterCurrency
+      const matchesType = viewMode === 'savings'
+        ? wallet.type === 'bank'
+        : filterType === 'all' || wallet.type === filterType
+      const matchesSavings = viewMode !== 'savings' || (wallet.type === 'bank' && wallet.balance > 0)
+
+      return matchesSearch && matchesLocation && matchesCurrency && matchesType && matchesBalanceFilter(wallet) && matchesSavings
+    })
+    .sort((left, right) => {
+      if (sortBy === 'highest') return right.balance - left.balance
+      if (sortBy === 'lowest') return left.balance - right.balance
+      if (sortBy === 'recent') return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
+
+      return getWalletLocationName(left).localeCompare(getWalletLocationName(right))
+        || left.type.localeCompare(right.type)
+        || left.currency.localeCompare(right.currency)
+    })
+
+  const filteredLocationWallets = getLocationWallets(filteredWallets)
+  const filteredTransactions = transactions.filter((transaction) => {
+    const searchValue = historySearchQuery.trim().toLowerCase()
+    const walletName = transaction.wallets?.locations?.name || ''
+    const walletType = transaction.wallets?.type || ''
+    const walletCurrency = transaction.wallets?.currency || transaction.currency || ''
+    const description = transaction.description || transaction.reference_type || ''
+    const matchesSearch = !searchValue
+      || walletName.toLowerCase().includes(searchValue)
+      || walletType.toLowerCase().includes(searchValue)
+      || walletCurrency.toLowerCase().includes(searchValue)
+      || description.toLowerCase().includes(searchValue)
+    const matchesType = historyTypeFilter === 'all' || transaction.type === historyTypeFilter
+    const matchesWallet = !historyWalletFilter || transaction.wallet_id === historyWalletFilter
+
+    return matchesSearch && matchesType && matchesWallet
+  })
+
+  const hasActiveWalletFilters = Boolean(
+    searchQuery
+    || filterLocation
+    || filterType !== 'all'
+    || filterCurrency !== 'all'
+    || filterBalance !== 'all'
+    || sortBy !== 'location'
+  )
+
+  const hasActiveHistoryFilters = Boolean(historySearchQuery || historyTypeFilter !== 'all' || historyWalletFilter)
+
+  const clearWalletFilters = () => {
+    setSearchQuery('')
+    setFilterLocation('')
+    setFilterType('all')
+    setFilterCurrency('all')
+    setFilterBalance('all')
+    setSortBy('location')
+  }
+
+  const clearHistoryFilters = () => {
+    setHistorySearchQuery('')
+    setHistoryTypeFilter('all')
+    setHistoryWalletFilter('')
+  }
+
+  const savingsWallets = wallets.filter((wallet) => wallet.type === 'bank' && wallet.balance > 0)
+  const savingsTotalSRD = savingsWallets.filter((wallet) => wallet.currency === 'SRD').reduce((sum, wallet) => sum + wallet.balance, 0)
+  const savingsTotalUSD = savingsWallets.filter((wallet) => wallet.currency === 'USD').reduce((sum, wallet) => sum + wallet.balance, 0)
+  const filteredSavingsLocationCount = new Set(filteredWallets.map((wallet) => wallet.location_id).filter(Boolean)).size
+  const summaryWallets = viewMode === 'savings' ? savingsWallets : wallets
+
   // Calculate totals
-  const getTotalByTypeAndCurrency = (type: 'cash' | 'bank', currency: Currency) => {
-    return wallets
+  const getTotalByTypeAndCurrency = (type: 'cash' | 'bank', currency: Currency, sourceWallets: WalletWithLocation[] = summaryWallets) => {
+    return sourceWallets
       .filter(w => w.type === type && w.currency === currency)
       .reduce((sum, w) => sum + w.balance, 0)
   }
 
-  const grandTotalSRD = wallets.filter(w => w.currency === 'SRD').reduce((sum, w) => sum + w.balance, 0)
-  const grandTotalUSD = wallets.filter(w => w.currency === 'USD').reduce((sum, w) => sum + w.balance, 0)
+  const grandTotalSRD = summaryWallets.filter(w => w.currency === 'SRD').reduce((sum, w) => sum + w.balance, 0)
+  const grandTotalUSD = summaryWallets.filter(w => w.currency === 'USD').reduce((sum, w) => sum + w.balance, 0)
   
   // Total in SRD equivalent
   const grandTotalInSRD = grandTotalSRD + (grandTotalUSD * USD_TO_SRD_RATE)
   const grandTotalInUSD = grandTotalUSD + (grandTotalSRD / USD_TO_SRD_RATE)
   const hasLoadedData = wallets.length > 0 || locations.length > 0 || transactions.length > 0
+  const locationsWithoutWallets = !hasActiveWalletFilters && viewMode !== 'savings'
+    ? locations.filter(location => !wallets.some(wallet => wallet.location_id === location.id))
+    : []
+
+  const walletFilterPanel = (
+    <div className="mb-6 rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Wallet filters</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {viewMode === 'savings'
+              ? `Showing ${filteredWallets.length} positive bank wallet${filteredWallets.length === 1 ? '' : 's'} across ${filteredSavingsLocationCount} location${filteredSavingsLocationCount === 1 ? '' : 's'}.`
+              : `Showing ${filteredWallets.length} of ${wallets.length} wallet${wallets.length === 1 ? '' : 's'}.`}
+          </p>
+        </div>
+        {hasActiveWalletFilters && (
+          <Button type="button" onClick={clearWalletFilters} variant="ghost" size="sm">
+            <X size={16} />
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      <div className={`grid gap-3 sm:grid-cols-2 ${viewMode === 'savings' ? 'xl:grid-cols-5' : 'xl:grid-cols-6'}`}>
+        <Input
+          label="Search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Location, wallet type, currency..."
+        />
+        <Select label="Location" value={filterLocation} onChange={(event) => setFilterLocation(event.target.value)}>
+          <option value="">All locations</option>
+          {locations.map((location) => (
+            <option key={location.id} value={location.id}>{location.name}</option>
+          ))}
+        </Select>
+        {viewMode !== 'savings' && (
+          <Select label="Wallet type" value={filterType} onChange={(event) => setFilterType(event.target.value as 'all' | 'cash' | 'bank')}>
+            <option value="all">All types</option>
+            <option value="cash">Cash</option>
+            <option value="bank">Bank</option>
+          </Select>
+        )}
+        <Select label="Currency" value={filterCurrency} onChange={(event) => setFilterCurrency(event.target.value as 'all' | Currency)}>
+          <option value="all">All currencies</option>
+          <option value="SRD">SRD</option>
+          <option value="USD">USD</option>
+        </Select>
+        <Select label="Balance" value={filterBalance} onChange={(event) => setFilterBalance(event.target.value as BalanceFilter)}>
+          <option value="all">Any balance</option>
+          <option value="positive">Positive</option>
+          <option value="zero">Zero</option>
+          <option value="negative">Negative</option>
+        </Select>
+        <Select label="Sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as WalletSort)}>
+          <option value="location">Location</option>
+          <option value="highest">Highest balance</option>
+          <option value="lowest">Lowest balance</option>
+          <option value="recent">Recently updated</option>
+        </Select>
+      </div>
+
+      {viewMode === 'savings' && (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-muted-foreground">
+          Savings view currently tracks <span className="font-semibold text-foreground">positive bank wallets</span> so you can see how much reserve money is available without changing live wallet behavior.
+        </div>
+      )}
+    </div>
+  )
 
   const toggleLocation = (locationId: string) => {
     setExpandedLocations(prev => {
@@ -534,32 +711,59 @@ export default function WalletsPage() {
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
             <div className="col-span-2 lg:col-span-1 bg-linear-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
               <div className="flex items-center gap-2 text-primary mb-2">
-                <TrendingUp size={20} />
-                <span className="text-sm font-medium">Grand Total</span>
+                {viewMode === 'savings' ? <PiggyBank size={20} /> : <TrendingUp size={20} />}
+                <span className="text-sm font-medium">{viewMode === 'savings' ? 'Savings Total' : 'Grand Total'}</span>
               </div>
               <div className="text-xl font-bold text-foreground">{formatCurrency(grandTotalSRD, 'SRD')}</div>
               <div className="text-lg text-muted-foreground">{formatCurrency(grandTotalUSD, 'USD')}</div>
             </div>
-            <StatBox 
-              label="Cash SRD" 
-              value={formatCurrency(getTotalByTypeAndCurrency('cash', 'SRD'), 'SRD')} 
-              icon={<Banknote size={20} />}
-            />
-            <StatBox 
-              label="Cash USD" 
-              value={formatCurrency(getTotalByTypeAndCurrency('cash', 'USD'), 'USD')} 
-              icon={<Banknote size={20} />}
-            />
-            <StatBox 
-              label="Bank SRD" 
-              value={formatCurrency(getTotalByTypeAndCurrency('bank', 'SRD'), 'SRD')} 
-              icon={<CreditCard size={20} />}
-            />
-            <StatBox 
-              label="Bank USD" 
-              value={formatCurrency(getTotalByTypeAndCurrency('bank', 'USD'), 'USD')} 
-              icon={<CreditCard size={20} />}
-            />
+            {viewMode === 'savings' ? (
+              <>
+                <StatBox
+                  label="Savings SRD"
+                  value={formatCurrency(savingsTotalSRD, 'SRD')}
+                  icon={<PiggyBank size={20} />}
+                />
+                <StatBox
+                  label="Savings USD"
+                  value={formatCurrency(savingsTotalUSD, 'USD')}
+                  icon={<PiggyBank size={20} />}
+                />
+                <StatBox
+                  label="Savings Wallets"
+                  value={String(savingsWallets.length)}
+                  icon={<Wallet size={20} />}
+                />
+                <StatBox
+                  label="Locations Covered"
+                  value={String(new Set(savingsWallets.map((wallet) => wallet.location_id).filter(Boolean)).size)}
+                  icon={<MapPin size={20} />}
+                />
+              </>
+            ) : (
+              <>
+                <StatBox 
+                  label="Cash SRD" 
+                  value={formatCurrency(getTotalByTypeAndCurrency('cash', 'SRD'), 'SRD')} 
+                  icon={<Banknote size={20} />}
+                />
+                <StatBox 
+                  label="Cash USD" 
+                  value={formatCurrency(getTotalByTypeAndCurrency('cash', 'USD'), 'USD')} 
+                  icon={<Banknote size={20} />}
+                />
+                <StatBox 
+                  label="Bank SRD" 
+                  value={formatCurrency(getTotalByTypeAndCurrency('bank', 'SRD'), 'SRD')} 
+                  icon={<CreditCard size={20} />}
+                />
+                <StatBox 
+                  label="Bank USD" 
+                  value={formatCurrency(getTotalByTypeAndCurrency('bank', 'USD'), 'USD')} 
+                  icon={<CreditCard size={20} />}
+                />
+              </>
+            )}
           </div>
 
           {/* View Mode Toggle */}
@@ -588,8 +792,21 @@ export default function WalletsPage() {
                 <Wallet size={16} className="inline mr-1" />
                 All Wallets
               </button>
+              <button
+                onClick={() => setViewMode('savings')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'savings'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <PiggyBank size={16} className="inline mr-1" />
+                Savings
+              </button>
             </div>
           </div>
+
+          {walletFilterPanel}
 
           {/* Desktop Wallets Display */}
           {wallets.length === 0 ? (
@@ -600,8 +817,15 @@ export default function WalletsPage() {
             />
           ) : viewMode === 'locations' ? (
             /* Desktop: Grouped by Location View */
+            filteredLocationWallets.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="No matching wallets"
+                description="Try changing your wallet filters or clear them to see all wallets again."
+              />
+            ) : (
             <div className="space-y-6">
-              {getLocationWallets().map((location) => (
+              {filteredLocationWallets.map((location) => (
                 <div 
                   key={location.id} 
                   className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 transition-all"
@@ -698,7 +922,7 @@ export default function WalletsPage() {
                           setWalletForm(prev => ({ ...prev, location_id: location.id }))
                           setShowForm(true)
                         }}
-                        className="p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary min-h-[120px]"
+                        className="p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary min-h-28"
                       >
                         <Plus size={24} />
                         <span className="text-sm font-medium">Add Wallet</span>
@@ -709,11 +933,11 @@ export default function WalletsPage() {
               ))}
               
               {/* Locations without wallets */}
-              {locations.filter(l => !wallets.some(w => w.location_id === l.id)).length > 0 && (
+              {locationsWithoutWallets.length > 0 && (
                 <div className="bg-muted/50 rounded-2xl border border-dashed border-border p-6">
                   <h3 className="font-medium text-foreground mb-3">Locations without wallets:</h3>
                   <div className="flex flex-wrap gap-2">
-                    {locations.filter(l => !wallets.some(w => w.location_id === l.id)).map(loc => (
+                    {locationsWithoutWallets.map(loc => (
                       <button
                         key={loc.id}
                         onClick={() => {
@@ -730,10 +954,92 @@ export default function WalletsPage() {
                 </div>
               )}
             </div>
+            )
+          ) : viewMode === 'savings' ? (
+            filteredWallets.length === 0 ? (
+              <EmptyState
+                icon={PiggyBank}
+                title="No savings wallets match these filters"
+                description="Savings currently shows positive bank wallets. Clear filters or fund a bank wallet to see it here."
+              />
+            ) : (
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-amber-500/20 bg-linear-to-br from-amber-500/10 to-primary/5 p-5">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                      <PiggyBank size={24} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground">Savings Overview</h3>
+                      <p className="text-sm text-muted-foreground">Positive bank wallets grouped into one reserve view.</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">SRD Savings</div>
+                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(savingsTotalSRD, 'SRD')}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">USD Savings</div>
+                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(savingsTotalUSD, 'USD')}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Approx. Total in USD</div>
+                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(grandTotalInUSD, 'USD')}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredWallets.map((wallet) => (
+                    <div key={wallet.id} className="rounded-2xl border border-amber-500/20 bg-card p-5">
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                            <PiggyBank size={22} className="text-amber-500" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{getWalletLocationName(wallet)}</p>
+                            <p className="text-sm text-muted-foreground capitalize">{wallet.type} {wallet.currency}</p>
+                          </div>
+                        </div>
+                        <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                      </div>
+                      <div className="text-3xl font-bold text-foreground mb-1">{formatCurrency(wallet.balance, wallet.currency as Currency)}</div>
+                      <p className="text-xs text-muted-foreground mb-4">Updated {new Date(wallet.updated_at).toLocaleDateString()}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => {
+                            setSelectedWallet(wallet)
+                            setShowTransactionForm(true)
+                          }}
+                          variant="secondary"
+                          size="sm"
+                          fullWidth
+                        >
+                          <DollarSign size={16} />
+                          Adjust
+                        </Button>
+                        <Button type="button" onClick={() => handleEditWallet(wallet)} variant="ghost" size="sm">
+                          <Edit size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
           ) : (
             /* Desktop: Flat List View */
+            filteredWallets.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="No matching wallets"
+                description="Try changing your wallet filters or clear them to see all wallets again."
+              />
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {wallets.map((wallet) => (
+              {filteredWallets.map((wallet) => (
                 <div 
                   key={wallet.id} 
                   className={`p-5 rounded-xl border transition-all group active:scale-[0.98] ${
@@ -791,6 +1097,7 @@ export default function WalletsPage() {
                 </div>
               ))}
             </div>
+            )
           )}
         </PageContainer>
       </div>
@@ -824,7 +1131,7 @@ export default function WalletsPage() {
                 <span className="text-xs font-medium text-primary uppercase tracking-wider">Grand Total Portfolio</span>
               </div>
               <div className="text-4xl font-bold text-foreground mb-1">
-                SRD {grandTotalSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {viewMode === 'savings' ? 'Savings' : 'SRD'} {grandTotalSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
               <div className="text-sm text-muted-foreground">
                 ≈ ${grandTotalInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -836,55 +1143,59 @@ export default function WalletsPage() {
         {/* Summary Cards - 2x2 Grid */}
         <div className="px-4 py-2">
           <div className="grid grid-cols-2 gap-3">
-            {/* Cash SRD */}
+            {/* Cash SRD / Savings SRD */}
             <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                  <Banknote size={16} className="text-emerald-500" />
+                  {viewMode === 'savings' ? <PiggyBank size={16} className="text-emerald-500" /> : <Banknote size={16} className="text-emerald-500" />}
                 </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Cash SRD</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings SRD' : 'Cash SRD'}</span>
               </div>
               <div className="text-xl font-bold text-foreground">
-                {getTotalByTypeAndCurrency('cash', 'SRD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {(viewMode === 'savings' ? savingsTotalSRD : getTotalByTypeAndCurrency('cash', 'SRD')).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
             </div>
 
-            {/* Bank SRD */}
+            {/* Bank SRD / Savings USD */}
             <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Building2 size={16} className="text-blue-500" />
+                  {viewMode === 'savings' ? <PiggyBank size={16} className="text-blue-500" /> : <Building2 size={16} className="text-blue-500" />}
                 </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Bank SRD</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings USD' : 'Bank SRD'}</span>
               </div>
               <div className="text-xl font-bold text-foreground">
-                {getTotalByTypeAndCurrency('bank', 'SRD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {(viewMode === 'savings' ? savingsTotalUSD : getTotalByTypeAndCurrency('bank', 'SRD')).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </div>
             </div>
 
-            {/* Cash USD */}
+            {/* Cash USD / Savings Wallets */}
             <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                  <Banknote size={16} className="text-emerald-500" />
+                  {viewMode === 'savings' ? <Wallet size={16} className="text-emerald-500" /> : <Banknote size={16} className="text-emerald-500" />}
                 </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Cash USD</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings Wallets' : 'Cash USD'}</span>
               </div>
               <div className="text-xl font-bold text-foreground">
-                ${getTotalByTypeAndCurrency('cash', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {viewMode === 'savings'
+                  ? filteredWallets.length.toLocaleString('en-US')
+                  : `$${getTotalByTypeAndCurrency('cash', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
               </div>
             </div>
 
-            {/* Bank USD */}
+            {/* Bank USD / Savings Locations */}
             <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Building2 size={16} className="text-blue-500" />
+                  {viewMode === 'savings' ? <MapPin size={16} className="text-blue-500" /> : <Building2 size={16} className="text-blue-500" />}
                 </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">Bank USD</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings Locations' : 'Bank USD'}</span>
               </div>
               <div className="text-xl font-bold text-foreground">
-                ${getTotalByTypeAndCurrency('bank', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {viewMode === 'savings'
+                  ? filteredSavingsLocationCount.toLocaleString('en-US')
+                  : `$${getTotalByTypeAndCurrency('bank', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
               </div>
             </div>
           </div>
@@ -913,8 +1224,20 @@ export default function WalletsPage() {
             >
               All Wallets
             </button>
+            <button
+              onClick={() => setViewMode('savings')}
+              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+                viewMode === 'savings'
+                  ? 'bg-primary text-primary-foreground shadow-md'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Savings
+            </button>
           </div>
         </div>
+
+        <div className="px-4">{walletFilterPanel}</div>
 
         {/* Mobile Wallets Content */}
         <div className="px-4 py-2">
@@ -926,8 +1249,15 @@ export default function WalletsPage() {
             />
           ) : viewMode === 'locations' ? (
             /* Mobile: Location-based Accordion View */
+            filteredLocationWallets.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="No matching wallets"
+                description="Try changing your wallet filters or clear them to see all wallets again."
+              />
+            ) : (
             <div className="space-y-3">
-              {getLocationWallets().map((location) => {
+              {filteredLocationWallets.map((location) => {
                 const isExpanded = expandedLocations.has(location.id)
                 const totalInSRD = location.totalSRD + (location.totalUSD * USD_TO_SRD_RATE)
                 
@@ -1009,7 +1339,7 @@ export default function WalletsPage() {
                               setWalletForm(prev => ({ ...prev, location_id: location.id }))
                               setShowForm(true)
                             }}
-                            className="p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary min-h-[100px]"
+                            className="p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary min-h-24"
                           >
                             <Plus size={20} />
                             <span className="text-xs font-medium">Add New</span>
@@ -1047,11 +1377,11 @@ export default function WalletsPage() {
               })}
               
               {/* Locations without wallets */}
-              {locations.filter(l => !wallets.some(w => w.location_id === l.id)).length > 0 && (
+              {locationsWithoutWallets.length > 0 && (
                 <div className="bg-muted/30 rounded-2xl border border-dashed border-border p-4">
                   <h3 className="font-medium text-foreground text-sm mb-3">Locations without wallets:</h3>
                   <div className="flex flex-wrap gap-2">
-                    {locations.filter(l => !wallets.some(w => w.location_id === l.id)).map(loc => (
+                    {locationsWithoutWallets.map(loc => (
                       <button
                         key={loc.id}
                         onClick={() => {
@@ -1068,10 +1398,85 @@ export default function WalletsPage() {
                 </div>
               )}
             </div>
+            )
+          ) : viewMode === 'savings' ? (
+            filteredWallets.length === 0 ? (
+              <EmptyState
+                icon={PiggyBank}
+                title="No savings wallets match these filters"
+                description="Savings currently shows positive bank wallets. Clear filters or fund a bank wallet to see it here."
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                      <PiggyBank size={20} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">Savings snapshot</p>
+                      <p className="text-xs text-muted-foreground">Positive bank wallets only</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase">SRD</div>
+                      <div className="font-bold text-foreground">{formatCurrency(savingsTotalSRD, 'SRD')}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase">USD</div>
+                      <div className="font-bold text-foreground">{formatCurrency(savingsTotalUSD, 'USD')}</div>
+                    </div>
+                  </div>
+                </div>
+                {filteredWallets.map((wallet) => (
+                  <div key={wallet.id} className="p-4 rounded-2xl border border-amber-500/20 bg-card">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
+                          <PiggyBank size={22} className="text-amber-500" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground">{getWalletLocationName(wallet)}</div>
+                          <div className="text-sm text-muted-foreground capitalize">{wallet.type} {wallet.currency}</div>
+                        </div>
+                      </div>
+                      <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                    </div>
+                    <div className="text-2xl font-bold text-foreground mt-4">{formatCurrency(wallet.balance, wallet.currency as Currency)}</div>
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
+                      <button
+                        onClick={() => {
+                          setSelectedWallet(wallet)
+                          setShowTransactionForm(true)
+                        }}
+                        className="flex-1 py-2.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <DollarSign size={16} />
+                        Adjust
+                      </button>
+                      <button
+                        onClick={() => handleEditWallet(wallet)}
+                        className="py-2.5 px-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             /* Mobile: All Wallets Flat List */
+            filteredWallets.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="No matching wallets"
+                description="Try changing your wallet filters or clear them to see all wallets again."
+              />
+            ) : (
             <div className="space-y-3">
-              {wallets.map((wallet) => (
+              {filteredWallets.map((wallet) => (
                 <div 
                   key={wallet.id} 
                   onClick={() => {
@@ -1141,6 +1546,7 @@ export default function WalletsPage() {
                 </div>
               ))}
             </div>
+            )
           )}
         </div>
 
@@ -1368,12 +1774,42 @@ export default function WalletsPage() {
         title="Transaction History"
       >
         <div className="space-y-3">
-          {transactions.length === 0 ? (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input
+              label="Search"
+              value={historySearchQuery}
+              onChange={(event) => setHistorySearchQuery(event.target.value)}
+              placeholder="Wallet, description..."
+            />
+            <Select label="Type" value={historyTypeFilter} onChange={(event) => setHistoryTypeFilter(event.target.value as HistoryFilter)}>
+              <option value="all">All types</option>
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+              <option value="adjustment">Adjustment</option>
+            </Select>
+            <Select label="Wallet" value={historyWalletFilter} onChange={(event) => setHistoryWalletFilter(event.target.value)}>
+              <option value="">All wallets</option>
+              {wallets.map((wallet) => (
+                <option key={wallet.id} value={wallet.id}>{getWalletLocationName(wallet)} - {wallet.type} {wallet.currency}</option>
+              ))}
+            </Select>
+          </div>
+
+          {hasActiveHistoryFilters && (
+            <div className="flex justify-end">
+              <Button type="button" onClick={clearHistoryFilters} variant="ghost" size="sm">
+                <X size={16} />
+                Clear history filters
+              </Button>
+            </div>
+          )}
+
+          {filteredTransactions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No transactions yet
+              {transactions.length === 0 ? 'No transactions yet' : 'No transactions match the current filters'}
             </div>
           ) : (
-            transactions.map((tx) => (
+            filteredTransactions.map((tx) => (
               <div 
                 key={tx.id} 
                 className={`p-3 rounded-lg border ${

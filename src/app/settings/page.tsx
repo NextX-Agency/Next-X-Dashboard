@@ -9,6 +9,7 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
+import { WIPE_RESTORE_CONFIRMATION, type BackupBlobFile, type BackupValidationResult, type RestoreResponse } from '@/types/backup'
 
 interface StoreSettings {
   whatsapp_number: string
@@ -64,18 +65,14 @@ export default function SettingsPage() {
     role: 'staff'
   })
 
-  // Backup states
-  interface BackupFile {
-    url: string
-    pathname: string
-    size: number
-    uploadedAt: string
-  }
-  const [backups, setBackups] = useState<BackupFile[]>([])
+  const [backups, setBackups] = useState<BackupBlobFile[]>([])
   const [backupLoading, setBackupLoading] = useState(false)
   const [backupAction, setBackupAction] = useState<string | null>(null)
   const [restoreMode, setRestoreMode] = useState<'wipe' | 'merge'>('wipe')
-  const [restoreResult, setRestoreResult] = useState<{ success: boolean; totalRows: number; errors?: string[] } | null>(null)
+  const [restoreResult, setRestoreResult] = useState<RestoreResponse | null>(null)
+  const [backupError, setBackupError] = useState<string | null>(null)
+  const [backupValidation, setBackupValidation] = useState<BackupValidationResult | null>(null)
+  const [wipeConfirmation, setWipeConfirmation] = useState('')
 
   const loadSettings = async () => {
     setLoading(true)
@@ -138,10 +135,41 @@ export default function SettingsPage() {
     }
   }
 
+  const validateBackup = async (payload: { backup?: unknown; url?: string }) => {
+    const res = await fetch('/api/backup/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    const result = await res.json() as BackupValidationResult & { error?: string; issues?: string[] }
+
+    if (!res.ok) {
+      const issues = Array.isArray(result.issues) ? result.issues.join(' ') : result.error
+      throw new Error(issues || 'Backup validation failed.')
+    }
+
+    return result
+  }
+
+  const buildRestoreMessage = (validation: BackupValidationResult) => {
+    const baseMessage = restoreMode === 'wipe'
+      ? `This will DELETE all current data, create a safety snapshot first, and then restore ${validation.summary.totalRows.toLocaleString()} rows from the selected backup.`
+      : `This will create a safety snapshot first and then merge ${validation.summary.totalRows.toLocaleString()} rows from the selected backup into the current database.`
+
+    const warningMessage = validation.warnings.length > 0
+      ? ` Warnings: ${validation.warnings.join(' ')}`
+      : ''
+
+    return `${baseMessage}${warningMessage}`
+  }
+
   const handleCreateBackup = async () => {
     setBackupLoading(true)
     setBackupAction('Creating backup...')
     setRestoreResult(null)
+    setBackupError(null)
+    setBackupValidation(null)
     try {
       // Step 1: Export all data
       setBackupAction('Exporting database...')
@@ -157,6 +185,8 @@ export default function SettingsPage() {
         body: JSON.stringify(backupData),
       })
       if (!saveRes.ok) throw new Error('Save failed')
+      const saveResult = await saveRes.json() as { warnings?: string[] }
+      setBackupValidation(await validateBackup({ backup: backupData }))
 
       // Step 3: Also trigger download
       setBackupAction('Downloading file...')
@@ -170,32 +200,34 @@ export default function SettingsPage() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
+      if (saveResult.warnings && saveResult.warnings.length > 0) {
+        setBackupError(saveResult.warnings.join(' '))
+      }
+
       setBackupAction(null)
       await loadBackups()
     } catch (error) {
       console.error('Backup creation error:', error)
       setBackupAction(null)
-      alert('Failed to create backup. Check console for details.')
+      setBackupError(error instanceof Error ? error.message : 'Failed to create backup.')
     }
     setBackupLoading(false)
   }
 
   const handleDownloadBackup = async (backupUrl: string, pathname: string) => {
     try {
-      const res = await fetch(backupUrl)
-      const data = await res.text()
-      const blob = new Blob([data], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = pathname.split('/').pop() || 'backup.json'
+      const params = new URLSearchParams({
+        url: backupUrl,
+        pathname,
+      })
+      a.href = `/api/backup/download?${params.toString()}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Download error:', error)
-      alert('Failed to download backup.')
+      setBackupError('Failed to download backup.')
     }
   }
 
@@ -209,6 +241,7 @@ export default function SettingsPage() {
     if (!ok) return
 
     try {
+      setBackupError(null)
       const res = await fetch('/api/backup/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,37 +256,52 @@ export default function SettingsPage() {
   }
 
   const handleRestoreFromCloud = async (backupUrl: string) => {
-    const ok = await confirm({
+    if (restoreMode === 'wipe' && wipeConfirmation.trim() !== WIPE_RESTORE_CONFIRMATION) {
+      setBackupError(`Type ${WIPE_RESTORE_CONFIRMATION} before starting a wipe restore.`)
+      return
+    }
+
+    setBackupLoading(true)
+    setBackupAction('Validating backup...')
+    setRestoreResult(null)
+    setBackupError(null)
+    try {
+      const validation = await validateBackup({ url: backupUrl })
+      setBackupValidation(validation)
+
+      setBackupLoading(false)
+      setBackupAction(null)
+
+      const ok = await confirm({
       title: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Restore',
-      message: restoreMode === 'wipe'
-        ? 'WARNING: This will DELETE ALL current data and replace it with the backup. This cannot be undone. Are you absolutely sure?'
-        : 'This will merge the backup data into your current database. Existing records will be updated, new records will be added.',
+      message: buildRestoreMessage(validation),
       variant: 'danger',
       confirmLabel: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Data',
     })
-    if (!ok) return
-
-    setBackupLoading(true)
-    setBackupAction('Downloading backup...')
-    setRestoreResult(null)
-    try {
-      const res = await fetch(backupUrl)
-      const backup = await res.json()
+      if (!ok) return
 
       setBackupAction(`Restoring (${restoreMode} mode)...`)
+      setBackupLoading(true)
       const restoreRes = await fetch('/api/backup/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backup, mode: restoreMode }),
+        body: JSON.stringify({
+          url: backupUrl,
+          mode: restoreMode,
+          confirmationText: wipeConfirmation.trim(),
+        }),
       })
 
-      const result = await restoreRes.json()
+      const result = await restoreRes.json() as RestoreResponse & { error?: string }
+      if (!restoreRes.ok) {
+        throw new Error(result.error || 'Restore failed.')
+      }
       setRestoreResult(result)
       setBackupAction(null)
     } catch (error) {
       console.error('Restore error:', error)
       setBackupAction(null)
-      alert('Failed to restore backup. Check console for details.')
+      setBackupError(error instanceof Error ? error.message : 'Failed to restore backup.')
     }
     setBackupLoading(false)
   }
@@ -262,18 +310,13 @@ export default function SettingsPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const ok = await confirm({
-      title: restoreMode === 'wipe' ? 'Wipe & Restore from File' : 'Merge from File',
-      message: restoreMode === 'wipe'
-        ? 'WARNING: This will DELETE ALL current data and replace it with the uploaded file. This cannot be undone.'
-        : 'This will merge the uploaded file data into your current database.',
-      variant: 'danger',
-      confirmLabel: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Data',
-    })
-    if (!ok) {
+    if (restoreMode === 'wipe' && wipeConfirmation.trim() !== WIPE_RESTORE_CONFIRMATION) {
+      setBackupError(`Type ${WIPE_RESTORE_CONFIRMATION} before starting a wipe restore.`)
       e.target.value = ''
       return
     }
+
+    setBackupError(null)
 
     setBackupLoading(true)
     setBackupAction('Reading file...')
@@ -282,24 +325,41 @@ export default function SettingsPage() {
       const text = await file.text()
       const backup = JSON.parse(text)
 
-      if (!backup.version || !backup.tables) {
-        throw new Error('Invalid backup file format')
+      setBackupAction('Validating file...')
+      const validation = await validateBackup({ backup })
+      setBackupValidation(validation)
+      setBackupLoading(false)
+      setBackupAction(null)
+
+      const ok = await confirm({
+        title: restoreMode === 'wipe' ? 'Wipe & Restore from File' : 'Merge from File',
+        message: buildRestoreMessage(validation),
+        variant: 'danger',
+        confirmLabel: restoreMode === 'wipe' ? 'Wipe & Restore' : 'Merge Data',
+      })
+      if (!ok) {
+        e.target.value = ''
+        return
       }
 
       setBackupAction(`Restoring (${restoreMode} mode)...`)
+      setBackupLoading(true)
       const restoreRes = await fetch('/api/backup/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ backup, mode: restoreMode }),
+        body: JSON.stringify({ backup, mode: restoreMode, confirmationText: wipeConfirmation.trim() }),
       })
 
-      const result = await restoreRes.json()
+      const result = await restoreRes.json() as RestoreResponse & { error?: string }
+      if (!restoreRes.ok) {
+        throw new Error(result.error || 'Restore failed.')
+      }
       setRestoreResult(result)
       setBackupAction(null)
     } catch (error) {
       console.error('Import error:', error)
       setBackupAction(null)
-      alert('Failed to import backup. Make sure the file is a valid backup JSON file.')
+      setBackupError(error instanceof Error ? error.message : 'Failed to import backup. Make sure the file is a valid backup JSON file.')
     }
     setBackupLoading(false)
     e.target.value = ''
@@ -436,7 +496,7 @@ export default function SettingsPage() {
         <div className="flex gap-1 sm:gap-2 p-1 sm:p-1.5 bg-card rounded-2xl border border-border mb-4 sm:mb-6 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('store')}
-            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-11 ${
               activeTab === 'store'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -447,7 +507,7 @@ export default function SettingsPage() {
           </button>
           <button
             onClick={() => setActiveTab('webshop')}
-            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-11 ${
               activeTab === 'webshop'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -458,7 +518,7 @@ export default function SettingsPage() {
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-11 ${
               activeTab === 'users'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -469,7 +529,7 @@ export default function SettingsPage() {
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-11 ${
               activeTab === 'security'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -481,7 +541,7 @@ export default function SettingsPage() {
           </button>
           <button
             onClick={() => setActiveTab('backup')}
-            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-[44px] ${
+            className={`flex-1 min-w-fit px-3 sm:px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 min-h-11 ${
               activeTab === 'backup'
                 ? 'bg-primary text-white shadow-md'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -602,7 +662,7 @@ export default function SettingsPage() {
                 href="/catalog"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium min-h-[44px] px-3 bg-primary/10 rounded-lg justify-center sm:justify-start"
+                className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium min-h-11 px-3 bg-primary/10 rounded-lg justify-center sm:justify-start"
               >
                 <ExternalLink size={16} />
                 Preview Webshop
@@ -647,7 +707,7 @@ export default function SettingsPage() {
                     value={settings.hero_subtitle}
                     onChange={(e) => setSettings({ ...settings, hero_subtitle: e.target.value })}
                     placeholder="Ontdek ons assortiment van premium producten"
-                    className="input-field min-h-[80px] sm:min-h-20 resize-y"
+                    className="input-field min-h-20 sm:min-h-20 resize-y"
                     rows={3}
                   />
                 </div>
@@ -735,7 +795,7 @@ export default function SettingsPage() {
               {users.map((user) => (
                 <div key={user.id} className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                       <Users className="text-primary" size={20} />
                     </div>
                     <div className="min-w-0">
@@ -766,7 +826,7 @@ export default function SettingsPage() {
                           })
                           setShowUserForm(true)
                         }}
-                        className="text-primary hover:bg-primary/10 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm"
+                        className="text-primary hover:bg-primary/10 p-2 rounded-lg min-w-11 min-h-11 flex items-center justify-center text-sm"
                       >
                         Edit
                       </button>
@@ -774,7 +834,7 @@ export default function SettingsPage() {
                         <>
                           <button
                             onClick={() => handleToggleUserActive(user)}
-                            className={`p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm ${
+                            className={`p-2 rounded-lg min-w-11 min-h-11 flex items-center justify-center text-sm ${
                               user.is_active ? 'text-yellow-500 hover:bg-yellow-500/10' : 'text-green-500 hover:bg-green-500/10'
                             }`}
                           >
@@ -782,7 +842,7 @@ export default function SettingsPage() {
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg min-w-[44px] min-h-[44px] flex items-center justify-center text-sm"
+                            className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg min-w-11 min-h-11 flex items-center justify-center text-sm"
                           >
                             Del
                           </button>
@@ -865,6 +925,37 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {backupError && (
+                <div className="flex items-start gap-3 p-4 bg-red-500/10 rounded-xl border border-red-500/20">
+                  <AlertCircle size={18} className="mt-0.5 text-red-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Backup action failed</p>
+                    <p className="text-xs text-muted-foreground mt-1">{backupError}</p>
+                  </div>
+                </div>
+              )}
+
+              {backupValidation && (
+                <div className="p-4 rounded-xl border border-border bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">Last validated backup</span>
+                    <span className="text-xs text-muted-foreground">{new Date(backupValidation.summary.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3 text-xs text-muted-foreground">
+                    <div>Total rows: <span className="text-foreground font-medium">{backupValidation.summary.totalRows.toLocaleString()}</span></div>
+                    <div>Checksum: <span className="text-foreground font-medium">{backupValidation.summary.hasChecksum ? (backupValidation.summary.checksumMatches ? 'verified' : 'mismatch') : 'missing'}</span></div>
+                    <div>Type: <span className="text-foreground font-medium">{backupValidation.summary.type}</span></div>
+                  </div>
+                  {backupValidation.warnings.length > 0 && (
+                    <div className="space-y-1">
+                      {backupValidation.warnings.map((warning) => (
+                        <p key={warning} className="text-xs text-yellow-500">{warning}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Restore result */}
               {restoreResult && (
                 <div className={`p-4 rounded-xl border ${restoreResult.success ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
@@ -875,6 +966,11 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground">
                     Total rows restored: {restoreResult.totalRows.toLocaleString()}
                   </p>
+                  {restoreResult.safetyBackup && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Safety snapshot saved: {restoreResult.safetyBackup.pathname}
+                    </p>
+                  )}
                   {restoreResult.errors && restoreResult.errors.length > 0 && (
                     <div className="mt-2 space-y-1">
                       <p className="text-xs font-medium text-red-500">Errors:</p>
@@ -893,7 +989,7 @@ export default function SettingsPage() {
                   disabled={backupLoading}
                   className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                     <Download size={20} className="text-primary" />
                   </div>
                   <div>
@@ -903,7 +999,7 @@ export default function SettingsPage() {
                 </button>
 
                 <label className={`flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer text-left ${backupLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
                     <Upload size={20} className="text-blue-500" />
                   </div>
                   <div>
@@ -953,6 +1049,20 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground pl-5">Insert new records and update existing ones. Less destructive but may conflict.</p>
                   </button>
                 </div>
+                {restoreMode === 'wipe' && (
+                  <div className="mt-4 space-y-2">
+                    <Input
+                      label={`Type ${WIPE_RESTORE_CONFIRMATION} to enable wipe restore`}
+                      value={wipeConfirmation}
+                      onChange={(e) => setWipeConfirmation(e.target.value)}
+                      placeholder={WIPE_RESTORE_CONFIRMATION}
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      error={wipeConfirmation && wipeConfirmation.trim() !== WIPE_RESTORE_CONFIRMATION ? 'Confirmation text does not match.' : undefined}
+                    />
+                    <p className="text-xs text-muted-foreground">Every restore creates a cloud safety snapshot first. Wipe mode stays disabled until the confirmation text matches exactly.</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -969,7 +1079,7 @@ export default function SettingsPage() {
                 <button
                   onClick={loadBackups}
                   disabled={backupLoading}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50 min-h-[44px]"
+                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors disabled:opacity-50 min-h-11"
                 >
                   <RefreshCw size={16} />
                   Refresh
@@ -994,7 +1104,7 @@ export default function SettingsPage() {
                     return (
                       <div key={backup.url} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isAuto ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isAuto ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
                             {isAuto ? <RefreshCw size={16} className="text-blue-500" /> : <HardDrive size={16} className="text-primary" />}
                           </div>
                           <div className="min-w-0">
@@ -1014,10 +1124,10 @@ export default function SettingsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 pl-12 sm:pl-0 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 pl-12 sm:pl-0 shrink-0">
                           <button
                             onClick={() => handleDownloadBackup(backup.url, backup.pathname)}
-                            className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                            className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors min-w-11 min-h-11 flex items-center justify-center"
                             title="Download"
                           >
                             <Download size={16} />
@@ -1025,7 +1135,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => handleRestoreFromCloud(backup.url)}
                             disabled={backupLoading}
-                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                            className="p-2 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors min-w-11 min-h-11 flex items-center justify-center disabled:opacity-50"
                             title="Restore"
                           >
                             <Upload size={16} />
@@ -1033,7 +1143,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => handleDeleteBackup(backup.url)}
                             disabled={backupLoading}
-                            className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center disabled:opacity-50"
+                            className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors min-w-11 min-h-11 flex items-center justify-center disabled:opacity-50"
                             title="Delete"
                           >
                             <Trash2 size={16} />
@@ -1056,6 +1166,8 @@ export default function SettingsPage() {
                 <li>• Backups include <strong>all database tables</strong> (products, sales, wallets, users, CMS content, etc.)</li>
                 <li>• Manual backups are saved to cloud storage <strong>and</strong> downloaded to your device</li>
                 <li>• Automatic backups run <strong>daily at 2 AM UTC</strong> and are kept for 30 days</li>
+                <li>• Every restore now creates a <strong>pre-restore safety snapshot</strong> before touching live data</li>
+                <li>• Cloud backup download and restore now run through protected server routes instead of direct browser blob fetches</li>
                 <li>• <strong>Wipe & Restore</strong> deletes all current data first — use for disaster recovery</li>
                 <li>• <strong>Merge / Upsert</strong> updates existing records and adds new ones — less destructive</li>
                 <li>• Always create a fresh backup <strong>before</strong> running database migrations</li>

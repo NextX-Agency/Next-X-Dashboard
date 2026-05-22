@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, MapPin, User, Phone, Wallet, ToggleLeft, ToggleRight } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
+import { Plus, MapPin, User, Phone, Wallet, ToggleLeft, ToggleRight, Search, X } from 'lucide-react'
+import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -29,6 +29,10 @@ export default function LocationsPage() {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterWalletCoverage, setFilterWalletCoverage] = useState<'all' | 'with-wallets' | 'without-wallets'>('all')
+  const [filterSellerCoverage, setFilterSellerCoverage] = useState<'all' | 'with-seller' | 'without-seller'>('all')
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -91,6 +95,42 @@ export default function LocationsPage() {
 
   const getTotalStock = (locationId: string) => {
     return stock.filter(s => s.location_id === locationId).reduce((sum, s) => sum + s.quantity, 0)
+  }
+
+  const filteredLocations = locations.filter((location) => {
+    const searchValue = searchQuery.trim().toLowerCase()
+    const walletCount = location.wallets?.length || 0
+    const hasSeller = Boolean(location.seller_name)
+    const matchesSearch = !searchValue
+      || location.name.toLowerCase().includes(searchValue)
+      || location.address?.toLowerCase().includes(searchValue)
+      || location.seller_name?.toLowerCase().includes(searchValue)
+      || location.seller_phone?.toLowerCase().includes(searchValue)
+    const matchesStatus = filterStatus === 'all'
+      || (filterStatus === 'active' && location.is_active)
+      || (filterStatus === 'inactive' && !location.is_active)
+    const matchesWalletCoverage = filterWalletCoverage === 'all'
+      || (filterWalletCoverage === 'with-wallets' && walletCount > 0)
+      || (filterWalletCoverage === 'without-wallets' && walletCount === 0)
+    const matchesSellerCoverage = filterSellerCoverage === 'all'
+      || (filterSellerCoverage === 'with-seller' && hasSeller)
+      || (filterSellerCoverage === 'without-seller' && !hasSeller)
+
+    return matchesSearch && matchesStatus && matchesWalletCoverage && matchesSellerCoverage
+  })
+
+  const hasActiveFilters = Boolean(
+    searchQuery
+    || filterStatus !== 'all'
+    || filterWalletCoverage !== 'all'
+    || filterSellerCoverage !== 'all'
+  )
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setFilterStatus('all')
+    setFilterWalletCoverage('all')
+    setFilterSellerCoverage('all')
   }
 
   const resetForm = () => {
@@ -257,15 +297,59 @@ export default function LocationsPage() {
       />
 
       <PageContainer>
+        <div className="mb-6 rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Location filters</h3>
+              <p className="text-xs text-muted-foreground mt-1">Showing {filteredLocations.length} of {locations.length} locations.</p>
+            </div>
+            {hasActiveFilters && (
+              <Button type="button" onClick={clearFilters} variant="ghost" size="sm">
+                <X size={16} />
+                Clear filters
+              </Button>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Input
+              label="Search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Location, address, seller..."
+            />
+            <Select label="Status" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value as 'all' | 'active' | 'inactive')}>
+              <option value="all">All statuses</option>
+              <option value="active">Active only</option>
+              <option value="inactive">Inactive only</option>
+            </Select>
+            <Select label="Wallets" value={filterWalletCoverage} onChange={(event) => setFilterWalletCoverage(event.target.value as 'all' | 'with-wallets' | 'without-wallets')}>
+              <option value="all">Any wallet state</option>
+              <option value="with-wallets">With wallets</option>
+              <option value="without-wallets">Without wallets</option>
+            </Select>
+            <Select label="Seller" value={filterSellerCoverage} onChange={(event) => setFilterSellerCoverage(event.target.value as 'all' | 'with-seller' | 'without-seller')}>
+              <option value="all">Any seller state</option>
+              <option value="with-seller">With seller</option>
+              <option value="without-seller">Without seller</option>
+            </Select>
+          </div>
+        </div>
+
         {locations.length === 0 ? (
           <EmptyState
             icon={MapPin}
             title="No locations yet"
             description="Create your first location to get started! You can add seller info and wallets to each location."
           />
+        ) : filteredLocations.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="No matching locations"
+            description="Try changing your location filters or clear them to see every location again."
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {locations.map((location) => {
+            {filteredLocations.map((location) => {
               const itemCount = getLocationItemCount(location.id)
               const totalStock = getTotalStock(location.id)
               const srdTotal = getLocationWalletTotal(location, 'SRD')
@@ -279,7 +363,7 @@ export default function LocationsPage() {
                   }`}
                 >
                   {/* Header */}
-                  <div className="bg-gradient-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
+                  <div className="bg-linear-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -371,8 +455,8 @@ export default function LocationsPage() {
                               key={wallet.id} 
                               className={`p-3 rounded-xl border ${
                                 wallet.type === 'cash' 
-                                  ? 'bg-[hsl(var(--success-muted))] border-[hsl(var(--success))]/20' 
-                                  : 'bg-[hsl(var(--info-muted))] border-[hsl(var(--info))]/20'
+                                  ? 'bg-[hsl(var(--success-muted))] border-success/20' 
+                                  : 'bg-[hsl(var(--info-muted))] border-info/20'
                               }`}
                             >
                               <div className="flex items-center gap-2 mb-1">
@@ -439,7 +523,7 @@ export default function LocationsPage() {
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Enter full address"
-              className="input-field min-h-[80px] resize-none"
+              className="input-field min-h-20 resize-none"
               rows={2}
             />
           </div>
@@ -518,7 +602,7 @@ export default function LocationsPage() {
                 onClick={() => setWalletForm({ ...walletForm, type: 'cash' })}
                 className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                   walletForm.type === 'cash'
-                    ? 'bg-[hsl(var(--success))] text-white'
+                    ? 'bg-success text-white'
                     : 'bg-muted text-foreground hover:bg-muted/80'
                 }`}
               >
@@ -529,7 +613,7 @@ export default function LocationsPage() {
                 onClick={() => setWalletForm({ ...walletForm, type: 'bank' })}
                 className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                   walletForm.type === 'bank'
-                    ? 'bg-[hsl(var(--info))] text-white'
+                    ? 'bg-info text-white'
                     : 'bg-muted text-foreground hover:bg-muted/80'
                 }`}
               >

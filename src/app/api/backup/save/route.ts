@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { put } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { logActivity } from '@/lib/activityLog'
+import { saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin(request)
@@ -9,37 +9,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    const validation = validateBackupPayload(body)
 
-    if (!body || !body.tables || !body.version) {
+    if (!validation.valid || !validation.backup) {
       return NextResponse.json(
-        { error: 'Invalid backup data' },
+        { error: 'Invalid backup data', issues: validation.issues, warnings: validation.warnings },
         { status: 400 }
       )
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const filename = `backups/backup-${timestamp}.json`
-    const content = JSON.stringify(body)
-
-    const blob = await put(filename, content, {
-      access: 'public',
-      contentType: 'application/json',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
+    const savedBackup = await saveBackupToBlob(validation.backup)
 
     await logActivity({
       action: 'create',
       entityType: 'settings',
       entityName: 'Database Backup',
-      details: `Manual backup created: ${filename} (${(content.length / 1024).toFixed(1)} KB)`,
+      details: `Manual backup created: ${savedBackup.pathname} (${(savedBackup.size / 1024).toFixed(1)} KB, ${validation.backup.totalRows} rows)`,
     })
 
     return NextResponse.json({
-      success: true,
-      url: blob.url,
-      pathname: blob.pathname,
-      size: content.length,
-      createdAt: new Date().toISOString(),
+      ...savedBackup,
+      warnings: validation.warnings,
     })
   } catch (error) {
     console.error('Backup save error:', error)

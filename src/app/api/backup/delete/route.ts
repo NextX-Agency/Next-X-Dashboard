@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { logActivity } from '@/lib/activityLog'
+import { isAllowedBackupUrl } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin(request)
@@ -13,6 +14,13 @@ export async function POST(request: NextRequest) {
     if (!url) {
       return NextResponse.json(
         { error: 'No backup URL provided' },
+        { status: 400 }
+      )
+    }
+
+    if (!isAllowedBackupUrl(url)) {
+      return NextResponse.json(
+        { error: 'Invalid backup URL' },
         { status: 400 }
       )
     }

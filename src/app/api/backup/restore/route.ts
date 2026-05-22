@@ -2,94 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activityLog'
-
-// Reverse FK-safe order for deletion (dependent tables first)
-const DELETE_ORDER = [
-  'activityLogs',
-  'subscribers',
-  'testimonials',
-  'faqs',
-  'reviews',
-  'collectionItems',
-  'collections',
-  'pages',
-  'banners',
-  'blogPostTags',
-  'blogPosts',
-  'budgets',
-  'walletTransactions',
-  'expenses',
-  'commissions',
-  'saleItems',
-  'sales',
-  'reservations',
-  'purchaseOrderItems',
-  'purchaseOrders',
-  'goals',
-  'wallets',
-  'stockTransfers',
-  'stock',
-  'itemFeatures',
-  'itemImages',
-  'comboItems',
-  'items',
-  'clients',
-  'sellerCategoryRates',
-  'sellers',
-  'storeSettings',
-  'exchangeRates',
-  'locations',
-  'blogTags',
-  'blogCategories',
-  'budgetCategories',
-  'expenseCategories',
-  'categories',
-  'users',
-] as const
-
-// FK-safe insert order (independent tables first)
-const INSERT_ORDER = [
-  'users',
-  'categories',
-  'expenseCategories',
-  'budgetCategories',
-  'blogCategories',
-  'blogTags',
-  'locations',
-  'exchangeRates',
-  'storeSettings',
-  'sellers',
-  'sellerCategoryRates',
-  'clients',
-  'items',
-  'comboItems',
-  'itemImages',
-  'itemFeatures',
-  'stock',
-  'stockTransfers',
-  'wallets',
-  'goals',
-  'purchaseOrders',
-  'purchaseOrderItems',
-  'reservations',
-  'sales',
-  'saleItems',
-  'commissions',
-  'expenses',
-  'walletTransactions',
-  'budgets',
-  'blogPosts',
-  'blogPostTags',
-  'banners',
-  'pages',
-  'collections',
-  'collectionItems',
-  'reviews',
-  'faqs',
-  'testimonials',
-  'subscribers',
-  'activityLogs',
-] as const
+import { createBackupPayload, DELETE_ORDER, fetchBackupFromUrl, INSERT_ORDER, saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
+import { WIPE_RESTORE_CONFIRMATION } from '@/types/backup'
 
 // Helper: convert date strings back to Date objects for Prisma
 function parseDates(record: Record<string, unknown>): Record<string, unknown> {
@@ -436,19 +350,59 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { backup, mode } = body as { backup: any; mode: 'wipe' | 'merge' }
-
-    if (!backup || !backup.tables || !backup.version) {
-      return NextResponse.json(
-        { error: 'Invalid backup data' },
-        { status: 400 }
-      )
+    const { backup, mode, url, confirmationText } = body as {
+      backup?: unknown
+      mode: 'wipe' | 'merge'
+      url?: string
+      confirmationText?: string
     }
 
     if (!mode || !['wipe', 'merge'].includes(mode)) {
       return NextResponse.json(
         { error: 'Invalid mode. Use "wipe" or "merge".' },
         { status: 400 }
+      )
+    }
+
+    if (!backup && !url) {
+      return NextResponse.json(
+        { error: 'Provide either backup data or a backup URL.' },
+        { status: 400 }
+      )
+    }
+
+    if (mode === 'wipe' && confirmationText !== WIPE_RESTORE_CONFIRMATION) {
+      return NextResponse.json(
+        { error: `Type "${WIPE_RESTORE_CONFIRMATION}" to confirm a wipe restore.` },
+        { status: 400 }
+      )
+    }
+
+    const backupSource = url ? await fetchBackupFromUrl(url) : backup
+    const validation = validateBackupPayload(backupSource)
+
+    if (!validation.valid || !validation.backup) {
+      return NextResponse.json(
+        {
+          error: 'Backup validation failed. Restore aborted.',
+          issues: validation.issues,
+          warnings: validation.warnings,
+          validation: validation.summary,
+        },
+        { status: 400 }
+      )
+    }
+
+    let safetyBackup: Awaited<ReturnType<typeof saveBackupToBlob>>
+
+    try {
+      const snapshot = await createBackupPayload('pre-restore')
+      safetyBackup = await saveBackupToBlob(snapshot, { prefix: 'pre-restore-backup' })
+    } catch (snapshotError) {
+      console.error('Pre-restore snapshot error:', snapshotError)
+      return NextResponse.json(
+        { error: 'Failed to create a pre-restore safety snapshot. Restore aborted.' },
+        { status: 500 }
       )
     }
 
@@ -470,7 +424,9 @@ export async function POST(request: NextRequest) {
       // Step 2: Insert all data in FK-safe order
       for (const table of INSERT_ORDER) {
         try {
-          const records = backup.tables[table]
+          const records = Array.isArray(validation.backup.tables[table])
+            ? validation.backup.tables[table] as Record<string, unknown>[]
+            : []
           const count = await insertTable(table, records || [])
           results[table] = count
         } catch (err) {
@@ -483,7 +439,9 @@ export async function POST(request: NextRequest) {
       // Merge mode: upsert each table
       for (const table of INSERT_ORDER) {
         try {
-          const records = backup.tables[table]
+          const records = Array.isArray(validation.backup.tables[table])
+            ? validation.backup.tables[table] as Record<string, unknown>[]
+            : []
           const count = await upsertTable(table, records || [])
           results[table] = count
         } catch (err) {
@@ -498,7 +456,7 @@ export async function POST(request: NextRequest) {
       action: 'update',
       entityType: 'settings',
       entityName: 'Database Restore',
-      details: `Restored database (${mode} mode). Tables: ${Object.keys(results).length}, Errors: ${errors.length}`,
+      details: `Restored database (${mode} mode). Tables: ${Object.keys(results).length}, Errors: ${errors.length}, Safety snapshot: ${safetyBackup.pathname}`,
     })
 
     return NextResponse.json({
@@ -507,6 +465,12 @@ export async function POST(request: NextRequest) {
       results,
       errors: errors.length > 0 ? errors : undefined,
       totalRows: Object.values(results).reduce((sum, n) => sum + n, 0),
+      validation: validation.summary,
+      safetyBackup: {
+        url: safetyBackup.url,
+        pathname: safetyBackup.pathname,
+        createdAt: safetyBackup.createdAt,
+      },
     })
   } catch (error) {
     console.error('Backup restore error:', error)

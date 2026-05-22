@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { list } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
+import type { BackupBlobFile } from '@/types/backup'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request)
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Sort by uploadedAt descending (newest first)
-    const sorted = blobs
+    const sorted: BackupBlobFile[] = blobs
       .map((blob) => ({
         url: blob.url,
         pathname: blob.pathname,

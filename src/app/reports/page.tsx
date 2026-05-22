@@ -6,7 +6,7 @@ import {
   Award, ShoppingBag, Wallet, MapPin, Layers, Sparkles, Users,
   ArrowUpRight, ArrowDownRight, CreditCard, PieChart, Target,
   Clock, ChevronDown, ChevronUp, History,
-  Activity, BookOpen, ArrowRight
+  Activity, BookOpen, ArrowRight, Download
 } from 'lucide-react'
 import { PageHeader, Badge } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
@@ -242,6 +242,22 @@ export default function ReportsPage() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+
+  const downloadReport = useCallback((exportPeriod: 'monthly' | 'yearly') => {
+    const params = new URLSearchParams({
+      period: exportPeriod,
+    })
+
+    if (selectedLocation) {
+      params.set('locationId', selectedLocation)
+    }
+
+    const anchor = document.createElement('a')
+    anchor.href = `/api/reports/export?${params.toString()}`
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+  }, [selectedLocation])
 
   // ─── Helper to check if expense is inventory-related ───
   const isInventoryExpense = useCallback((exp: ExpenseWithCategory): boolean => {
@@ -1052,6 +1068,31 @@ export default function ReportsPage() {
             <option value="">All Locations</option>
             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
           </select>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-3 sm:p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Exports</p>
+            <p className="text-xs text-muted-foreground mt-1">Download current month or current year CSV reports with sold quantities, revenue, location totals and payment-method breakdown.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 sm:shrink-0">
+            <button
+              type="button"
+              onClick={() => downloadReport('monthly')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              <Download size={16} />
+              Export Month CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadReport('yearly')}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
+            >
+              <Download size={16} />
+              Export Year CSV
+            </button>
+          </div>
         </div>
 
         {/* Period indicator */}
