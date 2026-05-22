@@ -12,8 +12,8 @@ function PageHeaderComponent({
   icon?: React.ReactNode 
 }) {
   return (
-    <div className="bg-card/95 border-b border-border lg:sticky lg:top-0 z-10 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 lg:py-6">
+    <div className="bg-card/95 border-b border-border">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 lg:py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
             {icon && (
