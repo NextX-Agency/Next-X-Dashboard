@@ -46,6 +46,12 @@ export interface ReportExportItemRow {
   revenueUsd: number
 }
 
+export interface ReportExportBranding {
+  storeName: string
+  storeAddress: string
+  storeEmail: string
+}
+
 export interface ReportExportData {
   period: ReportExportPeriod
   periodLabel: string
@@ -53,6 +59,7 @@ export interface ReportExportData {
   periodEnd: string
   selectedLocationName: string
   generatedAt: string
+  branding: ReportExportBranding
   summary: ReportExportSummary
   locations: ReportExportLocationRow[]
   payments: ReportExportPaymentRow[]
@@ -131,7 +138,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     ...(locationId ? { locationId } : {}),
   }
 
-  const [sales, expenses, locations] = await Promise.all([
+  const [sales, expenses, locations, settings] = await Promise.all([
     prisma.sale.findMany({
       where: salesWhere,
       select: {
@@ -178,6 +185,17 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     prisma.location.findMany({
       select: { id: true, name: true },
     }),
+    prisma.storeSetting.findMany({
+      where: {
+        key: {
+          in: ['store_name', 'store_address', 'store_email'],
+        },
+      },
+      select: {
+        key: true,
+        value: true,
+      },
+    }),
   ])
 
   const saleIds = sales.map((sale) => sale.id)
@@ -204,6 +222,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
   const periodLabel = period === 'monthly'
     ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     : String(now.getFullYear())
+  const settingsMap = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))
 
   const itemRows = new Map<string, ReportExportItemRow>()
   const locationRows = new Map<string, ReportExportLocationRow>()
@@ -299,6 +318,11 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     periodEnd: bounds.end.toISOString().slice(0, 10),
     selectedLocationName,
     generatedAt: new Date().toISOString(),
+    branding: {
+      storeName: settingsMap.store_name || 'NextX',
+      storeAddress: settingsMap.store_address || 'Commewijne, Noord',
+      storeEmail: settingsMap.store_email || '',
+    },
     summary: {
       totalSales: sales.length,
       totalUnitsSold,
@@ -457,37 +481,78 @@ export async function buildReportPdf(data: ReportExportData) {
   const pdfDoc = await PDFDocument.create()
   const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const brand = rgb(0.98, 0.44, 0.08)
+  const brandSoft = rgb(1, 0.95, 0.91)
+  const dark = rgb(0.08, 0.11, 0.18)
+  const darkMuted = rgb(0.14, 0.18, 0.27)
+  const ink = rgb(0.13, 0.17, 0.24)
+  const textMuted = rgb(0.36, 0.4, 0.46)
+  const line = rgb(0.9, 0.91, 0.93)
+  const white = rgb(0.99, 0.99, 0.99)
+
+  const netSrd = data.summary.totalRevenueSrd - data.summary.totalExpensesSrd - data.summary.totalCommissionsSrd
+  const netUsd = data.summary.totalRevenueUsd - data.summary.totalExpensesUsd - data.summary.totalCommissionsUsd
+  const avgSaleSrd = data.summary.totalSales > 0 ? data.summary.totalRevenueSrd / data.summary.totalSales : 0
+  const avgSaleUsd = data.summary.totalSales > 0 ? data.summary.totalRevenueUsd / data.summary.totalSales : 0
+  const avgUnitSrd = data.summary.totalUnitsSold > 0 ? data.summary.totalRevenueSrd / data.summary.totalUnitsSold : 0
+  const avgUnitUsd = data.summary.totalUnitsSold > 0 ? data.summary.totalRevenueUsd / data.summary.totalUnitsSold : 0
+  const topLocation = data.locations[0] ?? null
+  const topPayment = data.payments[0] ?? null
+  const topItem = data.items[0] ?? null
+  const scopeDescriptor = data.selectedLocationName === 'All locations' ? 'Company-wide overview' : `Focused on ${data.selectedLocationName}`
 
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - PAGE_MARGIN
 
-  const addPage = (sectionTitle?: string) => {
+  const drawPageChrome = (targetPage: PDFPage, sectionTitle: string, subtitle?: string) => {
+    targetPage.drawRectangle({
+      x: 0,
+      y: PAGE_HEIGHT - 56,
+      width: PAGE_WIDTH,
+      height: 56,
+      color: dark,
+    })
+    targetPage.drawRectangle({
+      x: PAGE_WIDTH - 148,
+      y: PAGE_HEIGHT - 56,
+      width: 148,
+      height: 56,
+      color: brand,
+      opacity: 0.96,
+    })
+    targetPage.drawText(data.branding.storeName, {
+      x: PAGE_MARGIN,
+      y: PAGE_HEIGHT - 24,
+      size: 15,
+      font: boldFont,
+      color: white,
+    })
+    if (subtitle) {
+      targetPage.drawText(subtitle, {
+        x: PAGE_MARGIN,
+        y: PAGE_HEIGHT - 39,
+        size: 9,
+        font: regularFont,
+        color: rgb(0.83, 0.86, 0.9),
+      })
+    }
+
+    const titleSize = 11
+    targetPage.drawText(sectionTitle, {
+      x: PAGE_WIDTH - PAGE_MARGIN - boldFont.widthOfTextAtSize(sectionTitle, titleSize),
+      y: PAGE_HEIGHT - 31,
+      size: titleSize,
+      font: boldFont,
+      color: white,
+    })
+  }
+
+  const addPage = (sectionTitle?: string, subtitle?: string) => {
     page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
     y = PAGE_HEIGHT - PAGE_MARGIN
 
-    page.drawRectangle({
-      x: 0,
-      y: PAGE_HEIGHT - 46,
-      width: PAGE_WIDTH,
-      height: 46,
-      color: rgb(0.08, 0.11, 0.18),
-    })
-    page.drawText('NextX Report', {
-      x: PAGE_MARGIN,
-      y: PAGE_HEIGHT - 28,
-      size: 15,
-      font: boldFont,
-      color: rgb(0.98, 0.98, 0.99),
-    })
-    page.drawText(data.periodLabel, {
-      x: PAGE_WIDTH - PAGE_MARGIN - boldFont.widthOfTextAtSize(data.periodLabel, 10),
-      y: PAGE_HEIGHT - 27,
-      size: 10,
-      font: boldFont,
-      color: rgb(0.86, 0.89, 0.94),
-    })
-
-    y = PAGE_HEIGHT - 68
+    drawPageChrome(page, sectionTitle || 'Detailed Report', subtitle || `${data.periodLabel} • ${scopeDescriptor}`)
+    y = PAGE_HEIGHT - 84
 
     if (sectionTitle) {
       page.drawText(sectionTitle, {
@@ -495,15 +560,22 @@ export async function buildReportPdf(data: ReportExportData) {
         y,
         size: 14,
         font: boldFont,
-        color: rgb(0.13, 0.17, 0.24),
+        color: ink,
+      })
+      page.drawRectangle({
+        x: PAGE_MARGIN,
+        y: y - 8,
+        width: 48,
+        height: 3,
+        color: brand,
       })
       y -= 18
     }
   }
 
   const ensureSpace = (requiredHeight: number, sectionTitle?: string) => {
-    if (y - requiredHeight < PAGE_MARGIN) {
-      addPage(sectionTitle)
+    if (y - requiredHeight < PAGE_MARGIN + 26) {
+      addPage(sectionTitle, `${data.periodLabel} • ${scopeDescriptor}`)
     }
   }
 
@@ -513,40 +585,110 @@ export async function buildReportPdf(data: ReportExportData) {
       y,
       size,
       font: options?.font ?? regularFont,
-      color: options?.color ?? rgb(0.23, 0.27, 0.33),
+      color: options?.color ?? textMuted,
     })
     y -= size + 5
   }
 
-  const drawMetricCard = (x: number, topY: number, width: number, height: number, title: string, lines: string[]) => {
+  const drawLabelValue = (x: number, topY: number, label: string, value: string, width?: number) => {
+    page.drawText(label.toUpperCase(), {
+      x,
+      y: topY,
+      size: 8,
+      font: boldFont,
+      color: brand,
+    })
+    const clipped = width ? truncateText(regularFont, value, 10, width) : value
+    page.drawText(clipped, {
+      x,
+      y: topY - 14,
+      size: 10,
+      font: regularFont,
+      color: ink,
+    })
+  }
+
+  const drawMetricCard = (x: number, topY: number, width: number, height: number, title: string, primary: string, secondary: string, accentColor = brand) => {
     page.drawRectangle({
       x,
       y: topY - height,
       width,
       height,
       borderWidth: 1,
-      borderColor: rgb(0.9, 0.91, 0.93),
-      color: rgb(0.98, 0.98, 0.99),
+      borderColor: line,
+      color: white,
+    })
+    page.drawRectangle({
+      x,
+      y: topY - 6,
+      width,
+      height: 6,
+      color: accentColor,
     })
     page.drawText(title, {
       x: x + 14,
       y: topY - 20,
-      size: 11,
+      size: 10,
       font: boldFont,
-      color: rgb(0.13, 0.17, 0.24),
+      color: ink,
     })
 
-    let lineY = topY - 38
-    for (const line of lines) {
-      page.drawText(line, {
-        x: x + 14,
+    page.drawText(primary, {
+      x: x + 14,
+      y: topY - 42,
+      size: 16,
+      font: boldFont,
+      color: ink,
+    })
+    page.drawText(secondary, {
+      x: x + 14,
+      y: topY - 59,
+      size: 9,
+      font: regularFont,
+      color: textMuted,
+    })
+  }
+
+  const drawInsightPanel = (title: string, lines: string[]) => {
+    const panelHeight = 28 + (lines.length * 14) + 16
+    ensureSpace(panelHeight + 12, title)
+    page.drawRectangle({
+      x: PAGE_MARGIN,
+      y: y - panelHeight,
+      width: CONTENT_WIDTH,
+      height: panelHeight,
+      color: brandSoft,
+      borderWidth: 1,
+      borderColor: rgb(0.99, 0.82, 0.7),
+    })
+    page.drawText(title, {
+      x: PAGE_MARGIN + 14,
+      y: y - 18,
+      size: 12,
+      font: boldFont,
+      color: ink,
+    })
+
+    let lineY = y - 36
+    lines.forEach((lineText) => {
+      page.drawRectangle({
+        x: PAGE_MARGIN + 14,
+        y: lineY + 3,
+        width: 5,
+        height: 5,
+        color: brand,
+      })
+      page.drawText(lineText, {
+        x: PAGE_MARGIN + 26,
         y: lineY,
-        size: 10,
+        size: 9.5,
         font: regularFont,
-        color: rgb(0.29, 0.34, 0.4),
+        color: ink,
       })
       lineY -= 14
-    }
+    })
+
+    y -= panelHeight + 14
   }
 
   const drawTable = (
@@ -555,14 +697,21 @@ export async function buildReportPdf(data: ReportExportData) {
     rows: string[][],
   ) => {
     ensureSpace(70, title)
-    page.drawText(title, {
+    page.drawRectangle({
       x: PAGE_MARGIN,
-      y,
-      size: 14,
-      font: boldFont,
-      color: rgb(0.13, 0.17, 0.24),
+      y: y - 4,
+      width: CONTENT_WIDTH,
+      height: 22,
+      color: darkMuted,
     })
-    y -= 18
+    page.drawText(title, {
+      x: PAGE_MARGIN + 12,
+      y: y + 2,
+      size: 12,
+      font: boldFont,
+      color: white,
+    })
+    y -= 28
 
     const rowHeight = 20
     const tableWidth = columns.reduce((sum, column) => sum + column.width, 0)
@@ -583,7 +732,7 @@ export async function buildReportPdf(data: ReportExportData) {
           y: y - 8,
           size: 9,
           font: boldFont,
-          color: rgb(0.13, 0.17, 0.24),
+          color: ink,
         })
         currentX += column.width
       })
@@ -608,6 +757,13 @@ export async function buildReportPdf(data: ReportExportData) {
           color: rgb(0.992, 0.994, 0.998),
         })
       }
+
+      page.drawLine({
+        start: { x: PAGE_MARGIN, y: y - rowHeight + 5 },
+        end: { x: PAGE_MARGIN + tableWidth, y: y - rowHeight + 5 },
+        thickness: 0.5,
+        color: line,
+      })
 
       let currentX = PAGE_MARGIN
       row.forEach((cell, cellIndex) => {
@@ -637,67 +793,124 @@ export async function buildReportPdf(data: ReportExportData) {
 
   page.drawRectangle({
     x: 0,
-    y: PAGE_HEIGHT - 124,
+    y: PAGE_HEIGHT - 176,
     width: PAGE_WIDTH,
-    height: 124,
-    color: rgb(0.08, 0.11, 0.18),
+    height: 176,
+    color: dark,
   })
   page.drawRectangle({
-    x: PAGE_WIDTH - 155,
-    y: PAGE_HEIGHT - 124,
-    width: 155,
-    height: 124,
-    color: rgb(0.98, 0.44, 0.08),
-    opacity: 0.9,
+    x: PAGE_WIDTH - 196,
+    y: PAGE_HEIGHT - 176,
+    width: 196,
+    height: 176,
+    color: brand,
+    opacity: 0.95,
   })
-  page.drawText('NextX Sales Report', {
+  page.drawRectangle({
     x: PAGE_MARGIN,
-    y: PAGE_HEIGHT - 54,
-    size: 22,
+    y: PAGE_HEIGHT - 206,
+    width: CONTENT_WIDTH - 48,
+    height: 38,
+    color: rgb(1, 1, 1),
+    opacity: 0.05,
+  })
+  page.drawText(data.branding.storeName.toUpperCase(), {
+    x: PAGE_MARGIN,
+    y: PAGE_HEIGHT - 48,
+    size: 10,
     font: boldFont,
-    color: rgb(0.99, 0.99, 0.99),
+    color: rgb(0.97, 0.75, 0.64),
   })
-  page.drawText(`${data.period === 'monthly' ? 'Monthly' : 'Yearly'} export for ${data.selectedLocationName}`, {
+  page.drawText('Performance Report', {
     x: PAGE_MARGIN,
-    y: PAGE_HEIGHT - 78,
+    y: PAGE_HEIGHT - 76,
+    size: 24,
+    font: boldFont,
+    color: white,
+  })
+  page.drawText(`${data.period === 'monthly' ? 'Monthly' : 'Yearly'} sales, cost and performance review`, {
+    x: PAGE_MARGIN,
+    y: PAGE_HEIGHT - 98,
     size: 11,
     font: regularFont,
     color: rgb(0.88, 0.9, 0.94),
   })
   page.drawText(`Generated ${formatDateTime(data.generatedAt)}`, {
     x: PAGE_MARGIN,
-    y: PAGE_HEIGHT - 96,
+    y: PAGE_HEIGHT - 118,
     size: 10,
     font: regularFont,
     color: rgb(0.8, 0.83, 0.88),
   })
 
-  y = PAGE_HEIGHT - 150
-  drawTextLine(`Period: ${data.periodStart} to ${data.periodEnd}`, 10, { font: boldFont, color: rgb(0.13, 0.17, 0.24) })
-  drawTextLine(`Scope: ${data.selectedLocationName}`, 10)
-  y -= 10
+  drawLabelValue(PAGE_MARGIN, PAGE_HEIGHT - 148, 'Scope', data.selectedLocationName, 170)
+  drawLabelValue(PAGE_MARGIN + 180, PAGE_HEIGHT - 148, 'Period', `${data.periodStart} to ${data.periodEnd}`, 140)
+  drawLabelValue(PAGE_MARGIN + 340, PAGE_HEIGHT - 148, 'Prepared by', data.branding.storeName, 140)
+
+  if (data.branding.storeAddress) {
+    page.drawText(data.branding.storeAddress, {
+      x: PAGE_MARGIN,
+      y: PAGE_HEIGHT - 168,
+      size: 9,
+      font: regularFont,
+      color: rgb(0.83, 0.86, 0.9),
+    })
+  }
+
+  if (data.branding.storeEmail) {
+    page.drawText(data.branding.storeEmail, {
+      x: PAGE_MARGIN + 180,
+      y: PAGE_HEIGHT - 168,
+      size: 9,
+      font: regularFont,
+      color: rgb(0.83, 0.86, 0.9),
+    })
+  }
+
+  y = PAGE_HEIGHT - 220
+  page.drawText('Executive Summary', {
+    x: PAGE_MARGIN,
+    y,
+    size: 15,
+    font: boldFont,
+    color: ink,
+  })
+  page.drawRectangle({
+    x: PAGE_MARGIN,
+    y: y - 8,
+    width: 72,
+    height: 3,
+    color: brand,
+  })
+  y -= 24
+  drawTextLine(`This ${data.period === 'monthly' ? 'monthly' : 'yearly'} report summarizes revenue, cost pressure, unit movement and top contributors for ${scopeDescriptor.toLowerCase()}.`, 9.5)
+  y -= 8
 
   const cardWidth = (CONTENT_WIDTH - 14) / 2
-  const cardHeight = 74
-  ensureSpace(170)
+  const cardHeight = 78
+  ensureSpace(190)
   const cardsTop = y
-  drawMetricCard(PAGE_MARGIN, cardsTop, cardWidth, cardHeight, 'Sales Activity', [
-    `${data.summary.totalSales.toLocaleString()} total sales`,
-    `${data.summary.totalUnitsSold.toLocaleString()} units sold`,
+  drawMetricCard(PAGE_MARGIN, cardsTop, cardWidth, cardHeight, 'Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), `${formatMoney(data.summary.totalRevenueSrd, 'SRD')} total revenue`, brand)
+  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop, cardWidth, cardHeight, 'Net Position', formatMoney(netUsd, 'USD'), `${formatMoney(netSrd, 'SRD')} after expenses and commissions`, darkMuted)
+  drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Sales Activity', `${data.summary.totalSales.toLocaleString()} sales`, `${data.summary.totalUnitsSold.toLocaleString()} units sold in this period`, rgb(0.11, 0.55, 0.33))
+  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Cost Pressure', formatMoney(data.summary.totalExpensesUsd + data.summary.totalCommissionsUsd, 'USD'), `${formatMoney(data.summary.totalExpensesUsd, 'USD')} expenses • ${formatMoney(data.summary.totalCommissionsUsd, 'USD')} commissions`, rgb(0.62, 0.2, 0.2))
+  y = cardsTop - (cardHeight * 2) - 28
+
+  drawInsightPanel('Key Signals', [
+    `Average sale value: ${formatMoney(avgSaleUsd, 'USD')} • ${formatMoney(avgSaleSrd, 'SRD')}.`,
+    `Average unit revenue: ${formatMoney(avgUnitUsd, 'USD')} • ${formatMoney(avgUnitSrd, 'SRD')}.`,
+    topLocation ? `Top location: ${topLocation.locationName} with ${formatMoney(topLocation.revenueUsd, 'USD')} across ${topLocation.salesCount.toLocaleString()} sales.` : 'Top location: no sales recorded in this period.',
+    topItem ? `Top item: ${topItem.itemName} (${topItem.quantitySold.toLocaleString()} units • ${formatMoney(topItem.revenueUsd, 'USD')}).` : 'Top item: no item sales recorded in this period.',
+    topPayment ? `Strongest payment method: ${topPayment.paymentMethod} at ${formatMoney(topPayment.revenueUsd, 'USD')}.` : 'Payment methods: no payment mix recorded in this period.',
   ])
-  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop, cardWidth, cardHeight, 'Revenue', [
-    formatMoney(data.summary.totalRevenueSrd, 'SRD'),
-    formatMoney(data.summary.totalRevenueUsd, 'USD'),
+
+  drawInsightPanel('Report Context', [
+    `Brand: ${data.branding.storeName}.`,
+    `Coverage window: ${data.periodStart} through ${data.periodEnd}.`,
+    `Scope: ${data.selectedLocationName}.`,
+    data.branding.storeAddress ? `Address: ${data.branding.storeAddress}.` : 'Address: not configured in store settings.',
+    data.branding.storeEmail ? `Contact: ${data.branding.storeEmail}.` : 'Contact: no report email configured in store settings.',
   ])
-  drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Expenses', [
-    formatMoney(data.summary.totalExpensesSrd, 'SRD'),
-    formatMoney(data.summary.totalExpensesUsd, 'USD'),
-  ])
-  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Commissions', [
-    formatMoney(data.summary.totalCommissionsSrd, 'SRD'),
-    formatMoney(data.summary.totalCommissionsUsd, 'USD'),
-  ])
-  y = cardsTop - (cardHeight * 2) - 34
 
   drawTable(
     'Location Breakdown',
@@ -752,6 +965,34 @@ export async function buildReportPdf(data: ReportExportData) {
       formatMoney(row.revenueSrd, 'SRD'),
     ]),
   )
+
+  const pages = pdfDoc.getPages()
+  pages.forEach((currentPage, index) => {
+    currentPage.drawLine({
+      start: { x: PAGE_MARGIN, y: 28 },
+      end: { x: PAGE_WIDTH - PAGE_MARGIN, y: 28 },
+      thickness: 0.8,
+      color: line,
+    })
+
+    const footerLeft = `${data.branding.storeName} • ${data.periodLabel} • ${data.selectedLocationName}`
+    currentPage.drawText(truncateText(regularFont, footerLeft, 8.5, CONTENT_WIDTH - 90), {
+      x: PAGE_MARGIN,
+      y: 14,
+      size: 8.5,
+      font: regularFont,
+      color: textMuted,
+    })
+
+    const pageLabel = `Page ${index + 1} of ${pages.length}`
+    currentPage.drawText(pageLabel, {
+      x: PAGE_WIDTH - PAGE_MARGIN - regularFont.widthOfTextAtSize(pageLabel, 8.5),
+      y: 14,
+      size: 8.5,
+      font: boldFont,
+      color: textMuted,
+    })
+  })
 
   return pdfDoc.save()
 }
