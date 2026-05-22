@@ -47,6 +47,17 @@ interface DeleteWalletAdjustmentPreview {
   reason: string
 }
 
+interface DeleteStockReversalPreview {
+  canReverseStock: boolean
+  totalUnits: number
+  receivedItems: Array<{
+    itemId: string
+    itemName: string
+    quantity: number
+  }>
+  reason: string
+}
+
 export default function OrdersPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { user } = useAuth()
@@ -71,6 +82,7 @@ export default function OrdersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
   const [deleteAdjustWallet, setDeleteAdjustWallet] = useState(false)
+  const [deleteReverseStock, setDeleteReverseStock] = useState(false)
 
   const [orderForm, setOrderForm] = useState({
     wallet_id: '',
@@ -608,7 +620,37 @@ export default function OrdersPage() {
     setShowViewOrder(true)
   }
 
-  const getDeleteWalletAdjustmentPreview = useCallback((order: OrderWithDetails): DeleteWalletAdjustmentPreview => {
+  const getDeleteStockReversalPreview = useCallback((order: OrderWithDetails): DeleteStockReversalPreview => {
+    const receivedItems = (order.purchase_order_items || [])
+      .filter((item) => (item.quantity_received || 0) > 0)
+      .map((item) => ({
+        itemId: item.item_id,
+        itemName: item.items?.name || 'Unknown item',
+        quantity: item.quantity_received || 0,
+      }))
+
+    const totalUnits = receivedItems.reduce((sum, item) => sum + item.quantity, 0)
+
+    if (receivedItems.length === 0) {
+      return {
+        canReverseStock: false,
+        totalUnits: 0,
+        receivedItems: [],
+        reason: 'No received stock is linked to this order yet.',
+      }
+    }
+
+    return {
+      canReverseStock: true,
+      totalUnits,
+      receivedItems,
+      reason: order.status === 'received'
+        ? 'This will remove all received units from stock at the destination location.'
+        : 'This will remove the units already received into stock while leaving never-received units untouched.',
+    }
+  }, [])
+
+  const getDeleteWalletAdjustmentPreview = useCallback((order: OrderWithDetails, includeReceivedStock: boolean): DeleteWalletAdjustmentPreview => {
     if (!order.wallets) {
       return {
         canAdjustWallet: false,
@@ -632,11 +674,11 @@ export default function OrdersPage() {
 
     if (order.status === 'partially_received') {
       const unreceivedFraction = totalOrdered > 0 ? Math.max(0, totalOrdered - totalReceived) / totalOrdered : 0
-      refundableBase = order.total_amount * unreceivedFraction
+      refundableBase = order.total_amount * (includeReceivedStock ? 1 : unreceivedFraction)
     }
 
     if (order.status === 'received') {
-      refundableBase = 0
+      refundableBase = includeReceivedStock ? order.total_amount : 0
     }
 
     let refundAmount = refundableBase
@@ -656,9 +698,19 @@ export default function OrdersPage() {
       return {
         canAdjustWallet: false,
         amount: 0,
-        reason: order.status === 'received'
-          ? 'All items are already received. Deleting this order will not reverse stock or refund the wallet.'
+        reason: order.status === 'received' && !includeReceivedStock
+          ? 'Enable stock reversal to restore the wallet for a fully received invalid order.'
+          : order.status === 'received'
+            ? 'No wallet amount remains to restore for this order.'
           : 'No refundable wallet amount remains for this order.',
+      }
+    }
+
+    if (order.status === 'partially_received' && includeReceivedStock) {
+      return {
+        canAdjustWallet: true,
+        amount: refundAmount,
+        reason: 'Because received stock will also be reversed, the full order amount can be restored to the wallet.',
       }
     }
 
@@ -670,11 +722,11 @@ export default function OrdersPage() {
       }
     }
 
-    if (order.status === 'received') {
+    if (order.status === 'received' && includeReceivedStock) {
       return {
-        canAdjustWallet: false,
-        amount: 0,
-        reason: 'Received stock stays in inventory, so wallet restoration is disabled for fully received orders.',
+        canAdjustWallet: true,
+        amount: refundAmount,
+        reason: 'Received stock will be removed and the full order amount can be restored to the wallet.',
       }
     }
 
@@ -688,6 +740,7 @@ export default function OrdersPage() {
   const openDeleteOrderModal = (order: OrderWithDetails) => {
     setDeletingOrder(order)
     setDeleteAdjustWallet(false)
+    setDeleteReverseStock(false)
     setShowDeleteOrderModal(true)
   }
 
@@ -696,6 +749,7 @@ export default function OrdersPage() {
     setShowDeleteOrderModal(false)
     setDeletingOrder(null)
     setDeleteAdjustWallet(false)
+    setDeleteReverseStock(false)
   }
 
   const handleEditOrder = (order: OrderWithDetails) => {
@@ -741,10 +795,55 @@ export default function OrdersPage() {
     if (!deletingOrder || submitting) return
 
     const order = deletingOrder
-    const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(order)
+    const stockReversalPreview = getDeleteStockReversalPreview(order)
+    const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(order, deleteReverseStock)
 
     setSubmitting(true)
     try {
+      if (deleteReverseStock && stockReversalPreview.canReverseStock) {
+        const stockRows = new Map<string, { id: string; quantity: number }>()
+
+        for (const receivedItem of stockReversalPreview.receivedItems) {
+          const { data: existingStock } = await supabase
+            .from('stock')
+            .select('id, quantity')
+            .eq('item_id', receivedItem.itemId)
+            .eq('location_id', order.location_id)
+            .single()
+
+          if (!existingStock) {
+            throw new Error(`Cannot reverse stock for ${receivedItem.itemName} because no stock record was found at the destination location.`)
+          }
+
+          if (existingStock.quantity < receivedItem.quantity) {
+            throw new Error(`Cannot reverse ${receivedItem.quantity} unit(s) of ${receivedItem.itemName} because only ${existingStock.quantity} remain in stock.`)
+          }
+
+          stockRows.set(receivedItem.itemId, {
+            id: existingStock.id,
+            quantity: existingStock.quantity,
+          })
+        }
+
+        for (const receivedItem of stockReversalPreview.receivedItems) {
+          const currentStock = stockRows.get(receivedItem.itemId)
+          if (!currentStock) continue
+
+          const nextQuantity = currentStock.quantity - receivedItem.quantity
+          if (nextQuantity > 0) {
+            await supabase
+              .from('stock')
+              .update({ quantity: nextQuantity })
+              .eq('id', currentStock.id)
+          } else {
+            await supabase
+              .from('stock')
+              .delete()
+              .eq('id', currentStock.id)
+          }
+        }
+      }
+
       if (deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets) {
         await supabase
           .from('wallets')
@@ -765,19 +864,26 @@ export default function OrdersPage() {
           Total: formatCurrency(order.total_amount, order.currency as Currency),
           Location: order.locations?.name || '',
           Status: order.status,
+          StockReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? 'Yes' : 'No',
+          StockUnitsReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? String(stockReversalPreview.totalUnits) : '',
           WalletAdjusted: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet ? 'Yes' : 'No',
           WalletChange: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets
             ? formatCurrency(walletAdjustmentPreview.amount, order.wallets.currency as Currency)
             : '',
-          StockNote: order.status === 'partially_received' || order.status === 'received'
-            ? 'Received stock was left unchanged'
-            : '',
+          StockNote: deleteReverseStock && stockReversalPreview.canReverseStock
+            ? 'Received stock was removed from inventory'
+            : order.status === 'partially_received' || order.status === 'received'
+              ? 'Received stock was left unchanged'
+              : '',
         }),
         userId: user?.id
       })
 
       closeDeleteOrderModal(true)
       await loadData()
+    } catch (error) {
+      console.error('Error deleting order:', error)
+      alert(error instanceof Error ? error.message : 'Error deleting order')
     } finally {
       setSubmitting(false)
     }
@@ -1562,12 +1668,13 @@ export default function OrdersPage() {
       {/* Delete Order Modal */}
       <Modal
         isOpen={showDeleteOrderModal}
-        onClose={closeDeleteOrderModal}
+        onClose={() => closeDeleteOrderModal()}
         title={`Delete Order${deletingOrder ? ` — #${deletingOrder.id.slice(0, 8)}` : ''}`}
       >
         {deletingOrder && (() => {
-          const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(deletingOrder)
-          const hasReceivedStock = deletingOrder.status === 'partially_received' || deletingOrder.status === 'received'
+          const stockReversalPreview = getDeleteStockReversalPreview(deletingOrder)
+          const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(deletingOrder, deleteReverseStock)
+          const hasReceivedStock = stockReversalPreview.canReverseStock
 
           return (
             <div className="space-y-4">
@@ -1583,7 +1690,9 @@ export default function OrdersPage() {
                     </div>
                     {hasReceivedStock && (
                       <div className="text-amber-500">
-                        Received stock is not changed by this delete action.
+                        {deleteReverseStock
+                          ? 'Received stock will be removed from inventory as part of this rollback.'
+                          : 'Received stock is not changed by this delete action unless you enable stock reversal below.'}
                       </div>
                     )}
                   </div>
@@ -1608,6 +1717,37 @@ export default function OrdersPage() {
                   <div className="mt-1 font-semibold text-foreground">{deletingOrder.locations?.name || 'Unknown location'}</div>
                 </div>
               </div>
+
+              <label className={cn(
+                'flex items-start gap-3 rounded-xl border p-4 transition-colors',
+                stockReversalPreview.canReverseStock
+                  ? 'border-orange-500/20 bg-orange-500/5 cursor-pointer hover:bg-orange-500/10'
+                  : 'border-border/60 bg-muted/20 opacity-80 cursor-not-allowed'
+              )}>
+                <input
+                  type="checkbox"
+                  checked={deleteReverseStock}
+                  onChange={(e) => {
+                    const nextValue = e.target.checked
+                    setDeleteReverseStock(nextValue)
+                    if (!nextValue) {
+                      setDeleteAdjustWallet(false)
+                    }
+                  }}
+                  disabled={!stockReversalPreview.canReverseStock || submitting}
+                  className="mt-1 h-4 w-4 rounded border-border accent-orange-500"
+                />
+                <div className="space-y-1 text-sm">
+                  <div className="font-semibold text-foreground">Also reverse received stock</div>
+                  <div className="text-muted-foreground">{stockReversalPreview.reason}</div>
+                  <div className="text-xs font-medium text-foreground">
+                    Stock change:{' '}
+                    {stockReversalPreview.canReverseStock
+                      ? `${stockReversalPreview.totalUnits} received unit(s) removed`
+                      : 'No stock change'}
+                  </div>
+                </div>
+              </label>
 
               <label className={cn(
                 'flex items-start gap-3 rounded-xl border p-4 transition-colors',
@@ -1636,6 +1776,7 @@ export default function OrdersPage() {
 
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
                 <div>Delete only: removes the order record and keeps the current wallet balance as-is.</div>
+                <div>Delete + reverse stock: removes the order record and also removes the received units from inventory.</div>
                 <div>Delete + wallet update: removes the order record and restores the refundable amount to the linked wallet.</div>
               </div>
 
@@ -1646,9 +1787,13 @@ export default function OrdersPage() {
                 <Button type="button" onClick={() => void handleDeleteOrder()} variant="primary" className="min-h-12 touch-manipulation order-1 sm:order-2" disabled={submitting}>
                   {submitting
                     ? 'Deleting...'
-                    : deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
-                      ? 'Delete & Update Wallet'
-                      : 'Delete Order'}
+                    : deleteReverseStock && deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
+                      ? 'Delete, Reverse Stock & Update Wallet'
+                      : deleteReverseStock && stockReversalPreview.canReverseStock
+                        ? 'Delete & Reverse Stock'
+                        : deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
+                          ? 'Delete & Update Wallet'
+                          : 'Delete Order'}
                 </Button>
               </div>
             </div>
