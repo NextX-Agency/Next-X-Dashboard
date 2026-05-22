@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
+import { calculateFinancialHealthScore } from '@/lib/financialHealth'
 import { prisma } from '@/lib/prisma'
 
 export type ReportExportPeriod = 'monthly' | 'yearly'
@@ -129,15 +130,18 @@ function toNumber(value: unknown): number {
 
 function getBounds(period: ReportExportPeriod, now: Date) {
   if (period === 'monthly') {
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
     return {
       start: new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0),
-      end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+      end: end > now ? now : end,
     }
   }
 
+  const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+
   return {
     start: new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0),
-    end: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
+    end: end > now ? now : end,
   }
 }
 
@@ -184,138 +188,6 @@ function classifyWalletTransaction(transaction: {
   return 'other'
 }
 
-function buildFinancialHealthScore(input: {
-  totalRevenueUsd: number
-  totalNetProfitUsd: number
-  totalExpensesUsd: number
-  totalCommissionsUsd: number
-  walletBalanceUsd: number
-  openPurchaseCommitmentUsd: number
-  walletNetChangeUsd: number
-  salesCreditGapUsd: number
-  expenseDebitGapUsd: number
-  unmappedRevenueUsd: number
-  walletSalesMappedUsd: number
-  expensesBookedToWalletsUsd: number
-  daysOfInventory: number | null
-  stockValueUsd: number
-}): Pick<
-  ReportExportFinancialHealth,
-  'healthScore' | 'healthLabel' | 'healthSummary' | 'profitabilityScore' | 'liquidityScore' | 'reconciliationScore' | 'inventoryScore' | 'liquidityCoverage' | 'daysOfInventory'
-> {
-  const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
-
-  const netMarginPct = input.totalRevenueUsd > 0 ? (input.totalNetProfitUsd / input.totalRevenueUsd) * 100 : 0
-  const profitabilityScore = input.totalRevenueUsd <= 0
-    ? 0
-    : clampScore(((netMarginPct + 15) * 3.5) + (input.totalNetProfitUsd > 0 ? 5 : 0))
-
-  const liquidityBase = input.totalExpensesUsd + input.totalCommissionsUsd + (input.openPurchaseCommitmentUsd * 0.5)
-  const liquidityCoverage = input.walletBalanceUsd / Math.max(1, liquidityBase)
-  const liquidityScore = clampScore((liquidityCoverage * 75) + (input.walletNetChangeUsd >= 0 ? 5 : 0))
-
-  const reconciliationExposure = Math.abs(input.salesCreditGapUsd) + Math.abs(input.expenseDebitGapUsd) + Math.abs(input.unmappedRevenueUsd)
-  const reconciliationBase = Math.max(input.totalRevenueUsd, input.walletSalesMappedUsd, input.expensesBookedToWalletsUsd, 1)
-  const reconciliationScore = clampScore(100 - ((reconciliationExposure / reconciliationBase) * 120))
-
-  let inventoryScore = 70
-  if (input.daysOfInventory === null) inventoryScore = 55
-  else if (input.daysOfInventory <= 60) inventoryScore = 90
-  else if (input.daysOfInventory <= 120) inventoryScore = 78
-  else if (input.daysOfInventory <= 180) inventoryScore = 65
-  else if (input.daysOfInventory <= 365) inventoryScore = 45
-  else inventoryScore = 30
-
-  if (input.openPurchaseCommitmentUsd > input.walletBalanceUsd && input.walletBalanceUsd > 0) {
-    inventoryScore -= 10
-  }
-  if (input.stockValueUsd <= 0) {
-    inventoryScore -= 5
-  }
-  inventoryScore = clampScore(inventoryScore)
-
-  const healthScore = clampScore(
-    (profitabilityScore * 0.35) +
-    (liquidityScore * 0.25) +
-    (reconciliationScore * 0.25) +
-    (inventoryScore * 0.15)
-  )
-
-  const weakestArea = [
-    { key: 'profitability', value: profitabilityScore },
-    { key: 'liquidity', value: liquidityScore },
-    { key: 'reconciliation', value: reconciliationScore },
-    { key: 'inventory', value: inventoryScore },
-  ].sort((left, right) => left.value - right.value)[0]?.key
-
-  if (healthScore >= 85) {
-    return {
-      healthScore,
-      healthLabel: 'Strong',
-      healthSummary: 'Profitability, liquidity, and reconciliation are all working together well.',
-      profitabilityScore,
-      liquidityScore,
-      reconciliationScore,
-      inventoryScore,
-      liquidityCoverage,
-      daysOfInventory: input.daysOfInventory,
-    }
-  }
-
-  if (healthScore >= 70) {
-    return {
-      healthScore,
-      healthLabel: 'Healthy',
-      healthSummary: weakestArea === 'liquidity'
-        ? 'Business health is solid, but liquid cash cover deserves attention.'
-        : 'The business is in decent shape, with one weaker area worth tightening.',
-      profitabilityScore,
-      liquidityScore,
-      reconciliationScore,
-      inventoryScore,
-      liquidityCoverage,
-      daysOfInventory: input.daysOfInventory,
-    }
-  }
-
-  if (healthScore >= 55) {
-    return {
-      healthScore,
-      healthLabel: 'Watch',
-      healthSummary: weakestArea === 'reconciliation'
-        ? 'Wallet mismatches are reducing confidence in the numbers.'
-        : weakestArea === 'profitability'
-          ? 'Revenue is not converting into enough net profit.'
-          : weakestArea === 'inventory'
-            ? 'Too much value is tied up in stock or purchase commitments.'
-            : 'Liquidity is tighter than ideal against current obligations.',
-      profitabilityScore,
-      liquidityScore,
-      reconciliationScore,
-      inventoryScore,
-      liquidityCoverage,
-      daysOfInventory: input.daysOfInventory,
-    }
-  }
-
-  return {
-    healthScore,
-    healthLabel: 'At Risk',
-    healthSummary: weakestArea === 'reconciliation'
-      ? 'The financial picture is too noisy because wallet activity does not fully line up.'
-      : weakestArea === 'profitability'
-        ? 'The business is not turning enough revenue into profit.'
-        : weakestArea === 'inventory'
-          ? 'Inventory pressure is heavy relative to current movement and cash.'
-          : 'Cash cover is under pressure relative to current obligations.',
-    profitabilityScore,
-    liquidityScore,
-    reconciliationScore,
-    inventoryScore,
-    liquidityCoverage,
-    daysOfInventory: input.daysOfInventory,
-  }
-}
 
 function truncateText(font: PDFFont, text: string, size: number, maxWidth: number) {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return text
@@ -728,21 +600,21 @@ export async function buildReportExportData(period: ReportExportPeriod, location
   const periodDays = Math.max(1, Math.ceil((bounds.end.getTime() - bounds.start.getTime()) / 86400000))
   const dailyUnitSales = totalUnitsSold / periodDays
   const daysOfInventory = dailyUnitSales > 0 ? Math.round(totalStockUnits / dailyUnitSales) : null
-  const healthScore = buildFinancialHealthScore({
-    totalRevenueUsd,
-    totalNetProfitUsd,
-    totalExpensesUsd,
-    totalCommissionsUsd,
-    walletBalanceUsd,
-    openPurchaseCommitmentUsd: onOrderCommitmentUsd,
-    walletNetChangeUsd: walletMetrics.walletNetChangeUsd,
-    salesCreditGapUsd,
-    expenseDebitGapUsd,
-    unmappedRevenueUsd,
-    walletSalesMappedUsd,
-    expensesBookedToWalletsUsd,
+  const healthScore = calculateFinancialHealthScore({
+    totalRevenue: totalRevenueUsd,
+    totalNetProfit: totalNetProfitUsd,
+    totalExpenses: totalExpensesUsd,
+    totalCommissions: totalCommissionsUsd,
+    liquidBalance: walletBalanceUsd,
+    openPurchaseCommitment: onOrderCommitmentUsd,
+    walletNetChange: walletMetrics.walletNetChangeUsd,
+    salesCreditGap: salesCreditGapUsd,
+    expenseDebitGap: expenseDebitGapUsd,
+    unmappedRevenue: unmappedRevenueUsd,
+    walletSalesMapped: walletSalesMappedUsd,
+    expensesBookedToWallets: expensesBookedToWalletsUsd,
     daysOfInventory,
-    stockValueUsd,
+    inventoryValue: stockValueUsd,
   })
 
   return {
@@ -813,15 +685,15 @@ export async function buildReportExportData(period: ReportExportPeriod, location
       committedAssetSharePct,
       openOrderCount: openPurchaseOrders.filter((order) => order.status !== 'received').length,
       walletCount: wallets.length,
-      healthScore: healthScore.healthScore,
-      healthLabel: healthScore.healthLabel,
-      healthSummary: healthScore.healthSummary,
-      profitabilityScore: healthScore.profitabilityScore,
-      liquidityScore: healthScore.liquidityScore,
-      reconciliationScore: healthScore.reconciliationScore,
-      inventoryScore: healthScore.inventoryScore,
+      healthScore: healthScore.score,
+      healthLabel: healthScore.label,
+      healthSummary: healthScore.summary,
+      profitabilityScore: healthScore.profitability,
+      liquidityScore: healthScore.liquidity,
+      reconciliationScore: healthScore.reconciliation,
+      inventoryScore: healthScore.inventory,
       liquidityCoverage: healthScore.liquidityCoverage,
-      daysOfInventory: healthScore.daysOfInventory,
+      daysOfInventory,
     },
     locations: Array.from(locationRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),
     payments: Array.from(paymentRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),

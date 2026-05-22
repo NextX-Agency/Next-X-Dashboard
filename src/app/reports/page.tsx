@@ -11,6 +11,7 @@ import {
 import { PageHeader, Badge } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { calculateFinancialHealthScore, type FinancialHealthScore } from '@/lib/financialHealth'
 import { cn } from '@/lib/utils'
 import type {
   ReportCategory as Category,
@@ -59,18 +60,6 @@ interface WalletActivitySummary {
   transactionCount: number
 }
 
-interface FinancialHealthScore {
-  score: number
-  label: string
-  tone: 'emerald' | 'blue' | 'amber' | 'red'
-  summary: string
-  profitability: number
-  liquidity: number
-  reconciliation: number
-  inventory: number
-  liquidityCoverage: number
-}
-
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly'
 type ViewTab = 'current' | 'historical'
 
@@ -80,12 +69,13 @@ function getCalendarPeriodBounds(period: PeriodType, now: Date): { start: Date; 
   const month = now.getMonth()
   const date = now.getDate()
   const day = now.getDay()
+  const capEnd = (value: Date) => value > now ? now : value
 
   switch (period) {
     case 'daily':
       return {
         start: new Date(year, month, date, 0, 0, 0, 0),
-        end: new Date(year, month, date, 23, 59, 59, 999),
+        end: capEnd(new Date(year, month, date, 23, 59, 59, 999)),
       }
     case 'weekly': {
       const mondayOffset = day === 0 ? -6 : 1 - day
@@ -93,17 +83,17 @@ function getCalendarPeriodBounds(period: PeriodType, now: Date): { start: Date; 
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
       sunday.setHours(23, 59, 59, 999)
-      return { start: monday, end: sunday > now ? now : sunday }
+      return { start: monday, end: capEnd(sunday) }
     }
     case 'monthly':
       return {
         start: new Date(year, month, 1, 0, 0, 0, 0),
-        end: new Date(year, month + 1, 0, 23, 59, 59, 999),
+        end: capEnd(new Date(year, month + 1, 0, 23, 59, 59, 999)),
       }
     case 'yearly':
       return {
         start: new Date(year, 0, 1, 0, 0, 0, 0),
-        end: new Date(year, 11, 31, 23, 59, 59, 999),
+        end: capEnd(new Date(year, 11, 31, 23, 59, 59, 999)),
       }
   }
 }
@@ -930,6 +920,51 @@ export default function ReportsPage() {
     return { totalUSD, totalSRD, totalInDisplay, count: visibleWallets.length }
   }, [visibleWallets, displayCurrency, rate])
 
+  const periodEndWalletSummary = useMemo(() => {
+    const cutoff = activeBounds.end.getTime()
+    let totalUSD = 0
+    let totalSRD = 0
+
+    visibleWallets.forEach((wallet) => {
+      const walletTransactionsForWallet = relevantWalletTransactions
+        .filter((transaction) => transaction.wallet_id === wallet.id)
+        .sort((left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime())
+
+      const lastBeforeOrAt = [...walletTransactionsForWallet]
+        .reverse()
+        .find((transaction) => new Date(transaction.created_at).getTime() <= cutoff && transaction.balance_after != null)
+
+      const firstAfter = walletTransactionsForWallet
+        .find((transaction) => new Date(transaction.created_at).getTime() > cutoff && transaction.balance_before != null)
+
+      let balance = toNum(wallet.balance)
+
+      if (lastBeforeOrAt) {
+        balance = toNum(lastBeforeOrAt.balance_after)
+      } else if (firstAfter) {
+        balance = toNum(firstAfter.balance_before)
+      } else if (walletTransactionsForWallet.length > 0) {
+        balance = walletTransactionsForWallet
+          .filter((transaction) => new Date(transaction.created_at).getTime() > cutoff)
+          .reduce((runningBalance, transaction) => {
+            const amount = toNum(transaction.amount)
+            return transaction.type === 'debit'
+              ? runningBalance + amount
+              : runningBalance - amount
+          }, toNum(wallet.balance))
+      }
+
+      if (wallet.currency === 'USD') totalUSD += balance
+      else totalSRD += balance
+    })
+
+    const totalInDisplay = displayCurrency === 'USD'
+      ? totalUSD + totalSRD / rate
+      : totalSRD + totalUSD * rate
+
+    return { totalUSD, totalSRD, totalInDisplay, count: visibleWallets.length }
+  }, [activeBounds.end, displayCurrency, rate, relevantWalletTransactions, visibleWallets])
+
   // ─── Reservations ───
   const reservationSummary = useMemo(() => {
     let pendingRevenue = 0
@@ -1024,10 +1059,13 @@ export default function ReportsPage() {
     .reduce((sum, order) => sum + purchaseOrderRemainingInDisplay(order), 0),
   [relevantPurchaseOrders, purchaseOrderRemainingInDisplay])
 
-  const totalAssetPosition = walletSummary.totalInDisplay + inventoryAnalysis.stockValueDisplay + openPurchaseCommitment
-  const liquidAssetShare = totalAssetPosition > 0 ? (walletSummary.totalInDisplay / totalAssetPosition) * 100 : 0
-  const stockAssetShare = totalAssetPosition > 0 ? (inventoryAnalysis.stockValueDisplay / totalAssetPosition) * 100 : 0
-  const committedAssetShare = totalAssetPosition > 0 ? (openPurchaseCommitment / totalAssetPosition) * 100 : 0
+  const financialHealthWalletBalance = periodEndWalletSummary.totalInDisplay
+  const financialHealthStockValue = isCurrentTab ? inventoryAnalysis.stockValueDisplay : 0
+  const financialHealthOpenPurchaseCommitment = isCurrentTab ? openPurchaseCommitment : 0
+  const totalAssetPosition = financialHealthWalletBalance + financialHealthStockValue + financialHealthOpenPurchaseCommitment
+  const liquidAssetShare = totalAssetPosition > 0 ? (financialHealthWalletBalance / totalAssetPosition) * 100 : 0
+  const stockAssetShare = totalAssetPosition > 0 ? (financialHealthStockValue / totalAssetPosition) * 100 : 0
+  const committedAssetShare = totalAssetPosition > 0 ? (financialHealthOpenPurchaseCommitment / totalAssetPosition) * 100 : 0
 
   const realizedCogs = totalRevenue - totalGrossProfit
   const prevRealizedCogs = prevRevenue - prevGrossProfit
@@ -1049,125 +1087,30 @@ export default function ReportsPage() {
   const assetCreationSignal = netProfit
   const previousAssetCreationSignal = prevNetProfit
 
-  const financialHealthScore = useMemo<FinancialHealthScore>(() => {
-    const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
-
-    const profitability = totalRevenue <= 0
-      ? 0
-      : clampScore(((netMarginPct + 15) * 3.5) + (netProfit > 0 ? 5 : 0))
-
-    const liquidityBase = totalExpensesAmt + totalCommissionsAmt + (openPurchaseCommitment * 0.5)
-    const liquidityCoverage = walletSummary.totalInDisplay / Math.max(1, liquidityBase)
-    const liquidity = clampScore((liquidityCoverage * 75) + (walletActivity.netChange >= 0 ? 5 : 0))
-
-    const reconciliationExposure = Math.abs(salesCreditGap) + Math.abs(expenseDebitGap) + Math.abs(unmappedRevenue)
-    const reconciliationBase = Math.max(totalRevenue, walletLinkedSales, walletLinkedExpenses, 1)
-    const reconciliation = clampScore(100 - ((reconciliationExposure / reconciliationBase) * 120))
-
-    let inventory = 70
-    if (inventoryAnalysis.daysOfInventory === null) inventory = 55
-    else if (inventoryAnalysis.daysOfInventory <= 60) inventory = 90
-    else if (inventoryAnalysis.daysOfInventory <= 120) inventory = 78
-    else if (inventoryAnalysis.daysOfInventory <= 180) inventory = 65
-    else if (inventoryAnalysis.daysOfInventory <= 365) inventory = 45
-    else inventory = 30
-
-    if (openPurchaseCommitment > walletSummary.totalInDisplay && walletSummary.totalInDisplay > 0) {
-      inventory -= 10
-    }
-    if (inventoryAnalysis.potentialProfit < 0) {
-      inventory -= 15
-    }
-    inventory = clampScore(inventory)
-
-    const score = clampScore(
-      (profitability * 0.35) +
-      (liquidity * 0.25) +
-      (reconciliation * 0.25) +
-      (inventory * 0.15)
-    )
-
-    const weakestArea = [
-      { key: 'profitability', value: profitability },
-      { key: 'liquidity', value: liquidity },
-      { key: 'reconciliation', value: reconciliation },
-      { key: 'inventory', value: inventory },
-    ].sort((left, right) => left.value - right.value)[0]?.key
-
-    if (score >= 85) {
-      return {
-        score,
-        label: 'Strong',
-        tone: 'emerald',
-        summary: 'Profitability, cash cover, and reconciliation are working together well.',
-        profitability,
-        liquidity,
-        reconciliation,
-        inventory,
-        liquidityCoverage,
-      }
-    }
-
-    if (score >= 70) {
-      return {
-        score,
-        label: 'Healthy',
-        tone: 'blue',
-        summary: weakestArea === 'liquidity'
-          ? 'Business health is solid, but liquid cash cover should be watched more closely.'
-          : 'The business is in decent shape, with one weaker area worth tightening.',
-        profitability,
-        liquidity,
-        reconciliation,
-        inventory,
-        liquidityCoverage,
-      }
-    }
-
-    if (score >= 55) {
-      return {
-        score,
-        label: 'Watch',
-        tone: 'amber',
-        summary: weakestArea === 'reconciliation'
-          ? 'Wallet gaps are making the picture noisy. Clean reconciliation will improve trust in the report.'
-          : weakestArea === 'profitability'
-            ? 'Sales are coming in, but too little is turning into net profit.'
-            : weakestArea === 'inventory'
-              ? 'Inventory pressure is heavier than ideal relative to movement and cash.'
-              : 'Cash cover is tighter than ideal against current commitments.',
-        profitability,
-        liquidity,
-        reconciliation,
-        inventory,
-        liquidityCoverage,
-      }
-    }
-
-    return {
-      score,
-      label: 'At Risk',
-      tone: 'red',
-      summary: weakestArea === 'profitability'
-        ? 'The business is not converting revenue into enough profit.'
-        : weakestArea === 'reconciliation'
-          ? 'Too many wallet mismatches make the financial picture unreliable.'
-          : weakestArea === 'inventory'
-            ? 'Too much value is tied up in stock or orders relative to the current pace.'
-            : 'Liquidity is under pressure relative to expenses and purchase commitments.',
-      profitability,
-      liquidity,
-      reconciliation,
-      inventory,
-      liquidityCoverage,
-    }
-  }, [
+  const financialHealthScore = useMemo<FinancialHealthScore>(() => calculateFinancialHealthScore({
+    totalRevenue,
+    totalNetProfit: netProfit,
+    totalExpenses: totalExpensesAmt,
+    totalCommissions: totalCommissionsAmt,
+    liquidBalance: financialHealthWalletBalance,
+    openPurchaseCommitment: financialHealthOpenPurchaseCommitment,
+    walletNetChange: walletActivity.netChange,
+    salesCreditGap,
     expenseDebitGap,
+    unmappedRevenue,
+    walletSalesMapped: walletLinkedSales,
+    expensesBookedToWallets: walletLinkedExpenses,
+    daysOfInventory: isCurrentTab ? inventoryAnalysis.daysOfInventory : null,
+    inventoryValue: isCurrentTab ? inventoryAnalysis.stockValueDisplay : 0,
+    inventoryDataLimited: !isCurrentTab,
+  }), [
+    expenseDebitGap,
+    financialHealthOpenPurchaseCommitment,
+    financialHealthWalletBalance,
     inventoryAnalysis.daysOfInventory,
-    inventoryAnalysis.potentialProfit,
-    netMarginPct,
+    inventoryAnalysis.stockValueDisplay,
+    isCurrentTab,
     netProfit,
-    openPurchaseCommitment,
     salesCreditGap,
     totalCommissionsAmt,
     totalExpensesAmt,
@@ -1176,48 +1119,84 @@ export default function ReportsPage() {
     walletActivity.netChange,
     walletLinkedExpenses,
     walletLinkedSales,
-    walletSummary.totalInDisplay,
   ])
 
-  // ─── Monthly Sales History ───
-  const monthlySalesHistory = useMemo(() => {
-    const monthlyData = new Map<string, MonthlySales>()
-    allSales.forEach(sale => {
-      const d = new Date(sale.created_at)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const monthName = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-      if (!monthlyData.has(key)) {
-        monthlyData.set(key, { month: monthName, monthKey: key, year: d.getFullYear(), totalSales: 0, totalProfit: 0, totalExpenses: 0, salesCount: 0 })
-      }
-      const data = monthlyData.get(key)!
-      data.totalSales += saleAmountInDisplay(sale)
-      data.totalProfit += profitInDisplay(saleProfitUSD(sale))
-      data.salesCount += 1
-    })
-    allExpenses.forEach(e => {
-      const d = new Date(e.created_at)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const data = monthlyData.get(key)
-      if (data) data.totalExpenses += expenseInDisplay(e)
-    })
-    return Array.from(monthlyData.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey)).slice(0, 12)
-  }, [allSales, allExpenses, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay])
-
-  // ─── Month-End Projection ───
   const projection = useMemo(() => {
     if (!isCurrentTab || period !== 'monthly') return null
-    const today = now.getDate()
+
+    const daysElapsed = Math.max(1, now.getDate())
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
-    if (today < 1) return null
-    const dailyAvgRevenue = totalRevenue / today
-    const dailyAvgNetProfit = netProfit / today
+    const dailyAvgRevenue = totalRevenue / daysElapsed
+    const dailyAvgNetProfit = netProfit / daysElapsed
+
     return {
       projectedRevenue: dailyAvgRevenue * daysInMonth,
       projectedNetProfit: dailyAvgNetProfit * daysInMonth,
-      daysElapsed: today,
+      daysElapsed,
       daysInMonth,
     }
-  }, [isCurrentTab, period, now, totalRevenue, netProfit])
+  }, [isCurrentTab, netProfit, now, period, totalRevenue])
+
+  const monthlySalesHistory = useMemo<MonthlySales[]>(() => {
+    const months: MonthlySales[] = []
+
+    for (let index = 0; index < 12; index += 1) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - index, 1)
+      const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1, 0, 0, 0, 0)
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999)
+
+      const monthSales = allSales.filter((sale) => {
+        if (!inRange(sale.created_at, monthStart, monthEnd)) return false
+        if (selectedLocation && sale.location_id !== selectedLocation) return false
+        return true
+      })
+
+      const monthExpenses = allExpenses.filter((expense) => {
+        if (!inRange(expense.created_at, monthStart, monthEnd)) return false
+        if (selectedLocation && expense.location_id !== selectedLocation) return false
+        return true
+      })
+
+      const monthSaleIds = new Set(monthSales.map((sale) => sale.id))
+      const monthCommissions = allCommissions.filter((commission) => {
+        if (commission.sale_id && !monthSaleIds.has(commission.sale_id)) return false
+        if (selectedLocation && commission.location_id !== selectedLocation) return false
+        return true
+      })
+
+      if (monthSales.length === 0 && monthExpenses.length === 0 && monthCommissions.length === 0) {
+        continue
+      }
+
+      const totalSales = monthSales.reduce((sum, sale) => sum + saleAmountInDisplay(sale), 0)
+      const grossProfit = monthSales.reduce((sum, sale) => sum + profitInDisplay(saleProfitUSD(sale)), 0)
+      const totalExpenses = monthExpenses.reduce((sum, expense) => sum + expenseInDisplay(expense), 0)
+      const totalCommissions = monthCommissions.reduce((sum, commission) => sum + commissionInDisplay(commission), 0)
+
+      months.push({
+        month: monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        monthKey: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
+        year: monthDate.getFullYear(),
+        totalSales,
+        totalProfit: grossProfit - totalExpenses - totalCommissions,
+        totalExpenses,
+        salesCount: monthSales.length,
+      })
+    }
+
+    return months
+  }, [
+    allCommissions,
+    allExpenses,
+    allSales,
+    commissionInDisplay,
+    expenseInDisplay,
+    now,
+    profitInDisplay,
+    saleAmountInDisplay,
+    saleProfitUSD,
+    selectedLocation,
+  ])
 
   const hasLoadedData = allSales.length > 0 || items.length > 0 || locations.length > 0 || allExpenses.length > 0 || wallets.length > 0 || walletTransactions.length > 0 || purchaseOrders.length > 0
 
@@ -1827,10 +1806,10 @@ export default function ReportsPage() {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
                   <CreditCard className="w-4 h-4 text-cyan-600" />
                 </div>
-                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Wallet Balance</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">{isCurrentTab ? 'Wallet Balance' : 'Current Wallet Balance'}</span>
               </div>
               <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-1">{walletSummary.count} wallets</div>
+              <div className="text-xs text-muted-foreground mt-1">{walletSummary.count} wallets{!isCurrentTab ? ' · live balance' : ''}</div>
             </div>
           </div>
         </div>
@@ -1970,7 +1949,9 @@ export default function ReportsPage() {
                   </div>
                   <div className="mt-3 text-sm text-muted-foreground">{financialHealthScore.summary}</div>
                   <div className="mt-4 text-xs text-muted-foreground">
-                    Built from profitability, liquidity cover, reconciliation quality, and inventory discipline.
+                    {isCurrentTab
+                      ? 'Built from profitability, liquidity cover, reconciliation quality, and inventory discipline.'
+                      : 'Built from profitability, period-end wallet liquidity, and wallet reconciliation. Historical stock pressure is excluded until stock snapshots are stored.'}
                   </div>
                 </div>
 
@@ -1983,7 +1964,11 @@ export default function ReportsPage() {
                   <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                     <div className="text-xs text-muted-foreground">Liquidity</div>
                     <div className="mt-1 text-2xl font-bold text-cyan-600">{financialHealthScore.liquidity}/100</div>
-                    <div className="mt-2 text-xs text-muted-foreground">Wallet cover of {financialHealthScore.liquidityCoverage.toFixed(2)}x against costs and open inventory commitments.</div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {isCurrentTab
+                        ? `Wallet cover of ${financialHealthScore.liquidityCoverage.toFixed(2)}x against costs and open inventory commitments.`
+                        : `Period-end wallet cover of ${financialHealthScore.liquidityCoverage.toFixed(2)}x against tracked costs in this range.`}
+                    </div>
                   </div>
                   <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
                     <div className="text-xs text-muted-foreground">Reconciliation</div>
@@ -1994,9 +1979,11 @@ export default function ReportsPage() {
                     <div className="text-xs text-muted-foreground">Inventory Discipline</div>
                     <div className="mt-1 text-2xl font-bold text-orange-600">{financialHealthScore.inventory}/100</div>
                     <div className="mt-2 text-xs text-muted-foreground">
-                      {inventoryAnalysis.daysOfInventory !== null
+                      {isCurrentTab && inventoryAnalysis.daysOfInventory !== null
                         ? `${inventoryAnalysis.daysOfInventory} days of inventory at current pace.`
-                        : 'No sell-through rate yet to estimate days of inventory.'}
+                        : isCurrentTab
+                          ? 'No sell-through rate yet to estimate days of inventory.'
+                          : 'Excluded in historical mode because stock snapshots are not stored.'}
                     </div>
                   </div>
                 </div>
@@ -2009,7 +1996,9 @@ export default function ReportsPage() {
                     <div className="text-lg sm:text-xl font-bold text-foreground">Profit, liquidity, and stock are separate signals.</div>
                     <div className="max-w-3xl text-sm text-muted-foreground">
                       Revenue is turnover. Gross profit removes stock cost. Net profit removes operating expenses and commissions.
-                      Wallet balance is liquid cash, not profit. Asset position combines liquid cash, stock at cost, and inventory already funded but not fully received.
+                      {isCurrentTab
+                        ? ' Wallet balance is liquid cash, not profit. Asset position combines liquid cash, stock at cost, and inventory already funded but not fully received.'
+                        : ' Period-end wallet balance is reconstructed from wallet transactions. Historical stock pressure is excluded until stock snapshots are stored.'}
                     </div>
                   </div>
                   <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
@@ -2027,31 +2016,31 @@ export default function ReportsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
                 <div className="rounded-2xl border border-cyan-500/20 bg-linear-to-br from-cyan-500/10 to-transparent p-4">
-                  <div className="text-xs text-muted-foreground">Total Asset Position</div>
+                  <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Total Asset Position' : 'Tracked Liquid Position'}</div>
                   <div className="mt-1 text-2xl font-bold text-cyan-600">{formatCurrency(totalAssetPosition, displayCurrency)}</div>
-                  <div className="mt-2 text-xs text-muted-foreground">Wallets + stock cost + inventory on order</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{isCurrentTab ? 'Wallets + stock cost + inventory on order' : 'Historical view uses period-end wallet balances only.'}</div>
                 </div>
                 <div className="rounded-2xl border border-blue-500/20 bg-linear-to-br from-blue-500/10 to-transparent p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs text-muted-foreground">Liquid Wallet Balance</div>
-                      <div className="mt-1 text-2xl font-bold text-blue-600">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
+                      <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Liquid Wallet Balance' : 'Period-end Wallet Balance'}</div>
+                      <div className="mt-1 text-2xl font-bold text-blue-600">{formatCurrency(financialHealthWalletBalance, displayCurrency)}</div>
                     </div>
                     <div className="text-right">
                       {isCurrentTab && <TrendBadge current={walletActivity.netChange} previous={prevWalletActivity.netChange} />}
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">{liquidAssetShare.toFixed(1)}% of current asset position</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{liquidAssetShare.toFixed(1)}% of {isCurrentTab ? 'current asset position' : 'tracked position'}</div>
                 </div>
                 <div className="rounded-2xl border border-orange-500/20 bg-linear-to-br from-orange-500/10 to-transparent p-4">
-                  <div className="text-xs text-muted-foreground">Stock at Cost</div>
-                  <div className="mt-1 text-2xl font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
-                  <div className="mt-2 text-xs text-muted-foreground">{stockAssetShare.toFixed(1)}% of current asset position</div>
+                  <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Stock at Cost' : 'Stock Snapshot'}</div>
+                  <div className="mt-1 text-2xl font-bold text-orange-600">{isCurrentTab ? formatCurrency(financialHealthStockValue, displayCurrency) : 'Unavailable'}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{isCurrentTab ? `${stockAssetShare.toFixed(1)}% of current asset position` : 'Historical stock snapshots are not stored.'}</div>
                 </div>
                 <div className="rounded-2xl border border-violet-500/20 bg-linear-to-br from-violet-500/10 to-transparent p-4">
-                  <div className="text-xs text-muted-foreground">Inventory on Order</div>
-                  <div className="mt-1 text-2xl font-bold text-violet-600">{formatCurrency(openPurchaseCommitment, displayCurrency)}</div>
-                  <div className="mt-2 text-xs text-muted-foreground">{currentOpenOrderCount} open orders · {committedAssetShare.toFixed(1)}% of assets</div>
+                  <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Inventory on Order' : 'Open-order Snapshot'}</div>
+                  <div className="mt-1 text-2xl font-bold text-violet-600">{isCurrentTab ? formatCurrency(financialHealthOpenPurchaseCommitment, displayCurrency) : 'Unavailable'}</div>
+                  <div className="mt-2 text-xs text-muted-foreground">{isCurrentTab ? `${currentOpenOrderCount} open orders · ${committedAssetShare.toFixed(1)}% of assets` : 'Current order status is not replayed historically.'}</div>
                 </div>
               </div>
 
@@ -2090,22 +2079,28 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-sm font-bold text-foreground">Asset Mix</div>
-                    <div className="text-xs text-muted-foreground">Where the business value currently sits.</div>
+              {isCurrentTab ? (
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <div className="text-sm font-bold text-foreground">Asset Mix</div>
+                      <div className="text-xs text-muted-foreground">Where the business value currently sits.</div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">Wallets {liquidAssetShare.toFixed(1)}% · Stock {stockAssetShare.toFixed(1)}% · On order {committedAssetShare.toFixed(1)}%</div>
                   </div>
-                  <div className="text-xs text-muted-foreground">Wallets {liquidAssetShare.toFixed(1)}% · Stock {stockAssetShare.toFixed(1)}% · On order {committedAssetShare.toFixed(1)}%</div>
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-muted">
-                  <div className="flex h-full w-full overflow-hidden rounded-full">
-                    <div className="bg-cyan-500" style={{ width: `${liquidAssetShare}%` }} />
-                    <div className="bg-orange-500" style={{ width: `${stockAssetShare}%` }} />
-                    <div className="bg-violet-500" style={{ width: `${committedAssetShare}%` }} />
+                  <div className="h-3 overflow-hidden rounded-full bg-muted">
+                    <div className="flex h-full w-full overflow-hidden rounded-full">
+                      <div className="bg-cyan-500" style={{ width: `${liquidAssetShare}%` }} />
+                      <div className="bg-orange-500" style={{ width: `${stockAssetShare}%` }} />
+                      <div className="bg-violet-500" style={{ width: `${committedAssetShare}%` }} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 text-sm text-muted-foreground">
+                  Historical financial health uses period-end wallet balances and wallet transaction reconciliation. Asset mix is hidden here because the app does not store historical stock snapshots yet.
+                </div>
+              )}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5">
@@ -2137,15 +2132,15 @@ export default function ReportsPage() {
                     </div>
                     <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-3">
                       <div>
-                        <div className="font-semibold text-foreground">Wallet Balance</div>
-                        <div className="text-xs text-muted-foreground">Liquid cash currently sitting in selected wallets.</div>
+                        <div className="font-semibold text-foreground">{isCurrentTab ? 'Wallet Balance' : 'Period-end Wallet Balance'}</div>
+                        <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Liquid cash currently sitting in selected wallets.' : 'Reconstructed from wallet transactions up to the selected period end.'}</div>
                       </div>
-                      <div className="text-right font-bold text-cyan-600">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
+                      <div className="text-right font-bold text-cyan-600">{formatCurrency(financialHealthWalletBalance, displayCurrency)}</div>
                     </div>
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="font-semibold text-foreground">Asset Position</div>
-                        <div className="text-xs text-muted-foreground">Wallets plus stock value plus funded inventory still on order.</div>
+                        <div className="text-xs text-muted-foreground">{isCurrentTab ? 'Wallets plus stock value plus funded inventory still on order.' : 'Historical mode shows tracked liquid position only until stock snapshots are stored.'}</div>
                       </div>
                       <div className="text-right font-bold text-violet-600">{formatCurrency(totalAssetPosition, displayCurrency)}</div>
                     </div>
