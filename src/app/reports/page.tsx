@@ -11,6 +11,7 @@ import {
 import { PageHeader, Badge } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { cn } from '@/lib/utils'
 import type {
   ReportCategory as Category,
   ReportComboItem as ComboItem,
@@ -56,6 +57,18 @@ interface WalletActivitySummary {
   operationalNet: number
   nonOperationalNet: number
   transactionCount: number
+}
+
+interface FinancialHealthScore {
+  score: number
+  label: string
+  tone: 'emerald' | 'blue' | 'amber' | 'red'
+  summary: string
+  profitability: number
+  liquidity: number
+  reconciliation: number
+  inventory: number
+  liquidityCoverage: number
 }
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -1036,6 +1049,136 @@ export default function ReportsPage() {
   const assetCreationSignal = netProfit
   const previousAssetCreationSignal = prevNetProfit
 
+  const financialHealthScore = useMemo<FinancialHealthScore>(() => {
+    const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value)))
+
+    const profitability = totalRevenue <= 0
+      ? 0
+      : clampScore(((netMarginPct + 15) * 3.5) + (netProfit > 0 ? 5 : 0))
+
+    const liquidityBase = totalExpensesAmt + totalCommissionsAmt + (openPurchaseCommitment * 0.5)
+    const liquidityCoverage = walletSummary.totalInDisplay / Math.max(1, liquidityBase)
+    const liquidity = clampScore((liquidityCoverage * 75) + (walletActivity.netChange >= 0 ? 5 : 0))
+
+    const reconciliationExposure = Math.abs(salesCreditGap) + Math.abs(expenseDebitGap) + Math.abs(unmappedRevenue)
+    const reconciliationBase = Math.max(totalRevenue, walletLinkedSales, walletLinkedExpenses, 1)
+    const reconciliation = clampScore(100 - ((reconciliationExposure / reconciliationBase) * 120))
+
+    let inventory = 70
+    if (inventoryAnalysis.daysOfInventory === null) inventory = 55
+    else if (inventoryAnalysis.daysOfInventory <= 60) inventory = 90
+    else if (inventoryAnalysis.daysOfInventory <= 120) inventory = 78
+    else if (inventoryAnalysis.daysOfInventory <= 180) inventory = 65
+    else if (inventoryAnalysis.daysOfInventory <= 365) inventory = 45
+    else inventory = 30
+
+    if (openPurchaseCommitment > walletSummary.totalInDisplay && walletSummary.totalInDisplay > 0) {
+      inventory -= 10
+    }
+    if (inventoryAnalysis.potentialProfit < 0) {
+      inventory -= 15
+    }
+    inventory = clampScore(inventory)
+
+    const score = clampScore(
+      (profitability * 0.35) +
+      (liquidity * 0.25) +
+      (reconciliation * 0.25) +
+      (inventory * 0.15)
+    )
+
+    const weakestArea = [
+      { key: 'profitability', value: profitability },
+      { key: 'liquidity', value: liquidity },
+      { key: 'reconciliation', value: reconciliation },
+      { key: 'inventory', value: inventory },
+    ].sort((left, right) => left.value - right.value)[0]?.key
+
+    if (score >= 85) {
+      return {
+        score,
+        label: 'Strong',
+        tone: 'emerald',
+        summary: 'Profitability, cash cover, and reconciliation are working together well.',
+        profitability,
+        liquidity,
+        reconciliation,
+        inventory,
+        liquidityCoverage,
+      }
+    }
+
+    if (score >= 70) {
+      return {
+        score,
+        label: 'Healthy',
+        tone: 'blue',
+        summary: weakestArea === 'liquidity'
+          ? 'Business health is solid, but liquid cash cover should be watched more closely.'
+          : 'The business is in decent shape, with one weaker area worth tightening.',
+        profitability,
+        liquidity,
+        reconciliation,
+        inventory,
+        liquidityCoverage,
+      }
+    }
+
+    if (score >= 55) {
+      return {
+        score,
+        label: 'Watch',
+        tone: 'amber',
+        summary: weakestArea === 'reconciliation'
+          ? 'Wallet gaps are making the picture noisy. Clean reconciliation will improve trust in the report.'
+          : weakestArea === 'profitability'
+            ? 'Sales are coming in, but too little is turning into net profit.'
+            : weakestArea === 'inventory'
+              ? 'Inventory pressure is heavier than ideal relative to movement and cash.'
+              : 'Cash cover is tighter than ideal against current commitments.',
+        profitability,
+        liquidity,
+        reconciliation,
+        inventory,
+        liquidityCoverage,
+      }
+    }
+
+    return {
+      score,
+      label: 'At Risk',
+      tone: 'red',
+      summary: weakestArea === 'profitability'
+        ? 'The business is not converting revenue into enough profit.'
+        : weakestArea === 'reconciliation'
+          ? 'Too many wallet mismatches make the financial picture unreliable.'
+          : weakestArea === 'inventory'
+            ? 'Too much value is tied up in stock or orders relative to the current pace.'
+            : 'Liquidity is under pressure relative to expenses and purchase commitments.',
+      profitability,
+      liquidity,
+      reconciliation,
+      inventory,
+      liquidityCoverage,
+    }
+  }, [
+    expenseDebitGap,
+    inventoryAnalysis.daysOfInventory,
+    inventoryAnalysis.potentialProfit,
+    netMarginPct,
+    netProfit,
+    openPurchaseCommitment,
+    salesCreditGap,
+    totalCommissionsAmt,
+    totalExpensesAmt,
+    totalRevenue,
+    unmappedRevenue,
+    walletActivity.netChange,
+    walletLinkedExpenses,
+    walletLinkedSales,
+    walletSummary.totalInDisplay,
+  ])
+
   // ─── Monthly Sales History ───
   const monthlySalesHistory = useMemo(() => {
     const monthlyData = new Map<string, MonthlySales>()
@@ -1800,10 +1943,65 @@ export default function ReportsPage() {
             title="Financial Health & Reconciliation"
             icon={<Activity size={20} />}
             sectionKey="assetHealth"
-            badge={formatCurrency(totalAssetPosition, displayCurrency)}
+            badge={`${financialHealthScore.score}/100`}
           />
           {expandedSections.assetHealth && (
             <div className="px-4 pb-4 space-y-4">
+              <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
+                <div className={cn(
+                  'rounded-2xl border p-5',
+                  financialHealthScore.tone === 'emerald' && 'border-emerald-500/20 bg-emerald-500/10',
+                  financialHealthScore.tone === 'blue' && 'border-cyan-500/20 bg-cyan-500/10',
+                  financialHealthScore.tone === 'amber' && 'border-amber-500/20 bg-amber-500/10',
+                  financialHealthScore.tone === 'red' && 'border-red-500/20 bg-red-500/10'
+                )}>
+                  <div className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Finance Health Score</div>
+                  <div className={cn(
+                    'mt-3 text-5xl font-bold tracking-tight',
+                    financialHealthScore.tone === 'emerald' && 'text-emerald-600',
+                    financialHealthScore.tone === 'blue' && 'text-cyan-600',
+                    financialHealthScore.tone === 'amber' && 'text-amber-600',
+                    financialHealthScore.tone === 'red' && 'text-red-600'
+                  )}>
+                    {financialHealthScore.score}
+                  </div>
+                  <div className="mt-2 inline-flex rounded-full border border-border/60 bg-card px-2.5 py-1 text-xs font-semibold text-foreground">
+                    {financialHealthScore.label}
+                  </div>
+                  <div className="mt-3 text-sm text-muted-foreground">{financialHealthScore.summary}</div>
+                  <div className="mt-4 text-xs text-muted-foreground">
+                    Built from profitability, liquidity cover, reconciliation quality, and inventory discipline.
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                    <div className="text-xs text-muted-foreground">Profitability</div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-600">{financialHealthScore.profitability}/100</div>
+                    <div className="mt-2 text-xs text-muted-foreground">Net margin {netMarginPct.toFixed(1)}% and current net profit quality.</div>
+                  </div>
+                  <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                    <div className="text-xs text-muted-foreground">Liquidity</div>
+                    <div className="mt-1 text-2xl font-bold text-cyan-600">{financialHealthScore.liquidity}/100</div>
+                    <div className="mt-2 text-xs text-muted-foreground">Wallet cover of {financialHealthScore.liquidityCoverage.toFixed(2)}x against costs and open inventory commitments.</div>
+                  </div>
+                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+                    <div className="text-xs text-muted-foreground">Reconciliation</div>
+                    <div className="mt-1 text-2xl font-bold text-blue-600">{financialHealthScore.reconciliation}/100</div>
+                    <div className="mt-2 text-xs text-muted-foreground">Penalizes wallet gaps, expense mismatches, and unmapped revenue.</div>
+                  </div>
+                  <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-4">
+                    <div className="text-xs text-muted-foreground">Inventory Discipline</div>
+                    <div className="mt-1 text-2xl font-bold text-orange-600">{financialHealthScore.inventory}/100</div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {inventoryAnalysis.daysOfInventory !== null
+                        ? `${inventoryAnalysis.daysOfInventory} days of inventory at current pace.`
+                        : 'No sell-through rate yet to estimate days of inventory.'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-primary/20 bg-linear-to-r from-primary/10 via-transparent to-cyan-500/10 p-4 sm:p-5">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                   <div className="space-y-1">

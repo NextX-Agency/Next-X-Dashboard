@@ -41,6 +41,12 @@ interface ReceiveItemForm {
   receiving: string
 }
 
+interface DeleteWalletAdjustmentPreview {
+  canAdjustWallet: boolean
+  amount: number
+  reason: string
+}
+
 export default function OrdersPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { user } = useAuth()
@@ -53,8 +59,10 @@ export default function OrdersPage() {
   const [showOrderForm, setShowOrderForm] = useState(false)
   const [showViewOrder, setShowViewOrder] = useState(false)
   const [showReceiveModal, setShowReceiveModal] = useState(false)
+  const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false)
   const [viewingOrder, setViewingOrder] = useState<OrderWithDetails | null>(null)
   const [receivingOrder, setReceivingOrder] = useState<OrderWithDetails | null>(null)
+  const [deletingOrder, setDeletingOrder] = useState<OrderWithDetails | null>(null)
   const [receiveItems, setReceiveItems] = useState<ReceiveItemForm[]>([])
   const [editingOrder, setEditingOrder] = useState<OrderWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,6 +70,7 @@ export default function OrdersPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
+  const [deleteAdjustWallet, setDeleteAdjustWallet] = useState(false)
 
   const [orderForm, setOrderForm] = useState({
     wallet_id: '',
@@ -599,6 +608,96 @@ export default function OrdersPage() {
     setShowViewOrder(true)
   }
 
+  const getDeleteWalletAdjustmentPreview = useCallback((order: OrderWithDetails): DeleteWalletAdjustmentPreview => {
+    if (!order.wallets) {
+      return {
+        canAdjustWallet: false,
+        amount: 0,
+        reason: 'No wallet is linked to this order.',
+      }
+    }
+
+    if (order.status === 'cancelled') {
+      return {
+        canAdjustWallet: false,
+        amount: 0,
+        reason: 'Cancelled orders are usually already refunded when they were cancelled.',
+      }
+    }
+
+    const totalOrdered = order.purchase_order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+    const totalReceived = order.purchase_order_items?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0
+
+    let refundableBase = order.total_amount
+
+    if (order.status === 'partially_received') {
+      const unreceivedFraction = totalOrdered > 0 ? Math.max(0, totalOrdered - totalReceived) / totalOrdered : 0
+      refundableBase = order.total_amount * unreceivedFraction
+    }
+
+    if (order.status === 'received') {
+      refundableBase = 0
+    }
+
+    let refundAmount = refundableBase
+    const wallet = order.wallets
+
+    if (refundAmount > 0 && wallet.currency !== order.currency) {
+      if (order.currency === 'USD' && wallet.currency === 'SRD') {
+        refundAmount = order.total_amount === refundableBase
+          ? refundableBase * (order.exchange_rate || exchangeRate)
+          : refundableBase * (order.exchange_rate || exchangeRate)
+      } else if (order.currency === 'SRD' && wallet.currency === 'USD') {
+        refundAmount = refundAmount / (order.exchange_rate || exchangeRate)
+      }
+    }
+
+    if (refundAmount <= 0) {
+      return {
+        canAdjustWallet: false,
+        amount: 0,
+        reason: order.status === 'received'
+          ? 'All items are already received. Deleting this order will not reverse stock or refund the wallet.'
+          : 'No refundable wallet amount remains for this order.',
+      }
+    }
+
+    if (order.status === 'partially_received') {
+      return {
+        canAdjustWallet: true,
+        amount: refundAmount,
+        reason: 'Only the not-yet-received portion can be restored to the wallet. Received stock is left unchanged.',
+      }
+    }
+
+    if (order.status === 'received') {
+      return {
+        canAdjustWallet: false,
+        amount: 0,
+        reason: 'Received stock stays in inventory, so wallet restoration is disabled for fully received orders.',
+      }
+    }
+
+    return {
+      canAdjustWallet: true,
+      amount: refundAmount,
+      reason: 'This will restore the order amount to the linked wallet while deleting the order record.',
+    }
+  }, [exchangeRate])
+
+  const openDeleteOrderModal = (order: OrderWithDetails) => {
+    setDeletingOrder(order)
+    setDeleteAdjustWallet(false)
+    setShowDeleteOrderModal(true)
+  }
+
+  const closeDeleteOrderModal = (force: boolean = false) => {
+    if (submitting && !force) return
+    setShowDeleteOrderModal(false)
+    setDeletingOrder(null)
+    setDeleteAdjustWallet(false)
+  }
+
   const handleEditOrder = (order: OrderWithDetails) => {
     if (order.status !== 'pending') {
       alert('Can only edit pending orders')
@@ -638,57 +737,50 @@ export default function OrdersPage() {
     setShowOrderForm(true)
   }
 
-  const handleDeleteOrder = async (order: OrderWithDetails) => {
-    if (order.status !== 'pending' && order.status !== 'cancelled') {
-      alert('Can only delete pending or cancelled orders')
-      return
-    }
-    const ok = await confirm({
-      title: 'Delete Order',
-      message: order.status === 'pending'
-        ? 'This pending order will be deleted and the amount refunded to the wallet.'
-        : 'This cancelled order will be permanently deleted.',
-      itemName: `Order #${order.id.slice(0, 8)}`,
-      itemDetails: `${formatCurrency(order.total_amount, order.currency as Currency)} · ${order.status}`,
-      variant: 'danger',
-      confirmLabel: order.status === 'pending' ? 'Delete & Refund' : 'Delete',
-    })
-    if (!ok) return
+  const handleDeleteOrder = async () => {
+    if (!deletingOrder || submitting) return
 
-    // Refund if pending
-    if (order.status === 'pending' && order.wallets) {
-      let refundAmount = order.total_amount
-      const wallet = order.wallets
-      if (wallet.currency !== order.currency) {
-        if (order.currency === 'USD' && wallet.currency === 'SRD') {
-          refundAmount = order.total_amount * (order.exchange_rate || exchangeRate)
-        } else if (order.currency === 'SRD' && wallet.currency === 'USD') {
-          refundAmount = order.total_amount / (order.exchange_rate || exchangeRate)
-        }
+    const order = deletingOrder
+    const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(order)
+
+    setSubmitting(true)
+    try {
+      if (deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets) {
+        await supabase
+          .from('wallets')
+          .update({ balance: Number(order.wallets.balance) + walletAdjustmentPreview.amount })
+          .eq('id', order.wallets.id)
       }
-      await supabase
-        .from('wallets')
-        .update({ balance: Number(wallet.balance) + refundAmount })
-        .eq('id', wallet.id)
+
+      await supabase.from('purchase_order_items').delete().eq('order_id', order.id)
+      await supabase.from('purchase_orders').delete().eq('id', order.id)
+
+      await logActivity({
+        action: 'delete',
+        entityType: 'purchase_order',
+        entityId: order.id,
+        entityName: `Order #${order.id.slice(0, 8)}`,
+        details: buildActivityDetails({
+          Items: order.purchase_order_items?.map(i => `${i.quantity}x ${i.items?.name}`).join(', ') || '',
+          Total: formatCurrency(order.total_amount, order.currency as Currency),
+          Location: order.locations?.name || '',
+          Status: order.status,
+          WalletAdjusted: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet ? 'Yes' : 'No',
+          WalletChange: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets
+            ? formatCurrency(walletAdjustmentPreview.amount, order.wallets.currency as Currency)
+            : '',
+          StockNote: order.status === 'partially_received' || order.status === 'received'
+            ? 'Received stock was left unchanged'
+            : '',
+        }),
+        userId: user?.id
+      })
+
+      closeDeleteOrderModal(true)
+      await loadData()
+    } finally {
+      setSubmitting(false)
     }
-
-    await supabase.from('purchase_order_items').delete().eq('order_id', order.id)
-    await supabase.from('purchase_orders').delete().eq('id', order.id)
-
-    await logActivity({
-      action: 'delete',
-      entityType: 'purchase_order',
-      entityId: order.id,
-      entityName: `Order #${order.id.slice(0, 8)}`,
-      details: buildActivityDetails({
-        Items: order.purchase_order_items?.map(i => `${i.quantity}x ${i.items?.name}`).join(', ') || '',
-        Total: formatCurrency(order.total_amount, order.currency as Currency),
-        Location: order.locations?.name || ''
-      }),
-      userId: user?.id
-    })
-
-    await loadData()
   }
 
   const getStatusIcon = (status: string) => {
@@ -1072,11 +1164,9 @@ export default function OrdersPage() {
                           <Edit size={14} />
                         </Button>
                       )}
-                      {(order.status === 'pending' || order.status === 'cancelled') && (
-                        <Button onClick={() => handleDeleteOrder(order)} variant="ghost" size="sm" className="text-destructive hover:text-destructive min-h-10 min-w-10 touch-manipulation">
+                      <Button onClick={() => openDeleteOrderModal(order)} variant="ghost" size="sm" className="text-destructive hover:text-destructive min-h-10 min-w-10 touch-manipulation">
                           <Trash2 size={14} />
-                        </Button>
-                      )}
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1467,6 +1557,103 @@ export default function OrdersPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Delete Order Modal */}
+      <Modal
+        isOpen={showDeleteOrderModal}
+        onClose={closeDeleteOrderModal}
+        title={`Delete Order${deletingOrder ? ` — #${deletingOrder.id.slice(0, 8)}` : ''}`}
+      >
+        {deletingOrder && (() => {
+          const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(deletingOrder)
+          const hasReceivedStock = deletingOrder.status === 'partially_received' || deletingOrder.status === 'received'
+
+          return (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-red-500/10 p-2 text-red-500">
+                    <AlertTriangle size={18} />
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="font-semibold text-foreground">Delete this order record</div>
+                    <div className="text-muted-foreground">
+                      Use this for invalid or duplicate orders. This removes the order and its line items from the system.
+                    </div>
+                    {hasReceivedStock && (
+                      <div className="text-amber-500">
+                        Received stock is not changed by this delete action.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm">
+                <div>
+                  <div className="text-xs text-muted-foreground">Status</div>
+                  <div className="mt-1 font-semibold capitalize text-foreground">{getStatusLabel(deletingOrder.status)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Total</div>
+                  <div className="mt-1 font-semibold text-foreground">{formatCurrency(deletingOrder.total_amount, deletingOrder.currency as Currency)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Wallet</div>
+                  <div className="mt-1 font-semibold text-foreground">{deletingOrder.wallets?.person_name || 'No wallet linked'}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Destination</div>
+                  <div className="mt-1 font-semibold text-foreground">{deletingOrder.locations?.name || 'Unknown location'}</div>
+                </div>
+              </div>
+
+              <label className={cn(
+                'flex items-start gap-3 rounded-xl border p-4 transition-colors',
+                walletAdjustmentPreview.canAdjustWallet
+                  ? 'border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10'
+                  : 'border-border/60 bg-muted/20 opacity-80 cursor-not-allowed'
+              )}>
+                <input
+                  type="checkbox"
+                  checked={deleteAdjustWallet}
+                  onChange={(e) => setDeleteAdjustWallet(e.target.checked)}
+                  disabled={!walletAdjustmentPreview.canAdjustWallet || submitting}
+                  className="mt-1 h-4 w-4 rounded border-border accent-primary"
+                />
+                <div className="space-y-1 text-sm">
+                  <div className="font-semibold text-foreground">Also update wallet balance</div>
+                  <div className="text-muted-foreground">{walletAdjustmentPreview.reason}</div>
+                  <div className="text-xs font-medium text-foreground">
+                    Wallet change:{' '}
+                    {walletAdjustmentPreview.canAdjustWallet && deletingOrder.wallets
+                      ? formatCurrency(walletAdjustmentPreview.amount, deletingOrder.wallets.currency as Currency)
+                      : 'No wallet change'}
+                  </div>
+                </div>
+              </label>
+
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
+                <div>Delete only: removes the order record and keeps the current wallet balance as-is.</div>
+                <div>Delete + wallet update: removes the order record and restores the refundable amount to the linked wallet.</div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                <Button type="button" onClick={() => closeDeleteOrderModal()} variant="secondary" className="min-h-12 touch-manipulation order-2 sm:order-1" disabled={submitting}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={() => void handleDeleteOrder()} variant="primary" className="min-h-12 touch-manipulation order-1 sm:order-2" disabled={submitting}>
+                  {submitting
+                    ? 'Deleting...'
+                    : deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
+                      ? 'Delete & Update Wallet'
+                      : 'Delete Order'}
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
 
       <ConfirmDialog {...dialogProps} />
