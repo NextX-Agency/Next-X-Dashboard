@@ -289,18 +289,6 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {!isCollapsed && currentNavItem && (
-        <div className="px-3 pb-3">
-          <div className="rounded-2xl border border-gray-800/70 bg-gray-900/80 p-3 shadow-inner shadow-black/20">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-500">Focused View</div>
-            <div className="mt-2 text-sm font-semibold text-white">{currentNavItem.name}</div>
-            <div className="mt-1 text-xs text-gray-400">
-              {currentNavSection?.title} workspace
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-gray-800/50">
         <button

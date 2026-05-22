@@ -28,6 +28,8 @@ const PROTECTED_API_PREFIXES = [
   '/api/reports',
   '/api/stock',
   '/api/orders',
+  '/api/wallets',
+  '/api/budgets',
   '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
   '/api/delete-commissions', '/api/recalculate-commissions', '/api/fix-combo-price',
   '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',

@@ -24,16 +24,9 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
-        <div className="w-full max-w-sm rounded-3xl border border-gray-800 bg-gray-900/90 p-8 shadow-2xl shadow-black/30">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400">
-              <Loader2 className="w-7 h-7 animate-spin" />
-            </div>
-            <div>
-              <p className="text-base font-semibold text-white">Preparing your workspace</p>
-              <p className="mt-1 text-sm text-gray-400">Checking access and loading the admin shell.</p>
-            </div>
-          </div>
+        <div className="flex items-center justify-center rounded-full border border-gray-800/80 bg-gray-900/70 p-4 text-orange-400 shadow-lg shadow-black/20">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span className="sr-only">Loading workspace</span>
         </div>
       </div>
     )

@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
 import { 
   Wallet, Plus, DollarSign, Edit, Trash2, ArrowUpRight, ArrowDownLeft, 
   TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft,
-  ChevronDown, ChevronUp, MapPin
+  ChevronDown, ChevronUp, MapPin, AlertTriangle, RefreshCcw
 } from 'lucide-react'
 import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
@@ -14,13 +13,15 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
-
-type WalletType = Database['public']['Tables']['wallets']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type WalletTransaction = Database['public']['Tables']['wallet_transactions']['Row']
+import type {
+  WalletsPageDataResponse,
+  WalletsPageLocation as Location,
+  WalletsPageTransaction as WalletTransaction,
+  WalletsPageWallet as WalletType,
+} from '@/types/wallets'
 
 interface WalletWithLocation extends WalletType {
-  locations?: Location
+  locations?: Location | null
 }
 
 interface LocationWithWallets extends Location {
@@ -30,7 +31,7 @@ interface LocationWithWallets extends Location {
 }
 
 interface TransactionWithDetails extends WalletTransaction {
-  wallets?: WalletType & { locations?: Location }
+  wallets?: WalletType & { locations?: Location | null } | null
 }
 
 // Approximate USD to SRD exchange rate (can be made dynamic)
@@ -48,6 +49,8 @@ export default function WalletsPage() {
   const [selectedWallet, setSelectedWallet] = useState<WalletWithLocation | null>(null)
   const [editingWallet, setEditingWallet] = useState<WalletWithLocation | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   
   // View mode: 'locations' (grouped by location) or 'all' (flat list)
@@ -79,23 +82,47 @@ export default function WalletsPage() {
     description: ''
   })
 
-  const loadData = async () => {
-    setLoading(true)
-    const [walletsRes, locationsRes, transactionsRes] = await Promise.all([
-      supabase.from('wallets').select('*, locations(*)').order('created_at'),
-      supabase.from('locations').select('*').eq('is_active', true).order('name'),
-      supabase.from('wallet_transactions').select('*, wallets(*, locations(*))').order('created_at', { ascending: false }).limit(50)
-    ])
-    
-    if (walletsRes.data) setWallets(walletsRes.data as WalletWithLocation[])
-    if (locationsRes.data) setLocations(locationsRes.data)
-    if (transactionsRes.data) setTransactions(transactionsRes.data as TransactionWithDetails[])
-    setLoading(false)
-  }
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+    if (showLoadingState) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    setLoadError(null)
+
+    try {
+      const response = await fetch('/api/wallets', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to wallet data.')
+        }
+
+        throw new Error('Unable to load wallet data right now.')
+      }
+
+      const payload = await response.json() as WalletsPageDataResponse
+      setWallets(payload.data.wallets as WalletWithLocation[])
+      setLocations(payload.data.locations)
+      setTransactions(payload.data.transactions as TransactionWithDetails[])
+    } catch (error) {
+      console.error('Error loading wallet data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load wallet data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   const resetForm = () => {
     setWalletForm({ location_id: '', type: 'cash', currency: 'SRD', balance: '' })
@@ -151,7 +178,7 @@ export default function WalletsPage() {
         })
       }
       resetForm()
-      loadData()
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -188,7 +215,7 @@ export default function WalletsPage() {
       entityName: `${locationName} - ${wallet.type} ${wallet.currency}`,
       details: `Deleted wallet with balance ${formatCurrency(wallet.balance, wallet.currency as Currency)}`
     })
-    loadData()
+    await loadData()
   }
 
   const handleTransaction = async (e: React.FormEvent) => {
@@ -261,7 +288,7 @@ export default function WalletsPage() {
       setTransactionForm({ type: 'add', amount: '', description: '' })
       setShowTransactionForm(false)
       setSelectedWallet(null)
-      loadData()
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -355,7 +382,7 @@ export default function WalletsPage() {
 
       setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
       setShowTransferForm(false)
-      loadData()
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -402,6 +429,7 @@ export default function WalletsPage() {
   // Total in SRD equivalent
   const grandTotalInSRD = grandTotalSRD + (grandTotalUSD * USD_TO_SRD_RATE)
   const grandTotalInUSD = grandTotalUSD + (grandTotalSRD / USD_TO_SRD_RATE)
+  const hasLoadedData = wallets.length > 0 || locations.length > 0 || transactions.length > 0
 
   const toggleLocation = (locationId: string) => {
     setExpandedLocations(prev => {
@@ -440,6 +468,37 @@ export default function WalletsPage() {
     )
   }
 
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-background pb-24 lg:pb-0">
+        <PageHeader
+          title="Wallets"
+          subtitle="Wallet data is temporarily unavailable"
+          icon={<Wallet size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCcw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load wallets"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCcw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24 lg:pb-0">
       {/* ==================== DESKTOP VIEW ==================== */}
@@ -450,6 +509,10 @@ export default function WalletsPage() {
           icon={<Wallet size={24} />}
           action={
             <div className="flex gap-2">
+              <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+                <RefreshCcw size={18} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
               <Button onClick={() => setShowTransferForm(true)} variant="secondary">
                 <ArrowRightLeft size={20} />
                 <span className="hidden sm:inline">Transfer</span>

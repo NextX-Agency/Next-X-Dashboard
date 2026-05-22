@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -12,22 +11,21 @@ import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
-
-type BudgetCategory = Database['public']['Tables']['budget_categories']['Row']
-type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
-type Budget = Database['public']['Tables']['budgets']['Row']
-type Goal = Database['public']['Tables']['goals']['Row']
-type WalletType = Database['public']['Tables']['wallets']['Row']
-type Expense = Database['public']['Tables']['expenses']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
+import type {
+  BudgetsPageBudget as Budget,
+  BudgetsPageBudgetCategory as BudgetCategory,
+  BudgetsPageDataResponse,
+  BudgetsPageExpense as Expense,
+  BudgetsPageExpenseCategory as ExpenseCategory,
+  BudgetsPageGoal as Goal,
+  BudgetsPageWallet as WalletType,
+} from '@/types/budgets'
 
 interface ExpenseWithCategory extends Expense {
   expense_categories?: { name: string } | null
 }
 
-interface WalletWithLocation extends WalletType {
-  locations?: Location | null
-}
+interface WalletWithLocation extends WalletType {}
 
 interface BudgetWithCategory extends Budget {
   budget_categories?: BudgetCategory
@@ -46,8 +44,9 @@ export default function BudgetsGoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
   const [expenses, setExpenses] = useState<ExpenseWithCategory[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [syncing, setSyncing] = useState(false)
   
@@ -86,36 +85,50 @@ export default function BudgetsGoalsPage() {
     wallet_id: ''
   })
 
-  const loadData = async () => {
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
     try {
-      setLoading(true)
-      const [categoriesRes, budgetsRes, goalsRes, walletsRes, expensesRes, locationsRes, expCatRes] = await Promise.all([
-        supabase.from('budget_categories').select('*').order('name'),
-        supabase.from('budgets').select('*, budget_categories(*)').order('created_at', { ascending: false }),
-        supabase.from('goals').select('*').order('created_at', { ascending: false }),
-        supabase.from('wallets').select('*, locations(*)').order('created_at', { ascending: false }),
-        supabase.from('expenses').select('*, expense_categories(name)').order('created_at', { ascending: false }),
-        supabase.from('locations').select('*').eq('is_active', true).order('name'),
-        supabase.from('expense_categories').select('*').order('name')
-      ])
-      
-      if (categoriesRes.data) setBudgetCategories(categoriesRes.data)
-      if (expCatRes.data) setExpenseCategories(expCatRes.data)
-      if (budgetsRes.data) setBudgets(budgetsRes.data as BudgetWithCategory[])
-      if (goalsRes.data) setGoals(goalsRes.data)
-      if (walletsRes.data) setWallets(walletsRes.data as WalletWithLocation[])
-      if (expensesRes.data) setExpenses(expensesRes.data as ExpenseWithCategory[])
-      if (locationsRes.data) setLocations(locationsRes.data)
+      if (showLoadingState) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
+      setLoadError(null)
+
+      const response = await fetch('/api/budgets', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to budget data.')
+        }
+
+        throw new Error('Unable to load budget data right now.')
+      }
+
+      const payload = await response.json() as BudgetsPageDataResponse
+      setBudgetCategories(payload.data.budgetCategories)
+      setExpenseCategories(payload.data.expenseCategories)
+      setBudgets(payload.data.budgets as BudgetWithCategory[])
+      setGoals(payload.data.goals)
+      setWallets(payload.data.wallets as WalletWithLocation[])
+      setExpenses(payload.data.expenses as ExpenseWithCategory[])
     } catch (error) {
       console.error('Error loading data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load budget data right now.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   // Reset form functions
   const resetCategoryForm = () => {
@@ -168,7 +181,7 @@ export default function BudgetsGoalsPage() {
         })
       }
       resetCategoryForm()
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error saving category:', error)
     } finally {
@@ -200,7 +213,7 @@ export default function BudgetsGoalsPage() {
       details: buildActivityDetails({ Category: category.name }),
       userId: user?.id
     })
-    loadData()
+    await loadData()
   }
 
   // Budget handlers
@@ -242,7 +255,7 @@ export default function BudgetsGoalsPage() {
         })
       }
       resetBudgetForm()
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error saving budget:', error)
     } finally {
@@ -284,7 +297,7 @@ export default function BudgetsGoalsPage() {
       details: buildActivityDetails({ Amount: formatCurrency(budget.amount_allowed, budgetCurrency), Period: budget.period }),
       userId: user?.id
     })
-    loadData()
+    await loadData()
   }
 
   // Goal handlers
@@ -331,7 +344,7 @@ export default function BudgetsGoalsPage() {
         })
       }
       resetGoalForm()
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error saving goal:', error)
     } finally {
@@ -372,7 +385,7 @@ export default function BudgetsGoalsPage() {
       details: buildActivityDetails({ Target: formatCurrency(goal.target_amount, goalCurrency), Progress: formatCurrency(goal.current_amount, goalCurrency) }),
       userId: user?.id
     })
-    loadData()
+    await loadData()
   }
 
   const handleAddGoalProgress = (goal: Goal) => {
@@ -396,7 +409,7 @@ export default function BudgetsGoalsPage() {
       userId: user?.id
     })
     setAddProgressModal(null)
-    loadData()
+    await loadData()
   }
 
   // Utility functions
@@ -438,6 +451,8 @@ export default function BudgetsGoalsPage() {
   const getTotalExpenses = () => {
     return expenses.reduce((sum, e) => sum + convertToDisplay(e.amount, (e.currency || 'SRD') as Currency), 0)
   }
+
+  const hasLoadedData = budgetCategories.length > 0 || expenseCategories.length > 0 || budgets.length > 0 || goals.length > 0 || wallets.length > 0 || expenses.length > 0
 
   // Sync budget spent amounts from expenses (filtered by linked expense categories)
   const handleSyncBudgets = async () => {
@@ -508,16 +523,61 @@ export default function BudgetsGoalsPage() {
     )
   }
 
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader
+          title="Budgets & Goals"
+          subtitle="Budget data is temporarily unavailable"
+          icon={<Wallet className="w-6 h-6" />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load budgets"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <PageHeader 
         title="Budgets & Goals" 
         subtitle="Track spending and financial objectives"
         icon={<Wallet className="w-6 h-6" />}
-        action={<CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />}
+        action={
+          <div className="flex items-center gap-2">
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <CurrencyToggle value={displayCurrency} onChange={setDisplayCurrency} />
+          </div>
+        }
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Stats Overview */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox label={`Total Wallet Balance`} value={formatCurrency(getTotalWalletBalance(), displayCurrency)} icon={<Wallet size={24} />} variant="success" />
@@ -1034,14 +1094,14 @@ export default function BudgetsGoalsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setAddProgressModal(null)}
-                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+                className="flex-1 px-4 py-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-semibold text-sm transition-colors min-h-11 touch-manipulation"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmAddProgress}
                 disabled={!addProgressModal.amount || isNaN(parseFloat(addProgressModal.amount)) || parseFloat(addProgressModal.amount) <= 0}
-                className="flex-1 px-4 py-3 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-[44px] touch-manipulation"
+                className="flex-1 px-4 py-3 rounded-xl bg-primary hover:bg-primary/90 disabled:opacity-40 text-white font-semibold text-sm transition-colors min-h-11 touch-manipulation"
               >
                 Add Progress
               </button>

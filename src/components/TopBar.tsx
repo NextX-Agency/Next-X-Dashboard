@@ -201,7 +201,7 @@ function TopBarComponent() {
   return (
     <>
       <header className="bg-gray-900/98 border-b border-gray-800/80 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between px-3 lg:px-6 py-3 lg:py-4">
+        <div className="flex items-center justify-between gap-3 px-3 lg:px-5 py-2.5 lg:py-3">
           {/* Left Section - Mobile Menu & Logo/Title */}
           <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
             <button 
@@ -229,27 +229,23 @@ function TopBarComponent() {
             </div>
 
             {/* Context Panel - Desktop */}
-            <div className="hidden lg:flex min-w-0 flex-col">
+            <div className="hidden lg:flex min-w-0 items-center gap-3">
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <span className="rounded-full border border-gray-700/70 bg-gray-800/70 px-2.5 py-1 font-semibold uppercase tracking-[0.18em] text-gray-300">
                   {routeMeta.section}
                 </span>
-                <span>Admin workspace</span>
               </div>
-              <div className="mt-2 min-w-0">
-                <h1 className="text-xl font-semibold text-white truncate">{routeMeta.title}</h1>
-                <p className="text-sm text-gray-400 truncate">{routeMeta.subtitle}</p>
-              </div>
+              <h1 className="min-w-0 truncate text-lg font-semibold text-white">{routeMeta.title}</h1>
             </div>
           </div>
 
           {/* Right Section - Currency Toggle, Actions & Profile */}
           <div className="flex items-center gap-1.5 lg:gap-2">
             {/* Currency Toggle */}
-            <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-lg p-0.5 border border-gray-700/50">
+            <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-xl p-0.5 border border-gray-700/50">
               <button
                 onClick={setUSD}
-                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'USD'
                     ? 'bg-orange-500 text-white shadow-sm'
                     : 'text-gray-400 hover:text-white active:bg-gray-700'
@@ -260,7 +256,7 @@ function TopBarComponent() {
               </button>
               <button
                 onClick={setSRD}
-                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'SRD'
                     ? 'bg-orange-500 text-white shadow-sm'
                     : 'text-gray-400 hover:text-white active:bg-gray-700'
@@ -272,17 +268,13 @@ function TopBarComponent() {
             </div>
 
             {/* Exchange Rate Display - Desktop only */}
-            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-800/30 rounded-lg border border-gray-700/50 text-xs text-gray-400">
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-800/30 rounded-xl border border-gray-700/50 text-xs text-gray-400">
               <span>1 USD = {exchangeRate} SRD</span>
-            </div>
-
-            <div className="hidden md:flex items-center rounded-lg border border-gray-700/60 bg-gray-800/40 px-3 py-1.5 text-xs font-medium text-gray-300">
-              {routeMeta.section}
             </div>
 
             {/* Notifications */}
             <button className="relative p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors">
-              <Bell size={20} className="text-gray-400" />
+              <Bell size={18} className="text-gray-400" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-gray-900"></span>
             </button>
 
@@ -292,9 +284,8 @@ function TopBarComponent() {
                 onClick={toggleUserMenu}
                 className="flex items-center gap-2 p-1 lg:px-2 lg:py-1.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
               >
-                <div className="hidden md:flex flex-col items-end">
-                  <span className="text-sm font-semibold text-white">{userName}</span>
-                  <span className="text-xs text-gray-400 capitalize">{user?.role || 'Admin'}</span>
+                <div className="hidden xl:flex items-center">
+                  <span className="text-sm font-semibold text-white truncate max-w-[140px]">{userName}</span>
                 </div>
                 <div className="w-8 h-8 lg:w-9 lg:h-9 bg-linear-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/25">
                   {userInitial}
