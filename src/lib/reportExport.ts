@@ -2,7 +2,6 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 import { prisma } from '@/lib/prisma'
 
 export type ReportExportPeriod = 'monthly' | 'yearly'
-export type ReportExportFormat = 'csv' | 'pdf'
 
 const DEFAULT_EXCHANGE_RATE = 40
 const PAGE_WIDTH = 595.28
@@ -103,15 +102,6 @@ function formatDateTime(value: string) {
   }).format(new Date(value))
 }
 
-function csvEscape(value: unknown): string {
-  const stringValue = value == null ? '' : String(value)
-  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-    return `"${stringValue.replace(/"/g, '""')}"`
-  }
-
-  return stringValue
-}
-
 function truncateText(font: PDFFont, text: string, size: number, maxWidth: number) {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return text
 
@@ -123,8 +113,8 @@ function truncateText(font: PDFFont, text: string, size: number, maxWidth: numbe
   return current ? `${current}...` : ''
 }
 
-export function getReportExportFilename(data: ReportExportData, format: ReportExportFormat) {
-  return `nextx-${data.period}-report-${data.periodLabel}-${sanitizeFilenamePart(data.selectedLocationName)}.${format}`
+export function getReportExportFilename(data: ReportExportData) {
+  return `nextx-${data.period}-report-${data.periodLabel}-${sanitizeFilenamePart(data.selectedLocationName)}.pdf`
 }
 
 export async function buildReportExportData(period: ReportExportPeriod, locationId: string): Promise<ReportExportData> {
@@ -337,144 +327,6 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     payments: Array.from(paymentRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),
     items: Array.from(itemRows.values()).sort((left, right) => right.revenueUsd - left.revenueUsd),
   }
-}
-
-export function buildReportCsv(data: ReportExportData) {
-  const rows: Record<string, unknown>[] = []
-
-  const pushSummaryRow = (metric: string, value: number | string) => {
-    rows.push({
-      row_type: 'summary',
-      report_period: data.period,
-      period_label: data.periodLabel,
-      period_start: data.periodStart,
-      period_end: data.periodEnd,
-      selected_location: data.selectedLocationName,
-      location_name: '',
-      item_name: '',
-      category_name: '',
-      payment_method: '',
-      quantity_sold: '',
-      sales_count: '',
-      revenue_srd: '',
-      revenue_usd: '',
-      avg_unit_price_srd: '',
-      avg_unit_price_usd: '',
-      metric,
-      value,
-      generated_at: data.generatedAt,
-    })
-  }
-
-  pushSummaryRow('total_sales', data.summary.totalSales)
-  pushSummaryRow('total_units_sold', data.summary.totalUnitsSold)
-  pushSummaryRow('total_revenue_srd', data.summary.totalRevenueSrd.toFixed(2))
-  pushSummaryRow('total_revenue_usd', data.summary.totalRevenueUsd.toFixed(2))
-  pushSummaryRow('total_expenses_srd', data.summary.totalExpensesSrd.toFixed(2))
-  pushSummaryRow('total_expenses_usd', data.summary.totalExpensesUsd.toFixed(2))
-  pushSummaryRow('total_commissions_srd', data.summary.totalCommissionsSrd.toFixed(2))
-  pushSummaryRow('total_commissions_usd', data.summary.totalCommissionsUsd.toFixed(2))
-
-  data.locations.forEach((locationRow) => {
-    rows.push({
-      row_type: 'location_summary',
-      report_period: data.period,
-      period_label: data.periodLabel,
-      period_start: data.periodStart,
-      period_end: data.periodEnd,
-      selected_location: data.selectedLocationName,
-      location_name: locationRow.locationName,
-      item_name: '',
-      category_name: '',
-      payment_method: '',
-      quantity_sold: locationRow.quantitySold,
-      sales_count: locationRow.salesCount,
-      revenue_srd: locationRow.revenueSrd.toFixed(2),
-      revenue_usd: locationRow.revenueUsd.toFixed(2),
-      avg_unit_price_srd: locationRow.quantitySold > 0 ? (locationRow.revenueSrd / locationRow.quantitySold).toFixed(2) : '',
-      avg_unit_price_usd: locationRow.quantitySold > 0 ? (locationRow.revenueUsd / locationRow.quantitySold).toFixed(2) : '',
-      metric: '',
-      value: '',
-      generated_at: data.generatedAt,
-    })
-  })
-
-  data.payments.forEach((paymentRow) => {
-    rows.push({
-      row_type: 'payment_method',
-      report_period: data.period,
-      period_label: data.periodLabel,
-      period_start: data.periodStart,
-      period_end: data.periodEnd,
-      selected_location: data.selectedLocationName,
-      location_name: '',
-      item_name: '',
-      category_name: '',
-      payment_method: paymentRow.paymentMethod,
-      quantity_sold: '',
-      sales_count: paymentRow.salesCount,
-      revenue_srd: paymentRow.revenueSrd.toFixed(2),
-      revenue_usd: paymentRow.revenueUsd.toFixed(2),
-      avg_unit_price_srd: '',
-      avg_unit_price_usd: '',
-      metric: '',
-      value: '',
-      generated_at: data.generatedAt,
-    })
-  })
-
-  data.items.forEach((itemRow) => {
-    rows.push({
-      row_type: 'item_sale',
-      report_period: data.period,
-      period_label: data.periodLabel,
-      period_start: data.periodStart,
-      period_end: data.periodEnd,
-      selected_location: data.selectedLocationName,
-      location_name: itemRow.locationName,
-      item_name: itemRow.itemName,
-      category_name: itemRow.categoryName,
-      payment_method: '',
-      quantity_sold: itemRow.quantitySold,
-      sales_count: itemRow.salesCount,
-      revenue_srd: itemRow.revenueSrd.toFixed(2),
-      revenue_usd: itemRow.revenueUsd.toFixed(2),
-      avg_unit_price_srd: itemRow.quantitySold > 0 ? (itemRow.revenueSrd / itemRow.quantitySold).toFixed(2) : '',
-      avg_unit_price_usd: itemRow.quantitySold > 0 ? (itemRow.revenueUsd / itemRow.quantitySold).toFixed(2) : '',
-      metric: '',
-      value: '',
-      generated_at: data.generatedAt,
-    })
-  })
-
-  const headers = [
-    'row_type',
-    'report_period',
-    'period_label',
-    'period_start',
-    'period_end',
-    'selected_location',
-    'location_name',
-    'item_name',
-    'category_name',
-    'payment_method',
-    'quantity_sold',
-    'sales_count',
-    'revenue_srd',
-    'revenue_usd',
-    'avg_unit_price_srd',
-    'avg_unit_price_usd',
-    'metric',
-    'value',
-    'generated_at',
-  ]
-
-  const lines = [headers.join(',')]
-  for (const row of rows) {
-    lines.push(headers.map((header) => csvEscape(row[header])).join(','))
-  }
-
-  return `\uFEFF${lines.join('\n')}`
 }
 
 export async function buildReportPdf(data: ReportExportData) {

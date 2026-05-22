@@ -40,7 +40,6 @@ interface MonthlySales {
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly'
 type ViewTab = 'current' | 'historical'
-type ExportFormat = 'csv' | 'pdf'
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function getCalendarPeriodBounds(period: PeriodType, now: Date): { start: Date; end: Date } {
@@ -244,10 +243,9 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const downloadReport = useCallback((exportPeriod: 'monthly' | 'yearly', format: ExportFormat) => {
+  const downloadReport = useCallback((exportPeriod: 'monthly' | 'yearly') => {
     const params = new URLSearchParams({
       period: exportPeriod,
-      format,
     })
 
     if (selectedLocation) {
@@ -1075,12 +1073,12 @@ export default function ReportsPage() {
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-3 sm:p-4">
           <div>
             <p className="text-sm font-semibold text-foreground">Exports</p>
-            <p className="text-xs text-muted-foreground mt-1">Download organized monthly or yearly PDF reports, or export the same dataset as CSV for spreadsheet work.</p>
+            <p className="text-xs text-muted-foreground mt-1">Download organized monthly or yearly PDF reports with sales totals, item performance, payment mix and location breakdowns.</p>
           </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:shrink-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
             <button
               type="button"
-              onClick={() => downloadReport('monthly', 'pdf')}
+              onClick={() => downloadReport('monthly')}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
             >
               <Download size={16} />
@@ -1088,27 +1086,11 @@ export default function ReportsPage() {
             </button>
             <button
               type="button"
-              onClick={() => downloadReport('yearly', 'pdf')}
+              onClick={() => downloadReport('yearly')}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
             >
               <Download size={16} />
               Export Year PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadReport('monthly', 'csv')}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
-            >
-              <Download size={16} />
-              Export Month CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadReport('yearly', 'csv')}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:border-primary/30 hover:text-primary"
-            >
-              <Download size={16} />
-              Export Year CSV
             </button>
           </div>
         </div>
