@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { Plus, Tag, Receipt, Trash2, Edit, X, Search, Filter, ArrowUpDown, MapPin, Building2 } from 'lucide-react'
+import { Plus, Tag, Receipt, Trash2, Edit, X, Search, Filter, ArrowUpDown, MapPin, Building2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -12,17 +11,15 @@ import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
+import type {
+  ExpensesPageDataResponse,
+  ExpensesPageExpense as Expense,
+  ExpensesPageExpenseCategory as ExpenseCategory,
+  ExpensesPageLocation as Location,
+  ExpensesPageWallet as Wallet,
+} from '@/types/expenses'
 
-type ExpenseCategory = Database['public']['Tables']['expense_categories']['Row']
-type Expense = Database['public']['Tables']['expenses']['Row']
-type Wallet = Database['public']['Tables']['wallets']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-
-interface ExpenseWithDetails extends Expense {
-  expense_categories?: ExpenseCategory | null
-  wallets?: Wallet
-  locations?: Location | null
-}
+interface ExpenseWithDetails extends Expense {}
 
 type SortField = 'date' | 'amount' | 'category'
 type SortOrder = 'asc' | 'desc'
@@ -40,6 +37,8 @@ export default function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<ExpenseWithDetails | null>(null)
   const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [categoryName, setCategoryName] = useState('')
   const [expenseForm, setExpenseForm] = useState({
@@ -68,25 +67,49 @@ export default function ExpensesPage() {
     ? wallets.filter(w => w.location_id === expenseForm.location_id)
     : wallets
 
-  const loadData = async () => {
-    setLoading(true)
-    const [categoriesRes, expensesRes, walletsRes, locationsRes] = await Promise.all([
-      supabase.from('expense_categories').select('*').order('name'),
-      supabase.from('expenses').select('*, expense_categories(*), wallets(*), locations(*)').order('created_at', { ascending: false }),
-      supabase.from('wallets').select('*').order('person_name'),
-      supabase.from('locations').select('*').eq('is_active', true).order('name')
-    ])
-    
-    if (categoriesRes.data) setCategories(categoriesRes.data)
-    if (expensesRes.data) setExpenses(expensesRes.data as ExpenseWithDetails[])
-    if (walletsRes.data) setWallets(walletsRes.data)
-    if (locationsRes.data) setLocations(locationsRes.data)
-    setLoading(false)
-  }
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+    try {
+      if (showLoadingState) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
+
+      setLoadError(null)
+
+      const response = await fetch('/api/expenses', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to expense data.')
+        }
+
+        throw new Error('Unable to load expense data right now.')
+      }
+
+      const payload = await response.json() as ExpensesPageDataResponse
+      setCategories(payload.data.categories)
+      setExpenses(payload.data.expenses as ExpenseWithDetails[])
+      setWallets(payload.data.wallets)
+      setLocations(payload.data.locations)
+    } catch (error) {
+      console.error('Error loading data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load expense data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   const resetCategoryForm = () => {
     setCategoryName('')
@@ -162,6 +185,7 @@ export default function ExpensesPage() {
   }
 
   const hasActiveFilters = searchQuery || filterCategory || filterWallet || filterCurrency || filterLocation
+  const hasLoadedData = categories.length > 0 || expenses.length > 0 || wallets.length > 0 || locations.length > 0
 
   const handleSubmitCategory = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -190,7 +214,7 @@ export default function ExpensesPage() {
         })
       }
       resetCategoryForm()
-      loadData()
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -220,7 +244,7 @@ export default function ExpensesPage() {
       details: buildActivityDetails({ Category: category.name }),
       userId: user?.id
     })
-    loadData()
+    await loadData()
   }
 
   const handleSubmitExpense = async (e: React.FormEvent) => {
@@ -349,7 +373,7 @@ export default function ExpensesPage() {
       }
 
       resetExpenseForm()
-      loadData()
+      await loadData()
     } finally {
       setSubmitting(false)
     }
@@ -422,7 +446,7 @@ export default function ExpensesPage() {
       userId: user?.id
     })
     
-    loadData()
+    await loadData()
   }
 
   const getTotalExpensesInDisplayCurrency = () => {
@@ -444,6 +468,37 @@ export default function ExpensesPage() {
     )
   }
 
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader
+          title="Expenses"
+          subtitle="Expense data is temporarily unavailable"
+          icon={<Receipt size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load expenses"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
@@ -451,14 +506,26 @@ export default function ExpensesPage() {
         subtitle="Track business expenses and categories"
         icon={<Receipt size={24} />}
         action={
-          <Button onClick={() => setShowExpenseForm(true)} variant="primary">
-            <Plus size={20} />
-            <span className="hidden sm:inline">New Expense</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button onClick={() => setShowExpenseForm(true)} variant="primary">
+              <Plus size={20} />
+              <span className="hidden sm:inline">New Expense</span>
+            </Button>
+          </div>
         }
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox 

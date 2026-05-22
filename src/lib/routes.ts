@@ -59,12 +59,15 @@ export const ADMIN_ROUTE_PREFIXES = [
 
 // API routes that require admin authentication
 export const PROTECTED_API_ROUTES = [
+  '/api/commissions',
   '/api/dashboard',
   '/api/reports',
   '/api/stock',
   '/api/orders',
   '/api/wallets',
   '/api/budgets',
+  '/api/expenses',
+  '/api/reservations',
   '/api/upload',
   '/api/delete',
   '/api/migrate',

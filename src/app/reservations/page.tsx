@@ -4,23 +4,21 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye } from 'lucide-react'
+import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye, RefreshCw, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
+import type {
+  ReservationsPageClient as Client,
+  ReservationsPageDataResponse,
+  ReservationsPageItem as Item,
+  ReservationsPageLocation as Location,
+  ReservationsPageReservationGroup as ReservationGroup,
+  ReservationsPageStats as ReservationStats,
+} from '@/types/reservations'
 
-type Client = Database['public']['Tables']['clients']['Row']
-type Item = Database['public']['Tables']['items']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type Reservation = Database['public']['Tables']['reservations']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
-
-interface ReservationWithDetails extends Reservation {
-  clients?: Client
-  items?: Item
-  locations?: Location
-}
 
 interface CartItem {
   item: Item
@@ -55,45 +53,6 @@ interface InvoiceData {
   isPaid: boolean
 }
 
-interface ReservationGroup {
-  id: string
-  client_id: string
-  location_id: string
-  client_name: string
-  location_name: string
-  created_at: string
-  status: string
-  total_amount: number
-  items: Array<{
-    id: string
-    item_id: string
-    item_name: string
-    quantity: number
-    unit_price: number
-    subtotal: number
-    combo_id?: string | null
-    combo_price?: number | null
-  }>
-  combos?: Array<{
-    combo_id: string
-    combo_price: number
-    items: Array<{
-      id: string
-      item_id: string
-      item_name: string
-      quantity: number
-    }>
-  }>
-}
-
-interface ReservationStats {
-  todayReservations: number
-  todayTotal: number
-  weekReservations: number
-  weekTotal: number
-  pendingCount: number
-  completedCount: number
-}
 
 export default function ReservationsPage() {
   const [clients, setClients] = useState<Client[]>([])
@@ -115,6 +74,8 @@ export default function ReservationsPage() {
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<'unpaid' | 'paid'>('unpaid')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [clientForm, setClientForm] = useState({ name: '', phone: '', email: '', notes: '', location_id: '' })
   const invoiceRef = useRef<HTMLDivElement>(null)
@@ -142,212 +103,46 @@ export default function ReservationsPage() {
     completedCount: 0
   })
 
-  const loadData = async () => {
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
     try {
-      setLoading(true)
-      // Load all initial data in parallel for better performance
-      const [clientsRes, itemsRes, locationsRes] = await Promise.all([
-        supabase.from('clients').select('*').order('name'),
-        supabase.from('items').select('*').is('deleted_at', null).order('name'),
-        supabase.from('locations').select('*').order('name')
-      ])
-      
-      if (clientsRes.data) setClients(clientsRes.data)
-      if (itemsRes.data) setItems(itemsRes.data)
-      if (locationsRes.data) setLocations(locationsRes.data)
-      
-      // Load reservations and stats in parallel
-      await Promise.all([
-        loadRecentReservations(),
-        loadReservationStats()
-      ])
+      if (showLoadingState) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
+
+      setLoadError(null)
+
+      const response = await fetch('/api/reservations', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to reservation data.')
+        }
+
+        throw new Error('Unable to load reservation data right now.')
+      }
+
+      const payload = await response.json() as ReservationsPageDataResponse
+      setClients(payload.data.clients)
+      setItems(payload.data.items)
+      setLocations(payload.data.locations)
+      setRecentReservations(payload.data.recentReservations)
+      setReservationStats(payload.data.reservationStats)
     } catch (error) {
       console.error('Error loading data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load reservation data right now.')
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
-
-  const loadReservationStats = async () => {
-    const now = new Date()
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
-    
-    // Load all stats data in parallel - only select needed fields for better performance
-    const [todayDataRes, weekDataRes, pendingDataRes, completedDataRes] = await Promise.all([
-      supabase.from('reservations').select('quantity, items(selling_price_srd)').gte('created_at', todayStart),
-      supabase.from('reservations').select('quantity, items(selling_price_srd)').gte('created_at', weekStart),
-      supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('status', 'completed')
-    ])
-    
-    const todayData = todayDataRes.data
-    const weekData = weekDataRes.data
-    
-    let todayTotal = 0
-    let weekTotal = 0
-    
-    if (todayData) {
-      todayData.forEach((res: any) => {
-        const price = res.items?.selling_price_srd || 0
-        todayTotal += price * res.quantity
-      })
-    }
-    
-    if (weekData) {
-      weekData.forEach((res: any) => {
-        const price = res.items?.selling_price_srd || 0
-        weekTotal += price * res.quantity
-      })
-    }
-    
-    setReservationStats({
-      todayReservations: todayData?.length || 0,
-      todayTotal,
-      weekReservations: weekData?.length || 0,
-      weekTotal,
-      pendingCount: pendingDataRes.count || 0,
-      completedCount: completedDataRes.count || 0
-    })
-  }
-
-  const loadRecentReservations = async () => {
-    try {
-      // Get all reservations with their related data - limit to 20 for better performance
-      const { data: reservationsData } = await supabase
-        .from('reservations')
-        .select('*, clients(*), items(*), locations(*)')
-        .order('created_at', { ascending: false })
-        .limit(20)
-      
-      if (!reservationsData) return
-      
-      // Group reservations by client, location, and created_at (within 5 minutes)
-      const groupedMap = new Map<string, ReservationGroup>()
-      const comboTracker = new Map<string, Set<string>>() // Track which combos we've already counted per group
-      const comboPrices = new Map<string, number>() // Store combo prices we find
-      const comboItemsMap = new Map<string, Array<{ id: string; item_id: string; item_name: string; quantity: number }>>() // Store combo items
-      
-      // First pass: collect combo prices and items
-      reservationsData.forEach((res) => {
-        if (res.combo_id) {
-          if (res.combo_price !== null && res.combo_price !== undefined) {
-            comboPrices.set(res.combo_id, res.combo_price)
-          }
-          // Collect combo items
-          if (!comboItemsMap.has(res.combo_id)) {
-            comboItemsMap.set(res.combo_id, [])
-          }
-          comboItemsMap.get(res.combo_id)!.push({
-            id: res.id,
-            item_id: res.item_id,
-            item_name: res.items?.name || 'Unknown Item',
-            quantity: res.quantity
-          })
-        }
-      })
-      
-      reservationsData.forEach((res) => {
-        // Create a unique key based on client, location, and timestamp (rounded to 5 minutes)
-        const timestamp = new Date(res.created_at).getTime()
-        const roundedTime = Math.floor(timestamp / (5 * 60 * 1000)) * (5 * 60 * 1000)
-        const groupKey = `${res.client_id}-${res.location_id}-${roundedTime}-${res.status}`
-        
-        const price = res.items?.selling_price_srd || 0
-        const subtotal = price * res.quantity
-        
-        // Check if this is part of a combo
-        const comboId = res.combo_id
-        
-        // Initialize combo tracker for this group if needed
-        if (!comboTracker.has(groupKey)) {
-          comboTracker.set(groupKey, new Set())
-        }
-        
-        // Determine if we should add this item's price to the total
-        let priceToAdd = 0
-        if (comboId) {
-          // This item is part of a combo
-          const trackedCombos = comboTracker.get(groupKey)!
-          if (!trackedCombos.has(comboId)) {
-            // First time seeing this combo in this group - use the combo price we found
-            priceToAdd = comboPrices.get(comboId) || 0
-            trackedCombos.add(comboId)
-          }
-          // If we've already counted this combo, priceToAdd stays 0
-        } else {
-          // Not part of a combo, add individual price
-          priceToAdd = subtotal
-        }
-        
-        if (groupedMap.has(groupKey)) {
-          const group = groupedMap.get(groupKey)!
-          group.items.push({
-            id: res.id,
-            item_id: res.item_id,
-            item_name: res.items?.name || 'Unknown Item',
-            quantity: res.quantity,
-            unit_price: price,
-            subtotal,
-            combo_id: comboId,
-            combo_price: res.combo_price
-          })
-          group.total_amount += priceToAdd
-          
-          // Add combo info if this is the first item of a combo we see
-          if (comboId && !group.combos?.find(c => c.combo_id === comboId)) {
-            if (!group.combos) group.combos = []
-            group.combos.push({
-              combo_id: comboId,
-              combo_price: comboPrices.get(comboId) || 0,
-              items: comboItemsMap.get(comboId) || []
-            })
-          }
-        } else {
-          const newGroup: ReservationGroup = {
-            id: groupKey,
-            client_id: res.client_id,
-            location_id: res.location_id,
-            client_name: res.clients?.name || 'Unknown Client',
-            location_name: res.locations?.name || 'Unknown Location',
-            created_at: res.created_at,
-            status: res.status,
-            total_amount: priceToAdd,
-            items: [{
-              id: res.id,
-              item_id: res.item_id,
-              item_name: res.items?.name || 'Unknown Item',
-              quantity: res.quantity,
-              unit_price: price,
-              subtotal,
-              combo_id: comboId,
-              combo_price: res.combo_price
-            }],
-            combos: []
-          }
-          
-          // Add combo info if this item is part of a combo
-          if (comboId) {
-            newGroup.combos = [{
-              combo_id: comboId,
-              combo_price: comboPrices.get(comboId) || 0,
-              items: comboItemsMap.get(comboId) || []
-            }]
-          }
-          
-          groupedMap.set(groupKey, newGroup)
-        }
-      })
-      
-      const grouped = Array.from(groupedMap.values()).sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-      
-      setRecentReservations(grouped)
-    } catch (error) {
-      console.error('Error loading recent reservations:', error)
-    }
-  }
+  }, [])
 
   const loadStock = async (locationId: string) => {
     const { data } = await supabase
@@ -382,8 +177,8 @@ export default function ReservationsPage() {
   }
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   // Debounce location change to prevent excessive API calls
   useEffect(() => {
@@ -687,7 +482,7 @@ export default function ReservationsPage() {
       
       setClientForm({ name: '', phone: '', email: '', notes: '', location_id: '' })
       setShowClientForm(false)
-      loadData()
+      await loadData()
     } catch (error) {
       console.error('Error creating client:', error)
     } finally {
@@ -816,8 +611,7 @@ export default function ReservationsPage() {
 
       setCart([])
       setCombos([])
-      await loadRecentReservations()
-      await loadReservationStats()
+      await loadData()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
@@ -881,8 +675,7 @@ export default function ReservationsPage() {
         details: `Cancelled reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items, ${formatCurrency(group.total_amount, 'SRD')}`
       })
 
-      await loadRecentReservations()
-      await loadReservationStats()
+      await loadData()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
@@ -1198,8 +991,7 @@ export default function ReservationsPage() {
         details: `Completed reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items - ${formatCurrency(group.total_amount, 'SRD')}`
       })
 
-      await loadRecentReservations()
-      await loadReservationStats()
+      await loadData()
       if (selectedLocation) {
         loadStock(selectedLocation)
         loadReservations(selectedLocation)
@@ -1245,6 +1037,39 @@ export default function ReservationsPage() {
     )
   }
 
+  const hasLoadedData = clients.length > 0 || items.length > 0 || locations.length > 0 || recentReservations.length > 0
+
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader
+          title="Reservations"
+          subtitle="Reservation data is temporarily unavailable"
+          icon={<ClipboardList size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load reservations"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
+      </div>
+    )
+  }
+
   const availableItems = items.filter(item => {
     const stock = getAvailableStock(item.id)
     const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
@@ -1272,6 +1097,10 @@ export default function ReservationsPage() {
         icon={<ClipboardList size={24} />}
         action={
           <div className="flex gap-2">
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
             <Button onClick={() => setShowHistory(true)} variant="secondary">
               <History size={20} />
               <span className="hidden sm:inline">History</span>
@@ -1289,6 +1118,12 @@ export default function ReservationsPage() {
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Reservation Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
           <div className="bg-card rounded-xl p-4 border border-border">
@@ -1353,10 +1188,10 @@ export default function ReservationsPage() {
                   placeholder="Search by client or location..."
                   value={reservationSearchQuery}
                   onChange={(e) => setReservationSearchQuery(e.target.value)}
-                  className="input-field pl-10 w-full min-h-[48px]"
+                  className="input-field pl-10 w-full min-h-12"
                 />
               </div>
-              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg" className="min-h-[48px] shrink-0">
+              <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg" className="min-h-12 shrink-0">
                 <Plus size={18} />
                 <span className="sm:hidden">New</span>
                 <span className="hidden sm:inline">New Reservation</span>
@@ -1365,7 +1200,7 @@ export default function ReservationsPage() {
           </div>
           
           {filteredPendingReservations.length === 0 ? (
-            <div className="bg-gradient-to-br from-card to-muted/30 rounded-2xl p-12 border-2 border-dashed border-border text-center">
+            <div className="bg-linear-to-br from-card to-muted/30 rounded-2xl p-12 border-2 border-dashed border-border text-center">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Clock size={40} className="text-primary" />
               </div>
@@ -1438,7 +1273,7 @@ export default function ReservationsPage() {
                         variant="success"
                         size="lg"
                         fullWidth
-                        className="font-semibold min-h-[48px]"
+                        className="font-semibold min-h-12"
                       >
                         <Check size={18} />
                         Complete
@@ -1448,7 +1283,7 @@ export default function ReservationsPage() {
                         variant="danger"
                         size="lg"
                         fullWidth
-                        className="font-semibold min-h-[48px]"
+                        className="font-semibold min-h-12"
                       >
                         <X size={18} />
                         Cancel
@@ -1468,7 +1303,7 @@ export default function ReservationsPage() {
               <h2 className="text-lg sm:text-xl font-bold text-foreground">Recent Activity</h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">Last 10 completed and cancelled reservations</p>
             </div>
-            <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" className="w-full sm:w-auto min-h-[40px]">
+            <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" className="w-full sm:w-auto min-h-10">
               <History size={16} />
               View All History
             </Button>
@@ -1513,7 +1348,7 @@ export default function ReservationsPage() {
                 )
               })}
               {filteredCompletedReservations.length > 5 && (
-                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth className="min-h-[44px]">
+                <Button onClick={() => setShowHistory(true)} variant="secondary" size="sm" fullWidth className="min-h-11">
                   View All History
                 </Button>
               )}
@@ -2159,7 +1994,7 @@ export default function ReservationsPage() {
 
       {/* Confirmation Modal - Mobile Friendly */}
       {showConfirmModal && selectedGroup && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div 
             className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
             onClick={() => {

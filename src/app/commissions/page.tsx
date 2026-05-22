@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Database } from '@/types/database.types'
-import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Percent, Trash2 } from 'lucide-react'
+import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Trash2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, EmptyState, LoadingSpinner, Badge, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -11,20 +10,17 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
+import type {
+  CommissionsPageCategory as Category,
+  CommissionsPageCommission as Commission,
+  CommissionsPageDataResponse,
+  CommissionsPageLocation as Location,
+  CommissionsPageSeller as Seller,
+  CommissionsPageSellerCategoryRate as SellerCategoryRate,
+  CommissionsPageWallet as Wallet,
+} from '@/types/commissions'
 
-type Commission = Database['public']['Tables']['commissions']['Row']
-type Sale = Database['public']['Tables']['sales']['Row']
-type Location = Database['public']['Tables']['locations']['Row']
-type Wallet = Database['public']['Tables']['wallets']['Row']
-type Category = Database['public']['Tables']['categories']['Row']
-type Seller = Database['public']['Tables']['sellers']['Row']
-type SellerCategoryRate = Database['public']['Tables']['seller_category_rates']['Row']
-
-interface CommissionWithDetails extends Commission {
-  locations?: Location | null
-  sales?: Sale
-  categories?: Category | null
-}
+interface CommissionWithDetails extends Commission {}
 
 interface LocationCommissionSummary {
   location: Location
@@ -44,6 +40,8 @@ export default function CommissionsPage() {
   const [sellers, setSellers] = useState<Seller[]>([])
   const [sellerCategoryRates, setSellerCategoryRates] = useState<SellerCategoryRate[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [payingCommission, setPayingCommission] = useState<string | null>(null)
   
   // Filter states
@@ -64,59 +62,86 @@ export default function CommissionsPage() {
   const [rateValue, setRateValue] = useState<string>('')
   const [editingRateId, setEditingRateId] = useState<string | null>(null)
 
-  const loadData = async () => {
-    setLoading(true)
-    const [commissionsRes, locationsRes, walletsRes, categoriesRes, sellersRes, ratesRes] = await Promise.all([
-      supabase.from('commissions').select('*, locations(*), sales(*), categories(*)').order('created_at', { ascending: false }),
-      supabase.from('locations').select('*').eq('is_active', true).order('name'),
-      supabase.from('wallets').select('*').order('person_name'),
-      supabase.from('categories').select('*').order('name'),
-      supabase.from('sellers').select('*').order('name'),
-      supabase.from('seller_category_rates').select('*')
-    ])
-    
-    if (commissionsRes.data) setCommissions(commissionsRes.data as CommissionWithDetails[])
-    if (locationsRes.data) setLocations(locationsRes.data)
-    if (walletsRes.data) setWallets(walletsRes.data)
-    if (categoriesRes.data) setCategories(categoriesRes.data)
-    if (ratesRes.data) setSellerCategoryRates(ratesRes.data)
-    
-    // Auto-create sellers from locations that have seller_name but no corresponding seller
-    let currentSellers = sellersRes.data || []
-    if (locationsRes.data) {
-      const locationsWithSellers = locationsRes.data.filter(loc => loc.seller_name)
-      const sellersToCreate: { name: string; location_id: string; commission_rate: number }[] = []
-      
-      for (const loc of locationsWithSellers) {
-        const existingSeller = currentSellers.find(s => s.location_id === loc.id)
-        if (!existingSeller && loc.seller_name) {
-          sellersToCreate.push({
-            name: loc.seller_name,
-            location_id: loc.id,
-            commission_rate: loc.commission_rate
-          })
-        }
-      }
-      
-      if (sellersToCreate.length > 0) {
-        const { data: newSellers } = await supabase
-          .from('sellers')
-          .insert(sellersToCreate)
-          .select()
-        
-        if (newSellers) {
-          currentSellers = [...currentSellers, ...newSellers]
-        }
-      }
+  const ensureSellersForLocations = useCallback(async (nextLocations: Location[], nextSellers: Seller[]) => {
+    const locationsWithSellers = nextLocations.filter(location => location.seller_name)
+    const sellersToCreate = locationsWithSellers
+      .filter((location) => !nextSellers.some((seller) => seller.location_id === location.id))
+      .map((location) => ({
+        name: location.seller_name,
+        location_id: location.id,
+        commission_rate: Number(location.commission_rate ?? 0),
+      }))
+
+    if (sellersToCreate.length === 0) {
+      return nextSellers
     }
-    
-    setSellers(currentSellers)
-    setLoading(false)
-  }
+
+    const { data: newSellers, error } = await supabase
+      .from('sellers')
+      .insert(sellersToCreate as { name: string | null; location_id: string; commission_rate: number }[])
+      .select('id, name, commission_rate, created_at, updated_at, location_id')
+      .order('name')
+
+    if (error) {
+      throw error
+    }
+
+    return [...nextSellers, ...(newSellers ?? [])].sort((left, right) => left.name.localeCompare(right.name))
+  }, [])
+
+  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+    try {
+      if (showLoadingState) {
+        setLoading(true)
+      } else {
+        setRefreshing(true)
+      }
+
+      setLoadError(null)
+
+      const response = await fetch('/api/commissions', {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Your session has expired. Please sign in again.')
+        }
+
+        if (response.status === 403) {
+          throw new Error('You no longer have access to commission data.')
+        }
+
+        throw new Error('Unable to load commission data right now.')
+      }
+
+      const payload = await response.json() as CommissionsPageDataResponse
+      setCommissions(payload.data.commissions as CommissionWithDetails[])
+      setLocations(payload.data.locations)
+      setWallets(payload.data.wallets)
+      setCategories(payload.data.categories)
+      setSellerCategoryRates(payload.data.sellerCategoryRates)
+
+      try {
+        const resolvedSellers = await ensureSellersForLocations(payload.data.locations, payload.data.sellers)
+        setSellers(resolvedSellers)
+      } catch (sellerError) {
+        console.error('Error preparing sellers:', sellerError)
+        setSellers(payload.data.sellers)
+        setLoadError('Some seller records could not be prepared automatically. Existing commission data is still available.')
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load commission data right now.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [ensureSellersForLocations])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData(true)
+  }, [loadData])
 
   // Get all wallets (allow paying from any wallet)
   const getAllWallets = () => {
@@ -195,6 +220,7 @@ export default function CommissionsPage() {
   }
 
   const hasActiveFilters = filterLocation || filterStatus || searchQuery
+  const hasLoadedData = commissions.length > 0 || locations.length > 0 || wallets.length > 0 || categories.length > 0 || sellers.length > 0 || sellerCategoryRates.length > 0
 
   const handleMarkPaid = async (commissionId: string) => {
     setPayingCommission(commissionId)
@@ -446,6 +472,37 @@ export default function CommissionsPage() {
     )
   }
 
+  if (!hasLoadedData && loadError) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <PageHeader
+          title="Commissions"
+          subtitle="Commission data is temporarily unavailable"
+          icon={<TrendingUp size={24} />}
+          action={
+            <Button onClick={() => void loadData(true)} variant="secondary">
+              <RefreshCw size={18} />
+              Retry
+            </Button>
+          }
+        />
+        <PageContainer>
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load commissions"
+            description={loadError}
+            action={
+              <Button onClick={() => void loadData(true)} variant="primary">
+                <RefreshCw size={18} />
+                Retry
+              </Button>
+            }
+          />
+        </PageContainer>
+      </div>
+    )
+  }
+
   const selectedLocationForPayData = locations.find(l => l.id === selectedLocationForPay)
   const unpaidCommissionsForLocation = commissions.filter(c => c.location_id === selectedLocationForPay && !c.paid)
   const unpaidAmountForSelectedLocation = unpaidCommissionsForLocation.reduce((sum, c) => {
@@ -461,12 +518,24 @@ export default function CommissionsPage() {
         title="Commissions" 
         subtitle="Track sales commissions by location"
         icon={<TrendingUp size={24} />}
+        action={
+          <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        }
       />
 
       <PageContainer>
+        {loadError && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+          </div>
+        )}
+
         {/* Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-warning/10 to-warning/5 p-4 rounded-2xl border border-warning/30">
+          <div className="bg-linear-to-br from-warning/10 to-warning/5 p-4 rounded-2xl border border-warning/30">
             <div className="flex items-center gap-2 text-warning mb-2">
               <DollarSign size={20} />
               <span className="text-sm font-medium">Total Unpaid</span>
@@ -474,7 +543,7 @@ export default function CommissionsPage() {
             <div className="text-2xl font-bold text-foreground">{formatCurrency(totalUnpaidAll, 'SRD')}</div>
             <div className="text-sm text-muted-foreground mt-1">{formatCurrency(totalUnpaidUSD, 'USD')}</div>
           </div>
-          <div className="bg-gradient-to-br from-success/10 to-success/5 p-4 rounded-2xl border border-success/30">
+          <div className="bg-linear-to-br from-success/10 to-success/5 p-4 rounded-2xl border border-success/30">
             <div className="flex items-center gap-2 text-success mb-2">
               <CheckCircle size={20} />
               <span className="text-sm font-medium">Total Paid</span>
@@ -490,7 +559,7 @@ export default function CommissionsPage() {
         </div>
 
         {/* Category-Based Commission Rates - PROMINENT SECTION */}
-        <div className="mb-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl border-2 border-primary/30 p-5 lg:p-6">
+        <div className="mb-6 bg-linear-to-br from-primary/5 to-primary/10 rounded-2xl border-2 border-primary/30 p-5 lg:p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -629,15 +698,15 @@ export default function CommissionsPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[hsl(var(--warning-muted))] p-3.5 rounded-xl border border-[hsl(var(--warning))]/20">
+                    <div className="bg-[hsl(var(--warning-muted))] p-3.5 rounded-xl border border-warning/20">
                       <div className="text-xs text-muted-foreground mb-1 font-medium">Unpaid</div>
-                      <div className="text-lg font-bold text-[hsl(var(--warning))]">
+                      <div className="text-lg font-bold text-warning">
                         {formatCurrency(totalUnpaid, 'SRD')}
                       </div>
                     </div>
-                    <div className="bg-[hsl(var(--success-muted))] p-3.5 rounded-xl border border-[hsl(var(--success))]/20">
+                    <div className="bg-[hsl(var(--success-muted))] p-3.5 rounded-xl border border-success/20">
                       <div className="text-xs text-muted-foreground mb-1 font-medium">Paid</div>
-                      <div className="text-lg font-bold text-[hsl(var(--success))]">
+                      <div className="text-lg font-bold text-success">
                         {formatCurrency(totalPaid, 'SRD')}
                       </div>
                     </div>
@@ -745,7 +814,7 @@ export default function CommissionsPage() {
                       </div>
                     </div>
                     <div className="text-right ml-4 flex flex-col items-end gap-2">
-                      <div className="text-lg font-bold text-[hsl(var(--success))]">
+                      <div className="text-lg font-bold text-success">
                         {formatCurrency(commission.commission_amount, (commission.sales?.currency || 'USD') as Currency)}
                       </div>
                       <div className="flex items-center gap-2">
@@ -803,9 +872,9 @@ export default function CommissionsPage() {
             )}
           </div>
           
-          <div className="bg-[hsl(var(--warning-muted))] p-4 rounded-xl border border-[hsl(var(--warning))]/20">
+          <div className="bg-[hsl(var(--warning-muted))] p-4 rounded-xl border border-warning/20">
             <div className="text-sm text-muted-foreground mb-1">Total to Pay</div>
-            <div className="text-2xl font-bold text-[hsl(var(--warning))]">
+            <div className="text-2xl font-bold text-warning">
               {formatCurrency(unpaidAmountForSelectedLocation, 'SRD')}
             </div>
           </div>
