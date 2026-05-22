@@ -13,6 +13,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { logActivity } from '@/lib/activityLog'
+import { updateWalletPurpose } from '@/lib/walletPurposeClient'
+import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
 import type {
   WalletsPageDataResponse,
   WalletsPageLocation as Location,
@@ -39,6 +41,12 @@ type BalanceFilter = 'all' | 'positive' | 'zero' | 'negative'
 type WalletSort = 'location' | 'highest' | 'lowest' | 'recent'
 type HistoryFilter = 'all' | 'credit' | 'debit' | 'adjustment'
 
+function getPurposeBadgeVariant(purpose: WalletPurpose): 'default' | 'warning' | 'info' {
+  if (purpose === 'savings') return 'warning'
+  if (purpose === 'reserve') return 'info'
+  return 'default'
+}
+
 // Approximate USD to SRD exchange rate (can be made dynamic)
 const USD_TO_SRD_RATE = 35.6
 
@@ -64,6 +72,7 @@ export default function WalletsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterLocation, setFilterLocation] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'cash' | 'bank'>('all')
+  const [filterPurpose, setFilterPurpose] = useState<'all' | WalletPurpose>('all')
   const [filterCurrency, setFilterCurrency] = useState<'all' | Currency>('all')
   const [filterBalance, setFilterBalance] = useState<BalanceFilter>('all')
   const [sortBy, setSortBy] = useState<WalletSort>('location')
@@ -81,7 +90,8 @@ export default function WalletsPage() {
     location_id: '',
     type: 'cash' as 'cash' | 'bank',
     currency: 'SRD' as Currency,
-    balance: ''
+    balance: '',
+    purpose: DEFAULT_WALLET_PURPOSE as WalletPurpose,
   })
   
   const [transactionForm, setTransactionForm] = useState({
@@ -140,7 +150,7 @@ export default function WalletsPage() {
   }, [loadData])
 
   const resetForm = () => {
-    setWalletForm({ location_id: '', type: 'cash', currency: 'SRD', balance: '' })
+    setWalletForm({ location_id: '', type: 'cash', currency: 'SRD', balance: '', purpose: DEFAULT_WALLET_PURPOSE })
     setEditingWallet(null)
     setShowForm(false)
   }
@@ -161,7 +171,9 @@ export default function WalletsPage() {
       }
 
       if (editingWallet) {
-        await supabase.from('wallets').update(data).eq('id', editingWallet.id)
+        const { error } = await supabase.from('wallets').update(data).eq('id', editingWallet.id)
+        if (error) throw error
+        await updateWalletPurpose(editingWallet.id, walletForm.purpose)
         await logActivity({
           action: 'update',
           entityType: 'wallet',
@@ -183,7 +195,10 @@ export default function WalletsPage() {
           return
         }
         
-        const { data: newWallet } = await supabase.from('wallets').insert(data).select().single()
+        const { data: newWallet, error } = await supabase.from('wallets').insert(data).select().single()
+        if (error) throw error
+        if (!newWallet) throw new Error('Wallet creation did not return a wallet id.')
+        await updateWalletPurpose(newWallet.id, walletForm.purpose)
         await logActivity({
           action: 'create',
           entityType: 'wallet',
@@ -194,6 +209,9 @@ export default function WalletsPage() {
       }
       resetForm()
       await loadData()
+    } catch (error) {
+      console.error('Error saving wallet:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save wallet.')
     } finally {
       setSubmitting(false)
     }
@@ -205,7 +223,8 @@ export default function WalletsPage() {
       location_id: wallet.location_id || '',
       type: wallet.type as 'cash' | 'bank',
       currency: wallet.currency as Currency,
-      balance: wallet.balance.toString()
+      balance: wallet.balance.toString(),
+      purpose: wallet.purpose,
     })
     setShowForm(true)
   }
@@ -457,12 +476,12 @@ export default function WalletsPage() {
 
       const matchesLocation = !filterLocation || wallet.location_id === filterLocation
       const matchesCurrency = filterCurrency === 'all' || wallet.currency === filterCurrency
-      const matchesType = viewMode === 'savings'
-        ? wallet.type === 'bank'
-        : filterType === 'all' || wallet.type === filterType
-      const matchesSavings = viewMode !== 'savings' || (wallet.type === 'bank' && wallet.balance > 0)
+      const matchesType = filterType === 'all' || wallet.type === filterType
+      const matchesPurpose = viewMode === 'savings'
+        ? wallet.purpose === 'savings'
+        : filterPurpose === 'all' || wallet.purpose === filterPurpose
 
-      return matchesSearch && matchesLocation && matchesCurrency && matchesType && matchesBalanceFilter(wallet) && matchesSavings
+      return matchesSearch && matchesLocation && matchesCurrency && matchesType && matchesPurpose && matchesBalanceFilter(wallet)
     })
     .sort((left, right) => {
       if (sortBy === 'highest') return right.balance - left.balance
@@ -496,6 +515,7 @@ export default function WalletsPage() {
     searchQuery
     || filterLocation
     || filterType !== 'all'
+    || filterPurpose !== 'all'
     || filterCurrency !== 'all'
     || filterBalance !== 'all'
     || sortBy !== 'location'
@@ -507,6 +527,7 @@ export default function WalletsPage() {
     setSearchQuery('')
     setFilterLocation('')
     setFilterType('all')
+    setFilterPurpose('all')
     setFilterCurrency('all')
     setFilterBalance('all')
     setSortBy('location')
@@ -518,7 +539,7 @@ export default function WalletsPage() {
     setHistoryWalletFilter('')
   }
 
-  const savingsWallets = wallets.filter((wallet) => wallet.type === 'bank' && wallet.balance > 0)
+  const savingsWallets = wallets.filter((wallet) => wallet.purpose === 'savings')
   const savingsTotalSRD = savingsWallets.filter((wallet) => wallet.currency === 'SRD').reduce((sum, wallet) => sum + wallet.balance, 0)
   const savingsTotalUSD = savingsWallets.filter((wallet) => wallet.currency === 'USD').reduce((sum, wallet) => sum + wallet.balance, 0)
   const filteredSavingsLocationCount = new Set(filteredWallets.map((wallet) => wallet.location_id).filter(Boolean)).size
@@ -549,7 +570,7 @@ export default function WalletsPage() {
           <h3 className="text-sm font-semibold text-foreground">Wallet filters</h3>
           <p className="text-xs text-muted-foreground mt-1">
             {viewMode === 'savings'
-              ? `Showing ${filteredWallets.length} positive bank wallet${filteredWallets.length === 1 ? '' : 's'} across ${filteredSavingsLocationCount} location${filteredSavingsLocationCount === 1 ? '' : 's'}.`
+              ? `Showing ${filteredWallets.length} savings wallet${filteredWallets.length === 1 ? '' : 's'} across ${filteredSavingsLocationCount} location${filteredSavingsLocationCount === 1 ? '' : 's'}.`
               : `Showing ${filteredWallets.length} of ${wallets.length} wallet${wallets.length === 1 ? '' : 's'}.`}
           </p>
         </div>
@@ -561,7 +582,7 @@ export default function WalletsPage() {
         )}
       </div>
 
-      <div className={`grid gap-3 sm:grid-cols-2 ${viewMode === 'savings' ? 'xl:grid-cols-5' : 'xl:grid-cols-6'}`}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Input
           label="Search"
           value={searchQuery}
@@ -574,13 +595,17 @@ export default function WalletsPage() {
             <option key={location.id} value={location.id}>{location.name}</option>
           ))}
         </Select>
-        {viewMode !== 'savings' && (
-          <Select label="Wallet type" value={filterType} onChange={(event) => setFilterType(event.target.value as 'all' | 'cash' | 'bank')}>
-            <option value="all">All types</option>
-            <option value="cash">Cash</option>
-            <option value="bank">Bank</option>
-          </Select>
-        )}
+        <Select label="Wallet type" value={filterType} onChange={(event) => setFilterType(event.target.value as 'all' | 'cash' | 'bank')}>
+          <option value="all">All types</option>
+          <option value="cash">Cash</option>
+          <option value="bank">Bank</option>
+        </Select>
+        <Select label="Purpose" value={filterPurpose} onChange={(event) => setFilterPurpose(event.target.value as 'all' | WalletPurpose)}>
+          <option value="all">All purposes</option>
+          <option value="operational">Operational</option>
+          <option value="savings">Savings</option>
+          <option value="reserve">Reserve</option>
+        </Select>
         <Select label="Currency" value={filterCurrency} onChange={(event) => setFilterCurrency(event.target.value as 'all' | Currency)}>
           <option value="all">All currencies</option>
           <option value="SRD">SRD</option>
@@ -602,7 +627,7 @@ export default function WalletsPage() {
 
       {viewMode === 'savings' && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-          Savings view currently tracks <span className="font-semibold text-foreground">positive bank wallets</span> so you can see how much reserve money is available without changing live wallet behavior.
+          Savings view only shows wallets explicitly marked as <span className="font-semibold text-foreground">Savings</span>. Reclassify a wallet from the edit form when needed.
         </div>
       )}
     </div>
@@ -1003,7 +1028,10 @@ export default function WalletsPage() {
                             <p className="text-sm text-muted-foreground capitalize">{wallet.type} {wallet.currency}</p>
                           </div>
                         </div>
-                        <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+                          <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
+                        </div>
                       </div>
                       <div className="text-3xl font-bold text-foreground mb-1">{formatCurrency(wallet.balance, wallet.currency as Currency)}</div>
                       <p className="text-xs text-muted-foreground mb-4">Updated {new Date(wallet.updated_at).toLocaleDateString()}</p>
@@ -1060,6 +1088,7 @@ export default function WalletsPage() {
                         <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
                       </div>
                     </div>
+                    <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
                     {/* Desktop: Hover action buttons */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
@@ -1629,6 +1658,19 @@ export default function WalletsPage() {
                 <option value="USD">USD</option>
               </select>
             </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-foreground mb-2">Purpose</label>
+            <select
+              value={walletForm.purpose}
+              onChange={(e) => setWalletForm({ ...walletForm, purpose: e.target.value as WalletPurpose })}
+              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="operational">Operational</option>
+              <option value="savings">Savings</option>
+              <option value="reserve">Reserve</option>
+            </select>
           </div>
           
           <div className="mb-5">

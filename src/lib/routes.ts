@@ -89,6 +89,7 @@ export const PROTECTED_API_ROUTES = [
   '/api/backup/delete',
   '/api/backup/restore',
   '/api/backup/validate',
+  '/api/backup/self-check',
   '/api/backup/download',
 ] as const
 

@@ -9,7 +9,7 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
-import { WIPE_RESTORE_CONFIRMATION, type BackupBlobFile, type BackupValidationResult, type RestoreResponse } from '@/types/backup'
+import { WIPE_RESTORE_CONFIRMATION, type BackupBlobFile, type BackupSelfCheckResponse, type BackupValidationResult, type RestoreResponse } from '@/types/backup'
 
 interface StoreSettings {
   whatsapp_number: string
@@ -71,6 +71,7 @@ export default function SettingsPage() {
   const [restoreMode, setRestoreMode] = useState<'wipe' | 'merge'>('wipe')
   const [restoreResult, setRestoreResult] = useState<RestoreResponse | null>(null)
   const [backupError, setBackupError] = useState<string | null>(null)
+  const [backupSelfCheck, setBackupSelfCheck] = useState<BackupSelfCheckResponse | null>(null)
   const [backupValidation, setBackupValidation] = useState<BackupValidationResult | null>(null)
   const [wipeConfirmation, setWipeConfirmation] = useState('')
 
@@ -168,6 +169,7 @@ export default function SettingsPage() {
     setBackupLoading(true)
     setBackupAction('Creating backup...')
     setRestoreResult(null)
+    setBackupSelfCheck(null)
     setBackupError(null)
     setBackupValidation(null)
     try {
@@ -264,6 +266,7 @@ export default function SettingsPage() {
     setBackupLoading(true)
     setBackupAction('Validating backup...')
     setRestoreResult(null)
+    setBackupSelfCheck(null)
     setBackupError(null)
     try {
       const validation = await validateBackup({ url: backupUrl })
@@ -321,6 +324,7 @@ export default function SettingsPage() {
     setBackupLoading(true)
     setBackupAction('Reading file...')
     setRestoreResult(null)
+    setBackupSelfCheck(null)
     try {
       const text = await file.text()
       const backup = JSON.parse(text)
@@ -365,6 +369,35 @@ export default function SettingsPage() {
     e.target.value = ''
   }
 
+  const handleRunBackupSelfCheck = async () => {
+    setBackupLoading(true)
+    setBackupAction('Running safe backup self-check...')
+    setRestoreResult(null)
+    setBackupSelfCheck(null)
+    setBackupError(null)
+    setBackupValidation(null)
+
+    try {
+      const res = await fetch('/api/backup/self-check', {
+        method: 'POST',
+      })
+      const result = await res.json() as BackupSelfCheckResponse & { error?: string }
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Backup self-check failed.')
+      }
+
+      setBackupSelfCheck(result)
+      setBackupAction(null)
+    } catch (error) {
+      console.error('Backup self-check error:', error)
+      setBackupAction(null)
+      setBackupError(error instanceof Error ? error.message : 'Failed to run backup self-check.')
+    }
+
+    setBackupLoading(false)
+  }
+
   const saveSettings = async () => {
     setSaving(true)
     try {
@@ -374,11 +407,10 @@ export default function SettingsPage() {
         { key: 'store_currency', value: settings.store_currency },
         { key: 'store_address', value: settings.store_address },
         { key: 'store_email', value: settings.store_email },
-        // Webshop settings
         { key: 'store_description', value: settings.store_description },
         { key: 'store_logo_url', value: settings.store_logo_url },
         { key: 'hero_title', value: settings.hero_title },
-        { key: 'hero_subtitle', value: settings.hero_subtitle }
+        { key: 'hero_subtitle', value: settings.hero_subtitle },
       ]
 
       for (const setting of settingsToSave) {
@@ -391,7 +423,7 @@ export default function SettingsPage() {
         action: 'update',
         entityType: 'settings',
         entityName: 'Store Settings',
-        details: 'Updated store settings'
+        details: 'Updated store settings',
       })
 
       setSaveSuccess(true)
@@ -982,8 +1014,23 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {backupSelfCheck && (
+                <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Check size={18} className="text-emerald-500" />
+                    <span className="font-semibold text-sm">Safe Backup Check Passed</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Verified {backupSelfCheck.totalRows.toLocaleString()} rows through export, cloud round-trip, and validation without changing database data.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Temporary blob: {backupSelfCheck.temporaryBlob.pathname} {backupSelfCheck.temporaryBlob.cleanedUp ? '(cleaned up)' : '(retained)'}
+                  </p>
+                </div>
+              )}
+
               {/* Actions */}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <button
                   onClick={handleCreateBackup}
                   disabled={backupLoading}
@@ -995,6 +1042,20 @@ export default function SettingsPage() {
                   <div>
                     <p className="font-semibold text-sm text-foreground">Create Backup</p>
                     <p className="text-xs text-muted-foreground">Export all data to cloud + download</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleRunBackupSelfCheck}
+                  disabled={backupLoading}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Shield size={20} className="text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-foreground">Run Safe Backup Check</p>
+                    <p className="text-xs text-muted-foreground">Export, validate, round-trip, and clean up without restoring</p>
                   </div>
                 </button>
 

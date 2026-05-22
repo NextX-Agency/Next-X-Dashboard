@@ -1,4 +1,5 @@
 import type { Database } from '@/types/database.types'
+import type { WalletPurpose } from '@/types/walletPurpose'
 
 type LocationRow = Database['public']['Tables']['locations']['Row']
 type WalletRow = Database['public']['Tables']['wallets']['Row']
@@ -13,6 +14,7 @@ export interface WalletsPageWallet extends Pick<
   WalletRow,
   'id' | 'person_name' | 'type' | 'currency' | 'balance' | 'created_at' | 'updated_at' | 'location_id'
 > {
+  purpose: WalletPurpose
   locations?: WalletsPageLocation | null
 }
 

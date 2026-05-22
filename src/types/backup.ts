@@ -51,6 +51,18 @@ export interface BackupBlobSaveResult {
   createdAt: string
 }
 
+export interface BackupSelfCheckResponse {
+  success: boolean
+  checkedAt: string
+  totalRows: number
+  exportValidation: BackupValidationSummary
+  roundTripValidation: BackupValidationSummary
+  temporaryBlob: {
+    pathname: string
+    cleanedUp: boolean
+  }
+}
+
 export interface RestoreResponse {
   success: boolean
   mode: 'wipe' | 'merge'

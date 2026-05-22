@@ -10,13 +10,16 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { fetchWalletPurposeMap, updateWalletPurpose } from '@/lib/walletPurposeClient'
+import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
 
 type Location = Database['public']['Tables']['locations']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
 type WalletType = Database['public']['Tables']['wallets']['Row']
+type LocationWallet = WalletType & { purpose: WalletPurpose }
 
 interface LocationWithWallets extends Location {
-  wallets?: WalletType[]
+  wallets?: LocationWallet[]
 }
 
 export default function LocationsPage() {
@@ -43,15 +46,19 @@ export default function LocationsPage() {
   const [walletForm, setWalletForm] = useState({
     type: 'cash' as 'cash' | 'bank',
     currency: 'SRD' as Currency,
-    balance: ''
+    balance: '',
+    purpose: DEFAULT_WALLET_PURPOSE as WalletPurpose,
   })
 
   const loadLocations = async () => {
     try {
-      const { data } = await supabase
-        .from('locations')
-        .select('*')
-        .order('name')
+      const [{ data }, purposeMap] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('*')
+          .order('name'),
+        fetchWalletPurposeMap().catch(() => ({} as Record<string, WalletPurpose>)),
+      ])
       
       if (data) {
         // Load wallets for each location
@@ -61,7 +68,13 @@ export default function LocationsPage() {
               .from('wallets')
               .select('*')
               .eq('location_id', location.id)
-            return { ...location, wallets: wallets || [] }
+            return {
+              ...location,
+              wallets: (wallets || []).map((wallet) => ({
+                ...wallet,
+                purpose: purposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE,
+              })),
+            }
           })
         )
         setLocations(locationsWithWallets)
@@ -240,6 +253,7 @@ export default function LocationsPage() {
       const { data: newWallet } = await supabase.from('wallets').insert(walletData).select().single()
       
       if (newWallet) {
+        await updateWalletPurpose(newWallet.id, walletForm.purpose)
         await logActivity({
           action: 'create',
           entityType: 'wallet',
@@ -249,7 +263,7 @@ export default function LocationsPage() {
         })
       }
       
-      setWalletForm({ type: 'cash', currency: 'SRD', balance: '' })
+      setWalletForm({ type: 'cash', currency: 'SRD', balance: '', purpose: DEFAULT_WALLET_PURPOSE })
       setShowWalletForm(false)
       setSelectedLocation(null)
       loadLocations()
@@ -464,6 +478,9 @@ export default function LocationsPage() {
                                 <span className="text-xs font-medium text-muted-foreground">
                                   {wallet.type === 'cash' ? 'Cash' : 'Bank'} {wallet.currency}
                                 </span>
+                                <Badge variant={wallet.purpose === 'savings' ? 'warning' : wallet.purpose === 'reserve' ? 'info' : 'default'}>
+                                  {WALLET_PURPOSE_LABELS[wallet.purpose]}
+                                </Badge>
                               </div>
                               <div className="text-lg font-bold">
                                 {formatCurrency(wallet.balance, wallet.currency as Currency)}
@@ -583,6 +600,7 @@ export default function LocationsPage() {
         onClose={() => {
           setShowWalletForm(false)
           setSelectedLocation(null)
+          setWalletForm({ type: 'cash', currency: 'SRD', balance: '', purpose: DEFAULT_WALLET_PURPOSE })
         }} 
         title={`Add Wallet to ${selectedLocation?.name}`}
       >
@@ -649,6 +667,12 @@ export default function LocationsPage() {
               </button>
             </div>
           </div>
+
+          <Select label="Purpose" value={walletForm.purpose} onChange={(e) => setWalletForm({ ...walletForm, purpose: e.target.value as WalletPurpose })}>
+            <option value="operational">Operational</option>
+            <option value="savings">Savings</option>
+            <option value="reserve">Reserve</option>
+          </Select>
           
           <Input
             label="Initial Balance"

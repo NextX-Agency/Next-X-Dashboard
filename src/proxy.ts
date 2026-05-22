@@ -40,7 +40,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
   '/api/create-missing-commissions',
   '/api/backup/export', '/api/backup/save', '/api/backup/list',
-  '/api/backup/delete', '/api/backup/restore', '/api/backup/validate',
+  '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
   '/api/backup/download'
 ]
 

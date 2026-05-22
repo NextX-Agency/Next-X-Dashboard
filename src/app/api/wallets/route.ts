@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { getWalletPurposeMap } from '@/lib/walletPurpose'
 import type {
   WalletsPageDataPayload,
   WalletsPageLocation,
   WalletsPageTransaction,
   WalletsPageWallet,
 } from '@/types/wallets'
+import { DEFAULT_WALLET_PURPOSE } from '@/types/walletPurpose'
 
 function toIsoString(value: Date | null | undefined): string {
   return value?.toISOString() ?? new Date(0).toISOString()
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const [wallets, locations, transactions] = await Promise.all([
+    const [wallets, locations, transactions, walletPurposeMap] = await Promise.all([
       prisma.wallet.findMany({
         select: {
           id: true,
@@ -109,6 +111,7 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      getWalletPurposeMap(),
     ])
 
     const mapLocation = (location: {
@@ -162,6 +165,7 @@ export async function GET(request: NextRequest) {
       created_at: toIsoString(wallet.createdAt),
       updated_at: toIsoString(wallet.updatedAt),
       location_id: wallet.location_id,
+      purpose: walletPurposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE,
       locations: wallet.locations ? mapLocation(wallet.locations) : null,
     })
 
