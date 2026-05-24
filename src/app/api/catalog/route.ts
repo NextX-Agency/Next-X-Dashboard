@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'all'
+    const catalogType = searchParams.get('catalogType') || 'audio'
 
     const result: Record<string, unknown> = {}
 
@@ -39,14 +40,14 @@ export async function GET(request: NextRequest) {
         settings,
         stock,
       ] = await Promise.all([
-        prisma.category.findMany({ orderBy: { name: 'asc' } }),
+        prisma.category.findMany({ where: { catalogType }, orderBy: { name: 'asc' } }),
         prisma.item.findMany({
-          where: { isPublic: true, is_combo: false, deletedAt: null },
+          where: { isPublic: true, is_combo: false, deletedAt: null, catalogType },
           orderBy: { createdAt: 'desc' },
         }),
         // Fetch combos with their combo_items (uses named relation)
         prisma.item.findMany({
-          where: { isPublic: true, is_combo: true, deletedAt: null },
+          where: { isPublic: true, is_combo: true, deletedAt: null, catalogType },
           orderBy: { createdAt: 'desc' },
           include: {
             combo_items_combo_items_combo_idToitems: true,
@@ -72,9 +73,23 @@ export async function GET(request: NextRequest) {
       const allCollectionItemIds = collectionsRaw.flatMap(c => c.items.map(ci => ci.itemId))
       const allExtraItemIds = [...new Set([...allChildItemIds, ...allCollectionItemIds])]
       const extraItems = allExtraItemIds.length > 0
-        ? await prisma.item.findMany({ where: { id: { in: allExtraItemIds } } })
+        ? await prisma.item.findMany({
+          where: { id: { in: allExtraItemIds }, deletedAt: null, catalogType },
+        })
         : []
       const extraItemMap = new Map(extraItems.map(i => [i.id, i]))
+
+      const filteredCollections = collectionsRaw
+        .map(collection => ({
+          ...collection,
+          collection_items: collection.items
+            .map(ci => ({
+              ...ci,
+              items: extraItemMap.get(ci.itemId) ?? null,
+            }))
+            .filter(ci => ci.items !== null),
+        }))
+        .filter(collection => collection.collection_items.length > 0)
 
       result.categories = categories
       result.items = items
@@ -94,13 +109,7 @@ export async function GET(request: NextRequest) {
       result.banners = banners
 
       // Map collection items to expected shape
-      result.collections = collectionsRaw.map(collection => ({
-        ...collection,
-        collection_items: collection.items.map(ci => ({
-          ...ci,
-          items: extraItemMap.get(ci.itemId) ?? null,
-        })),
-      }))
+      result.collections = filteredCollections
 
       // Convert settings array to object
       const settingsObj: Record<string, string> = {}
@@ -122,19 +131,19 @@ export async function GET(request: NextRequest) {
 
     // Individual type queries (used by stock refresh etc.)
     if (type === 'categories') {
-      result.categories = await prisma.category.findMany({ orderBy: { name: 'asc' } })
+      result.categories = await prisma.category.findMany({ where: { catalogType }, orderBy: { name: 'asc' } })
     }
 
     if (type === 'items') {
       result.items = await prisma.item.findMany({
-        where: { isPublic: true, is_combo: false },
+        where: { isPublic: true, is_combo: false, deletedAt: null, catalogType },
         orderBy: { createdAt: 'desc' },
       })
     }
 
     if (type === 'combos') {
       const combos = await prisma.item.findMany({
-        where: { isPublic: true, is_combo: true },
+        where: { isPublic: true, is_combo: true, deletedAt: null, catalogType },
         orderBy: { createdAt: 'desc' },
         include: {
           combo_items_combo_items_combo_idToitems: true,
@@ -142,7 +151,9 @@ export async function GET(request: NextRequest) {
       })
       const childItemIds = combos.flatMap(c => c.combo_items_combo_items_combo_idToitems.map(ci => ci.item_id))
       const childItems = childItemIds.length > 0
-        ? await prisma.item.findMany({ where: { id: { in: [...new Set(childItemIds)] } } })
+        ? await prisma.item.findMany({
+          where: { id: { in: [...new Set(childItemIds)] }, deletedAt: null, catalogType },
+        })
         : []
       const childMap = new Map(childItems.map(i => [i.id, i]))
       result.combos = combos.map(combo => ({
@@ -175,13 +186,19 @@ export async function GET(request: NextRequest) {
       })
       const collectionItemIds = collections.flatMap(c => c.items.map(ci => ci.itemId))
       const collectionItemRecords = collectionItemIds.length > 0
-        ? await prisma.item.findMany({ where: { id: { in: [...new Set(collectionItemIds)] } } })
+        ? await prisma.item.findMany({
+          where: { id: { in: [...new Set(collectionItemIds)] }, deletedAt: null, catalogType },
+        })
         : []
       const ciMap = new Map(collectionItemRecords.map(i => [i.id, i]))
-      result.collections = collections.map(collection => ({
-        ...collection,
-        collection_items: collection.items.map(ci => ({ ...ci, items: ciMap.get(ci.itemId) ?? null })),
-      }))
+      result.collections = collections
+        .map(collection => ({
+          ...collection,
+          collection_items: collection.items
+            .map(ci => ({ ...ci, items: ciMap.get(ci.itemId) ?? null }))
+            .filter(ci => ci.items !== null),
+        }))
+        .filter(collection => collection.collection_items.length > 0)
     }
 
     if (type === 'settings') {

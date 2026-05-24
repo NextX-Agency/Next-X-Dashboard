@@ -7,6 +7,8 @@ import {
 
 export type CatalogData = CatalogApiData
 
+const DEFAULT_CATALOG_TYPE = 'audio'
+
 export async function fetchCatalogData(): Promise<{
   categories: unknown[]
   items: unknown[]
@@ -19,7 +21,7 @@ export async function fetchCatalogData(): Promise<{
   stock: unknown[]
 }> {
   try {
-    const response = await fetch('/api/catalog?type=all')
+    const response = await fetch(`/api/catalog?type=all&catalogType=${DEFAULT_CATALOG_TYPE}`)
     
     if (!response.ok) {
       throw new Error('API request failed')

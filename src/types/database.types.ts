@@ -48,18 +48,21 @@ export interface Database {
         Row: {
           id: string
           name: string
+          catalog_type: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           name: string
+          catalog_type?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           name?: string
+          catalog_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -78,6 +81,7 @@ export interface Database {
           is_public: boolean
           is_combo: boolean
           allow_custom_price: boolean
+          catalog_type: string
           deleted_at: string | null
           created_at: string
           updated_at: string
@@ -95,6 +99,7 @@ export interface Database {
           is_public?: boolean
           is_combo?: boolean
           allow_custom_price?: boolean
+          catalog_type?: string
           deleted_at?: string | null
           created_at?: string
           updated_at?: string
@@ -112,6 +117,7 @@ export interface Database {
           is_public?: boolean
           is_combo?: boolean
           allow_custom_price?: boolean
+          catalog_type?: string
           deleted_at?: string | null
           created_at?: string
           updated_at?: string

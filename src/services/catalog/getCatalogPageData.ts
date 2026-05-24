@@ -4,6 +4,8 @@ import { unstable_cache } from 'next/cache'
 
 import { prisma } from '@/lib/prisma'
 
+const CATALOG_TYPE = 'audio'
+
 async function loadCatalogPageData(): Promise<Record<string, unknown>> {
   const [
     categories,
@@ -16,13 +18,16 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
     settings,
     stock,
   ] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: 'asc' } }),
+    prisma.category.findMany({
+      where: { catalogType: CATALOG_TYPE },
+      orderBy: { name: 'asc' },
+    }),
     prisma.item.findMany({
-      where: { isPublic: true, is_combo: false },
+      where: { isPublic: true, is_combo: false, deletedAt: null, catalogType: CATALOG_TYPE },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.item.findMany({
-      where: { isPublic: true, is_combo: true },
+      where: { isPublic: true, is_combo: true, deletedAt: null, catalogType: CATALOG_TYPE },
       orderBy: { createdAt: 'desc' },
       include: {
         combo_items_combo_items_combo_idToitems: true,
@@ -48,9 +53,23 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
   )
   const allExtraItemIds = [...new Set([...allChildItemIds, ...allCollectionItemIds])]
   const extraItems = allExtraItemIds.length > 0
-    ? await prisma.item.findMany({ where: { id: { in: allExtraItemIds } } })
+    ? await prisma.item.findMany({
+      where: { id: { in: allExtraItemIds }, deletedAt: null, catalogType: CATALOG_TYPE },
+    })
     : []
   const extraItemMap = new Map(extraItems.map(item => [item.id, item]))
+
+  const filteredCollections = collectionsRaw
+    .map(collection => ({
+      ...collection,
+      collection_items: collection.items
+        .map(collectionItem => ({
+          ...collectionItem,
+          items: extraItemMap.get(collectionItem.itemId) ?? null,
+        }))
+        .filter(collectionItem => collectionItem.items !== null),
+    }))
+    .filter(collection => collection.collection_items.length > 0)
 
   const settingsMap: Record<string, string> = {}
   settings.forEach(setting => {
@@ -71,13 +90,7 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
     locations,
     exchangeRate,
     banners,
-    collections: collectionsRaw.map(collection => ({
-      ...collection,
-      collection_items: collection.items.map(collectionItem => ({
-        ...collectionItem,
-        items: extraItemMap.get(collectionItem.itemId) ?? null,
-      })),
-    })),
+    collections: filteredCollections,
     settings: settingsMap,
     stock,
   }

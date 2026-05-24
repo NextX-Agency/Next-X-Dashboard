@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Check, Headphones, Watch } from 'lucide-react'
@@ -15,6 +15,7 @@ import { formatCurrency } from '@/lib/currency'
 type Category = Database['public']['Tables']['categories']['Row']
 type Item = Database['public']['Tables']['items']['Row']
 type ComboItem = Database['public']['Tables']['combo_items']['Row']
+type CatalogType = 'audio' | 'watches'
 
 interface ItemWithComboItems extends Item {
   combo_items?: (ComboItem & { item?: Item })[]
@@ -28,7 +29,10 @@ export default function ItemsPage() {
   const [showItemForm, setShowItemForm] = useState(false)
   const [showComboForm, setShowComboForm] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemWithComboItems | null>(null)
-  const [categoryName, setCategoryName] = useState('')
+  const [categoryForm, setCategoryForm] = useState<{ name: string; catalog_type: CatalogType }>({
+    name: '',
+    catalog_type: 'audio',
+  })
   const [activeTab, setActiveTab] = useState<'items' | 'combos' | 'categories'>('items')
   const [catalogFilter, setCatalogFilter] = useState<'all' | 'audio' | 'watches'>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -85,17 +89,20 @@ export default function ItemsPage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      const { data } = await supabase.from('categories').insert({ name: categoryName }).select().single()
+      const { data } = await supabase.from('categories').insert({
+        name: categoryForm.name.trim(),
+        catalog_type: categoryForm.catalog_type,
+      }).select().single()
       if (data) {
         await logActivity({
           action: 'create',
           entityType: 'category',
           entityId: data.id,
-          entityName: categoryName,
-          details: `Created category: ${categoryName}`
+          entityName: categoryForm.name,
+          details: `Created ${categoryForm.catalog_type} category: ${categoryForm.name}`
         })
       }
-      setCategoryName('')
+      setCategoryForm({ name: '', catalog_type: 'audio' })
       setShowCategoryForm(false)
       loadData()
     } finally {
@@ -144,6 +151,29 @@ export default function ItemsPage() {
     setEditingItem(null)
     setShowItemForm(false)
     setShowComboForm(false)
+  }
+
+  const openCategoryForm = () => {
+    setCategoryForm({
+      name: '',
+      catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+    })
+    setShowCategoryForm(true)
+  }
+
+  const handleCatalogTypeChange = (catalogType: CatalogType) => {
+    setItemForm((previous) => {
+      const selectedCategory = categories.find((category) => category.id === previous.category_id)
+      const nextCategoryId = selectedCategory && selectedCategory.catalog_type === catalogType
+        ? previous.category_id
+        : ''
+
+      return {
+        ...previous,
+        catalog_type: catalogType,
+        category_id: nextCategoryId,
+      }
+    })
   }
 
   const handleSubmitItem = async (e: React.FormEvent) => {
@@ -242,7 +272,7 @@ export default function ItemsPage() {
       is_public: item.is_public ?? true,
       is_combo: isCombo,
       allow_custom_price: item.allow_custom_price ?? false,
-      catalog_type: (item as Item & { catalog_type?: string }).catalog_type || 'audio',
+      catalog_type: item.catalog_type || 'audio',
     })
     if (isCombo && item.combo_items && item.combo_items.length > 0) {
       setComboItems(item.combo_items.map(ci => ({
@@ -286,6 +316,11 @@ export default function ItemsPage() {
     return categories.find(c => c.id === categoryId)?.name || 'Unknown'
   }
 
+  const selectedCatalogCategories = useMemo(
+    () => categories.filter((category) => category.catalog_type === itemForm.catalog_type),
+    [categories, itemForm.catalog_type]
+  )
+
   const addComboItem = (itemId: string) => {
     if (comboItems.find(ci => ci.item_id === itemId)) return
     setComboItems([...comboItems, { item_id: itemId, quantity: 1 }])
@@ -319,7 +354,11 @@ export default function ItemsPage() {
 
   const catalogFilteredItems = catalogFilter === 'all'
     ? regularItems
-    : regularItems.filter(item => (item as Item & { catalog_type?: string }).catalog_type === catalogFilter)
+    : regularItems.filter(item => item.catalog_type === catalogFilter)
+
+  const catalogFilteredCombos = catalogFilter === 'all'
+    ? comboItemsList
+    : comboItemsList.filter(item => item.catalog_type === catalogFilter)
 
   const filteredItems = catalogFilteredItems.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -327,13 +366,15 @@ export default function ItemsPage() {
     getCategoryName(item.category_id).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const filteredCombos = comboItemsList.filter(item =>
+  const filteredCombos = catalogFilteredCombos.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const filteredCategories = categories.filter(cat =>
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredCategories = categories.filter((category) => {
+    const matchesCatalog = catalogFilter === 'all' || category.catalog_type === catalogFilter
+    const matchesSearch = category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesCatalog && matchesSearch
+  })
 
   if (loading) {
     return (
@@ -356,7 +397,11 @@ export default function ItemsPage() {
               <Button 
                 onClick={() => {
                   resetItemForm()
-                  setItemForm(prev => ({ ...prev, is_combo: true }))
+                  setItemForm(prev => ({
+                    ...prev,
+                    is_combo: true,
+                    catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+                  }))
                   setShowComboForm(true)
                 }} 
                 variant="primary"
@@ -369,6 +414,10 @@ export default function ItemsPage() {
               <Button 
                 onClick={() => {
                   resetItemForm()
+                  setItemForm((previous) => ({
+                    ...previous,
+                    catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+                  }))
                   setShowItemForm(true)
                 }} 
                 variant="primary"
@@ -378,7 +427,7 @@ export default function ItemsPage() {
               </Button>
             )}
             {activeTab === 'categories' && (
-              <Button onClick={() => setShowCategoryForm(true)} variant="primary">
+              <Button onClick={openCategoryForm} variant="primary">
                 <Plus size={20} />
                 <span className="hidden sm:inline">New Category</span>
               </Button>
@@ -439,7 +488,7 @@ export default function ItemsPage() {
         </div>
 
         {/* Catalog filter — only shown on Items tab */}
-        {activeTab === 'items' && (
+        {(activeTab === 'items' || activeTab === 'combos' || activeTab === 'categories') && (
           <div className="flex gap-2 mb-4">
             {([
               { key: 'all', label: 'All', icon: <Package size={14} /> },
@@ -632,9 +681,14 @@ export default function ItemsPage() {
                             </div>
                             <div>
                               <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">{category.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground">
+                                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                                </p>
+                                <Badge variant={category.catalog_type === 'watches' ? 'info' : 'default'} className="text-[10px] uppercase">
+                                  {category.catalog_type}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -662,12 +716,32 @@ export default function ItemsPage() {
           <Input
             label="Category Name"
             type="text"
-            value={categoryName}
-            onChange={(e) => setCategoryName(e.target.value)}
+            value={categoryForm.name}
+            onChange={(e) => setCategoryForm((previous) => ({ ...previous, name: e.target.value }))}
             placeholder="Enter category name"
             className="min-h-12"
             required
           />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground block">Webshop</label>
+            <div className="flex gap-2">
+              {(['audio', 'watches'] as const).map((catalogType) => (
+                <button
+                  key={catalogType}
+                  type="button"
+                  onClick={() => setCategoryForm((previous) => ({ ...previous, catalog_type: catalogType }))}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                    categoryForm.catalog_type === catalogType
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {catalogType === 'audio' ? <Headphones size={13} /> : <Watch size={13} />}
+                  {catalogType.charAt(0).toUpperCase() + catalogType.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button type="submit" variant="primary" fullWidth loading={submitting} className="min-h-12">
               Create Category
@@ -720,7 +794,7 @@ export default function ItemsPage() {
             className="min-h-12"
           >
             <option value="">No Category</option>
-            {categories.map((cat) => (
+            {selectedCatalogCategories.map((cat) => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </Select>
@@ -802,7 +876,7 @@ export default function ItemsPage() {
                   <button
                     key={ct}
                     type="button"
-                    onClick={() => setItemForm({ ...itemForm, catalog_type: ct })}
+                    onClick={() => handleCatalogTypeChange(ct)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                       itemForm.catalog_type === ct
                         ? 'bg-primary border-primary text-white'
@@ -864,6 +938,23 @@ export default function ItemsPage() {
           {/* Select Items for Combo */}
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">Add Items to Combo</label>
+            <div className="flex gap-2 mb-3">
+              {(['audio', 'watches'] as const).map((catalogType) => (
+                <button
+                  key={catalogType}
+                  type="button"
+                  onClick={() => handleCatalogTypeChange(catalogType)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                    itemForm.catalog_type === catalogType
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {catalogType === 'audio' ? <Headphones size={13} /> : <Watch size={13} />}
+                  {catalogType.charAt(0).toUpperCase() + catalogType.slice(1)}
+                </button>
+              ))}
+            </div>
             <Select
               value=""
               onChange={(e) => {
@@ -873,6 +964,7 @@ export default function ItemsPage() {
             >
               <option value="">Select an item to add...</option>
               {regularItems
+                .filter(item => item.catalog_type === itemForm.catalog_type)
                 .filter(item => !comboItems.find(ci => ci.item_id === item.id))
                 .map((item) => (
                   <option key={item.id} value={item.id}>

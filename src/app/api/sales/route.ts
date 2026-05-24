@@ -27,6 +27,7 @@ function mapItem(item: {
   id: string
   name: string
   brand: string | null
+  catalogType: string
   categoryId: string | null
   purchasePriceUsd: unknown
   sellingPriceSrd: unknown | null
@@ -44,6 +45,7 @@ function mapItem(item: {
     id: item.id,
     name: item.name,
     brand: item.brand,
+    catalog_type: item.catalogType,
     category_id: item.categoryId,
     purchase_price_usd: toNumber(item.purchasePriceUsd),
     selling_price_srd: item.sellingPriceSrd === null ? null : toNumber(item.sellingPriceSrd),
@@ -112,6 +114,7 @@ function mapSaleItem(saleItem: {
     id: string
     name: string
     brand: string | null
+    catalogType: string
     categoryId: string | null
     purchasePriceUsd: unknown
     sellingPriceSrd: unknown | null
@@ -178,6 +181,7 @@ function mapRecentSale(sale: {
       id: string
       name: string
       brand: string | null
+      catalogType: string
       categoryId: string | null
       purchasePriceUsd: unknown
       sellingPriceSrd: unknown | null

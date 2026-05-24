@@ -2,12 +2,14 @@ export interface CatalogApiData {
   categories: Array<{
     id: string
     name: string
+    catalogType: string
     createdAt: string
     updatedAt: string
   }>
   items: Array<{
     id: string
     name: string
+    brand: string | null
     description: string | null
     categoryId: string | null
     purchasePriceUsd: number
@@ -17,12 +19,14 @@ export interface CatalogApiData {
     isPublic: boolean
     isCombo: boolean
     allowCustomPrice: boolean
+    catalogType: string
     createdAt: string
     updatedAt: string
   }>
   combos: Array<{
     id: string
     name: string
+    brand: string | null
     description: string | null
     categoryId: string | null
     purchasePriceUsd: number
@@ -32,6 +36,7 @@ export interface CatalogApiData {
     isPublic: boolean
     isCombo: boolean
     allowCustomPrice: boolean
+    catalogType: string
     createdAt: string
     updatedAt: string
     combo_items?: Array<{
