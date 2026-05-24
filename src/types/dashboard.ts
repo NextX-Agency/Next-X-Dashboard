@@ -12,6 +12,8 @@ export interface DashboardActivity {
 export interface DashboardMetrics {
   totalSalesUSD: number
   totalSalesSRD: number
+  weeklySalesUSD: number
+  weeklySalesSRD: number
   activeOrders: number
   stockItems: number
   lowStockItems: number
@@ -21,6 +23,11 @@ export interface DashboardMetrics {
   todaysSalesSRD: number
   salesTrend: number
   totalSalesTrend: number
+  weeklySalesTrend: number
+  weeklyGrossProfitUSD: number
+  weeklyGrossProfitTrend: number
+  weeklyNetProfitUSD: number
+  weeklyNetProfitTrend: number
   exchangeRate: number
   monthlySalesUSD: number[]
   recentActivity: DashboardActivity[]

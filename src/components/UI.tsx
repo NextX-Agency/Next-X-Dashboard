@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { memo, forwardRef } from 'react'
 
 function PageHeaderComponent({ 
@@ -88,12 +89,66 @@ function LoadingSpinnerComponent({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' })
 
 export const LoadingSpinner = memo(LoadingSpinnerComponent)
 
+function WorkspaceLoadingScreenComponent({
+  title = 'Loading workspace',
+  subtitle = 'Preparing your access, dashboard state, and latest store metrics.'
+}: {
+  title?: string
+  subtitle?: string
+}) {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 bg-background" />
+        <div className="absolute top-0 right-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+
+        <div className="relative w-full max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-card/95 shadow-2xl shadow-black/20 backdrop-blur-sm">
+          <div className="border-b border-border/60 bg-linear-to-r from-primary/10 via-transparent to-transparent px-5 py-5 sm:px-7 sm:py-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary">NextX Admin</div>
+                <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-7">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="rounded-2xl border border-border/60 bg-muted/20 p-4 shadow-sm">
+                <div className="shimmer mb-3 h-3 w-24 rounded" />
+                <div className="shimmer mb-2 h-8 w-28 rounded" />
+                <div className="shimmer h-3 w-32 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export const WorkspaceLoadingScreen = memo(WorkspaceLoadingScreenComponent)
+
 function LoadingCardComponent() {
   return (
-    <div className="bg-card rounded-xl p-6 border border-border">
-      <div className="shimmer h-4 w-24 rounded mb-3" />
-      <div className="shimmer h-8 w-32 rounded mb-2" />
-      <div className="shimmer h-3 w-20 rounded" />
+    <div className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 lg:p-6 shadow-sm">
+      <div className="absolute inset-0 bg-linear-to-br from-primary/5 to-transparent opacity-60" />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="shimmer mb-3 h-3 w-28 rounded" />
+          <div className="shimmer mb-3 h-9 w-32 rounded" />
+          <div className="flex items-center gap-2">
+            <div className="shimmer h-6 w-18 rounded-lg" />
+            <div className="shimmer h-3 w-20 rounded" />
+          </div>
+        </div>
+        <div className="shimmer h-12 w-12 rounded-2xl border border-border/60" />
+      </div>
     </div>
   )
 }

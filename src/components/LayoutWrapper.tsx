@@ -7,7 +7,7 @@ import { AuthGuard } from './AuthGuard'
 import BottomNav from './BottomNav'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
-import { Loader2 } from 'lucide-react'
+import { WorkspaceLoadingScreen } from './UI'
 import { isPublicRoute, isAdminRoute } from '@/lib/routes'
 
 function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
@@ -22,14 +22,7 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
 
   // Show loading state while checking auth
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
-        <div className="flex items-center justify-center rounded-full border border-gray-800/80 bg-gray-900/70 p-4 text-orange-400 shadow-lg shadow-black/20">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="sr-only">Loading workspace</span>
-        </div>
-      </div>
-    )
+    return <WorkspaceLoadingScreen />
   }
   
   // Public routes: render without any admin layout

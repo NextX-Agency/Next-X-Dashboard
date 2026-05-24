@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/AuthContext'
 import { isPublicRoute, isAdminRoute, getLoginRedirect, getAccessDeniedRedirect } from '@/lib/routes'
 import { Loader2, ShieldX, ArrowLeft } from 'lucide-react'
+import { WorkspaceLoadingScreen } from './UI'
 
 // Use useLayoutEffect on client to prevent flash
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -36,11 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // Show loading state while checking auth
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
+    return <WorkspaceLoadingScreen title="Checking access" subtitle="Verifying your session and loading the admin workspace." />
   }
 
   // If on a public route, always show content
@@ -50,11 +47,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // If not authenticated and not on public route, show loading (will redirect)
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
+    return <WorkspaceLoadingScreen title="Redirecting to sign in" subtitle="Securing this page before showing admin data." />
   }
 
   // CRITICAL: Block non-admin access to admin routes completely
@@ -64,7 +57,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-4">
         <div className="max-w-md w-full text-center">
           {/* Icon */}
-          <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/30 flex items-center justify-center mb-6">
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-linear-to-br from-red-500/20 to-red-600/10 border border-red-500/30 flex items-center justify-center mb-6">
             <ShieldX className="w-10 h-10 text-red-500" />
           </div>
           
@@ -77,7 +70,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           </p>
           
           {/* User info */}
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-xl p-4 mb-6">
+          <div className="bg-white/4 border border-white/8 rounded-xl p-4 mb-6">
             <p className="text-sm text-neutral-500 mb-1">Logged in as:</p>
             <p className="text-white font-medium">{user?.email}</p>
             <span className="inline-flex items-center px-2.5 py-1 mt-2 rounded-full bg-neutral-800 text-xs font-medium text-neutral-400 capitalize">
@@ -89,13 +82,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => router.push('/')}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold transition-all"
+              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white font-semibold transition-all"
             >
               Go to Catalog
             </button>
             <button
               onClick={() => router.back()}
-              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white font-medium hover:bg-white/[0.1] transition-all"
+              className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/6 border border-white/10 text-white font-medium hover:bg-white/10 transition-all"
             >
               <ArrowLeft size={18} />
               Go Back

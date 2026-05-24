@@ -28,6 +28,8 @@ import type { DashboardMetrics, DashboardResponse } from '@/types/dashboard'
 const EMPTY_DASHBOARD: DashboardMetrics = {
   totalSalesUSD: 0,
   totalSalesSRD: 0,
+  weeklySalesUSD: 0,
+  weeklySalesSRD: 0,
   activeOrders: 0,
   stockItems: 0,
   lowStockItems: 0,
@@ -37,6 +39,11 @@ const EMPTY_DASHBOARD: DashboardMetrics = {
   todaysSalesSRD: 0,
   salesTrend: 0,
   totalSalesTrend: 0,
+  weeklySalesTrend: 0,
+  weeklyGrossProfitUSD: 0,
+  weeklyGrossProfitTrend: 0,
+  weeklyNetProfitUSD: 0,
+  weeklyNetProfitTrend: 0,
   exchangeRate: 40,
   monthlySalesUSD: Array.from({ length: 12 }, () => 0),
   recentActivity: [],
@@ -209,15 +216,18 @@ export default function Home() {
   const hasData = lastUpdatedAt !== null
   const isInitialLoad = loading && !hasData
   const activeExchangeRate = exchangeRate || stats.exchangeRate || 40
-  const totalSalesDisplay = displayCurrency === 'USD'
-    ? stats.totalSalesUSD + (stats.totalSalesSRD / activeExchangeRate)
-    : stats.totalSalesSRD + (stats.totalSalesUSD * activeExchangeRate)
   const todaysSalesDisplay = displayCurrency === 'USD'
     ? stats.todaysSalesUSD + (stats.todaysSalesSRD / activeExchangeRate)
     : stats.todaysSalesSRD + (stats.todaysSalesUSD * activeExchangeRate)
-  const totalRevenueDisplay = displayCurrency === 'USD'
-    ? stats.totalRevenue
-    : stats.totalRevenue * activeExchangeRate
+  const weeklySalesDisplay = displayCurrency === 'USD'
+    ? stats.weeklySalesUSD + (stats.weeklySalesSRD / activeExchangeRate)
+    : stats.weeklySalesSRD + (stats.weeklySalesUSD * activeExchangeRate)
+  const weeklyGrossProfitDisplay = displayCurrency === 'USD'
+    ? stats.weeklyGrossProfitUSD
+    : stats.weeklyGrossProfitUSD * activeExchangeRate
+  const weeklyNetProfitDisplay = displayCurrency === 'USD'
+    ? stats.weeklyNetProfitUSD
+    : stats.weeklyNetProfitUSD * activeExchangeRate
   const monthlySalesDisplay = stats.monthlySalesUSD.map((amount) => (
     displayCurrency === 'USD' ? amount : amount * activeExchangeRate
   ))
@@ -283,7 +293,7 @@ export default function Home() {
                 A cleaner view of what needs attention today.
               </h1>
               <p className="text-orange-100/90 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
-                Server-computed metrics keep the dashboard fast, while the summary below highlights sales pace, stock risk, and the live exchange rate without waiting for the browser to crunch raw tables.
+                Server-computed metrics keep the dashboard fast, while the summary below highlights sales pace, weekly profit, stock risk, and the live exchange rate without waiting for the browser to crunch raw tables.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-2">
@@ -344,7 +354,7 @@ export default function Home() {
           <div>
             <h2 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">Store overview</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              One fast snapshot instead of several client-side table scans.
+              Weekly profit and stock pressure in one fast server-computed snapshot.
             </p>
           </div>
           <button
@@ -375,20 +385,13 @@ export default function Home() {
           ) : (
             <>
               <StatCard
-                title={`Total Sales (${displayCurrency})`}
-                value={hasData ? formatCurrency(totalSalesDisplay, displayCurrency) : '—'}
+                title={`Sales This Week (${displayCurrency})`}
+                value={hasData ? formatCurrency(weeklySalesDisplay, displayCurrency) : '—'}
                 icon={DollarSign}
                 trend={hasData
-                  ? { value: `${stats.totalSalesTrend > 0 ? '+' : ''}${stats.totalSalesTrend.toFixed(1)}%`, isPositive: stats.totalSalesTrend >= 0 }
+                  ? { value: `${stats.weeklySalesTrend > 0 ? '+' : ''}${stats.weeklySalesTrend.toFixed(1)}%`, isPositive: stats.weeklySalesTrend >= 0 }
                   : undefined}
                 color="orange"
-              />
-              <StatCard
-                title="Active Reservations"
-                value={hasData ? stats.activeOrders.toString() : '—'}
-                icon={ShoppingCart}
-                trend={hasData ? { value: 'Pending', isPositive: true } : undefined}
-                color="blue"
               />
               <StatCard
                 title="Stock Items"
@@ -403,11 +406,28 @@ export default function Home() {
                 color={stats.lowStockItems > 0 ? 'orange' : 'green'}
               />
               <StatCard
-                title={`Total Revenue (${displayCurrency})`}
-                value={hasData ? formatCurrency(totalRevenueDisplay, displayCurrency) : '—'}
+                title={`Gross Profit This Week (${displayCurrency})`}
+                value={hasData ? formatCurrency(weeklyGrossProfitDisplay, displayCurrency) : '—'}
                 icon={TrendingUp}
-                trend={hasData ? { value: 'All time', isPositive: true } : undefined}
-                color="purple"
+                trend={hasData
+                  ? {
+                    value: `${stats.weeklyGrossProfitTrend > 0 ? '+' : ''}${stats.weeklyGrossProfitTrend.toFixed(1)}%`,
+                    isPositive: stats.weeklyGrossProfitTrend >= 0,
+                  }
+                  : undefined}
+                color={stats.weeklyGrossProfitUSD >= 0 ? 'green' : 'red'}
+              />
+              <StatCard
+                title={`Net Profit This Week (${displayCurrency})`}
+                value={hasData ? formatCurrency(weeklyNetProfitDisplay, displayCurrency) : '—'}
+                icon={Wallet}
+                trend={hasData
+                  ? {
+                    value: `${stats.weeklyNetProfitTrend > 0 ? '+' : ''}${stats.weeklyNetProfitTrend.toFixed(1)}%`,
+                    isPositive: stats.weeklyNetProfitTrend >= 0,
+                  }
+                  : undefined}
+                color={stats.weeklyNetProfitUSD >= 0 ? 'green' : 'red'}
               />
             </>
           )}
