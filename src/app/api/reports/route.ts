@@ -31,6 +31,7 @@ function toIsoString(value: Date | null | undefined): string {
 function mapItem(item: {
   id: string
   name: string
+  brand: string | null
   categoryId: string | null
   purchasePriceUsd: unknown
   sellingPriceSrd: unknown
@@ -41,6 +42,7 @@ function mapItem(item: {
   return {
     id: item.id,
     name: item.name,
+    brand: item.brand,
     category_id: item.categoryId,
     purchase_price_usd: toNumber(item.purchasePriceUsd),
     selling_price_srd: item.sellingPriceSrd == null ? null : toNumber(item.sellingPriceSrd),
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           name: true,
+          brand: true,
           categoryId: true,
           purchasePriceUsd: true,
           sellingPriceSrd: true,
@@ -195,6 +198,7 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              brand: true,
               categoryId: true,
               purchasePriceUsd: true,
               sellingPriceSrd: true,

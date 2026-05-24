@@ -9,13 +9,13 @@ export default async function WatchesPage() {
   try {
     data = await getWatchesCatalogData()
   } catch {
-    data = { categories: [], items: [], stock: [], settings: {} }
+    data = { items: [], stock: [], settings: {} }
   }
 
-  const categories = (data.categories as Array<{ id: string; name: string; catalogType: string }>) ?? []
   const items = (data.items as Array<{
     id: string
     name: string
+    brand?: string | null
     categoryId?: string | null
     imageUrl?: string | null
     sellingPriceUsd?: number | null
@@ -28,7 +28,6 @@ export default async function WatchesPage() {
 
   return (
     <WatchesCatalogClient
-      categories={categories}
       items={items}
       stock={stock}
       settings={settings}

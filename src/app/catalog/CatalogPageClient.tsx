@@ -252,6 +252,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
           const cartItem: Item = {
             id: updatedItem.id,
             name: updatedItem.name,
+            brand: updatedItem.brand,
             description: updatedItem.description,
             image_url: updatedItem.image_url,
             category_id: updatedItem.category_id,
@@ -582,6 +583,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     const cartItem: Item = {
       id: item.id,
       name: item.name,
+      brand: item.brand,
       description: item.description,
       image_url: item.image_url,
       category_id: item.category_id,

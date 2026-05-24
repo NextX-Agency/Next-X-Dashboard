@@ -51,7 +51,10 @@ function WatchCartDrawerComponent({
   }, 0)
 
   const buildWhatsAppMessage = () => {
-    const lines = items.map(i => `• ${i.name} × ${i.quantity} — ${formatCurrency(getPrice(i) ?? 0, displayCurrency)}`)
+    const lines = items.map((item) => {
+      const itemLabel = item.brand ? `${item.brand} ${item.name}` : item.name
+      return `• ${itemLabel} × ${item.quantity} — ${formatCurrency(getPrice(item) ?? 0, displayCurrency)}`
+    })
     const text = `Hi! I'd like to order:\n${lines.join('\n')}\n\nTotal: ${formatCurrency(subtotal, displayCurrency)}`
     return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`
   }

@@ -16,6 +16,7 @@ import {
 interface ItemDetail {
   id: string
   name: string
+  brand?: string | null
   description?: string | null
   imageUrl?: string | null
   sellingPriceUsd?: number | null
@@ -27,6 +28,7 @@ interface ItemDetail {
 interface RelatedItem {
   id: string
   name: string
+  brand?: string | null
   imageUrl?: string | null
   sellingPriceUsd?: number | null
   sellingPriceSrd?: number | null
@@ -66,6 +68,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
       return [...prev, {
         id: item.id,
         name: item.name,
+        brand: item.brand ?? undefined,
         imageUrl: item.imageUrl,
         sellingPriceUsd: item.sellingPriceUsd,
         sellingPriceSrd: item.sellingPriceSrd,
@@ -84,6 +87,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
       return [...prev, {
         id: rel.id,
         name: rel.name,
+          brand: rel.brand ?? undefined,
         imageUrl: rel.imageUrl,
         sellingPriceUsd: rel.sellingPriceUsd,
         sellingPriceSrd: rel.sellingPriceSrd,
@@ -144,12 +148,12 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
               className="flex flex-col justify-center"
               style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
             >
-              {item.categoryName && (
+              {item.brand && (
                 <p
                   className="mb-2 text-[10px] font-light tracking-[0.3em] uppercase"
                   style={{ color: 'var(--w-gold)' }}
                 >
-                  {item.categoryName}
+                  {item.brand}
                 </p>
               )}
 
@@ -238,6 +242,12 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                 </h2>
                 <table className="w-full text-xs font-light" style={{ color: 'var(--w-cream-2)', borderCollapse: 'collapse' }}>
                   <tbody>
+                    {item.brand && (
+                      <tr style={{ borderBottom: '1px solid var(--w-border)' }}>
+                        <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)', width: '40%' }}>Brand</td>
+                        <td className="py-2.5">{item.brand}</td>
+                      </tr>
+                    )}
                     {item.categoryName && (
                       <tr style={{ borderBottom: '1px solid var(--w-border)' }}>
                         <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)', width: '40%' }}>Category</td>
@@ -275,6 +285,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     key={rel.id}
                     id={rel.id}
                     name={rel.name}
+                    brand={rel.brand ?? undefined}
                     imageUrl={rel.imageUrl}
                     sellingPriceUsd={rel.sellingPriceUsd}
                     sellingPriceSrd={rel.sellingPriceSrd}

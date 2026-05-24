@@ -68,6 +68,7 @@ export interface Database {
         Row: {
           id: string
           name: string
+          brand: string | null
           description: string | null
           category_id: string | null
           purchase_price_usd: number
@@ -84,6 +85,7 @@ export interface Database {
         Insert: {
           id?: string
           name: string
+          brand?: string | null
           description?: string | null
           category_id?: string | null
           purchase_price_usd: number
@@ -100,6 +102,7 @@ export interface Database {
         Update: {
           id?: string
           name?: string
+          brand?: string | null
           description?: string | null
           category_id?: string | null
           purchase_price_usd?: number

@@ -3,20 +3,15 @@
 import { memo, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-interface Category {
-  id: string
-  name: string
-}
-
 interface WatchesBrandNavProps {
-  categories: Category[]
-  activeCategory: string | null
-  onChange: (id: string | null) => void
+  brands: string[]
+  activeBrand: string | null
+  onChange: (brand: string | null) => void
 }
 
 function WatchesBrandNavComponent({
-  categories,
-  activeCategory,
+  brands,
+  activeBrand,
   onChange,
 }: WatchesBrandNavProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -37,7 +32,7 @@ function WatchesBrandNavComponent({
         onClick={() => scroll('left')}
         className="shrink-0 hidden sm:flex items-center px-3 transition-opacity hover:opacity-100 opacity-35"
         style={{ color: 'var(--w-cream-2)', borderRight: '1px solid var(--w-border)' }}
-        aria-label="Scroll categories left"
+        aria-label="Scroll brands left"
       >
         <ChevronLeft size={15} strokeWidth={1.5} />
       </button>
@@ -51,15 +46,15 @@ function WatchesBrandNavComponent({
         {/* "All" tab */}
         <Tab
           label="All Watches"
-          isActive={activeCategory === null}
+          isActive={activeBrand === null}
           onClick={() => onChange(null)}
         />
-        {categories.map(cat => (
+        {brands.map((brand) => (
           <Tab
-            key={cat.id}
-            label={cat.name}
-            isActive={activeCategory === cat.id}
-            onClick={() => onChange(cat.id)}
+            key={brand}
+            label={brand}
+            isActive={activeBrand === brand}
+            onClick={() => onChange(brand)}
           />
         ))}
       </div>
@@ -69,7 +64,7 @@ function WatchesBrandNavComponent({
         onClick={() => scroll('right')}
         className="shrink-0 hidden sm:flex items-center px-3 transition-opacity hover:opacity-100 opacity-35"
         style={{ color: 'var(--w-cream-2)', borderLeft: '1px solid var(--w-border)' }}
-        aria-label="Scroll categories right"
+        aria-label="Scroll brands right"
       >
         <ChevronRight size={15} strokeWidth={1.5} />
       </button>

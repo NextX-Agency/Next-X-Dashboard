@@ -26,6 +26,7 @@ function toNumber(value: unknown): number {
 function mapItem(item: {
   id: string
   name: string
+  brand: string | null
   categoryId: string | null
   purchasePriceUsd: unknown
   sellingPriceSrd: unknown | null
@@ -42,6 +43,7 @@ function mapItem(item: {
   return {
     id: item.id,
     name: item.name,
+    brand: item.brand,
     category_id: item.categoryId,
     purchase_price_usd: toNumber(item.purchasePriceUsd),
     selling_price_srd: item.sellingPriceSrd === null ? null : toNumber(item.sellingPriceSrd),
@@ -109,6 +111,7 @@ function mapSaleItem(saleItem: {
   item: {
     id: string
     name: string
+    brand: string | null
     categoryId: string | null
     purchasePriceUsd: unknown
     sellingPriceSrd: unknown | null
@@ -174,6 +177,7 @@ function mapRecentSale(sale: {
     item: {
       id: string
       name: string
+      brand: string | null
       categoryId: string | null
       purchasePriceUsd: unknown
       sellingPriceSrd: unknown | null

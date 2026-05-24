@@ -45,6 +45,7 @@ export const WalletCard = memo(WalletCardComponent)
 
 interface ItemCardProps {
   name: string
+  brand?: string | null
   categoryName: string
   purchasePrice: number
   sellingPriceSRD?: number | null
@@ -56,6 +57,7 @@ interface ItemCardProps {
 
 function ItemCardComponent({
   name,
+  brand,
   categoryName,
   purchasePrice,
   sellingPriceSRD,
@@ -77,6 +79,11 @@ function ItemCardComponent({
       )}
       <div className="p-5">
         <div className="mb-4">
+          {brand && (
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              {brand}
+            </p>
+          )}
           <h3 className="font-bold text-foreground mb-1.5 text-lg group-hover:text-primary transition-colors">{name}</h3>
           <span className="badge badge-neutral text-xs">
             {categoryName}

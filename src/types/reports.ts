@@ -31,7 +31,7 @@ export interface ReportSale extends Pick<
 
 export type ReportItem = Pick<
   ItemRow,
-  'id' | 'name' | 'category_id' | 'purchase_price_usd' | 'selling_price_srd' | 'selling_price_usd' | 'is_combo' | 'deleted_at'
+  'id' | 'name' | 'brand' | 'category_id' | 'purchase_price_usd' | 'selling_price_srd' | 'selling_price_usd' | 'is_combo' | 'deleted_at'
 >
 
 export type ReportStock = Pick<StockRow, 'id' | 'item_id' | 'location_id' | 'quantity' | 'created_at' | 'updated_at'>

@@ -13,15 +13,10 @@ import {
 } from '@/components/watches'
 import { WatchesBrandNav } from '@/components/watches/WatchesBrandNav'
 
-interface Category {
-  id: string
-  name: string
-  catalogType: string
-}
-
 interface Item {
   id: string
   name: string
+  brand?: string | null
   categoryId?: string | null
   imageUrl?: string | null
   sellingPriceUsd?: number | null
@@ -46,20 +41,18 @@ interface CartEntry {
 }
 
 interface WatchesCatalogClientProps {
-  categories: Category[]
   items: Item[]
   stock: StockEntry[]
   settings: Record<string, string>
 }
 
 export default function WatchesCatalogClient({
-  categories,
   items,
   stock,
   settings,
 }: WatchesCatalogClientProps) {
   const { displayCurrency } = useCurrency()
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [cartItems, setCartItems] = useState<CartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quickViewItem, setQuickViewItem] = useState<Item | null>(null)
@@ -72,10 +65,26 @@ export default function WatchesCatalogClient({
     return map
   }, [stock])
 
+  const brands = useMemo(() => {
+    const brandMap = new Map<string, string>()
+
+    items.forEach((item) => {
+      const trimmedBrand = item.brand?.trim()
+      if (!trimmedBrand) return
+
+      const key = trimmedBrand.toLowerCase()
+      if (!brandMap.has(key)) {
+        brandMap.set(key, trimmedBrand)
+      }
+    })
+
+    return Array.from(brandMap.values()).sort((left, right) => left.localeCompare(right))
+  }, [items])
+
   const filteredItems = useMemo(() => {
-    if (!activeCategory) return items
-    return items.filter(i => i.categoryId === activeCategory)
-  }, [items, activeCategory])
+    if (!activeBrand) return items
+    return items.filter((item) => item.brand?.trim().toLowerCase() === activeBrand.toLowerCase())
+  }, [items, activeBrand])
 
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
@@ -84,7 +93,7 @@ export default function WatchesCatalogClient({
       const existing = prev.find(c => c.id === itemId)
       if (existing) return prev.map(c => c.id === itemId ? { ...c, quantity: c.quantity + 1 } : c)
       return [...prev, {
-        id: item.id, name: item.name, imageUrl: item.imageUrl,
+        id: item.id, name: item.name, brand: item.brand ?? undefined, imageUrl: item.imageUrl,
         sellingPriceUsd: item.sellingPriceUsd, sellingPriceSrd: item.sellingPriceSrd, quantity: 1,
       }]
     })
@@ -136,9 +145,9 @@ export default function WatchesCatalogClient({
             style={{ background: 'var(--w-bg)' }}
           >
             <WatchesBrandNav
-              categories={categories}
-              activeCategory={activeCategory}
-              onChange={setActiveCategory}
+              brands={brands}
+              activeBrand={activeBrand}
+              onChange={setActiveBrand}
             />
           </div>
 
@@ -153,6 +162,7 @@ export default function WatchesCatalogClient({
                     key={item.id}
                     id={item.id}
                     name={item.name}
+                    brand={item.brand ?? undefined}
                     imageUrl={item.imageUrl}
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
@@ -179,6 +189,7 @@ export default function WatchesCatalogClient({
         item={quickViewItem ? {
           id: quickViewItem.id,
           name: quickViewItem.name,
+          brand: quickViewItem.brand ?? undefined,
           imageUrl: quickViewItem.imageUrl,
           sellingPriceUsd: quickViewItem.sellingPriceUsd ? Number(quickViewItem.sellingPriceUsd) : null,
           sellingPriceSrd: quickViewItem.sellingPriceSrd ? Number(quickViewItem.sellingPriceSrd) : null,

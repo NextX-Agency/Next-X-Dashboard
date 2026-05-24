@@ -5,17 +5,12 @@ import { prisma } from '@/lib/prisma'
 
 async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   const [
-    categories,
     items,
     locations,
     exchangeRate,
     settings,
     stock,
   ] = await Promise.all([
-    prisma.category.findMany({
-      where: { catalogType: 'watches' },
-      orderBy: { name: 'asc' },
-    }),
     prisma.item.findMany({
       where: { isPublic: true, is_combo: false, deletedAt: null, catalogType: 'watches' },
       orderBy: { createdAt: 'desc' },
@@ -32,7 +27,6 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   })
 
   return {
-    categories,
     items,
     locations,
     exchangeRate,

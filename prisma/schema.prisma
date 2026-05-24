@@ -65,6 +65,7 @@ model Category {
 model Item {
   id                                      String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                                    String
+  brand                                   String?
   categoryId                              String?             @map("category_id") @db.Uuid
   purchasePriceUsd                        Decimal             @map("purchase_price_usd") @db.Decimal(10, 2)
   sellingPriceSrd                         Decimal?            @map("selling_price_srd") @db.Decimal(10, 2)

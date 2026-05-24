@@ -36,6 +36,7 @@ export default function ItemsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [itemForm, setItemForm] = useState({
     name: '',
+    brand: '',
     description: '',
     category_id: '',
     purchase_price_usd: '',
@@ -127,6 +128,7 @@ export default function ItemsPage() {
   const resetItemForm = () => {
     setItemForm({
       name: '',
+      brand: '',
       description: '',
       category_id: '',
       purchase_price_usd: '',
@@ -151,6 +153,7 @@ export default function ItemsPage() {
     try {
       const data = {
         name: itemForm.name,
+        brand: itemForm.brand.trim() || null,
         description: itemForm.description || null,
         category_id: itemForm.category_id || null,
         purchase_price_usd: parseFloat(itemForm.purchase_price_usd) || 0,
@@ -229,6 +232,7 @@ export default function ItemsPage() {
     const isCombo = item.is_combo ?? false
     setItemForm({
       name: item.name,
+      brand: item.brand || '',
       description: item.description || '',
       category_id: item.category_id || '',
       purchase_price_usd: item.purchase_price_usd.toString(),
@@ -319,6 +323,7 @@ export default function ItemsPage() {
 
   const filteredItems = catalogFilteredItems.filter(item => 
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.brand || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     getCategoryName(item.category_id).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -472,6 +477,7 @@ export default function ItemsPage() {
                   <div key={item.id} className="relative">
                     <ItemCard
                       name={item.name}
+                      brand={item.brand}
                       categoryName={getCategoryName(item.category_id)}
                       purchasePrice={item.purchase_price_usd}
                       sellingPriceSRD={item.selling_price_srd}
@@ -688,6 +694,14 @@ export default function ItemsPage() {
             placeholder="Enter item name"
             className="min-h-12"
             required
+          />
+          <Input
+            label="Brand"
+            type="text"
+            value={itemForm.brand}
+            onChange={(e) => setItemForm({ ...itemForm, brand: e.target.value })}
+            placeholder="e.g. Rolex, Casio, Seiko"
+            className="min-h-12"
           />
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">Description</label>

@@ -60,6 +60,7 @@ export default async function WatchDetailPage({ params }: PageProps) {
   const relatedMapped = related.map(r => ({
     id: r.id,
     name: r.name,
+    brand: r.brand,
     imageUrl: r.imageUrl,
     sellingPriceUsd: r.sellingPriceUsd ? Number(r.sellingPriceUsd) : null,
     sellingPriceSrd: r.sellingPriceSrd ? Number(r.sellingPriceSrd) : null,
@@ -71,6 +72,7 @@ export default async function WatchDetailPage({ params }: PageProps) {
       item={{
         id: item.id,
         name: item.name,
+        brand: item.brand,
         description: item.description,
         imageUrl: item.imageUrl,
         sellingPriceUsd: item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null,
