@@ -98,33 +98,68 @@ function WorkspaceLoadingScreenComponent({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
-        <div className="absolute inset-0 bg-background" />
-        <div className="absolute top-0 right-0 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border/70 bg-card/95 px-5 py-5 shadow-sm sm:px-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">NextX Admin</div>
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">{title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+          </div>
+        </div>
 
-        <div className="relative w-full max-w-4xl overflow-hidden rounded-[28px] border border-border/70 bg-card/95 shadow-2xl shadow-black/20 backdrop-blur-sm">
-          <div className="border-b border-border/60 bg-linear-to-r from-primary/10 via-transparent to-transparent px-5 py-5 sm:px-7 sm:py-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
-                <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+              <div className="shimmer mb-3 h-3 w-24 rounded" />
+              <div className="shimmer mb-3 h-8 w-32 rounded" />
+              <div className="flex items-center gap-2">
+                <div className="shimmer h-6 w-16 rounded-lg" />
+                <div className="shimmer h-3 w-20 rounded" />
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-primary">NextX Admin</div>
-                <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">{title}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-border/60 pb-4">
+              <div>
+                <div className="shimmer h-4 w-36 rounded" />
+                <div className="shimmer mt-2 h-3 w-28 rounded" />
+              </div>
+              <div className="shimmer h-8 w-24 rounded-xl" />
+            </div>
+            <div className="mt-5 h-56 rounded-2xl border border-border/60 bg-muted/20 p-4">
+              <div className="flex h-full items-end gap-2">
+                {Array.from({ length: 12 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="shimmer flex-1 rounded-t-md"
+                    style={{ height: `${22 + ((index % 5) * 12)}%` }}
+                  />
+                ))}
               </div>
             </div>
           </div>
 
-          <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-7">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div key={index} className="rounded-2xl border border-border/60 bg-muted/20 p-4 shadow-sm">
-                <div className="shimmer mb-3 h-3 w-24 rounded" />
-                <div className="shimmer mb-2 h-8 w-28 rounded" />
-                <div className="shimmer h-3 w-32 rounded" />
-              </div>
-            ))}
+          <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+            <div className="shimmer h-4 w-32 rounded" />
+            <div className="mt-5 space-y-3">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+                  <div className="shimmer h-9 w-9 rounded-xl" />
+                  <div className="min-w-0 flex-1">
+                    <div className="shimmer h-4 w-4/5 rounded" />
+                    <div className="shimmer mt-2 h-3 w-1/3 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

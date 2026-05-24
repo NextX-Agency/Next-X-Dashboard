@@ -20,14 +20,14 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   // Check if this is an admin route (must be called before any conditional returns)
   const requiresAdmin = useMemo(() => isAdminRoute(pathname), [pathname])
 
+  // Public routes should never wait on admin auth chrome
+  if (isPublic) {
+    return <>{children}</>
+  }
+
   // Show loading state while checking auth
   if (loading) {
     return <WorkspaceLoadingScreen />
-  }
-  
-  // Public routes: render without any admin layout
-  if (isPublic) {
-    return <>{children}</>
   }
 
   // Non-admin users trying to access admin routes: let AuthGuard handle it

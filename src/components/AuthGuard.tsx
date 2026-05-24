@@ -18,6 +18,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const isPublic = isPublicRoute(pathname)
   const requiresAdmin = isAdminRoute(pathname)
 
+  // Public routes should render immediately without showing admin loading UI
+  if (isPublic) {
+    return <>{children}</>
+  }
+
   // Handle redirects with useLayoutEffect to prevent UI flash
   useIsomorphicLayoutEffect(() => {
     if (loading) return
@@ -38,11 +43,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   // Show loading state while checking auth
   if (loading) {
     return <WorkspaceLoadingScreen title="Checking access" subtitle="Verifying your session and loading the admin workspace." />
-  }
-
-  // If on a public route, always show content
-  if (isPublic) {
-    return <>{children}</>
   }
 
   // If not authenticated and not on public route, show loading (will redirect)
