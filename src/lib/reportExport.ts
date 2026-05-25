@@ -3,6 +3,7 @@ import { calculateFinancialHealthScore } from '@/lib/financialHealth'
 import { prisma } from '@/lib/prisma'
 
 export type ReportExportPeriod = 'monthly' | 'yearly'
+export type ReportExportCatalogType = 'all' | 'audio' | 'watches'
 
 const DEFAULT_EXCHANGE_RATE = 40
 const PAGE_WIDTH = 595.28
@@ -115,6 +116,11 @@ export interface ReportExportData {
   periodStart: string
   periodEnd: string
   selectedLocationName: string
+  catalogType: ReportExportCatalogType
+  catalogLabel: string
+  scopeLabel: string
+  limitations: string[]
+  financialHealthAvailable: boolean
   generatedAt: string
   branding: ReportExportBranding
   summary: ReportExportSummary
@@ -142,6 +148,17 @@ function getBounds(period: ReportExportPeriod, now: Date) {
   return {
     start: new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0),
     end: end > now ? now : end,
+  }
+}
+
+function catalogLabel(catalogType: ReportExportCatalogType) {
+  switch (catalogType) {
+    case 'audio':
+      return 'Audio'
+    case 'watches':
+      return 'Watches'
+    default:
+      return 'All catalogs'
   }
 }
 
@@ -201,12 +218,19 @@ function truncateText(font: PDFFont, text: string, size: number, maxWidth: numbe
 }
 
 export function getReportExportFilename(data: ReportExportData) {
-  return `nextx-${data.period}-report-${data.periodLabel}-${sanitizeFilenamePart(data.selectedLocationName)}.pdf`
+  const catalogPart = data.catalogType === 'all' ? '' : `-${data.catalogType}`
+  return `nextx${catalogPart}-${data.period}-report-${data.periodLabel}-${sanitizeFilenamePart(data.selectedLocationName)}.pdf`
 }
 
-export async function buildReportExportData(period: ReportExportPeriod, locationId: string): Promise<ReportExportData> {
+export async function buildReportExportData(
+  period: ReportExportPeriod,
+  locationId: string,
+  catalogType: ReportExportCatalogType = 'all'
+): Promise<ReportExportData> {
   const now = new Date()
   const bounds = getBounds(period, now)
+  const isCatalogScoped = catalogType !== 'all'
+  const activeCatalogLabel = catalogLabel(catalogType)
   const salesWhere = {
     createdAt: {
       gte: bounds.start,
@@ -215,7 +239,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     ...(locationId ? { locationId } : {}),
   }
 
-  const [sales, expenses, locations, settings, wallets, stocks, periodPurchaseOrders, openPurchaseOrders] = await Promise.all([
+  const [rawSales, rawExpenses, locations, settings, rawWallets, rawStocks, rawPeriodPurchaseOrders, rawOpenPurchaseOrders] = await Promise.all([
     prisma.sale.findMany({
       where: salesWhere,
       select: {
@@ -235,6 +259,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
               select: {
                 id: true,
                 name: true,
+                catalogType: true,
                 purchasePriceUsd: true,
                 category: {
                   select: {
@@ -290,6 +315,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
         quantity: true,
         item: {
           select: {
+            catalogType: true,
             purchasePriceUsd: true,
           },
         },
@@ -304,10 +330,23 @@ export async function buildReportExportData(period: ReportExportPeriod, location
         ...(locationId ? { locationId } : {}),
       },
       select: {
+        id: true,
         totalAmount: true,
         currency: true,
         exchange_rate: true,
         status: true,
+        purchase_order_items: {
+          select: {
+            quantity: true,
+            unit_cost: true,
+            subtotal: true,
+            item: {
+              select: {
+                catalogType: true,
+              },
+            },
+          },
+        },
       },
     }),
     prisma.purchaseOrder.findMany({
@@ -318,6 +357,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
         },
       },
       select: {
+        id: true,
         status: true,
         currency: true,
         exchange_rate: true,
@@ -326,18 +366,103 @@ export async function buildReportExportData(period: ReportExportPeriod, location
             quantity: true,
             quantity_received: true,
             unit_cost: true,
+            item: {
+              select: {
+                catalogType: true,
+              },
+            },
           },
         },
       },
     }),
   ])
 
+  const exactSaleIds = new Set<string>()
+  let mixedSaleCount = 0
+  const sales = rawSales.reduce<Array<(typeof rawSales)[number]>>((accumulator, sale) => {
+    if (!isCatalogScoped) {
+      exactSaleIds.add(sale.id)
+      accumulator.push(sale)
+      return accumulator
+    }
+
+    const matchingItems = sale.saleItems.filter((saleItem) => saleItem.item?.catalogType === catalogType)
+    if (matchingItems.length === 0) {
+      return accumulator
+    }
+
+    if (matchingItems.length === sale.saleItems.length) {
+      exactSaleIds.add(sale.id)
+    } else {
+      mixedSaleCount += 1
+    }
+
+    accumulator.push({
+      ...sale,
+      saleItems: matchingItems,
+    })
+
+    return accumulator
+  }, [])
+
+  const expenses = isCatalogScoped ? [] : rawExpenses
+  const wallets = isCatalogScoped ? [] : rawWallets
+  const stocks = rawStocks.filter((stock) => !isCatalogScoped || stock.item?.catalogType === catalogType)
+
+  const mixedPurchaseOrderIds = new Set<string>()
+  const periodPurchaseOrders = rawPeriodPurchaseOrders.reduce<Array<(typeof rawPeriodPurchaseOrders)[number]>>((accumulator, order) => {
+    if (!isCatalogScoped) {
+      accumulator.push(order)
+      return accumulator
+    }
+
+    const matchingItems = order.purchase_order_items.filter((item) => item.item?.catalogType === catalogType)
+    if (matchingItems.length === 0) {
+      return accumulator
+    }
+
+    if (matchingItems.length !== order.purchase_order_items.length) {
+      mixedPurchaseOrderIds.add(order.id)
+    }
+
+    accumulator.push({
+      ...order,
+      purchase_order_items: matchingItems,
+    })
+
+    return accumulator
+  }, [])
+
+  const openPurchaseOrders = rawOpenPurchaseOrders.reduce<Array<(typeof rawOpenPurchaseOrders)[number]>>((accumulator, order) => {
+    if (!isCatalogScoped) {
+      accumulator.push(order)
+      return accumulator
+    }
+
+    const matchingItems = order.purchase_order_items.filter((item) => item.item?.catalogType === catalogType)
+    if (matchingItems.length === 0) {
+      return accumulator
+    }
+
+    if (matchingItems.length !== order.purchase_order_items.length) {
+      mixedPurchaseOrderIds.add(order.id)
+    }
+
+    accumulator.push({
+      ...order,
+      purchase_order_items: matchingItems,
+    })
+
+    return accumulator
+  }, [])
+
   const saleIds = sales.map((sale) => sale.id)
   const walletIds = wallets.map((wallet) => wallet.id)
-  const commissions = saleIds.length > 0
+  const commissionSaleIds = isCatalogScoped ? Array.from(exactSaleIds) : saleIds
+  const commissions = commissionSaleIds.length > 0
     ? await prisma.commission.findMany({
         where: {
-          saleId: { in: saleIds },
+          saleId: { in: commissionSaleIds },
           ...(locationId ? { location_id: locationId } : {}),
         },
         select: {
@@ -374,6 +499,7 @@ export async function buildReportExportData(period: ReportExportPeriod, location
 
   const locationNameById = new Map(locations.map((location) => [location.id, location.name]))
   const selectedLocationName = locationId ? locationNameById.get(locationId) || 'Unknown location' : 'All locations'
+  const scopeLabel = isCatalogScoped ? `${selectedLocationName} · ${activeCatalogLabel}` : selectedLocationName
   const periodLabel = period === 'monthly'
     ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     : String(now.getFullYear())
@@ -392,8 +518,9 @@ export async function buildReportExportData(period: ReportExportPeriod, location
 
   for (const sale of sales) {
     const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
-    const saleRevenueSrd = sale.currency === 'SRD' ? toNumber(sale.totalAmount) : toNumber(sale.totalAmount) * saleRate
-    const saleRevenueUsd = sale.currency === 'USD' ? toNumber(sale.totalAmount) : toNumber(sale.totalAmount) / saleRate
+    const scopedSaleTotal = sale.saleItems.reduce((sum, saleItem) => sum + toNumber(saleItem.subtotal), 0)
+    const saleRevenueSrd = sale.currency === 'SRD' ? scopedSaleTotal : scopedSaleTotal * saleRate
+    const saleRevenueUsd = sale.currency === 'USD' ? scopedSaleTotal : scopedSaleTotal / saleRate
     const locationName = locationNameById.get(sale.locationId) || 'Unknown location'
     const locationEntry = locationRows.get(sale.locationId) ?? {
       locationName,
@@ -475,8 +602,12 @@ export async function buildReportExportData(period: ReportExportPeriod, location
 
   const totalGrossProfitSrd = totalRevenueSrd - totalCogsSrd
   const totalGrossProfitUsd = totalRevenueUsd - totalCogsUsd
-  const totalNetProfitSrd = totalGrossProfitSrd - totalExpensesSrd - totalCommissionsSrd
-  const totalNetProfitUsd = totalGrossProfitUsd - totalExpensesUsd - totalCommissionsUsd
+  const totalNetProfitSrd = isCatalogScoped
+    ? totalGrossProfitSrd - totalCommissionsSrd
+    : totalGrossProfitSrd - totalExpensesSrd - totalCommissionsSrd
+  const totalNetProfitUsd = isCatalogScoped
+    ? totalGrossProfitUsd - totalCommissionsUsd
+    : totalGrossProfitUsd - totalExpensesUsd - totalCommissionsUsd
 
   const walletBalanceSrd = wallets.reduce((sum, wallet) => sum + toSrd(toNumber(wallet.balance), wallet.currency), 0)
   const walletBalanceUsd = wallets.reduce((sum, wallet) => sum + toUsd(toNumber(wallet.balance), wallet.currency), 0)
@@ -504,10 +635,16 @@ export async function buildReportExportData(period: ReportExportPeriod, location
 
   const purchaseCapitalDeployedUsd = periodPurchaseOrders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + toUsd(toNumber(order.totalAmount), order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE), 0)
+    .reduce((sum, order) => {
+      const scopedOrderTotal = order.purchase_order_items.reduce((lineSum, item) => lineSum + toNumber(item.subtotal), 0)
+      return sum + toUsd(scopedOrderTotal, order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE)
+    }, 0)
   const purchaseCapitalDeployedSrd = periodPurchaseOrders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + toSrd(toNumber(order.totalAmount), order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE), 0)
+    .reduce((sum, order) => {
+      const scopedOrderTotal = order.purchase_order_items.reduce((lineSum, item) => lineSum + toNumber(item.subtotal), 0)
+      return sum + toSrd(scopedOrderTotal, order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE)
+    }, 0)
 
   const walletSalesMappedUsd = sales.reduce((sum, sale) => {
     if (!sale.wallet_id || !walletCurrencyById.has(sale.wallet_id)) return sum
@@ -600,22 +737,43 @@ export async function buildReportExportData(period: ReportExportPeriod, location
   const periodDays = Math.max(1, Math.ceil((bounds.end.getTime() - bounds.start.getTime()) / 86400000))
   const dailyUnitSales = totalUnitsSold / periodDays
   const daysOfInventory = dailyUnitSales > 0 ? Math.round(totalStockUnits / dailyUnitSales) : null
-  const healthScore = calculateFinancialHealthScore({
-    totalRevenue: totalRevenueUsd,
-    totalNetProfit: totalNetProfitUsd,
-    totalExpenses: totalExpensesUsd,
-    totalCommissions: totalCommissionsUsd,
-    liquidBalance: walletBalanceUsd,
-    openPurchaseCommitment: onOrderCommitmentUsd,
-    walletNetChange: walletMetrics.walletNetChangeUsd,
-    salesCreditGap: salesCreditGapUsd,
-    expenseDebitGap: expenseDebitGapUsd,
-    unmappedRevenue: unmappedRevenueUsd,
-    walletSalesMapped: walletSalesMappedUsd,
-    expensesBookedToWallets: expensesBookedToWalletsUsd,
-    daysOfInventory,
-    inventoryValue: stockValueUsd,
-  })
+  const financialHealthAvailable = !isCatalogScoped
+  const healthScore = financialHealthAvailable
+    ? calculateFinancialHealthScore({
+        totalRevenue: totalRevenueUsd,
+        totalNetProfit: totalNetProfitUsd,
+        totalExpenses: totalExpensesUsd,
+        totalCommissions: totalCommissionsUsd,
+        liquidBalance: walletBalanceUsd,
+        openPurchaseCommitment: onOrderCommitmentUsd,
+        walletNetChange: walletMetrics.walletNetChangeUsd,
+        salesCreditGap: salesCreditGapUsd,
+        expenseDebitGap: expenseDebitGapUsd,
+        unmappedRevenue: unmappedRevenueUsd,
+        walletSalesMapped: walletSalesMappedUsd,
+        expensesBookedToWallets: expensesBookedToWalletsUsd,
+        daysOfInventory,
+        inventoryValue: stockValueUsd,
+      })
+    : {
+        score: 0,
+        label: 'Catalog limited',
+        summary: 'Wallet reconciliation and operating expenses are intentionally excluded until those records are catalog-tagged.',
+        profitability: 0,
+        liquidity: 0,
+        reconciliation: 0,
+        inventory: 0,
+        liquidityCoverage: 0,
+      }
+
+  const limitations = isCatalogScoped
+    ? [
+        `${activeCatalogLabel} export includes only sales lines, stock, reservations, and purchase orders tied to this catalog.`,
+        'Operating expenses and wallet reconciliation are omitted because those records are not catalog-tagged yet.',
+        ...(mixedSaleCount > 0 ? [`${mixedSaleCount} mixed sale${mixedSaleCount === 1 ? '' : 's'} were excluded from commission attribution.`] : []),
+        ...(mixedPurchaseOrderIds.size > 0 ? [`${mixedPurchaseOrderIds.size} mixed purchase order${mixedPurchaseOrderIds.size === 1 ? '' : 's'} were scoped by matching line items only.`] : []),
+      ]
+    : []
 
   return {
     period,
@@ -623,6 +781,11 @@ export async function buildReportExportData(period: ReportExportPeriod, location
     periodStart: bounds.start.toISOString().slice(0, 10),
     periodEnd: bounds.end.toISOString().slice(0, 10),
     selectedLocationName,
+    catalogType,
+    catalogLabel: activeCatalogLabel,
+    scopeLabel,
+    limitations,
+    financialHealthAvailable,
     generatedAt: new Date().toISOString(),
     branding: {
       storeName: settingsMap.store_name || 'NextX',
@@ -725,7 +888,10 @@ export async function buildReportPdf(data: ReportExportData) {
   const topLocation = data.locations[0] ?? null
   const topPayment = data.payments[0] ?? null
   const topItem = data.items[0] ?? null
-  const scopeDescriptor = data.selectedLocationName === 'All locations' ? 'Company-wide overview' : `Focused on ${data.selectedLocationName}`
+  const scopeDescriptor = data.scopeLabel === 'All locations' ? 'Company-wide overview' : `Focused on ${data.scopeLabel}`
+  const highlightProfitLabel = data.financialHealthAvailable ? 'Net Profit' : 'Gross Profit'
+  const highlightProfitUsd = data.financialHealthAvailable ? netUsd : grossUsd
+  const highlightProfitSrd = data.financialHealthAvailable ? netSrd : grossSrd
 
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - PAGE_MARGIN
@@ -1069,7 +1235,7 @@ export async function buildReportPdf(data: ReportExportData) {
     color: rgb(0.8, 0.83, 0.88),
   })
 
-  drawLabelValue(PAGE_MARGIN, PAGE_HEIGHT - 148, 'Scope', data.selectedLocationName, 170)
+  drawLabelValue(PAGE_MARGIN, PAGE_HEIGHT - 148, 'Scope', data.scopeLabel, 170)
   drawLabelValue(PAGE_MARGIN + 180, PAGE_HEIGHT - 148, 'Period', `${data.periodStart} to ${data.periodEnd}`, 140)
   drawLabelValue(PAGE_MARGIN + 340, PAGE_HEIGHT - 148, 'Prepared by', data.branding.storeName, 140)
 
@@ -1118,40 +1284,56 @@ export async function buildReportPdf(data: ReportExportData) {
   const cardsTop = y
   drawMetricCard(PAGE_MARGIN, cardsTop, cardWidth, cardHeight, 'Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), `${formatMoney(data.summary.totalRevenueSrd, 'SRD')} total revenue`, brand)
   drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop, cardWidth, cardHeight, 'Gross Profit', formatMoney(grossUsd, 'USD'), `${formatMoney(grossSrd, 'SRD')} after stock cost`, rgb(0.11, 0.55, 0.33))
-  drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Net Profit', formatMoney(netUsd, 'USD'), `${formatMoney(netSrd, 'SRD')} after expenses and commissions`, darkMuted)
-  drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Asset Position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), `${formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD')} wallets + stock + on-order`, rgb(0.37, 0.24, 0.72))
+  if (data.financialHealthAvailable) {
+    drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Net Profit', formatMoney(netUsd, 'USD'), `${formatMoney(netSrd, 'SRD')} after expenses and commissions`, darkMuted)
+    drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Asset Position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), `${formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD')} wallets + stock + on-order`, rgb(0.37, 0.24, 0.72))
+  } else {
+    drawMetricCard(PAGE_MARGIN, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Cost of Goods Sold', formatMoney(data.summary.totalCogsUsd, 'USD'), `${formatMoney(data.summary.totalCogsSrd, 'SRD')} stock cost consumed`, rgb(0.83, 0.49, 0.09))
+    drawMetricCard(PAGE_MARGIN + cardWidth + 14, cardsTop - cardHeight - 14, cardWidth, cardHeight, 'Inventory Capital', formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD'), `${formatMoney(data.financialHealth.purchaseCapitalDeployedSrd, 'SRD')} purchase orders funded`, rgb(0.37, 0.24, 0.72))
+  }
   y = cardsTop - (cardHeight * 2) - 28
 
-  drawInsightPanel('Management Snapshot', [
-    `Finance health score: ${data.financialHealth.healthScore}/100 (${data.financialHealth.healthLabel}). ${data.financialHealth.healthSummary}`,
-    `Profitability ${data.financialHealth.profitabilityScore}/100 • Liquidity ${data.financialHealth.liquidityScore}/100 • Reconciliation ${data.financialHealth.reconciliationScore}/100 • Inventory ${data.financialHealth.inventoryScore}/100.`,
-    `Liquidity cover: ${data.financialHealth.liquidityCoverage.toFixed(2)}x against current cost pressure and open inventory commitments.`,
-    data.financialHealth.daysOfInventory !== null
-      ? `Inventory cover: approximately ${data.financialHealth.daysOfInventory} days at the current sell-through rate.`
-      : 'Inventory cover: not enough sell-through yet to estimate days of inventory.',
-  ])
+  drawInsightPanel('Management Snapshot', data.financialHealthAvailable
+    ? [
+        `Finance health score: ${data.financialHealth.healthScore}/100 (${data.financialHealth.healthLabel}). ${data.financialHealth.healthSummary}`,
+        `Profitability ${data.financialHealth.profitabilityScore}/100 • Liquidity ${data.financialHealth.liquidityScore}/100 • Reconciliation ${data.financialHealth.reconciliationScore}/100 • Inventory ${data.financialHealth.inventoryScore}/100.`,
+        `Liquidity cover: ${data.financialHealth.liquidityCoverage.toFixed(2)}x against current cost pressure and open inventory commitments.`,
+        data.financialHealth.daysOfInventory !== null
+          ? `Inventory cover: approximately ${data.financialHealth.daysOfInventory} days at the current sell-through rate.`
+          : 'Inventory cover: not enough sell-through yet to estimate days of inventory.',
+      ]
+    : [
+        `${data.catalogLabel} export uses only attributable sales, stock, and purchase-order data.`,
+        `Gross profit: ${formatMoney(grossUsd, 'USD')} • Exact commissions: ${formatMoney(data.summary.totalCommissionsUsd, 'USD')}.`,
+        `Stock at cost: ${formatMoney(data.financialHealth.stockValueUsd, 'USD')} • Inventory on order: ${formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD')}.`,
+        ...data.limitations,
+      ])
 
   drawInsightPanel('Key Signals', [
     `Average sale value: ${formatMoney(avgSaleUsd, 'USD')} • ${formatMoney(avgSaleSrd, 'SRD')}.`,
     `Average unit revenue: ${formatMoney(avgUnitUsd, 'USD')} • ${formatMoney(avgUnitSrd, 'SRD')}.`,
-    `Gross profit: ${formatMoney(grossUsd, 'USD')} • Net profit: ${formatMoney(netUsd, 'USD')}.`,
+    `Gross profit: ${formatMoney(grossUsd, 'USD')} • ${highlightProfitLabel.toLowerCase()}: ${formatMoney(highlightProfitUsd, 'USD')}.`,
     topLocation ? `Top location: ${topLocation.locationName} with ${formatMoney(topLocation.revenueUsd, 'USD')} across ${topLocation.salesCount.toLocaleString()} sales.` : 'Top location: no sales recorded in this period.',
     topItem ? `Top item: ${topItem.itemName} (${topItem.quantitySold.toLocaleString()} units • ${formatMoney(topItem.revenueUsd, 'USD')}).` : 'Top item: no item sales recorded in this period.',
     topPayment ? `Strongest payment method: ${topPayment.paymentMethod} at ${formatMoney(topPayment.revenueUsd, 'USD')}.` : 'Payment methods: no payment mix recorded in this period.',
   ])
 
-  drawInsightPanel('Financial Health', [
-    `Wallet balance: ${formatMoney(data.financialHealth.walletBalanceUsd, 'USD')} • Stock at cost: ${formatMoney(data.financialHealth.stockValueUsd, 'USD')}.`,
-    `Inventory on order: ${formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD')} across ${data.financialHealth.openOrderCount.toLocaleString()} open orders.`,
-    `Tracked wallet movement this period: ${formatMoney(data.financialHealth.walletNetChangeUsd, 'USD')}.`,
-    `Purchase orders funded this period: ${formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD')} (capital deployment, not operating expense).`,
-    `Revenue not mapped to a wallet: ${formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD')}.`,
-  ])
+  drawInsightPanel(data.financialHealthAvailable ? 'Financial Health' : 'Catalog Scope Limitations', data.financialHealthAvailable
+    ? [
+        `Wallet balance: ${formatMoney(data.financialHealth.walletBalanceUsd, 'USD')} • Stock at cost: ${formatMoney(data.financialHealth.stockValueUsd, 'USD')}.`,
+        `Inventory on order: ${formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD')} across ${data.financialHealth.openOrderCount.toLocaleString()} open orders.`,
+        `Tracked wallet movement this period: ${formatMoney(data.financialHealth.walletNetChangeUsd, 'USD')}.`,
+        `Purchase orders funded this period: ${formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD')} (capital deployment, not operating expense).`,
+        `Revenue not mapped to a wallet: ${formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD')}.`,
+      ]
+    : (data.limitations.length > 0
+        ? data.limitations
+        : ['This export is limited to attributable catalog data.']))
 
   drawInsightPanel('Report Context', [
     `Brand: ${data.branding.storeName}.`,
     `Coverage window: ${data.periodStart} through ${data.periodEnd}.`,
-    `Scope: ${data.selectedLocationName}.`,
+    `Scope: ${data.scopeLabel}.`,
     data.branding.storeAddress ? `Address: ${data.branding.storeAddress}.` : 'Address: not configured in store settings.',
     data.branding.storeEmail ? `Contact: ${data.branding.storeEmail}.` : 'Contact: no report email configured in store settings.',
   ])
@@ -1164,23 +1346,33 @@ export async function buildReportPdf(data: ReportExportData) {
       { header: 'SRD', width: 120, align: 'right' },
       { header: 'Meaning', width: 104 },
     ],
-    [
-      ['Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), formatMoney(data.summary.totalRevenueSrd, 'SRD'), 'Turnover'],
-      ['Cost of goods sold', formatMoney(data.summary.totalCogsUsd, 'USD'), formatMoney(data.summary.totalCogsSrd, 'SRD'), 'Stock cost used'],
-      ['Gross profit', formatMoney(data.summary.totalGrossProfitUsd, 'USD'), formatMoney(data.summary.totalGrossProfitSrd, 'SRD'), 'Revenue minus COGS'],
-      ['Net profit', formatMoney(data.summary.totalNetProfitUsd, 'USD'), formatMoney(data.summary.totalNetProfitSrd, 'SRD'), 'After expenses and commissions'],
-      ['Wallet balance', formatMoney(data.financialHealth.walletBalanceUsd, 'USD'), formatMoney(data.financialHealth.walletBalanceSrd, 'SRD'), 'Liquid cash'],
-      ['Stock at cost', formatMoney(data.financialHealth.stockValueUsd, 'USD'), formatMoney(data.financialHealth.stockValueSrd, 'SRD'), 'Inventory held'],
-      ['Inventory on order', formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD'), formatMoney(data.financialHealth.onOrderCommitmentSrd, 'SRD'), 'Funded, not fully received'],
-      ['Total asset position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD'), 'Wallets + stock + on-order'],
-      ['Tracked wallet movement', formatMoney(data.financialHealth.walletNetChangeUsd, 'USD'), formatMoney(data.financialHealth.walletNetChangeSrd, 'SRD'), 'Wallet transaction delta'],
-      ['Sales mapped to wallets', formatMoney(data.financialHealth.salesMappedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.salesMappedToWalletsSrd, 'SRD'), 'Expected wallet sales'],
-      ['Wallet sale credits', formatMoney(data.financialHealth.walletSalesCreditsUsd, 'USD'), formatMoney(data.financialHealth.walletSalesCreditsSrd, 'SRD'), 'Recorded wallet sales'],
-      ['Expense booked to wallets', formatMoney(data.financialHealth.expensesBookedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.expensesBookedToWalletsSrd, 'SRD'), 'Expected wallet expenses'],
-      ['Wallet expense debits', formatMoney(data.financialHealth.walletExpenseDebitsUsd, 'USD'), formatMoney(data.financialHealth.walletExpenseDebitsSrd, 'SRD'), 'Recorded wallet expenses'],
-      ['Purchase capital deployed', formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD'), formatMoney(data.financialHealth.purchaseCapitalDeployedSrd, 'SRD'), 'Inventory funding'],
-      ['Revenue not mapped', formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD'), formatMoney(data.financialHealth.unmappedRevenueSrd, 'SRD'), 'Sales outside wallet map'],
-    ],
+    data.financialHealthAvailable
+      ? [
+          ['Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), formatMoney(data.summary.totalRevenueSrd, 'SRD'), 'Turnover'],
+          ['Cost of goods sold', formatMoney(data.summary.totalCogsUsd, 'USD'), formatMoney(data.summary.totalCogsSrd, 'SRD'), 'Stock cost used'],
+          ['Gross profit', formatMoney(data.summary.totalGrossProfitUsd, 'USD'), formatMoney(data.summary.totalGrossProfitSrd, 'SRD'), 'Revenue minus COGS'],
+          ['Net profit', formatMoney(data.summary.totalNetProfitUsd, 'USD'), formatMoney(data.summary.totalNetProfitSrd, 'SRD'), 'After expenses and commissions'],
+          ['Wallet balance', formatMoney(data.financialHealth.walletBalanceUsd, 'USD'), formatMoney(data.financialHealth.walletBalanceSrd, 'SRD'), 'Liquid cash'],
+          ['Stock at cost', formatMoney(data.financialHealth.stockValueUsd, 'USD'), formatMoney(data.financialHealth.stockValueSrd, 'SRD'), 'Inventory held'],
+          ['Inventory on order', formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD'), formatMoney(data.financialHealth.onOrderCommitmentSrd, 'SRD'), 'Funded, not fully received'],
+          ['Total asset position', formatMoney(data.financialHealth.totalAssetPositionUsd, 'USD'), formatMoney(data.financialHealth.totalAssetPositionSrd, 'SRD'), 'Wallets + stock + on-order'],
+          ['Tracked wallet movement', formatMoney(data.financialHealth.walletNetChangeUsd, 'USD'), formatMoney(data.financialHealth.walletNetChangeSrd, 'SRD'), 'Wallet transaction delta'],
+          ['Sales mapped to wallets', formatMoney(data.financialHealth.salesMappedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.salesMappedToWalletsSrd, 'SRD'), 'Expected wallet sales'],
+          ['Wallet sale credits', formatMoney(data.financialHealth.walletSalesCreditsUsd, 'USD'), formatMoney(data.financialHealth.walletSalesCreditsSrd, 'SRD'), 'Recorded wallet sales'],
+          ['Expense booked to wallets', formatMoney(data.financialHealth.expensesBookedToWalletsUsd, 'USD'), formatMoney(data.financialHealth.expensesBookedToWalletsSrd, 'SRD'), 'Expected wallet expenses'],
+          ['Wallet expense debits', formatMoney(data.financialHealth.walletExpenseDebitsUsd, 'USD'), formatMoney(data.financialHealth.walletExpenseDebitsSrd, 'SRD'), 'Recorded wallet expenses'],
+          ['Purchase capital deployed', formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD'), formatMoney(data.financialHealth.purchaseCapitalDeployedSrd, 'SRD'), 'Inventory funding'],
+          ['Revenue not mapped', formatMoney(data.financialHealth.unmappedRevenueUsd, 'USD'), formatMoney(data.financialHealth.unmappedRevenueSrd, 'SRD'), 'Sales outside wallet map'],
+        ]
+      : [
+          ['Revenue', formatMoney(data.summary.totalRevenueUsd, 'USD'), formatMoney(data.summary.totalRevenueSrd, 'SRD'), 'Turnover'],
+          ['Cost of goods sold', formatMoney(data.summary.totalCogsUsd, 'USD'), formatMoney(data.summary.totalCogsSrd, 'SRD'), 'Stock cost used'],
+          ['Gross profit', formatMoney(data.summary.totalGrossProfitUsd, 'USD'), formatMoney(data.summary.totalGrossProfitSrd, 'SRD'), 'Revenue minus COGS'],
+          ['Exact commissions', formatMoney(data.summary.totalCommissionsUsd, 'USD'), formatMoney(data.summary.totalCommissionsSrd, 'SRD'), 'Single-catalog sales only'],
+          ['Stock at cost', formatMoney(data.financialHealth.stockValueUsd, 'USD'), formatMoney(data.financialHealth.stockValueSrd, 'SRD'), 'Inventory held'],
+          ['Inventory on order', formatMoney(data.financialHealth.onOrderCommitmentUsd, 'USD'), formatMoney(data.financialHealth.onOrderCommitmentSrd, 'SRD'), 'Funded, not fully received'],
+          ['Purchase capital deployed', formatMoney(data.financialHealth.purchaseCapitalDeployedUsd, 'USD'), formatMoney(data.financialHealth.purchaseCapitalDeployedSrd, 'SRD'), 'Inventory funding'],
+        ],
   )
 
   drawTable(

@@ -62,6 +62,18 @@ interface WalletActivitySummary {
 
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'yearly'
 type ViewTab = 'current' | 'historical'
+type CatalogType = 'all' | 'audio' | 'watches'
+
+interface CatalogScopedSalesResult {
+  sales: SaleWithItems[]
+  exactSaleIds: Set<string>
+  mixedSaleCount: number
+}
+
+interface CatalogScopedPurchaseOrdersResult {
+  orders: PurchaseOrder[]
+  mixedOrderCount: number
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 function getCalendarPeriodBounds(period: PeriodType, now: Date): { start: Date; end: Date } {
@@ -145,6 +157,17 @@ function periodLabel(period: PeriodType): string {
   }
 }
 
+function catalogLabel(catalogType: CatalogType): string {
+  switch (catalogType) {
+    case 'audio':
+      return 'Audio'
+    case 'watches':
+      return 'Watches'
+    default:
+      return 'All catalogs'
+  }
+}
+
 function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : null
   return ((current - previous) / Math.abs(previous)) * 100
@@ -203,6 +226,7 @@ export default function ReportsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<PeriodType>('monthly')
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>('all')
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [activeTab, setActiveTab] = useState<ViewTab>('current')
   const [excludeLowValueItems, setExcludeLowValueItems] = useState(false)
@@ -291,6 +315,10 @@ export default function ReportsPage() {
       period: exportPeriod,
     })
 
+    if (catalogFilter !== 'all') {
+      params.set('catalogType', catalogFilter)
+    }
+
     if (selectedLocation) {
       params.set('locationId', selectedLocation)
     }
@@ -300,7 +328,7 @@ export default function ReportsPage() {
     document.body.appendChild(anchor)
     anchor.click()
     document.body.removeChild(anchor)
-  }, [selectedLocation])
+  }, [catalogFilter, selectedLocation])
 
   // ─── Helper to check if expense is inventory-related ───
   const isInventoryExpense = useCallback((exp: ExpenseWithCategory): boolean => {
@@ -353,63 +381,168 @@ export default function ReportsPage() {
   const isCurrentTab = activeTab === 'current'
   const activeBounds = isCurrentTab ? currentBounds : histBounds
 
-  const filteredSales = useMemo(() => allSales.filter(s => {
+  const isCatalogScoped = catalogFilter !== 'all'
+
+  const catalogItems = useMemo(() => {
+    if (!isCatalogScoped) return items
+    return items.filter((item) => item.catalog_type === catalogFilter)
+  }, [catalogFilter, isCatalogScoped, items])
+
+  const catalogItemIds = useMemo(() => new Set(catalogItems.map((item) => item.id)), [catalogItems])
+
+  const catalogCategories = useMemo(() => {
+    if (!isCatalogScoped) return categories
+
+    const categoryIds = new Set(
+      catalogItems
+        .map((item) => item.category_id)
+        .filter((value): value is string => Boolean(value))
+    )
+
+    return categories.filter((category) => categoryIds.has(category.id))
+  }, [categories, catalogItems, isCatalogScoped])
+
+  const catalogStocks = useMemo(() => {
+    if (!isCatalogScoped) return stocks
+    return stocks.filter((stock) => catalogItemIds.has(stock.item_id))
+  }, [catalogItemIds, isCatalogScoped, stocks])
+
+  const catalogSalesScope = useMemo<CatalogScopedSalesResult>(() => {
+    if (!isCatalogScoped) {
+      return {
+        sales: allSales,
+        exactSaleIds: new Set(allSales.map((sale) => sale.id)),
+        mixedSaleCount: 0,
+      }
+    }
+
+    const sales: SaleWithItems[] = []
+    const exactSaleIds = new Set<string>()
+    let mixedSaleCount = 0
+
+    allSales.forEach((sale) => {
+      const matchingItems = sale.sale_items?.filter((saleItem) => catalogItemIds.has(saleItem.item_id)) ?? []
+
+      if (matchingItems.length === 0) return
+
+      const originalItemCount = sale.sale_items?.length ?? 0
+      if (matchingItems.length === originalItemCount) {
+        exactSaleIds.add(sale.id)
+      } else {
+        mixedSaleCount += 1
+      }
+
+      sales.push({
+        ...sale,
+        total_amount: matchingItems.reduce((sum, saleItem) => sum + saleItem.subtotal, 0),
+        sale_items: matchingItems,
+      })
+    })
+
+    return {
+      sales,
+      exactSaleIds,
+      mixedSaleCount,
+    }
+  }, [allSales, catalogItemIds, isCatalogScoped])
+
+  const catalogReservations = useMemo(() => {
+    if (!isCatalogScoped) return reservations
+    return reservations.filter((reservation) => catalogItemIds.has(reservation.item_id))
+  }, [catalogItemIds, isCatalogScoped, reservations])
+
+  const catalogPurchaseOrdersScope = useMemo<CatalogScopedPurchaseOrdersResult>(() => {
+    if (!isCatalogScoped) {
+      return {
+        orders: purchaseOrders,
+        mixedOrderCount: 0,
+      }
+    }
+
+    const orders: PurchaseOrder[] = []
+    let mixedOrderCount = 0
+
+    purchaseOrders.forEach((order) => {
+      const matchingItems = (order.purchase_order_items || []).filter((item) => catalogItemIds.has(item.item_id))
+
+      if (matchingItems.length === 0) return
+
+      if (matchingItems.length !== (order.purchase_order_items || []).length) {
+        mixedOrderCount += 1
+      }
+
+      orders.push({
+        ...order,
+        total_amount: matchingItems.reduce((sum, item) => sum + toNum(item.subtotal), 0),
+        purchase_order_items: matchingItems,
+      })
+    })
+
+    return {
+      orders,
+      mixedOrderCount,
+    }
+  }, [catalogItemIds, isCatalogScoped, purchaseOrders])
+
+  const filteredSales = useMemo(() => catalogSalesScope.sales.filter(s => {
     if (!inRange(s.created_at, activeBounds.start, activeBounds.end)) return false
     if (selectedLocation && s.location_id !== selectedLocation) return false
     return true
-  }), [allSales, activeBounds, selectedLocation])
+  }), [catalogSalesScope.sales, activeBounds, selectedLocation])
 
   const prevSales = useMemo(() => {
     if (!isCurrentTab) return []
-    return allSales.filter(s => {
+    return catalogSalesScope.sales.filter(s => {
       if (!inRange(s.created_at, prevBounds.start, prevBounds.end)) return false
       if (selectedLocation && s.location_id !== selectedLocation) return false
       return true
     })
-  }, [allSales, prevBounds, selectedLocation, isCurrentTab])
+  }, [catalogSalesScope.sales, prevBounds, selectedLocation, isCurrentTab])
 
   const filteredExpenses = useMemo(() => allExpenses.filter(e => {
+    if (isCatalogScoped) return false
     if (!inRange(e.created_at, activeBounds.start, activeBounds.end)) return false
     if (selectedLocation && e.location_id !== selectedLocation) return false
     return true
-  }), [allExpenses, activeBounds, selectedLocation])
+  }), [allExpenses, activeBounds, isCatalogScoped, selectedLocation])
 
   const prevExpenses = useMemo(() => {
     if (!isCurrentTab) return []
     return allExpenses.filter(e => {
+      if (isCatalogScoped) return false
       if (!inRange(e.created_at, prevBounds.start, prevBounds.end)) return false
       if (selectedLocation && e.location_id !== selectedLocation) return false
       return true
     })
-  }, [allExpenses, prevBounds, selectedLocation, isCurrentTab])
+  }, [allExpenses, prevBounds, isCatalogScoped, selectedLocation, isCurrentTab])
 
   const filteredCommissions = useMemo(() => {
-    // Create a Set of sale IDs from filtered sales
     const saleIds = new Set(filteredSales.map(s => s.id))
-    // Only include commissions for sales in this period
     return allCommissions.filter(c => {
-      // Match by sale_id to get commissions for sales in this period
       if (c.sale_id && !saleIds.has(c.sale_id)) return false
+      if (isCatalogScoped && c.sale_id && !catalogSalesScope.exactSaleIds.has(c.sale_id)) return false
       // Also check location filter
       if (selectedLocation && c.location_id !== selectedLocation) return false
       return true
     })
-  }, [allCommissions, filteredSales, selectedLocation])
+  }, [allCommissions, catalogSalesScope.exactSaleIds, filteredSales, isCatalogScoped, selectedLocation])
 
   const prevCommissions = useMemo(() => {
     if (!isCurrentTab) return []
     const prevSaleIds = new Set(prevSales.map(s => s.id))
     return allCommissions.filter(c => {
       if (c.sale_id && !prevSaleIds.has(c.sale_id)) return false
+      if (isCatalogScoped && c.sale_id && !catalogSalesScope.exactSaleIds.has(c.sale_id)) return false
       if (selectedLocation && c.location_id !== selectedLocation) return false
       return true
     })
-  }, [allCommissions, prevSales, selectedLocation, isCurrentTab])
+  }, [allCommissions, catalogSalesScope.exactSaleIds, prevSales, isCatalogScoped, selectedLocation, isCurrentTab])
 
   const visibleWallets = useMemo(() => wallets.filter(wallet => {
+    if (isCatalogScoped) return false
     if (selectedLocation && wallet.location_id !== selectedLocation) return false
     return true
-  }), [wallets, selectedLocation])
+  }), [wallets, isCatalogScoped, selectedLocation])
 
   const visibleWalletIds = useMemo(() => new Set(visibleWallets.map(wallet => wallet.id)), [visibleWallets])
 
@@ -428,10 +561,10 @@ export default function ReportsPage() {
     )
   }, [relevantWalletTransactions, prevBounds, isCurrentTab])
 
-  const relevantPurchaseOrders = useMemo(() => purchaseOrders.filter(order => {
+  const relevantPurchaseOrders = useMemo(() => catalogPurchaseOrdersScope.orders.filter(order => {
     if (selectedLocation && order.location_id !== selectedLocation) return false
     return true
-  }), [purchaseOrders, selectedLocation])
+  }), [catalogPurchaseOrdersScope.orders, selectedLocation])
 
   const filteredPurchaseOrders = useMemo(() => relevantPurchaseOrders.filter(order =>
     inRange(order.created_at, activeBounds.start, activeBounds.end)
@@ -445,8 +578,8 @@ export default function ReportsPage() {
   }, [relevantPurchaseOrders, prevBounds, isCurrentTab])
 
   const activeReservations = useMemo(() =>
-    reservations.filter(r => r.status === 'pending' || r.status === 'confirmed'),
-    [reservations]
+    catalogReservations.filter(r => r.status === 'pending' || r.status === 'confirmed'),
+    [catalogReservations]
   )
 
   // ─── Calculation helpers ───
@@ -469,7 +602,7 @@ export default function ReportsPage() {
     const saleRate = (sale.exchange_rate as number) || 40
     let profit = 0
     sale.sale_items?.forEach(si => {
-      const item = items.find(i => i.id === si.item_id)
+      const item = catalogItems.find(i => i.id === si.item_id)
       if (item?.purchase_price_usd) {
         const cost = toNum(item.purchase_price_usd) * si.quantity
         const revenue = sale.currency === 'SRD' ? si.subtotal / saleRate : si.subtotal
@@ -481,7 +614,7 @@ export default function ReportsPage() {
       }
     })
     return profit
-  }, [items])
+  }, [catalogItems])
 
   const profitInDisplay = useCallback((profitUSD: number): number =>
     displayCurrency === 'USD' ? profitUSD : profitUSD * rate,
@@ -621,7 +754,7 @@ export default function ReportsPage() {
       
       // First, count explicit combo items (is_combo=true)
       sale.sale_items?.forEach(si => {
-        const item = items.find(i => i.id === si.item_id)
+        const item = catalogItems.find(i => i.id === si.item_id)
         if (item?.is_combo) {
           totalCombos += si.quantity
           if (displayCurrency === 'USD') {
@@ -638,7 +771,7 @@ export default function ReportsPage() {
         const itemCounts = new Map<string, { name: string; quantity: number; subtotal: number }>()
         
         sale.sale_items.forEach(si => {
-          const item = items.find(i => i.id === si.item_id)
+          const item = catalogItems.find(i => i.id === si.item_id)
           if (item && !item.is_combo) {
             const existing = itemCounts.get(item.name)
             if (existing) {
@@ -688,7 +821,7 @@ export default function ReportsPage() {
     })
     
     return { totalCombos, totalComboRevenue }
-  }, [filteredSales, items, displayCurrency, rate])
+  }, [filteredSales, catalogItems, displayCurrency, rate])
 
   // ─── Top Selling Items ───
   const topSellingItems = useMemo(() => {
@@ -696,7 +829,7 @@ export default function ReportsPage() {
     filteredSales.forEach(sale => {
       const saleRate = (sale.exchange_rate as number) || rate
       sale.sale_items?.forEach(si => {
-        const item = items.find(i => i.id === si.item_id)
+        const item = catalogItems.find(i => i.id === si.item_id)
         if (item) {
           const revUSD = sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate
           const existing = map.get(si.item_id)
@@ -709,7 +842,7 @@ export default function ReportsPage() {
       .sort((a, b) => b.revenueUSD - a.revenueUSD)
       .slice(0, 10)
       .map(i => ({ ...i, revenue: displayCurrency === 'USD' ? i.revenueUSD : i.revenueUSD * rate }))
-  }, [filteredSales, items, displayCurrency, rate])
+  }, [filteredSales, catalogItems, displayCurrency, rate])
 
   // ─── Top Combos ───
   const topCombos = useMemo(() => {
@@ -720,7 +853,7 @@ export default function ReportsPage() {
       
       // Count explicit combo items
       sale.sale_items?.forEach(si => {
-        const item = items.find(i => i.id === si.item_id)
+        const item = catalogItems.find(i => i.id === si.item_id)
         if (item?.is_combo) {
           const rev = displayCurrency === 'USD'
             ? (sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate)
@@ -736,7 +869,7 @@ export default function ReportsPage() {
         const itemCounts = new Map<string, { quantity: number; subtotal: number }>()
         
         sale.sale_items.forEach(si => {
-          const item = items.find(i => i.id === si.item_id)
+          const item = catalogItems.find(i => i.id === si.item_id)
           if (item && !item.is_combo) {
             const existing = itemCounts.get(item.name)
             if (existing) {
@@ -792,7 +925,7 @@ export default function ReportsPage() {
     })
     
     return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 5)
-  }, [filteredSales, items, displayCurrency, rate])
+  }, [filteredSales, catalogItems, displayCurrency, rate])
 
   // ─── Expenses by Category ───
   const expensesByCategory = useMemo(() => {
@@ -822,10 +955,10 @@ export default function ReportsPage() {
     filteredSales.forEach(sale => {
       const saleRate = (sale.exchange_rate as number) || rate
       sale.sale_items?.forEach(si => {
-        const item = items.find(i => i.id === si.item_id)
+        const item = catalogItems.find(i => i.id === si.item_id)
         if (item) {
           const catId = item.category_id || 'uncategorized'
-          const catName = categories.find(c => c.id === catId)?.name || 'Uncategorized'
+          const catName = catalogCategories.find(c => c.id === catId)?.name || 'Uncategorized'
           const revUSD = sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate
           const cost = toNum(item.purchase_price_usd) * si.quantity
           const profit = revUSD - cost
@@ -847,7 +980,7 @@ export default function ReportsPage() {
         margin: c.revenue > 0 ? (c.profitUSD / c.revenue) * 100 : 0,
       }))
       .sort((a, b) => b.revenueDisplay - a.revenueDisplay)
-  }, [filteredSales, items, categories, displayCurrency, rate])
+  }, [filteredSales, catalogItems, catalogCategories, displayCurrency, rate])
 
   // ─── Location Performance ───
   const locationPerformance = useMemo(() => {
@@ -861,10 +994,10 @@ export default function ReportsPage() {
       const expenses = locExpenses.reduce((s, e) => s + expenseInDisplay(e), 0)
       const commissions = locCommissions.reduce((s, c) => s + commissionInDisplay(c), 0)
       const locNetProfit = grossProfit - expenses - commissions
-      const stockValueUSD = stocks
+      const stockValueUSD = catalogStocks
         .filter(s => s.location_id === loc.id)
         .reduce((sum, stock) => {
-          const item = items.find(i => i.id === stock.item_id)
+          const item = catalogItems.find(i => i.id === stock.item_id)
           return item?.purchase_price_usd ? sum + toNum(item.purchase_price_usd) * stock.quantity : sum
         }, 0)
       return {
@@ -874,7 +1007,7 @@ export default function ReportsPage() {
         avgTransaction: locSales.length > 0 ? revenue / locSales.length : 0,
       }
     }).sort((a, b) => b.revenue - a.revenue)
-  }, [locations, filteredSales, filteredExpenses, filteredCommissions, stocks, items, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate])
+  }, [locations, filteredSales, filteredExpenses, filteredCommissions, catalogStocks, catalogItems, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate])
 
   // ─── Seller Performance ───
   const sellerPerformance = useMemo(() => {
@@ -969,7 +1102,7 @@ export default function ReportsPage() {
   const reservationSummary = useMemo(() => {
     let pendingRevenue = 0
     activeReservations.forEach(r => {
-      const item = items.find(i => i.id === r.item_id)
+      const item = catalogItems.find(i => i.id === r.item_id)
       if (item) {
         let price = 0
         if (r.combo_price) {
@@ -984,19 +1117,19 @@ export default function ReportsPage() {
         pendingRevenue += price
       }
     })
-    const completedCount = reservations.filter(r => r.status === 'completed').length
-    const totalCount = reservations.length
+    const completedCount = catalogReservations.filter(r => r.status === 'completed').length
+    const totalCount = catalogReservations.length
     const conversionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
     return { pendingRevenue, activeCount: activeReservations.length, conversionRate }
-  }, [activeReservations, reservations, items, displayCurrency, rate])
+  }, [activeReservations, catalogReservations, catalogItems, displayCurrency, rate])
 
   // ─── Inventory Analysis ───
   const inventoryAnalysis = useMemo(() => {
     let stockValueUSD = 0; let potentialRevenueDisplay = 0
     let totalUnits = 0; let itemCount = 0; let excludedCount = 0
 
-    stocks.forEach(stock => {
-      const item = items.find(i => i.id === stock.item_id)
+    catalogStocks.forEach(stock => {
+      const item = catalogItems.find(i => i.id === stock.item_id)
       if (!item) return
       // Exclude items with price <= 200 (in display currency)
       if (excludeLowValueItems) {
@@ -1039,7 +1172,7 @@ export default function ReportsPage() {
       profitMarginPct: stockValueDisplay > 0 ? (potentialProfit / stockValueDisplay) * 100 : 0,
       markupPct: stockValueDisplay > 0 ? (potentialRevenueDisplay / stockValueDisplay) * 100 : 0,
     }
-  }, [stocks, items, displayCurrency, rate, excludeLowValueItems, filteredSales, activeBounds])
+  }, [catalogStocks, catalogItems, displayCurrency, rate, excludeLowValueItems, filteredSales, activeBounds])
 
   const walletActivity = useMemo(() => summarizeWalletActivity(filteredWalletTransactions), [filteredWalletTransactions, summarizeWalletActivity])
   const prevWalletActivity = useMemo(() => summarizeWalletActivity(prevWalletTransactions), [prevWalletTransactions, summarizeWalletActivity])
@@ -1127,7 +1260,7 @@ export default function ReportsPage() {
     const daysElapsed = Math.max(1, now.getDate())
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
     const dailyAvgRevenue = totalRevenue / daysElapsed
-    const dailyAvgNetProfit = netProfit / daysElapsed
+    const dailyAvgNetProfit = (isCatalogScoped ? totalGrossProfit : netProfit) / daysElapsed
 
     return {
       projectedRevenue: dailyAvgRevenue * daysInMonth,
@@ -1135,7 +1268,7 @@ export default function ReportsPage() {
       daysElapsed,
       daysInMonth,
     }
-  }, [isCurrentTab, netProfit, now, period, totalRevenue])
+  }, [isCatalogScoped, isCurrentTab, netProfit, now, period, totalGrossProfit, totalRevenue])
 
   const monthlySalesHistory = useMemo<MonthlySales[]>(() => {
     const months: MonthlySales[] = []
@@ -1145,13 +1278,14 @@ export default function ReportsPage() {
       const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1, 0, 0, 0, 0)
       const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999)
 
-      const monthSales = allSales.filter((sale) => {
+      const monthSales = catalogSalesScope.sales.filter((sale) => {
         if (!inRange(sale.created_at, monthStart, monthEnd)) return false
         if (selectedLocation && sale.location_id !== selectedLocation) return false
         return true
       })
 
       const monthExpenses = allExpenses.filter((expense) => {
+        if (isCatalogScoped) return false
         if (!inRange(expense.created_at, monthStart, monthEnd)) return false
         if (selectedLocation && expense.location_id !== selectedLocation) return false
         return true
@@ -1160,6 +1294,7 @@ export default function ReportsPage() {
       const monthSaleIds = new Set(monthSales.map((sale) => sale.id))
       const monthCommissions = allCommissions.filter((commission) => {
         if (commission.sale_id && !monthSaleIds.has(commission.sale_id)) return false
+        if (isCatalogScoped && commission.sale_id && !catalogSalesScope.exactSaleIds.has(commission.sale_id)) return false
         if (selectedLocation && commission.location_id !== selectedLocation) return false
         return true
       })
@@ -1178,7 +1313,7 @@ export default function ReportsPage() {
         monthKey: `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`,
         year: monthDate.getFullYear(),
         totalSales,
-        totalProfit: grossProfit - totalExpenses - totalCommissions,
+        totalProfit: isCatalogScoped ? grossProfit : grossProfit - totalExpenses - totalCommissions,
         totalExpenses,
         salesCount: monthSales.length,
       })
@@ -1188,15 +1323,41 @@ export default function ReportsPage() {
   }, [
     allCommissions,
     allExpenses,
-    allSales,
+    catalogSalesScope.exactSaleIds,
+    catalogSalesScope.sales,
     commissionInDisplay,
     expenseInDisplay,
+    isCatalogScoped,
     now,
     profitInDisplay,
     saleAmountInDisplay,
     saleProfitUSD,
     selectedLocation,
   ])
+
+  const activeCatalogLabel = catalogLabel(catalogFilter)
+  const catalogAccuracyNotice = isCatalogScoped
+    ? `${activeCatalogLabel} reports include only sales lines, stock, reservations, and purchase orders tied to this catalog. Operating expenses and wallet reconciliation stay company-wide until those records are catalog-tagged.`
+    : null
+  const scopedProfitValue = isCatalogScoped ? totalGrossProfit : netProfit
+  const scopedProfitPrevious = isCatalogScoped ? prevGrossProfit : prevNetProfit
+  const scopedProfitLabel = isCatalogScoped ? 'Scoped Gross Profit' : 'Net Profit'
+  const scopedProfitMargin = isCatalogScoped ? grossMarginPct : netMarginPct
+  const scopedSecondaryMetricLabel = isCatalogScoped ? 'Inventory Capital' : 'Expenses'
+  const scopedSecondaryMetricValue = isCatalogScoped ? purchaseCapitalDeployed : totalExpensesAmt
+  const scopedSecondaryMetricPrevious = isCatalogScoped ? prevPurchaseCapitalDeployed : prevExpensesAmt
+  const scopedSecondaryMetricSubtitle = isCatalogScoped
+    ? `${filteredPurchaseOrders.filter((order) => order.status !== 'cancelled').length} purchase orders in scope`
+    : `${expenseRatio.toFixed(1)}% of revenue`
+  const scopedCommissionLabel = isCatalogScoped ? 'Exact Commissions' : 'Commissions'
+  const scopedCommissionSubtitle = isCatalogScoped
+    ? `${filteredCommissions.length} exact payouts${catalogSalesScope.mixedSaleCount > 0 ? ` · ${catalogSalesScope.mixedSaleCount} mixed sales excluded` : ''}`
+    : `${filteredCommissions.length} payments`
+  const scopedFinalMetricLabel = isCatalogScoped ? 'Stock Value' : (isCurrentTab ? 'Wallet Balance' : 'Current Wallet Balance')
+  const scopedFinalMetricValue = isCatalogScoped ? inventoryAnalysis.stockValueDisplay : walletSummary.totalInDisplay
+  const scopedFinalMetricSubtitle = isCatalogScoped
+    ? `${inventoryAnalysis.totalUnits} units on hand${catalogPurchaseOrdersScope.mixedOrderCount > 0 ? ` · ${catalogPurchaseOrdersScope.mixedOrderCount} mixed purchase orders scoped by line item` : ''}`
+    : `${walletSummary.count} wallets${!isCurrentTab ? ' · live balance' : ''}`
 
   const hasLoadedData = allSales.length > 0 || items.length > 0 || locations.length > 0 || allExpenses.length > 0 || wallets.length > 0 || walletTransactions.length > 0 || purchaseOrders.length > 0
 
@@ -1381,6 +1542,22 @@ export default function ReportsPage() {
             <option value="">All Locations</option>
             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
           </select>
+          <div className="flex gap-1 overflow-x-auto p-1.5 bg-card rounded-2xl shadow-sm border border-border scrollbar-thin">
+            {(['all', 'audio', 'watches'] as CatalogType[]).map((catalog) => (
+              <button
+                key={catalog}
+                type="button"
+                onClick={() => setCatalogFilter(catalog)}
+                className={`px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-semibold whitespace-nowrap text-sm transition-all duration-200 ${
+                  catalogFilter === catalog
+                    ? 'bg-linear-to-r from-orange-500 via-orange-600 to-orange-700 text-white shadow-lg shadow-orange-500/25'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+              >
+                {catalogLabel(catalog)}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between rounded-2xl border border-border bg-card p-3 sm:p-4">
@@ -1407,6 +1584,13 @@ export default function ReportsPage() {
             </button>
           </div>
         </div>
+
+        {catalogAccuracyNotice && (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">
+            <div className="font-semibold text-foreground">{activeCatalogLabel} report scope</div>
+            <div className="mt-1">{catalogAccuracyNotice}</div>
+          </div>
+        )}
 
         {/* Period indicator */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -1717,21 +1901,21 @@ export default function ReportsPage() {
 
           {/* Net Profit */}
           <div className="card-premium group relative overflow-hidden">
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent blur-2xl`} />
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-linear-to-br ${scopedProfitValue >= 0 ? 'from-emerald-500/10' : 'from-red-500/10'} to-transparent blur-2xl`} />
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
-                    <Target className={`w-4 h-4 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br ${scopedProfitValue >= 0 ? 'from-emerald-500/10 to-emerald-600/10 border-emerald-500/20' : 'from-red-500/10 to-red-600/10 border-red-500/20'} border flex items-center justify-center`}>
+                    <Target className={`w-4 h-4 ${scopedProfitValue >= 0 ? 'text-emerald-600' : 'text-red-600'}`} />
                   </div>
-                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Net Profit</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">{scopedProfitLabel}</span>
                 </div>
-                {isCurrentTab && <TrendBadge current={netProfit} previous={prevNetProfit} />}
+                {isCurrentTab && <TrendBadge current={scopedProfitValue} previous={scopedProfitPrevious} />}
               </div>
-              <div className={`text-lg sm:text-xl font-bold tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {formatCurrency(netProfit, displayCurrency)}
+              <div className={`text-lg sm:text-xl font-bold tracking-tight mt-1 ${scopedProfitValue >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                {formatCurrency(scopedProfitValue, displayCurrency)}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">{netMarginPct.toFixed(1)}% net margin</div>
+              <div className="text-xs text-muted-foreground mt-1">{scopedProfitMargin.toFixed(1)}% margin</div>
             </div>
           </div>
 
@@ -1744,12 +1928,12 @@ export default function ReportsPage() {
                   <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-red-500/10 to-red-600/10 border border-red-500/20 flex items-center justify-center">
                     <Wallet className="w-4 h-4 text-red-600" />
                   </div>
-                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">Expenses</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground font-medium">{scopedSecondaryMetricLabel}</span>
                 </div>
-                {isCurrentTab && <TrendBadge current={totalExpensesAmt} previous={prevExpensesAmt} invert />}
+                {isCurrentTab && <TrendBadge current={scopedSecondaryMetricValue} previous={scopedSecondaryMetricPrevious} invert />}
               </div>
-              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-1">{expenseRatio.toFixed(1)}% of revenue</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-red-600">{formatCurrency(scopedSecondaryMetricValue, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{scopedSecondaryMetricSubtitle}</div>
             </div>
           </div>
 
@@ -1761,10 +1945,10 @@ export default function ReportsPage() {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-orange-500/10 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
                   <Users className="w-4 h-4 text-orange-600" />
                 </div>
-                <span className="text-xs sm:text-sm text-muted-foreground font-medium">Commissions</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">{scopedCommissionLabel}</span>
               </div>
               <div className="text-lg sm:text-xl font-bold tracking-tight mt-1 text-orange-600">{formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-1">{filteredCommissions.length} payments</div>
+              <div className="text-xs text-muted-foreground mt-1">{scopedCommissionSubtitle}</div>
             </div>
           </div>
 
@@ -1806,17 +1990,17 @@ export default function ReportsPage() {
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-linear-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/20 flex items-center justify-center">
                   <CreditCard className="w-4 h-4 text-cyan-600" />
                 </div>
-                <span className="text-xs sm:text-sm text-muted-foreground font-medium">{isCurrentTab ? 'Wallet Balance' : 'Current Wallet Balance'}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground font-medium">{scopedFinalMetricLabel}</span>
               </div>
-              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(walletSummary.totalInDisplay, displayCurrency)}</div>
-              <div className="text-xs text-muted-foreground mt-1">{walletSummary.count} wallets{!isCurrentTab ? ' · live balance' : ''}</div>
+              <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(scopedFinalMetricValue, displayCurrency)}</div>
+              <div className="text-xs text-muted-foreground mt-1">{scopedFinalMetricSubtitle}</div>
             </div>
           </div>
         </div>
 
         {/* ═══════════════ FINANCIAL SUMMARY ═══════════════ */}
         <div className="card-premium">
-          <SectionHeader title={isCurrentTab ? `${periodLabel(period)} Financial Summary` : 'Period Financial Summary'} icon={<BookOpen size={20} />} sectionKey="financial" />
+          <SectionHeader title={isCatalogScoped ? `${activeCatalogLabel} Catalog Summary` : isCurrentTab ? `${periodLabel(period)} Financial Summary` : 'Period Financial Summary'} icon={<BookOpen size={20} />} sectionKey="financial" />
           {expandedSections.financial && (
             <div className="px-4 pb-4 space-y-4">
               {/* P&L Flow */}
@@ -1832,30 +2016,30 @@ export default function ReportsPage() {
                   <div className="text-xs text-muted-foreground">{grossMarginPct.toFixed(1)}% margin</div>
                 </div>
                 <div className="hidden md:flex items-center justify-center"><ArrowRight size={20} className="text-muted-foreground" /></div>
-                <div className={`rounded-xl p-4 bg-linear-to-br ${netProfit >= 0 ? 'from-emerald-500/10 border-emerald-500/20' : 'from-red-500/10 border-red-500/20'} to-transparent border text-center`}>
-                  <div className="text-xs text-muted-foreground mb-1">Net Profit</div>
-                  <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(netProfit, displayCurrency)}</div>
-                  <div className="text-xs text-muted-foreground">{netMarginPct.toFixed(1)}% net margin</div>
+                <div className={`rounded-xl p-4 bg-linear-to-br ${isCatalogScoped ? 'from-amber-500/10 border-amber-500/20' : netProfit >= 0 ? 'from-emerald-500/10 border-emerald-500/20' : 'from-red-500/10 border-red-500/20'} to-transparent border text-center`}>
+                  <div className="text-xs text-muted-foreground mb-1">{isCatalogScoped ? 'Cost of Goods Sold' : 'Net Profit'}</div>
+                  <div className={`text-2xl font-bold ${isCatalogScoped ? 'text-amber-600' : netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(isCatalogScoped ? realizedCogs : netProfit, displayCurrency)}</div>
+                  <div className="text-xs text-muted-foreground">{isCatalogScoped ? `${totalRevenue > 0 ? ((realizedCogs / totalRevenue) * 100).toFixed(1) : '0.0'}% of revenue` : `${netMarginPct.toFixed(1)}% net margin`}</div>
                 </div>
               </div>
 
               {/* Deductions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
                 <div className="p-3 sm:p-4 bg-linear-to-r from-red-500/10 to-transparent rounded-xl border border-red-500/20">
-                  <div className="text-xs text-muted-foreground mb-1">Operating Expenses</div>
-                  <div className="text-lg sm:text-xl font-bold text-red-600">{formatCurrency(totalExpensesAmt, displayCurrency)}</div>
-                  <div className="text-xs text-muted-foreground">{expensesByCategory.included.length} categories</div>
+                  <div className="text-xs text-muted-foreground mb-1">{isCatalogScoped ? 'Inventory Capital' : 'Operating Expenses'}</div>
+                  <div className="text-lg sm:text-xl font-bold text-red-600">{formatCurrency(isCatalogScoped ? purchaseCapitalDeployed : totalExpensesAmt, displayCurrency)}</div>
+                  <div className="text-xs text-muted-foreground">{isCatalogScoped ? `${filteredPurchaseOrders.filter((order) => order.status !== 'cancelled').length} orders funded` : `${expensesByCategory.included.length} categories`}</div>
                 </div>
                 <div className="p-4 bg-linear-to-r from-orange-500/10 to-transparent rounded-xl border border-orange-500/20">
-                  <div className="text-xs text-muted-foreground mb-1">Commissions</div>
+                  <div className="text-xs text-muted-foreground mb-1">{isCatalogScoped ? 'Exact Commissions' : 'Commissions'}</div>
                   <div className="text-xl font-bold text-orange-600">{formatCurrency(totalCommissionsAmt, displayCurrency)}</div>
-                  <div className="text-xs text-muted-foreground">{filteredCommissions.length} payments</div>
+                  <div className="text-xs text-muted-foreground">{isCatalogScoped ? scopedCommissionSubtitle : `${filteredCommissions.length} payments`}</div>
                 </div>
                 <div className="p-4 bg-linear-to-r from-purple-500/10 to-transparent rounded-xl border border-purple-500/20">
-                  <div className="text-xs text-muted-foreground mb-1">Total Obligations</div>
-                  <div className="text-xl font-bold text-purple-600">{formatCurrency(totalExpensesAmt + totalCommissionsAmt, displayCurrency)}</div>
+                  <div className="text-xs text-muted-foreground mb-1">{isCatalogScoped ? 'Open Inventory Commitment' : 'Total Obligations'}</div>
+                  <div className="text-xl font-bold text-purple-600">{formatCurrency(isCatalogScoped ? openPurchaseCommitment : totalExpensesAmt + totalCommissionsAmt, displayCurrency)}</div>
                   <div className="text-xs text-muted-foreground">
-                    {totalRevenue > 0 ? ((totalExpensesAmt + totalCommissionsAmt) / totalRevenue * 100).toFixed(1) : '0.0'}% of revenue
+                    {isCatalogScoped ? `${currentOpenOrderCount} open orders` : `${totalRevenue > 0 ? ((totalExpensesAmt + totalCommissionsAmt) / totalRevenue * 100).toFixed(1) : '0.0'}% of revenue`}
                   </div>
                 </div>
               </div>
@@ -1876,7 +2060,7 @@ export default function ReportsPage() {
                       <div className="text-base sm:text-lg font-bold text-indigo-600">{formatCurrency(projection.projectedRevenue, displayCurrency)}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Projected Net Profit</div>
+                      <div className="text-xs text-muted-foreground">{isCatalogScoped ? 'Projected Gross Profit' : 'Projected Net Profit'}</div>
                       <div className={`text-base sm:text-lg font-bold ${projection.projectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {formatCurrency(projection.projectedNetProfit, displayCurrency)}
                       </div>
@@ -1922,10 +2106,35 @@ export default function ReportsPage() {
             title="Financial Health & Reconciliation"
             icon={<Activity size={20} />}
             sectionKey="assetHealth"
-            badge={`${financialHealthScore.score}/100`}
+            badge={isCatalogScoped ? 'Company-wide only' : `${financialHealthScore.score}/100`}
           />
           {expandedSections.assetHealth && (
-            <div className="px-4 pb-4 space-y-4">
+            isCatalogScoped ? (
+              <div className="px-4 pb-4 space-y-4">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-5">
+                  <div className="text-sm font-bold text-foreground">Financial health stays company-wide for catalog reports</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Wallet balances, wallet reconciliation, and operating expenses are not tagged per catalog yet, so they are intentionally hidden when you scope reports to {activeCatalogLabel.toLowerCase()}.
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-3">
+                      <div className="text-xs text-muted-foreground">Stock at Cost</div>
+                      <div className="mt-1 text-lg font-bold text-orange-600">{formatCurrency(inventoryAnalysis.stockValueDisplay, displayCurrency)}</div>
+                    </div>
+                    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+                      <div className="text-xs text-muted-foreground">Inventory on Order</div>
+                      <div className="mt-1 text-lg font-bold text-violet-600">{formatCurrency(openPurchaseCommitment, displayCurrency)}</div>
+                    </div>
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                      <div className="text-xs text-muted-foreground">Exact Commission Coverage</div>
+                      <div className="mt-1 text-lg font-bold text-blue-600">{filteredCommissions.length}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{catalogSalesScope.mixedSaleCount > 0 ? `${catalogSalesScope.mixedSaleCount} mixed sales excluded from commission totals.` : 'All in-scope sales were single-catalog.'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="px-4 pb-4 space-y-4">
               <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-4">
                 <div className={cn(
                   'rounded-2xl border p-5',
@@ -2236,7 +2445,8 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            )
           )}
         </div>
 
@@ -2304,12 +2514,12 @@ export default function ReportsPage() {
                       <div className="text-base sm:text-lg font-bold text-green-600">{formatCurrency(loc.grossProfit, displayCurrency)}</div>
                     </div>
                     <div className="rounded-lg p-2 sm:p-2.5 bg-red-500/5 border border-red-500/10">
-                      <div className="text-xs text-muted-foreground">Expenses</div>
-                      <div className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(loc.expenses, displayCurrency)}</div>
+                      <div className="text-xs text-muted-foreground">{isCatalogScoped ? 'Avg Transaction' : 'Expenses'}</div>
+                      <div className="text-base sm:text-lg font-bold text-red-600">{formatCurrency(isCatalogScoped ? loc.avgTransaction : loc.expenses, displayCurrency)}</div>
                     </div>
-                    <div className={`rounded-lg p-2 sm:p-2.5 ${loc.netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'} border`}>
-                      <div className="text-xs text-muted-foreground">Net Profit</div>
-                      <div className={`text-base sm:text-lg font-bold ${loc.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(loc.netProfit, displayCurrency)}</div>
+                    <div className={`rounded-lg p-2 sm:p-2.5 ${isCatalogScoped ? 'bg-orange-500/5 border-orange-500/10' : loc.netProfit >= 0 ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'} border`}>
+                      <div className="text-xs text-muted-foreground">{isCatalogScoped ? 'Exact Commissions' : 'Net Profit'}</div>
+                      <div className={`text-base sm:text-lg font-bold ${isCatalogScoped ? 'text-orange-600' : loc.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(isCatalogScoped ? loc.commissions : loc.netProfit, displayCurrency)}</div>
                     </div>
                     <div className="rounded-lg p-2 sm:p-2.5 bg-muted/50 border border-border/50">
                       <div className="text-xs text-muted-foreground">Stock Value</div>
@@ -2337,7 +2547,7 @@ export default function ReportsPage() {
                         <th className="text-left py-3 px-2 text-muted-foreground font-medium">Location</th>
                         <th className="text-right py-3 px-2 text-muted-foreground font-medium">Sales</th>
                         <th className="text-right py-3 px-2 text-muted-foreground font-medium">Revenue</th>
-                        <th className="text-right py-3 px-2 text-muted-foreground font-medium">Commission</th>
+                        <th className="text-right py-3 px-2 text-muted-foreground font-medium">{isCatalogScoped ? 'Exact Commission' : 'Commission'}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2393,8 +2603,15 @@ export default function ReportsPage() {
 
         {/* ═══════════════ EXPENSES BY CATEGORY ═══════════════ */}
         <div className="card-premium">
-          <SectionHeader title="Expenses by Category" icon={<Wallet size={20} />} sectionKey="expenses" badge={formatCurrency(totalExpensesAmt, displayCurrency)} />
+          <SectionHeader title="Expenses by Category" icon={<Wallet size={20} />} sectionKey="expenses" badge={isCatalogScoped ? 'Company-wide only' : formatCurrency(totalExpensesAmt, displayCurrency)} />
           {expandedSections.expenses && (
+            isCatalogScoped ? (
+              <div className="px-4 pb-4">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground">
+                  Operating expenses remain company-wide and are intentionally hidden when you scope the report to {activeCatalogLabel.toLowerCase()}. Add catalog attribution to expense records before using them in single-webshop net-profit reporting.
+                </div>
+              </div>
+            ) : (
             <div className="px-4 pb-4 space-y-2 sm:space-y-3">
               {/* Excluded categories info */}
               {excludeInventoryExpenses && expensesByCategory.excluded.length > 0 && (
@@ -2461,6 +2678,7 @@ export default function ReportsPage() {
                 <div className="text-center py-8 text-muted-foreground">No expenses recorded in this period</div>
               )}
             </div>
+            )
           )}
         </div>
 
@@ -2496,12 +2714,12 @@ export default function ReportsPage() {
                         <div className="text-base font-bold text-blue-600">{formatCurrency(monthData.totalSales, displayCurrency)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground mb-0.5">Profit</div>
+                        <div className="text-xs text-muted-foreground mb-0.5">{isCatalogScoped ? 'Gross Profit' : 'Profit'}</div>
                         <div className="text-base font-bold text-green-600">{formatCurrency(monthData.totalProfit, displayCurrency)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-xs text-muted-foreground mb-0.5">Expenses</div>
-                        <div className="text-base font-bold text-red-600">{formatCurrency(monthData.totalExpenses, displayCurrency)}</div>
+                        <div className="text-xs text-muted-foreground mb-0.5">{isCatalogScoped ? 'Orders' : 'Expenses'}</div>
+                        <div className="text-base font-bold text-red-600">{isCatalogScoped ? monthData.salesCount : formatCurrency(monthData.totalExpenses, displayCurrency)}</div>
                       </div>
                     </div>
                   </div>
@@ -2575,6 +2793,7 @@ export default function ReportsPage() {
           {expandedSections.inventory && (
             <div className="px-4 pb-4 space-y-3 sm:space-y-4">
               {/* Inventory expense exclusion toggle */}
+              {!isCatalogScoped && (
               <label className="flex items-center gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/20 cursor-pointer hover:bg-blue-500/10 transition-colors">
                 <input type="checkbox" checked={excludeInventoryExpenses}
                   onChange={e => setExcludeInventoryExpenses(e.target.checked)}
@@ -2586,6 +2805,7 @@ export default function ReportsPage() {
                   </div>
                 </div>
               </label>
+              )}
               {/* Low-value item exclusion toggle */}
               <label className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input type="checkbox" checked={excludeLowValueItems}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
-import { buildReportExportData, buildReportPdf, getReportExportFilename, type ReportExportPeriod } from '@/lib/reportExport'
+import { buildReportExportData, buildReportPdf, getReportExportFilename, type ReportExportCatalogType, type ReportExportPeriod } from '@/lib/reportExport'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request)
@@ -9,6 +9,10 @@ export async function GET(request: NextRequest) {
   try {
     const period = request.nextUrl.searchParams.get('period') as ReportExportPeriod | null
     const locationId = request.nextUrl.searchParams.get('locationId') || ''
+    const catalogTypeParam = request.nextUrl.searchParams.get('catalogType')
+    const catalogType: ReportExportCatalogType = catalogTypeParam === 'audio' || catalogTypeParam === 'watches'
+      ? catalogTypeParam
+      : 'all'
 
     if (!period || !['monthly', 'yearly'].includes(period)) {
       return NextResponse.json(
@@ -17,7 +21,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const data = await buildReportExportData(period, locationId)
+    const data = await buildReportExportData(period, locationId, catalogType)
 
     const pdf = await buildReportPdf(data)
     const filename = getReportExportFilename(data)
