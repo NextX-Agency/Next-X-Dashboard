@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/AuthContext'
 import { 
@@ -37,6 +37,9 @@ interface Page {
 export default function PagesManagementPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const openIntent = searchParams.get('open')
   const { dialogProps, confirm } = useConfirmDialog()
   const [pages, setPages] = useState<Page[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,6 +67,14 @@ export default function PagesManagementPage() {
       loadPages()
     }
   }, [user])
+
+  useEffect(() => {
+    if (openIntent !== 'new') {
+      return
+    }
+
+    openNewPageEditor()
+  }, [openIntent])
 
   const loadPages = async () => {
     setLoading(true)
@@ -101,6 +112,17 @@ export default function PagesManagementPage() {
       is_published: true
     })
     setShowEditor(true)
+  }
+
+  const clearOpenQuery = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('open')) {
+      return
+    }
+
+    params.delete('open')
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
   }
 
   const openEditPageEditor = (page: Page) => {
@@ -144,6 +166,7 @@ export default function PagesManagementPage() {
 
       await loadPages()
       setShowEditor(false)
+      clearOpenQuery()
     } catch (err) {
       console.error('Error saving page:', err)
     } finally {
@@ -223,7 +246,7 @@ export default function PagesManagementPage() {
         </div>
         <button
           onClick={openNewPageEditor}
-          className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm lg:text-base font-medium hover:shadow-lg hover:shadow-orange-500/25 transition-all active:scale-95"
+          className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-white text-sm lg:text-base font-medium hover:shadow-lg hover:shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus size={16} className="lg:hidden" />
           <Plus size={18} className="hidden lg:block" />
@@ -235,7 +258,7 @@ export default function PagesManagementPage() {
       {/* Stats - Mobile Horizontal Scroll */}
       <div className="lg:hidden mb-4 -mx-4 px-4">
         <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
-          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-shrink-0 w-[130px]">
+          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 shrink-0 w-[130px]">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                 <FileText size={16} className="text-emerald-400" />
@@ -246,7 +269,7 @@ export default function PagesManagementPage() {
               </div>
             </div>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-shrink-0 w-[130px]">
+          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 shrink-0 w-[130px]">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
                 <Globe size={16} className="text-blue-400" />
@@ -257,7 +280,7 @@ export default function PagesManagementPage() {
               </div>
             </div>
           </div>
-          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 flex-shrink-0 w-[130px]">
+          <div className="bg-neutral-900 rounded-xl p-3 border border-neutral-800 shrink-0 w-[130px]">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
                 <EyeOff size={16} className="text-amber-400" />
@@ -355,14 +378,14 @@ export default function PagesManagementPage() {
                 {/* Mobile Layout */}
                 <div className="sm:hidden">
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
                       <FileText size={16} className="text-neutral-500" />
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-white text-sm truncate">{page.title}</h3>
-                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] flex-shrink-0 ${
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] shrink-0 ${
                           page.is_published 
                             ? 'bg-emerald-500/20 text-emerald-400'
                             : 'bg-amber-500/20 text-amber-400'
@@ -410,7 +433,7 @@ export default function PagesManagementPage() {
 
                 {/* Desktop Layout */}
                 <div className="hidden sm:flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
                     <FileText size={18} className="text-neutral-500" />
                   </div>
                   
@@ -481,7 +504,7 @@ export default function PagesManagementPage() {
       )}
 
       {/* Editor Modal */}
-      <Modal isOpen={showEditor} onClose={() => setShowEditor(false)} title={editingPage ? 'Edit Page' : 'New Page'}>
+      <Modal isOpen={showEditor} onClose={() => { setShowEditor(false); clearOpenQuery() }} title={editingPage ? 'Edit Page' : 'New Page'}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-2">Page Title *</label>
@@ -549,13 +572,13 @@ export default function PagesManagementPage() {
         </div>
 
         <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-neutral-800">
-          <button onClick={() => setShowEditor(false)} className="px-4 py-2 text-neutral-400 hover:text-white transition-colors">
+          <button onClick={() => { setShowEditor(false); clearOpenQuery() }} className="px-4 py-2 text-neutral-400 hover:text-white transition-colors">
             Cancel
           </button>
           <button
             onClick={savePage}
             disabled={saving || !formData.title.trim() || !formData.slug.trim()}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <>

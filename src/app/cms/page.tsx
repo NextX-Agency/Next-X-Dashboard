@@ -5,10 +5,11 @@ import { supabase } from '@/lib/supabase'
 import { 
   FileText, Image, MessageSquare, Tag, Star, Users, 
   BookOpen, Megaphone, HelpCircle, ChevronRight, Plus, 
-  TrendingUp, Eye, Calendar, Layout, Settings, ArrowRight
+  TrendingUp, Eye, Calendar, Layout, Settings, ArrowRight, Headphones, Watch
 } from 'lucide-react'
 import Link from 'next/link'
-import { PageHeader, PageContainer, LoadingSpinner } from '@/components/UI'
+import { PageContainer, LoadingSpinner } from '@/components/UI'
+import { useAdminCatalog } from '@/lib/adminCatalog'
 
 interface CMSStats {
   blogPosts: number
@@ -32,6 +33,7 @@ interface QuickAction {
 }
 
 export default function CMSPage() {
+  const { catalog, setCatalog } = useAdminCatalog()
   const [stats, setStats] = useState<CMSStats>({
     blogPosts: 0,
     publishedPosts: 0,
@@ -45,6 +47,7 @@ export default function CMSPage() {
     testimonials: 0
   })
   const [loading, setLoading] = useState(true)
+  const storefrontLabel = catalog === 'watches' ? 'Watches' : 'Audio'
 
   useEffect(() => {
     loadStats()
@@ -104,23 +107,23 @@ export default function CMSPage() {
     },
     {
       title: 'Add Banner',
-      description: 'Create banners',
+      description: `Create ${storefrontLabel.toLowerCase()} banners`,
       icon: <Image size={20} />,
-      href: '/cms/banners/new',
+      href: '/cms/banners?open=new',
       color: 'from-purple-500 to-pink-600'
     },
     {
       title: 'New Collection',
-      description: 'Curate products',
+      description: `Curate ${storefrontLabel.toLowerCase()} products`,
       icon: <Layout size={20} />,
-      href: '/cms/collections/new',
+      href: '/cms/collections?open=new',
       color: 'from-orange-500 to-red-600'
     },
     {
       title: 'Create Page',
-      description: 'Build pages',
+      description: 'Build shared pages',
       icon: <FileText size={20} />,
-      href: '/cms/pages/new',
+      href: '/cms/pages?open=new',
       color: 'from-emerald-500 to-teal-600'
     }
   ]
@@ -139,7 +142,7 @@ export default function CMSPage() {
     },
     {
       title: 'Banners',
-      description: 'Homepage sliders and promotions',
+      description: `${storefrontLabel} storefront sliders and promotions`,
       icon: <Megaphone size={22} />,
       href: '/cms/banners',
       stats: [
@@ -149,7 +152,7 @@ export default function CMSPage() {
     },
     {
       title: 'Collections',
-      description: 'Curated product collections',
+      description: `Curated ${storefrontLabel.toLowerCase()} product collections`,
       icon: <Layout size={22} />,
       href: '/cms/collections',
       stats: [
@@ -159,7 +162,7 @@ export default function CMSPage() {
     },
     {
       title: 'Pages',
-      description: 'About, FAQ, Terms, etc.',
+      description: 'Shared About, FAQ, Terms, and landing pages',
       icon: <FileText size={22} />,
       href: '/cms/pages',
       stats: [
@@ -225,12 +228,48 @@ export default function CMSPage() {
       {/* Mobile-optimized Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
+          <div className="w-10 h-10 rounded-xl bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white shadow-lg shadow-orange-500/25">
             <Settings size={20} />
           </div>
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold text-white">Content Management</h1>
-            <p className="text-xs lg:text-sm text-gray-400 hidden sm:block">Manage your store&apos;s content</p>
+            <h1 className="text-xl lg:text-2xl font-bold text-white">Content Center</h1>
+            <p className="text-xs lg:text-sm text-gray-400 hidden sm:block">Manage both storefronts from one admin</p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-700/50 bg-gray-800/60 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Storefront Focus</div>
+              <div className="mt-1 text-base font-semibold text-white">{storefrontLabel} is active</div>
+              <p className="mt-1 text-sm text-gray-400">Banners and collections follow this focus. Blog, pages, FAQ, reviews, testimonials, and subscribers stay shared.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setCatalog('audio')}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+                  catalog === 'audio'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-gray-900 text-gray-300 hover:text-white'
+                }`}
+              >
+                <Headphones size={16} />
+                Audio
+              </button>
+              <button
+                type="button"
+                onClick={() => setCatalog('watches')}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+                  catalog === 'watches'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-gray-900 text-gray-300 hover:text-white'
+                }`}
+              >
+                <Watch size={16} />
+                Watches
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -246,10 +285,10 @@ export default function CMSPage() {
               <Link
                 key={action.title}
                 href={action.href}
-                className="group relative overflow-hidden rounded-2xl bg-gray-800/80 border border-gray-700/50 p-4 active:scale-[0.98] transition-all duration-200 w-[140px] flex-shrink-0"
+                className="group relative overflow-hidden rounded-2xl bg-gray-800/80 border border-gray-700/50 p-4 active:scale-[0.98] transition-all duration-200 w-[140px] shrink-0"
               >
-                <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-0 group-active:opacity-10 transition-opacity duration-200`} />
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white mb-3 shadow-lg`}>
+                <div className={`absolute inset-0 bg-linear-to-br ${action.color} opacity-0 group-active:opacity-10 transition-opacity duration-200`} />
+                <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${action.color} flex items-center justify-center text-white mb-3 shadow-lg`}>
                   {action.icon}
                 </div>
                 <h3 className="font-semibold text-white text-sm mb-0.5">{action.title}</h3>
@@ -267,8 +306,8 @@ export default function CMSPage() {
               href={action.href}
               className="group relative overflow-hidden rounded-2xl bg-gray-800/80 border border-gray-700/50 p-5 hover:border-gray-600 transition-all duration-300"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white mb-4 shadow-lg`}>
+              <div className={`absolute inset-0 bg-linear-to-br ${action.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+              <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${action.color} flex items-center justify-center text-white mb-4 shadow-lg`}>
                 {action.icon}
               </div>
               <h3 className="font-semibold text-white mb-1">{action.title}</h3>
@@ -294,14 +333,14 @@ export default function CMSPage() {
               href={section.href}
               className="group flex items-center gap-4 bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 active:bg-gray-800 active:scale-[0.99] transition-all duration-150"
             >
-              <div className={`w-11 h-11 rounded-xl ${section.color} flex items-center justify-center text-white shadow-lg flex-shrink-0`}>
+              <div className={`w-11 h-11 rounded-xl ${section.color} flex items-center justify-center text-white shadow-lg shrink-0`}>
                 {section.icon}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-white text-sm">{section.title}</h3>
                 <p className="text-xs text-gray-500 truncate">{section.description}</p>
               </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
                 <div className="text-right">
                   <div className="text-lg font-bold text-white">{section.stats[0].value}</div>
                   <div className="text-[10px] text-gray-500">{section.stats[0].label}</div>
@@ -345,15 +384,15 @@ export default function CMSPage() {
       </div>
 
       {/* Store Settings Link */}
-      <div className="mt-6 lg:mt-8 p-4 lg:p-6 rounded-2xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+      <div className="mt-6 lg:mt-8 p-4 lg:p-6 rounded-2xl bg-linear-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-white mb-1">Store Settings</h3>
-            <p className="text-xs lg:text-sm text-gray-400">Configure store info, hero section, and more</p>
+            <h3 className="font-semibold text-white mb-1">Shared Store Settings</h3>
+            <p className="text-xs lg:text-sm text-gray-400">Configure shared store info, hero content, and global storefront settings</p>
           </div>
           <Link
             href="/settings"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-medium hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all duration-200"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-white font-medium hover:shadow-lg hover:shadow-orange-500/25 active:scale-[0.98] transition-all duration-200"
           >
             Go to Settings
             <ArrowRight size={16} />

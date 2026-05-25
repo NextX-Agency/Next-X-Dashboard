@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
+import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 import { Database } from '@/types/database.types'
 import type { SalesPageDataPayload, SalesPageDataResponse, SalesPageRecentSale, SalesPageStats } from '@/types/sales'
 import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw, Headphones, Watch } from 'lucide-react'
@@ -61,19 +62,16 @@ interface InvoiceData {
 type WalletType = Database['public']['Tables']['wallets']['Row']
 type CatalogType = 'audio' | 'watches'
 
-function normalizeCatalogFilter(value: string | null): CatalogType {
-  return value === 'watches' ? 'watches' : 'audio'
-}
-
 export default function SalesPage() {
   const { dialogProps, confirm } = useConfirmDialog()
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeCatalogFilter(searchParams.get('catalog')))
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeAdminCatalog(searchParams.get('catalog') ?? getStoredAdminCatalog()))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [combos, setCombos] = useState<ComboSale[]>([])
@@ -201,9 +199,31 @@ export default function SalesPage() {
   }, [loadData])
 
   useEffect(() => {
-    const nextCatalogFilter = normalizeCatalogFilter(searchParams.get('catalog'))
+    const queryCatalog = searchParams.get('catalog')
+    if (!queryCatalog) {
+      return
+    }
+
+    const nextCatalogFilter = normalizeAdminCatalog(queryCatalog)
     setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
-  }, [searchParams])
+    if (preferredCatalog !== nextCatalogFilter) {
+      setPreferredCatalog(nextCatalogFilter)
+    }
+  }, [preferredCatalog, searchParams, setPreferredCatalog])
+
+  useEffect(() => {
+    setCatalogFilter((current) => current === preferredCatalog ? current : preferredCatalog)
+  }, [preferredCatalog])
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (params.get('catalog') === catalogFilter) {
+      return
+    }
+
+    params.set('catalog', catalogFilter)
+    router.replace(`${pathname}?${params.toString()}`)
+  }, [catalogFilter, pathname, router, searchParams])
 
   useEffect(() => {
     setCart([])
@@ -214,10 +234,8 @@ export default function SalesPage() {
 
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
     setCatalogFilter(nextCatalog)
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('catalog', nextCatalog)
-    router.replace(`${pathname}?${params.toString()}`)
-  }, [pathname, router, searchParams])
+    setPreferredCatalog(nextCatalog)
+  }, [setPreferredCatalog])
 
   useEffect(() => {
     if (selectedLocation) {

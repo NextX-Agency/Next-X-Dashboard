@@ -17,7 +17,6 @@ import {
   LayoutDashboard,
   Activity,
   Settings,
-  Store,
   ExternalLink,
   FileText,
   Layers,
@@ -29,6 +28,7 @@ import {
   Newspaper
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useAdminCatalog } from '@/lib/adminCatalog'
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -51,10 +51,12 @@ interface NavSection {
 export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { catalog, setCatalog } = useAdminCatalog()
   const [searchQuery, setSearchQuery] = useState('')
   
   // Auto-expand current section based on path
   const getCurrentSection = () => {
+    if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
     if (pathname.startsWith('/cms')) return 'Content'
     if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
     if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
@@ -81,10 +83,16 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       title: 'Store',
       items: [
         { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'View Catalog', icon: Store, path: '/catalog', external: true },
         { name: 'Products', icon: Package, path: '/items' },
         { name: 'Stock', icon: Layers, path: '/stock' },
         { name: 'Locations', icon: MapPin, path: '/locations' },
+      ],
+    },
+    {
+      title: 'Storefronts',
+      items: [
+        { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
+        { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
       ],
     },
     {
@@ -216,6 +224,36 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 {currentSection}
               </div>
             </div>
+
+            <div className="mt-3 border-t border-gray-800/70 pt-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Catalog Focus</div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCatalog('audio')}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    catalog === 'audio'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  <Headphones size={15} />
+                  Audio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCatalog('watches')}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    catalog === 'watches'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                  }`}
+                >
+                  <Watch size={15} />
+                  Watches
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -307,23 +345,10 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-800/50 bg-gray-950/90 shrink-0">
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => handleNavigation('/audio')}
-              className="flex items-center gap-2 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3 text-sm font-medium text-gray-200 hover:border-orange-500/30 hover:text-white transition-colors"
-            >
-              <Headphones size={16} className="text-orange-300" />
-              Audio
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNavigation('/watches')}
-              className="flex items-center gap-2 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3 text-sm font-medium text-gray-200 hover:border-orange-500/30 hover:text-white transition-colors"
-            >
-              <Watch size={16} className="text-orange-300" />
-              Watches
-            </button>
+          <div className="mb-3 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Shared Admin Focus</div>
+            <div className="mt-1 text-sm font-semibold text-white">{catalog === 'watches' ? 'Watches' : 'Audio'}</div>
+            <div className="mt-1 text-xs text-gray-400">Stock, sales, reservations and shared reports follow this focus.</div>
           </div>
           <div className="text-center text-xs text-gray-500">
             <p className="font-semibold">NextX Dashboard v1.0</p>

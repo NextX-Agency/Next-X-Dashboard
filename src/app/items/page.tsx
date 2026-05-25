@@ -11,11 +11,13 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
+import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 
 type Category = Database['public']['Tables']['categories']['Row']
 type Item = Database['public']['Tables']['items']['Row']
 type ComboItem = Database['public']['Tables']['combo_items']['Row']
 type CatalogType = 'audio' | 'watches'
+type CatalogFilter = 'all' | CatalogType
 
 interface ItemWithComboItems extends Item {
   combo_items?: (ComboItem & { item?: Item })[]
@@ -23,6 +25,7 @@ interface ItemWithComboItems extends Item {
 
 export default function ItemsPage() {
   const { dialogProps, confirm } = useConfirmDialog()
+  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
   const [categories, setCategories] = useState<Category[]>([])
   const [items, setItems] = useState<ItemWithComboItems[]>([])
   const [showCategoryForm, setShowCategoryForm] = useState(false)
@@ -31,10 +34,10 @@ export default function ItemsPage() {
   const [editingItem, setEditingItem] = useState<ItemWithComboItems | null>(null)
   const [categoryForm, setCategoryForm] = useState<{ name: string; catalog_type: CatalogType }>({
     name: '',
-    catalog_type: 'audio',
+    catalog_type: getStoredAdminCatalog(),
   })
   const [activeTab, setActiveTab] = useState<'items' | 'combos' | 'categories'>('items')
-  const [catalogFilter, setCatalogFilter] = useState<'all' | 'audio' | 'watches'>('all')
+  const [catalogFilter, setCatalogFilter] = useState<CatalogFilter>(() => getStoredAdminCatalog())
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -50,9 +53,14 @@ export default function ItemsPage() {
     is_public: true,
     is_combo: false,
     allow_custom_price: false,
-    catalog_type: 'audio',
+    catalog_type: getStoredAdminCatalog(),
   })
   const [comboItems, setComboItems] = useState<{ item_id: string; quantity: number }[]>([])
+  const defaultCatalog = catalogFilter === 'all' ? preferredCatalog : catalogFilter
+
+  useEffect(() => {
+    setCatalogFilter((current) => current === 'all' ? current : preferredCatalog)
+  }, [preferredCatalog])
 
   const loadData = async () => {
     setLoading(true)
@@ -102,7 +110,7 @@ export default function ItemsPage() {
           details: `Created ${categoryForm.catalog_type} category: ${categoryForm.name}`
         })
       }
-      setCategoryForm({ name: '', catalog_type: 'audio' })
+      setCategoryForm({ name: '', catalog_type: defaultCatalog })
       setShowCategoryForm(false)
       loadData()
     } finally {
@@ -145,7 +153,7 @@ export default function ItemsPage() {
       is_public: true,
       is_combo: false,
       allow_custom_price: false,
-      catalog_type: 'audio',
+      catalog_type: defaultCatalog,
     })
     setComboItems([])
     setEditingItem(null)
@@ -156,9 +164,17 @@ export default function ItemsPage() {
   const openCategoryForm = () => {
     setCategoryForm({
       name: '',
-      catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+      catalog_type: defaultCatalog,
     })
     setShowCategoryForm(true)
+  }
+
+  const handleCatalogFilterChange = (nextCatalog: CatalogFilter) => {
+    setCatalogFilter(nextCatalog)
+
+    if (nextCatalog !== 'all') {
+      setPreferredCatalog(nextCatalog)
+    }
   }
 
   const handleCatalogTypeChange = (catalogType: CatalogType) => {
@@ -272,7 +288,7 @@ export default function ItemsPage() {
       is_public: item.is_public ?? true,
       is_combo: isCombo,
       allow_custom_price: item.allow_custom_price ?? false,
-      catalog_type: item.catalog_type || 'audio',
+      catalog_type: normalizeAdminCatalog(item.catalog_type),
     })
     if (isCombo && item.combo_items && item.combo_items.length > 0) {
       setComboItems(item.combo_items.map(ci => ({
@@ -389,7 +405,7 @@ export default function ItemsPage() {
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
         title="Items & Categories" 
-        subtitle="Manage products, combos, and categories"
+        subtitle="Manage products, combos, and categories across both storefronts"
         icon={<Package size={24} />}
         action={
           <div className="flex gap-2">
@@ -400,7 +416,7 @@ export default function ItemsPage() {
                   setItemForm(prev => ({
                     ...prev,
                     is_combo: true,
-                    catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+                    catalog_type: defaultCatalog,
                   }))
                   setShowComboForm(true)
                 }} 
@@ -416,7 +432,7 @@ export default function ItemsPage() {
                   resetItemForm()
                   setItemForm((previous) => ({
                     ...previous,
-                    catalog_type: catalogFilter === 'all' ? 'audio' : catalogFilter,
+                    catalog_type: defaultCatalog,
                   }))
                   setShowItemForm(true)
                 }} 
@@ -437,6 +453,10 @@ export default function ItemsPage() {
       />
 
       <PageContainer>
+        <div className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Storefront focus defaults to <span className="font-semibold text-foreground">{preferredCatalog === 'watches' ? 'Watches' : 'Audio'}</span> across the admin. Switch to <span className="font-semibold text-foreground">All</span> here when you need to review both storefronts together.
+        </div>
+
         {/* Search and Tabs */}
         <div className="mb-5 sm:mb-6">
           <div className="relative mb-3 sm:mb-4">
@@ -497,7 +517,7 @@ export default function ItemsPage() {
             ] as { key: 'all' | 'audio' | 'watches'; label: string; icon: React.ReactNode }[]).map(f => (
               <button
                 key={f.key}
-                onClick={() => setCatalogFilter(f.key)}
+                onClick={() => handleCatalogFilterChange(f.key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   catalogFilter === f.key
                     ? 'bg-primary text-white'

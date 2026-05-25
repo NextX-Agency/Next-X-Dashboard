@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { 
   Plus, Edit2, Trash2, Eye, EyeOff, ChevronLeft, Star,
@@ -10,6 +11,7 @@ import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
+import { getStoredAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 
 interface Collection {
   id: string
@@ -42,9 +44,14 @@ interface CollectionItem {
 type CatalogType = 'audio' | 'watches'
 
 export default function CollectionsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const openIntent = searchParams.get('open')
   const [collections, setCollections] = useState<Collection[]>([])
   const [items, setItems] = useState<Item[]>([])
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>('audio')
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => getStoredAdminCatalog())
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
@@ -61,7 +68,7 @@ export default function CollectionsPage() {
     name: '',
     slug: '',
     description: '',
-    catalog_type: 'audio' as CatalogType,
+    catalog_type: getStoredAdminCatalog() as CatalogType,
     image_url: '',
     is_active: true,
     is_featured: false
@@ -70,6 +77,19 @@ export default function CollectionsPage() {
   useEffect(() => {
     void loadData()
   }, [catalogFilter])
+
+  useEffect(() => {
+    setCatalogFilter((current) => current === preferredCatalog ? current : preferredCatalog)
+  }, [preferredCatalog])
+
+  useEffect(() => {
+    if (openIntent !== 'new') {
+      return
+    }
+
+    resetForm()
+    setShowForm(true)
+  }, [openIntent])
 
   const loadData = async () => {
     setLoading(true)
@@ -113,6 +133,23 @@ export default function CollectionsPage() {
       is_featured: false
     })
     setEditingCollection(null)
+  }
+
+  const clearOpenQuery = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('open')) {
+      return
+    }
+
+    params.delete('open')
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+  }
+
+  const handleCatalogFilterChange = (nextCatalog: CatalogType) => {
+    setCatalogFilter(nextCatalog)
+    setPreferredCatalog(nextCatalog)
+    setForm((current) => current.catalog_type === nextCatalog ? current : { ...current, catalog_type: nextCatalog })
   }
 
   const handleEdit = (collection: Collection) => {
@@ -164,6 +201,7 @@ export default function CollectionsPage() {
 
       setShowForm(false)
       resetForm()
+      clearOpenQuery()
       loadData()
     } catch (error) {
       console.error('Error saving collection:', error)
@@ -265,7 +303,7 @@ export default function CollectionsPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl lg:text-2xl font-bold text-white truncate">Collections</h1>
-          <p className="text-neutral-400 text-xs lg:text-sm hidden sm:block">Curate product collections per webshop</p>
+          <p className="text-neutral-400 text-xs lg:text-sm hidden sm:block">Curate product collections for the {catalogFilter === 'watches' ? 'watches' : 'audio'} storefront</p>
         </div>
         <button
           onClick={() => {
@@ -289,7 +327,7 @@ export default function CollectionsPage() {
           <button
             key={option.key}
             type="button"
-            onClick={() => setCatalogFilter(option.key)}
+            onClick={() => handleCatalogFilterChange(option.key)}
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
               catalogFilter === option.key
                 ? 'border-orange-500 bg-orange-500 text-white'
@@ -514,7 +552,7 @@ export default function CollectionsPage() {
 
       {/* Collection Form Modal */}
       {showForm && (
-        <Modal isOpen={showForm} onClose={() => { setShowForm(false); resetForm(); }}>
+        <Modal isOpen={showForm} onClose={() => { setShowForm(false); resetForm(); clearOpenQuery(); }}>
           <form onSubmit={handleSave} className="p-6">
             <h3 className="text-lg font-semibold text-white mb-6">
               {editingCollection ? 'Edit Collection' : 'New Collection'}
@@ -636,7 +674,7 @@ export default function CollectionsPage() {
             <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-neutral-800">
               <button
                 type="button"
-                onClick={() => { setShowForm(false); resetForm(); }}
+                onClick={() => { setShowForm(false); resetForm(); clearOpenQuery(); }}
                 className="px-4 py-2 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 transition-colors"
               >
                 Cancel

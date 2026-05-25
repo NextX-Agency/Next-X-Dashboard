@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { 
   Plus, Edit2, Trash2, Eye, EyeOff, ChevronLeft, GripVertical,
@@ -10,6 +11,7 @@ import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
+import { getStoredAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 
 interface Banner {
   id: string
@@ -30,8 +32,13 @@ interface Banner {
 type CatalogType = 'audio' | 'watches'
 
 export default function BannersPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const openIntent = searchParams.get('open')
   const [banners, setBanners] = useState<Banner[]>([])
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>('audio')
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => getStoredAdminCatalog())
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null)
@@ -41,7 +48,7 @@ export default function BannersPage() {
   const [form, setForm] = useState({
     title: '',
     subtitle: '',
-    catalog_type: 'audio' as CatalogType,
+    catalog_type: getStoredAdminCatalog() as CatalogType,
     image_url: '',
     mobile_image: '',
     link_url: '',
@@ -54,6 +61,19 @@ export default function BannersPage() {
   useEffect(() => {
     void loadBanners()
   }, [catalogFilter])
+
+  useEffect(() => {
+    setCatalogFilter((current) => current === preferredCatalog ? current : preferredCatalog)
+  }, [preferredCatalog])
+
+  useEffect(() => {
+    if (openIntent !== 'new') {
+      return
+    }
+
+    resetForm()
+    setShowForm(true)
+  }, [openIntent])
 
   const loadBanners = async () => {
     setLoading(true)
@@ -84,6 +104,23 @@ export default function BannersPage() {
       end_date: ''
     })
     setEditingBanner(null)
+  }
+
+  const clearOpenQuery = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('open')) {
+      return
+    }
+
+    params.delete('open')
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+  }
+
+  const handleCatalogFilterChange = (nextCatalog: CatalogType) => {
+    setCatalogFilter(nextCatalog)
+    setPreferredCatalog(nextCatalog)
+    setForm((current) => current.catalog_type === nextCatalog ? current : { ...current, catalog_type: nextCatalog })
   }
 
   const handleEdit = (banner: Banner) => {
@@ -141,6 +178,7 @@ export default function BannersPage() {
 
       setShowForm(false)
       resetForm()
+      clearOpenQuery()
       loadBanners()
     } catch (error) {
       console.error('Error saving banner:', error)
@@ -194,7 +232,7 @@ export default function BannersPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg lg:text-2xl font-bold text-white">Banners</h1>
-          <p className="text-gray-400 text-xs lg:text-sm hidden sm:block">Manage homepage sliders per webshop</p>
+          <p className="text-gray-400 text-xs lg:text-sm hidden sm:block">Manage homepage sliders for the {catalogFilter === 'watches' ? 'watches' : 'audio'} storefront</p>
         </div>
         <button
           onClick={() => {
@@ -216,7 +254,7 @@ export default function BannersPage() {
           <button
             key={option.key}
             type="button"
-            onClick={() => setCatalogFilter(option.key)}
+            onClick={() => handleCatalogFilterChange(option.key)}
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
               catalogFilter === option.key
                 ? 'border-orange-500 bg-orange-500 text-white'
@@ -405,7 +443,7 @@ export default function BannersPage() {
 
       {/* Banner Form Modal */}
       {showForm && (
-        <Modal isOpen={showForm} onClose={() => { setShowForm(false); resetForm(); }}>
+        <Modal isOpen={showForm} onClose={() => { setShowForm(false); resetForm(); clearOpenQuery(); }}>
           <form onSubmit={handleSave} className="p-6">
             <h3 className="text-lg font-semibold text-white mb-6">
               {editingBanner ? 'Edit Banner' : 'New Banner'}
@@ -549,7 +587,7 @@ export default function BannersPage() {
             <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-neutral-800">
               <button
                 type="button"
-                onClick={() => { setShowForm(false); resetForm(); }}
+                onClick={() => { setShowForm(false); resetForm(); clearOpenQuery(); }}
                 className="px-4 py-2 rounded-xl bg-neutral-800 text-white hover:bg-neutral-700 transition-colors"
               >
                 Cancel

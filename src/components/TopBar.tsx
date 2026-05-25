@@ -1,18 +1,20 @@
 'use client'
 
-import { Bell, Menu, DollarSign, LogOut } from 'lucide-react'
+import { Bell, Menu, DollarSign, LogOut, Headphones, Watch } from 'lucide-react'
 import { useState, useCallback, useMemo, memo } from 'react'
 import Image from 'next/image'
 import MobileMenu from './MobileMenu'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useAdminCatalog } from '@/lib/adminCatalog'
 
 function TopBarComponent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const { displayCurrency, setDisplayCurrency, exchangeRate } = useCurrency()
   const { user, logout } = useAuth()
+  const { catalog, setCatalog } = useAdminCatalog()
   const router = useRouter()
 
   const handleLogout = useCallback(async () => {
@@ -26,6 +28,8 @@ function TopBarComponent() {
   const closeUserMenu = useCallback(() => setShowUserMenu(false), [])
   const setUSD = useCallback(() => setDisplayCurrency('USD'), [setDisplayCurrency])
   const setSRD = useCallback(() => setDisplayCurrency('SRD'), [setDisplayCurrency])
+  const setAudioCatalog = useCallback(() => setCatalog('audio'), [setCatalog])
+  const setWatchesCatalog = useCallback(() => setCatalog('watches'), [setCatalog])
 
   // Memoize user initial
   const userInitial = useMemo(() => 
@@ -65,11 +69,39 @@ function TopBarComponent() {
             </div>
             <div className="hidden lg:block h-7 w-px bg-gray-800/80" />
             <div className="hidden lg:block text-sm text-gray-400 truncate">
-              Quick controls
+              Shared admin
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 lg:gap-2">
+            <div className="hidden xl:flex items-center gap-2 rounded-xl border border-gray-700/50 bg-gray-800/30 px-2 py-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Catalog</span>
+              <div className="flex items-center gap-0.5 rounded-lg bg-gray-800/70 p-0.5">
+                <button
+                  onClick={setAudioCatalog}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    catalog === 'audio'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white active:bg-gray-700'
+                  }`}
+                >
+                  <Headphones size={14} />
+                  Audio
+                </button>
+                <button
+                  onClick={setWatchesCatalog}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    catalog === 'watches'
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white active:bg-gray-700'
+                  }`}
+                >
+                  <Watch size={14} />
+                  Watches
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-xl p-0.5 border border-gray-700/50">
               <button
                 onClick={setUSD}

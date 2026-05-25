@@ -27,6 +27,7 @@ import {
   Headphones,
   Watch
 } from 'lucide-react'
+import { useAdminCatalog } from '@/lib/adminCatalog'
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'nextx:sidebar-collapsed'
 const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
@@ -34,7 +35,6 @@ const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
 const DEFAULT_EXPANDED_SECTIONS: Record<string, boolean> = {
   Store: true,
   Storefronts: true,
-  Watches: true,
   Operations: true,
   Finance: true,
   Analytics: true,
@@ -56,6 +56,7 @@ interface NavSection {
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { catalog, setCatalog } = useAdminCatalog()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(DEFAULT_EXPANDED_SECTIONS)
 
@@ -75,14 +76,6 @@ export default function Sidebar() {
       items: [
         { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
         { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
-      ],
-    },
-    {
-      title: 'Watches',
-      items: [
-        { name: 'Watches Stock', icon: Layers, path: '/stock?catalog=watches' },
-        { name: 'Watches Sales', icon: ShoppingCart, path: '/sales?catalog=watches' },
-        { name: 'Watches Reservations', icon: Calendar, path: '/reservations?catalog=watches' },
       ],
     },
     {
@@ -222,6 +215,40 @@ export default function Sidebar() {
 
       {/* Premium Navigation with Sections */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
+        {!isCollapsed && (
+          <div className="mb-4 rounded-2xl border border-gray-800/60 bg-gray-900/70 p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Catalog Focus</div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCatalog('audio')}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+                  catalog === 'audio'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                }`}
+              >
+                <Headphones size={14} />
+                Audio
+              </button>
+              <button
+                type="button"
+                onClick={() => setCatalog('watches')}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+                  catalog === 'watches'
+                    ? 'bg-orange-500 text-white shadow-sm'
+                    : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                }`}
+              >
+                <Watch size={14} />
+                Watches
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Shared pages stay the same. Their data focus follows this selection.
+            </p>
+          </div>
+        )}
         <div className="space-y-2">
           {navSections.map((section) => (
             <div key={section.title} className="mb-2">
