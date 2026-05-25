@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import type { SalesPageDataPayload, SalesPageDataResponse, SalesPageRecentSale, SalesPageStats } from '@/types/sales'
-import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, CurrencyToggle, EmptyState, LoadingSpinner, Badge, Input } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -58,12 +59,21 @@ interface InvoiceData {
 }
 
 type WalletType = Database['public']['Tables']['wallets']['Row']
+type CatalogType = 'audio' | 'watches'
+
+function normalizeCatalogFilter(value: string | null): CatalogType {
+  return value === 'watches' ? 'watches' : 'audio'
+}
 
 export default function SalesPage() {
   const { dialogProps, confirm } = useConfirmDialog()
   const { user } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeCatalogFilter(searchParams.get('catalog')))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [combos, setCombos] = useState<ComboSale[]>([])
@@ -109,6 +119,7 @@ export default function SalesPage() {
   
   // Location wallets
   const [locationWallets, setLocationWallets] = useState<WalletType[]>([])
+  const combosAllowed = catalogFilter === 'audio'
 
   const applySalesPageData = useCallback((payload: SalesPageDataPayload) => {
     setItems(payload.items)
@@ -127,7 +138,7 @@ export default function SalesPage() {
     setLoadError(null)
 
     try {
-      const response = await fetch('/api/sales', { cache: 'no-store' })
+      const response = await fetch(`/api/sales?catalogType=${catalogFilter}`, { cache: 'no-store' })
       if (!response.ok) {
         throw new Error(`Failed to load sales data (${response.status})`)
       }
@@ -142,7 +153,7 @@ export default function SalesPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [applySalesPageData, hasLoadedData])
+  }, [applySalesPageData, catalogFilter, hasLoadedData])
 
   const loadStock = async (locationId: string) => {
     const { data } = await supabase
@@ -188,6 +199,25 @@ export default function SalesPage() {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    const nextCatalogFilter = normalizeCatalogFilter(searchParams.get('catalog'))
+    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
+  }, [searchParams])
+
+  useEffect(() => {
+    setCart([])
+    setCombos([])
+    setTempComboItems([])
+    setComboMode(false)
+  }, [catalogFilter])
+
+  const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
+    setCatalogFilter(nextCatalog)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('catalog', nextCatalog)
+    router.replace(`${pathname}?${params.toString()}`)
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     if (selectedLocation) {
@@ -238,6 +268,8 @@ export default function SalesPage() {
 
   // Combo sale functions
   const addItemToCombo = (item: Item) => {
+    if (!combosAllowed) return
+
     const availableStock = getAvailableStock(item.id)
     if (availableStock <= 0) return
 
@@ -268,6 +300,11 @@ export default function SalesPage() {
   }
 
   const createQuickCombo = () => {
+    if (!combosAllowed) {
+      alert('Watch combos are disabled. Sell watches individually.')
+      return
+    }
+
     if (tempComboItems.length < 2) {
       alert('Selecteer minimaal 2 items voor een combo')
       return
@@ -338,6 +375,10 @@ export default function SalesPage() {
 
   const handleCompleteSale = async () => {
     if (!selectedLocation || (cart.length === 0 && combos.length === 0) || submitting) return
+    if (!combosAllowed && combos.length > 0) {
+      alert('Watch combos are disabled. Remove the combo items and sell them individually.')
+      return
+    }
 
     setSubmitting(true)
     const total = calculateTotal()
@@ -893,7 +934,7 @@ export default function SalesPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <PageHeader title="Sales" subtitle="Process new sales" />
+        <PageHeader title="Sales" subtitle={`Process ${catalogFilter} sales`} />
         <LoadingSpinner />
       </div>
     )
@@ -902,7 +943,7 @@ export default function SalesPage() {
   if (loadError && !hasLoadedData) {
     return (
       <div className="min-h-screen pb-20 lg:pb-0">
-        <PageHeader title="Sales" subtitle="Process new sales" icon={<ShoppingCart size={24} />} />
+        <PageHeader title="Sales" subtitle={`Process ${catalogFilter} sales`} icon={<ShoppingCart size={24} />} />
         <PageContainer>
           <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-destructive">
             <h2 className="text-lg font-semibold text-foreground">Unable to load sales</h2>
@@ -942,7 +983,7 @@ export default function SalesPage() {
 
       <PageHeader 
         title="Sales" 
-        subtitle="Process new sales"
+        subtitle={`Process ${catalogFilter} sales`}
         icon={<ShoppingCart size={24} />}
         action={
           <div className="flex gap-2">
@@ -964,6 +1005,33 @@ export default function SalesPage() {
             {loadError}
           </div>
         )}
+
+        <div className="mb-6 flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleCatalogFilterChange('audio')}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === 'audio'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Headphones size={14} />
+            Audio
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCatalogFilterChange('watches')}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === 'watches'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Watch size={14} />
+            Watches
+          </button>
+        </div>
 
         {/* Sales Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
@@ -1078,23 +1146,39 @@ export default function SalesPage() {
                     <div className="min-w-0">
                       <div className="font-semibold text-foreground text-sm sm:text-base truncate">Combo Deal Mode</div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {comboMode ? `${tempComboItems.length} items selected` : 'Multi-item combo'}
+                        {!combosAllowed
+                          ? 'Disabled for watches'
+                          : comboMode
+                            ? `${tempComboItems.length} items selected`
+                            : 'Multi-item combo'}
                       </div>
                     </div>
                   </div>
                   <button
-                    onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
+                    onClick={() => {
+                      if (!combosAllowed) return
+                      comboMode ? cancelComboMode() : setComboMode(true)
+                    }}
+                    disabled={!combosAllowed}
                     className={`px-3 sm:px-4 py-2 min-h-11 rounded-xl font-semibold transition-all shrink-0 touch-manipulation text-sm sm:text-base ${
-                      comboMode 
+                      !combosAllowed
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                        : comboMode 
                         ? 'bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-700' 
                         : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white'
                     }`}
                   >
-                    {comboMode ? 'Cancel' : 'Start'}
+                    {!combosAllowed ? 'Unavailable' : comboMode ? 'Cancel' : 'Start'}
                   </button>
                 </div>
+
+                {!combosAllowed && (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/50 p-3 text-xs sm:text-sm text-muted-foreground">
+                    Watches do not support custom combo deals in the dashboard. Sell watch items individually.
+                  </div>
+                )}
                 
-                {comboMode && tempComboItems.length >= 2 && (
+                {comboMode && combosAllowed && tempComboItems.length >= 2 && (
                   <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-border space-y-3">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:gap-3">
                       <Input
@@ -1138,7 +1222,7 @@ export default function SalesPage() {
                     {availableItems.length} items
                   </span>
                 </h3>
-                {comboMode && (
+                {comboMode && combosAllowed && (
                   <div className="mb-3 p-2 sm:p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
                     <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-400">
                       💡 Tap items to add to combo. Minimum 2 items needed.
@@ -1598,7 +1682,7 @@ export default function SalesPage() {
           {recentSales.length === 0 ? (
             <div className="text-center py-12">
               <Receipt size={40} className="mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground">No recent sales</p>
+              <p className="text-muted-foreground">No recent {catalogFilter} sales</p>
             </div>
           ) : (
             recentSales.map((sale) => (

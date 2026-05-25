@@ -264,6 +264,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
+    const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
@@ -283,7 +284,7 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       }),
       prisma.item.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, catalogType },
         select: {
           id: true,
           name: true,
@@ -320,6 +321,11 @@ export async function GET(request: NextRequest) {
       }),
       prisma.reservation.findMany({
         take: 20,
+        where: {
+          item: {
+            is: { catalogType },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -353,7 +359,12 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.reservation.findMany({
-        where: { createdAt: { gte: weekStart } },
+        where: {
+          createdAt: { gte: weekStart },
+          item: {
+            is: { catalogType },
+          },
+        },
         select: {
           createdAt: true,
           quantity: true,
@@ -364,8 +375,22 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.reservation.count({ where: { status: 'pending' } }),
-      prisma.reservation.count({ where: { status: 'completed' } }),
+      prisma.reservation.count({
+        where: {
+          status: 'pending',
+          item: {
+            is: { catalogType },
+          },
+        },
+      }),
+      prisma.reservation.count({
+        where: {
+          status: 'completed',
+          item: {
+            is: { catalogType },
+          },
+        },
+      }),
     ])
 
     const data: ReservationsPageDataPayload = {

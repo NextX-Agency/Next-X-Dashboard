@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useDeferredValue } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
+import { Search } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import {
   WatchesHeader,
@@ -12,6 +14,7 @@ import {
   WatchesFooter,
 } from '@/components/watches'
 import { WatchesBrandNav } from '@/components/watches/WatchesBrandNav'
+import { WatchesFeaturedSection } from '@/components/watches/WatchesFeaturedSection'
 
 interface Item {
   id: string
@@ -30,6 +33,32 @@ interface StockEntry {
   quantity: number
 }
 
+interface Banner {
+  id: string
+  title: string
+  subtitle?: string | null
+  imageUrl?: string | null
+  mobileImage?: string | null
+  linkUrl?: string | null
+  linkText?: string | null
+  buttonText?: string | null
+}
+
+interface CollectionItem {
+  id: string
+  itemId: string
+  items?: Item | null
+}
+
+interface Collection {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  imageUrl?: string | null
+  collection_items?: CollectionItem[]
+}
+
 interface CartEntry {
   id: string
   name: string
@@ -43,27 +72,84 @@ interface CartEntry {
 interface WatchesCatalogClientProps {
   items: Item[]
   stock: StockEntry[]
+  banners: Banner[]
+  collections: Collection[]
   settings: Record<string, string>
 }
 
 export default function WatchesCatalogClient({
   items,
   stock,
+  banners,
+  collections,
   settings,
 }: WatchesCatalogClientProps) {
   const { displayCurrency } = useCurrency()
   const [activeBrand, setActiveBrand] = useState<string | null>(null)
+  const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [cartItems, setCartItems] = useState<CartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quickViewItem, setQuickViewItem] = useState<Item | null>(null)
+  const [liveStock, setLiveStock] = useState(stock)
+
+  const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase())
 
   const whatsappNumber = settings.whatsapp_number ?? '5978555555'
 
+  useEffect(() => {
+    setLiveStock(stock)
+  }, [stock])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(async () => {
+      try {
+        const response = await fetch('/api/watches?type=stock', { cache: 'no-store' })
+        if (!response.ok) return
+
+        const data = await response.json() as { stock?: StockEntry[] }
+        if (Array.isArray(data.stock)) {
+          setLiveStock(data.stock)
+        }
+      } catch (error) {
+        console.error('Failed to refresh watch stock:', error)
+      }
+    }, 60000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   const stockMap = useMemo(() => {
     const map: Record<string, number> = {}
-    stock.forEach(s => { map[s.itemId] = (map[s.itemId] ?? 0) + s.quantity })
+    liveStock.forEach(s => { map[s.itemId] = (map[s.itemId] ?? 0) + s.quantity })
     return map
-  }, [stock])
+  }, [liveStock])
+
+  const normalizedCollections = useMemo(() => {
+    return collections
+      .map(collection => {
+        const resolvedItems = (collection.collection_items ?? []).reduce<Item[]>((resolved, collectionItem) => {
+          if (collectionItem.items) {
+            resolved.push(collectionItem.items)
+          }
+          return resolved
+        }, [])
+
+        return {
+          ...collection,
+          resolvedItems,
+          itemIds: new Set(resolvedItems.map(item => item.id)),
+        }
+      })
+      .filter(collection => collection.resolvedItems.length > 0)
+  }, [collections])
+
+  const activeCollection = useMemo(
+    () => normalizedCollections.find(collection => collection.id === activeCollectionId) ?? null,
+    [normalizedCollections, activeCollectionId]
+  )
+
+  const heroBanner = banners[0]
 
   const brands = useMemo(() => {
     const brandMap = new Map<string, string>()
@@ -82,9 +168,22 @@ export default function WatchesCatalogClient({
   }, [items])
 
   const filteredItems = useMemo(() => {
-    if (!activeBrand) return items
-    return items.filter((item) => item.brand?.trim().toLowerCase() === activeBrand.toLowerCase())
-  }, [items, activeBrand])
+    return items.filter((item) => {
+      const matchesBrand = !activeBrand || item.brand?.trim().toLowerCase() === activeBrand.toLowerCase()
+      const matchesCollection = !activeCollection || activeCollection.itemIds.has(item.id)
+      const matchesSearch = !deferredSearchQuery || [item.name, item.brand ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(deferredSearchQuery)
+
+      return matchesBrand && matchesCollection && matchesSearch
+    })
+  }, [items, activeBrand, activeCollection, deferredSearchQuery])
+
+  const featuredItems = useMemo(() => {
+    if (activeCollection) return activeCollection.resolvedItems.slice(0, 6)
+    return normalizedCollections[0]?.resolvedItems.slice(0, 6) ?? items.slice(0, 6)
+  }, [activeCollection, normalizedCollections, items])
 
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
@@ -116,7 +215,12 @@ export default function WatchesCatalogClient({
 
       <main style={{ background: 'var(--w-bg)', minHeight: '100svh' }}>
         {/* ── Hero ────────────────────────────────────── */}
-        <WatchesHero />
+        <WatchesHero
+          title={heroBanner?.title ?? undefined}
+          subtitle={heroBanner?.subtitle ?? undefined}
+          ctaLabel={heroBanner?.buttonText ?? heroBanner?.linkText ?? undefined}
+          ctaHref={heroBanner?.linkUrl ?? '/watches#featured'}
+        />
 
         {/* ── Philosophy strip ────────────────────────── */}
         <div
@@ -137,6 +241,178 @@ export default function WatchesCatalogClient({
           <div className="hidden sm:block h-px flex-1 max-w-24" style={{ background: 'var(--w-border-gold)' }} />
         </div>
 
+        {banners.length > 1 && (
+          <section className="px-6 py-6 lg:px-12">
+            <div className="mx-auto grid max-w-screen-2xl gap-4 lg:grid-cols-3">
+              {banners.slice(0, 3).map((banner) => (
+                <Link
+                  key={banner.id}
+                  href={banner.linkUrl || '/watches#featured'}
+                  className="group relative overflow-hidden rounded-[28px] border p-5 lg:p-6"
+                  style={{ borderColor: 'var(--w-border)', background: 'linear-gradient(135deg, rgba(22,24,30,0.92), rgba(12,12,16,0.96))' }}
+                >
+                  {banner.imageUrl && (
+                    <div className="absolute inset-0 opacity-35 transition-opacity duration-500 group-hover:opacity-50">
+                      <Image
+                        src={banner.imageUrl}
+                        alt={banner.title}
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 33vw"
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.15), rgba(9,9,11,0.88))' }} />
+                  <div className="relative z-10 flex min-h-36 flex-col justify-end">
+                    <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                      Editorial Drop
+                    </p>
+                    <h2
+                      className="mb-2 text-2xl font-light"
+                      style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+                    >
+                      {banner.title}
+                    </h2>
+                    {banner.subtitle && (
+                      <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                        {banner.subtitle}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="px-6 pb-4 lg:px-12">
+          <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 rounded-[28px] border px-5 py-5 lg:flex-row lg:items-end lg:justify-between lg:px-8"
+            style={{ borderColor: 'var(--w-border)', background: 'rgba(15, 17, 22, 0.82)' }}
+          >
+            <div className="max-w-xl">
+              <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                Refine The Collection
+              </p>
+              <h2
+                className="text-3xl font-light"
+                style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+              >
+                Search by name, brand, or curated drop
+              </h2>
+            </div>
+            <label className="relative block w-full max-w-xl">
+              <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search Rolex, Invicta, Michael Kors..."
+                className="w-full rounded-full border bg-transparent py-3 pl-11 pr-4 text-sm outline-none transition-colors"
+                style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream)' }}
+              />
+            </label>
+          </div>
+        </section>
+
+        {normalizedCollections.length > 0 && (
+          <section id="featured-collections" className="px-6 py-10 lg:px-12 lg:py-14">
+            <div className="mx-auto max-w-screen-2xl">
+              <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                    Featured Collections
+                  </p>
+                  <h2
+                    className="text-3xl font-light"
+                    style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+                  >
+                    Curated by mood, metal, and presence
+                  </h2>
+                </div>
+                {activeCollection && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCollectionId(null)}
+                    className="self-start rounded-full border px-4 py-2 text-[10px] uppercase tracking-[0.24em]"
+                    style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream-2)' }}
+                  >
+                    Clear collection filter
+                  </button>
+                )}
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                {normalizedCollections.slice(0, 3).map((collection) => {
+                  const previewItem = collection.resolvedItems[0]
+                  const isActive = collection.id === activeCollectionId
+
+                  return (
+                    <button
+                      key={collection.id}
+                      type="button"
+                      onClick={() => setActiveCollectionId(isActive ? null : collection.id)}
+                      className="group overflow-hidden rounded-[30px] border text-left transition-colors"
+                      style={{
+                        borderColor: isActive ? 'rgba(201,168,76,0.55)' : 'var(--w-border)',
+                        background: 'rgba(18, 20, 24, 0.9)',
+                      }}
+                    >
+                      <div className="relative h-60 overflow-hidden">
+                        {collection.imageUrl || previewItem?.imageUrl ? (
+                          <Image
+                            src={collection.imageUrl || previewItem?.imageUrl || '/hero_section-watches.png'}
+                            alt={collection.name}
+                            fill
+                            sizes="(max-width: 1024px) 100vw, 33vw"
+                            className="object-cover transition-transform duration-700 group-hover:scale-105"
+                          />
+                        ) : null}
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.08), rgba(9,9,11,0.9))' }} />
+                        <div className="absolute bottom-0 left-0 right-0 p-6">
+                          <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                            {collection.resolvedItems.length} pieces
+                          </p>
+                          <h3
+                            className="text-3xl font-light"
+                            style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+                          >
+                            {collection.name}
+                          </h3>
+                        </div>
+                      </div>
+                      <div className="space-y-4 p-6">
+                        {collection.description && (
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                            {collection.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-2">
+                          {collection.resolvedItems.slice(0, 3).map((item) => (
+                            <span
+                              key={item.id}
+                              className="rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em]"
+                              style={{ borderColor: 'var(--w-border)', color: 'var(--w-muted)' }}
+                            >
+                              {item.brand || item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        <WatchesFeaturedSection
+          items={featuredItems}
+          stockMap={stockMap}
+          displayCurrency={displayCurrency}
+          onAddToCart={handleAddToCart}
+          onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
+        />
+
         {/* ══ Browse Collection ════════════════════════ */}
         <section id="collections">
           {/* Sticky category nav */}
@@ -152,9 +428,26 @@ export default function WatchesCatalogClient({
           </div>
 
           {/* Product grid */}
-          <div id="all" className="px-6 lg:px-12 pt-10 pb-20 max-w-screen-2xl mx-auto">
+          <div id="new" className="px-6 lg:px-12 pt-10 pb-20 max-w-screen-2xl mx-auto">
+            <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                  Live Catalog
+                </p>
+                <h2
+                  className="text-3xl font-light"
+                  style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+                >
+                  {activeCollection ? activeCollection.name : 'Every timepiece currently available'}
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)' }}>
+                {filteredItems.length} watches shown with live stock refreshed each minute.
+              </p>
+            </div>
+
             {filteredItems.length === 0 ? (
-              <EmptyState whatsappNumber={whatsappNumber} />
+              <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
                 {filteredItems.map(item => (
@@ -212,7 +505,7 @@ export default function WatchesCatalogClient({
     </>
   )
 }
-function EmptyState({ whatsappNumber }: { whatsappNumber: string }) {
+function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; searchQuery: string }) {
   return (
     <div className="flex flex-col items-center py-28 lg:py-40">
       {/* Decorative ring */}
@@ -250,7 +543,9 @@ function EmptyState({ whatsappNumber }: { whatsappNumber: string }) {
         className="mb-10 text-sm font-light text-center max-w-sm leading-loose"
         style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
-        Our curated selection of luxury timepieces is being prepared. Contact us on WhatsApp to be notified first.
+        {searchQuery
+          ? 'No watches matched your current search or collection filter. Contact us on WhatsApp and we can source a specific piece for you.'
+          : 'Our curated selection of luxury timepieces is being prepared. Contact us on WhatsApp to be notified first.'}
       </p>
 
       <Link

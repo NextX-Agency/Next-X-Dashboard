@@ -459,6 +459,7 @@ model Banner {
   id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   title       String
   subtitle    String?
+  catalogType String    @default("audio") @map("catalog_type")
   imageUrl    String    @map("image_url")
   mobileImage String?   @map("mobile_image")
   linkUrl     String?   @map("link_url")
@@ -473,6 +474,7 @@ model Banner {
   button_text String?
 
   @@index([isActive], map: "idx_banners_active")
+  @@index([catalogType], map: "idx_banners_catalog_type")
   @@map("banners")
 }
 
@@ -522,6 +524,7 @@ model Collection {
   name        String
   slug        String           @unique
   description String?
+  catalogType String           @default("audio") @map("catalog_type")
   imageUrl    String?          @map("image_url")
   isActive    Boolean?         @default(true) @map("is_active")
   isFeatured  Boolean?         @default(false) @map("is_featured")
@@ -531,6 +534,7 @@ model Collection {
   items       CollectionItem[]
 
   @@index([slug], map: "idx_collections_slug")
+  @@index([catalogType], map: "idx_collections_catalog_type")
   @@map("collections")
 }
 

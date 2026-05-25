@@ -63,6 +63,7 @@ export interface CatalogApiData {
     id: string
     title: string
     subtitle: string | null
+    catalogType: string
     imageUrl: string
     mobileImage: string | null
     linkUrl: string | null
@@ -76,6 +77,7 @@ export interface CatalogApiData {
     name: string
     slug: string
     description: string | null
+    catalogType: string
     imageUrl: string | null
     isActive: boolean
     isFeatured: boolean

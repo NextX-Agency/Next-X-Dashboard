@@ -35,9 +35,9 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
     }),
     prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
     prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
-    prisma.banner.findMany({ where: { isActive: true }, orderBy: { position: 'asc' } }),
+    prisma.banner.findMany({ where: { isActive: true, catalogType: CATALOG_TYPE }, orderBy: { position: 'asc' } }),
     prisma.collection.findMany({
-      where: { isActive: true, isFeatured: true },
+      where: { isActive: true, isFeatured: true, catalogType: CATALOG_TYPE },
       orderBy: { createdAt: 'desc' },
       include: { items: true },
     }),

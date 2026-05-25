@@ -12,18 +12,23 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
+    const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+
     const [items, locations, stocks] = await Promise.all([
       prisma.item.findMany({
         where: {
           deletedAt: null,
           is_combo: false,
+          catalogType,
         },
         select: {
           id: true,
           name: true,
+          brand: true,
           imageUrl: true,
           is_combo: true,
           deletedAt: true,
+          catalogType: true,
         },
         orderBy: { name: 'asc' },
       }),
@@ -35,6 +40,15 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       }),
       prisma.stock.findMany({
+        where: {
+          item: {
+            is: {
+              deletedAt: null,
+              is_combo: false,
+              catalogType,
+            },
+          },
+        },
         select: {
           id: true,
           itemId: true,
@@ -46,9 +60,11 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              brand: true,
               imageUrl: true,
               is_combo: true,
               deletedAt: true,
+              catalogType: true,
             },
           },
           location: {
@@ -66,9 +82,11 @@ export async function GET(request: NextRequest) {
       items: items.map<StockPageItem>((item) => ({
         id: item.id,
         name: item.name,
+        brand: item.brand,
         image_url: item.imageUrl,
         is_combo: item.is_combo,
         deleted_at: item.deletedAt ? toIsoString(item.deletedAt) : null,
+        catalog_type: item.catalogType,
       })),
       locations: locations.map<StockPageLocation>((location) => ({
         id: location.id,
@@ -85,9 +103,11 @@ export async function GET(request: NextRequest) {
           ? {
             id: stock.item.id,
             name: stock.item.name,
+            brand: stock.item.brand,
             image_url: stock.item.imageUrl,
             is_combo: stock.item.is_combo,
             deleted_at: stock.item.deletedAt ? toIsoString(stock.item.deletedAt) : null,
+            catalog_type: stock.item.catalogType,
           }
           : null,
         locations: stock.location

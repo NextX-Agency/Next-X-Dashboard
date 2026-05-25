@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye, RefreshCw, AlertTriangle, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -19,6 +20,11 @@ import type {
 } from '@/types/reservations'
 
 type Stock = Database['public']['Tables']['stock']['Row']
+type CatalogType = 'audio' | 'watches'
+
+function normalizeCatalogFilter(value: string | null): CatalogType {
+  return value === 'watches' ? 'watches' : 'audio'
+}
 
 interface CartItem {
   item: Item
@@ -55,10 +61,14 @@ interface InvoiceData {
 
 
 export default function ReservationsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [recentReservations, setRecentReservations] = useState<ReservationGroup[]>([])
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeCatalogFilter(searchParams.get('catalog')))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [selectedClient, setSelectedClient] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -102,6 +112,7 @@ export default function ReservationsPage() {
     pendingCount: 0,
     completedCount: 0
   })
+  const combosAllowed = catalogFilter === 'audio'
 
   const loadData = useCallback(async (showLoadingState: boolean = false) => {
     try {
@@ -113,7 +124,7 @@ export default function ReservationsPage() {
 
       setLoadError(null)
 
-      const response = await fetch('/api/reservations', {
+      const response = await fetch(`/api/reservations?catalogType=${catalogFilter}`, {
         cache: 'no-store',
       })
 
@@ -142,7 +153,7 @@ export default function ReservationsPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [catalogFilter])
 
   const loadStock = async (locationId: string) => {
     const { data } = await supabase
@@ -179,6 +190,25 @@ export default function ReservationsPage() {
   useEffect(() => {
     void loadData(true)
   }, [loadData])
+
+  useEffect(() => {
+    const nextCatalogFilter = normalizeCatalogFilter(searchParams.get('catalog'))
+    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
+  }, [searchParams])
+
+  useEffect(() => {
+    setCart([])
+    setCombos([])
+    setTempComboItems([])
+    setComboMode(false)
+  }, [catalogFilter])
+
+  const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
+    setCatalogFilter(nextCatalog)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('catalog', nextCatalog)
+    router.replace(`${pathname}?${params.toString()}`)
+  }, [pathname, router, searchParams])
 
   // Debounce location change to prevent excessive API calls
   useEffect(() => {
@@ -253,6 +283,8 @@ export default function ReservationsPage() {
 
   // Combo functions
   const addItemToCombo = (item: Item) => {
+    if (!combosAllowed) return
+
     const availableStock = getAvailableStock(item.id)
     if (availableStock <= 0) return
 
@@ -295,6 +327,11 @@ export default function ReservationsPage() {
   }
 
   const createQuickCombo = () => {
+    if (!combosAllowed) {
+      alert('Watch combos are disabled. Reserve watches individually.')
+      return
+    }
+
     if (tempComboItems.length < 2) {
       alert('Select at least 2 items for a combo')
       return
@@ -492,6 +529,10 @@ export default function ReservationsPage() {
 
   const handleCreateReservation = async () => {
     if (!selectedLocation || !selectedClient || (cart.length === 0 && combos.length === 0) || submitting) return
+    if (!combosAllowed && combos.length > 0) {
+      alert('Watch combos are disabled. Remove the combo items and reserve them individually.')
+      return
+    }
 
     setSubmitting(true)
     const client = clients.find(c => c.id === selectedClient)
@@ -1031,7 +1072,7 @@ export default function ReservationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <PageHeader title="Reservations" subtitle="Manage client reservations" />
+        <PageHeader title="Reservations" subtitle={`Manage ${catalogFilter} reservations`} />
         <LoadingSpinner />
       </div>
     )
@@ -1044,7 +1085,7 @@ export default function ReservationsPage() {
       <div className="min-h-screen bg-background pb-20">
         <PageHeader
           title="Reservations"
-          subtitle="Reservation data is temporarily unavailable"
+          subtitle={`${catalogFilter} reservation data is temporarily unavailable`}
           icon={<ClipboardList size={24} />}
           action={
             <Button onClick={() => void loadData(true)} variant="secondary">
@@ -1093,7 +1134,7 @@ export default function ReservationsPage() {
 
       <PageHeader 
         title="Reservations" 
-        subtitle="Manage customer reservations efficiently"
+        subtitle={`Manage ${catalogFilter} reservations efficiently`}
         icon={<ClipboardList size={24} />}
         action={
           <div className="flex gap-2">
@@ -1123,6 +1164,33 @@ export default function ReservationsPage() {
             <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
           </div>
         )}
+
+        <div className="mb-6 flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleCatalogFilterChange('audio')}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === 'audio'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Headphones size={14} />
+            Audio
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCatalogFilterChange('watches')}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === 'watches'
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-card text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Watch size={14} />
+            Watches
+          </button>
+        </div>
 
         {/* Reservation Statistics Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
@@ -1447,23 +1515,39 @@ export default function ReservationsPage() {
                     <div>
                       <div className="font-medium text-foreground text-sm">Combo Mode</div>
                       <div className="text-xs text-muted-foreground">
-                        {comboMode ? `${tempComboItems.length} items` : 'Build custom combo'}
+                        {!combosAllowed
+                          ? 'Disabled for watches'
+                          : comboMode
+                            ? `${tempComboItems.length} items`
+                            : 'Build custom combo'}
                       </div>
                     </div>
                   </div>
                   <button
-                    onClick={() => comboMode ? cancelComboMode() : setComboMode(true)}
+                    onClick={() => {
+                      if (!combosAllowed) return
+                      comboMode ? cancelComboMode() : setComboMode(true)
+                    }}
+                    disabled={!combosAllowed}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      comboMode 
+                      !combosAllowed
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                        : comboMode 
                         ? 'bg-muted hover:bg-muted/80 text-foreground' 
                         : 'bg-orange-500 hover:bg-orange-600 text-white'
                     }`}
                   >
-                    {comboMode ? 'Cancel' : 'Start'}
+                    {!combosAllowed ? 'Unavailable' : comboMode ? 'Cancel' : 'Start'}
                   </button>
                 </div>
+
+                {!combosAllowed && (
+                  <div className="mt-3 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+                    Watches do not support custom combo reservations in the dashboard.
+                  </div>
+                )}
               
-                {comboMode && tempComboItems.length >= 2 && (
+                {comboMode && combosAllowed && tempComboItems.length >= 2 && (
                   <div className="mt-3 pt-3 border-t border-border">
                     <div className="mb-3">
                       <label className="block text-xs font-medium text-foreground mb-1">Combo Price ({currency})</label>
@@ -1880,7 +1964,7 @@ export default function ReservationsPage() {
           {recentReservations.length === 0 ? (
             <div className="text-center py-12">
               <ClipboardList size={40} className="mx-auto mb-3 text-muted-foreground/30" />
-              <p className="text-muted-foreground">No recent reservations</p>
+              <p className="text-muted-foreground">No recent {catalogFilter} reservations</p>
             </div>
           ) : (
             recentReservations.map((group) => (

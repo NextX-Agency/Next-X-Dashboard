@@ -34,6 +34,7 @@ const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
 const DEFAULT_EXPANDED_SECTIONS: Record<string, boolean> = {
   Store: true,
   Storefronts: true,
+  Watches: true,
   Operations: true,
   Finance: true,
   Analytics: true,
@@ -77,6 +78,14 @@ export default function Sidebar() {
       ],
     },
     {
+      title: 'Watches',
+      items: [
+        { name: 'Watches Stock', icon: Layers, path: '/stock?catalog=watches' },
+        { name: 'Watches Sales', icon: ShoppingCart, path: '/sales?catalog=watches' },
+        { name: 'Watches Reservations', icon: Calendar, path: '/reservations?catalog=watches' },
+      ],
+    },
+    {
       title: 'Operations',
       items: [
         { name: 'Orders', icon: ClipboardList, path: '/orders' },
@@ -111,7 +120,8 @@ export default function Sidebar() {
   ], [])
 
   const isItemActive = useCallback((path: string) => {
-    return pathname === path || (path !== '/dashboard' && path !== '/catalog' && pathname.startsWith(path))
+    const routePath = path.split('?')[0]
+    return pathname === routePath || (routePath !== '/dashboard' && routePath !== '/catalog' && pathname.startsWith(routePath))
   }, [pathname])
 
   const currentNavSection = useMemo(() => (

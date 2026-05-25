@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   Plus, Edit2, Trash2, Eye, EyeOff, ChevronLeft, Star,
-  Image as ImageIcon, X, Loader2, Package, Search
+  Image as ImageIcon, X, Loader2, Package, Search, Headphones, Watch
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
@@ -16,6 +16,7 @@ interface Collection {
   name: string
   slug: string
   description: string | null
+  catalog_type: CatalogType
   image_url: string | null
   is_active: boolean
   is_featured: boolean
@@ -26,6 +27,7 @@ interface Collection {
 interface Item {
   id: string
   name: string
+  catalog_type: CatalogType
   image_url: string | null
   selling_price_srd: number | null
 }
@@ -37,9 +39,12 @@ interface CollectionItem {
   position: number
 }
 
+type CatalogType = 'audio' | 'watches'
+
 export default function CollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([])
   const [items, setItems] = useState<Item[]>([])
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>('audio')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
@@ -56,20 +61,22 @@ export default function CollectionsPage() {
     name: '',
     slug: '',
     description: '',
+    catalog_type: 'audio' as CatalogType,
     image_url: '',
     is_active: true,
     is_featured: false
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [catalogFilter])
 
   const loadData = async () => {
+    setLoading(true)
     try {
       const [collectionsRes, itemsRes, collectionItemsRes] = await Promise.all([
-        supabase.from('collections').select('*').order('position'),
-        supabase.from('items').select('id, name, image_url, selling_price_srd').eq('is_public', true).is('deleted_at', null),
+        supabase.from('collections').select('*').eq('catalog_type', catalogFilter).order('position'),
+        supabase.from('items').select('id, name, catalog_type, image_url, selling_price_srd').eq('is_public', true).is('deleted_at', null).eq('catalog_type', catalogFilter),
         supabase.from('collection_items').select('*')
       ])
 
@@ -100,6 +107,7 @@ export default function CollectionsPage() {
       name: '',
       slug: '',
       description: '',
+      catalog_type: catalogFilter,
       image_url: '',
       is_active: true,
       is_featured: false
@@ -112,6 +120,7 @@ export default function CollectionsPage() {
       name: collection.name,
       slug: collection.slug,
       description: collection.description || '',
+      catalog_type: collection.catalog_type,
       image_url: collection.image_url || '',
       is_active: collection.is_active,
       is_featured: collection.is_featured
@@ -133,6 +142,7 @@ export default function CollectionsPage() {
         name: form.name,
         slug: form.slug || generateSlug(form.name),
         description: form.description || null,
+        catalog_type: form.catalog_type,
         image_url: form.image_url || null,
         is_active: form.is_active,
         is_featured: form.is_featured,
@@ -149,7 +159,7 @@ export default function CollectionsPage() {
         action: editingCollection ? 'update' : 'create',
         entityType: 'collection',
         entityName: form.name,
-        details: `${editingCollection ? 'Updated' : 'Created'} collection`
+        details: `${editingCollection ? 'Updated' : 'Created'} ${form.catalog_type} collection`
       })
 
       setShowForm(false)
@@ -255,20 +265,41 @@ export default function CollectionsPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl lg:text-2xl font-bold text-white truncate">Collections</h1>
-          <p className="text-neutral-400 text-xs lg:text-sm hidden sm:block">Curate product collections for your store</p>
+          <p className="text-neutral-400 text-xs lg:text-sm hidden sm:block">Curate product collections per webshop</p>
         </div>
         <button
           onClick={() => {
             resetForm()
             setShowForm(true)
           }}
-          className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white text-sm lg:text-base font-medium hover:shadow-lg hover:shadow-orange-500/25 transition-all active:scale-95"
+          className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl bg-linear-to-r from-orange-500 to-amber-500 text-white text-sm lg:text-base font-medium hover:shadow-lg hover:shadow-orange-500/25 transition-all active:scale-95"
         >
           <Plus size={16} className="lg:hidden" />
           <Plus size={18} className="hidden lg:block" />
           <span className="hidden sm:inline">New Collection</span>
           <span className="sm:hidden">New</span>
         </button>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        {([
+          { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+          { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+        ] as { key: CatalogType; label: string; icon: React.ReactNode }[]).map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setCatalogFilter(option.key)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === option.key
+                ? 'border-orange-500 bg-orange-500 text-white'
+                : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:text-white'
+            }`}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {/* Collections Grid */}
@@ -302,7 +333,7 @@ export default function CollectionsPage() {
                 <div className="sm:hidden">
                   <div className="flex gap-3 p-3">
                     {/* Thumbnail */}
-                    <div className="w-20 h-20 rounded-lg bg-neutral-800 flex-shrink-0 overflow-hidden">
+                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
                       {collection.image_url ? (
                         <img 
                           src={collection.image_url} 
@@ -320,7 +351,7 @@ export default function CollectionsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <h3 className="font-semibold text-white text-sm truncate">{collection.name}</h3>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="flex shrink-0 items-center gap-1">
                           {collection.is_featured && (
                             <Star size={12} fill="currentColor" className="text-amber-500" />
                           )}
@@ -329,6 +360,7 @@ export default function CollectionsPage() {
                           }`} />
                         </div>
                       </div>
+                      <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-orange-300">{collection.catalog_type}</p>
                       <p className="text-xs text-neutral-500 mb-1">{itemCount} items</p>
                       {collection.description && (
                         <p className="text-xs text-neutral-400 line-clamp-2">{collection.description}</p>
@@ -411,6 +443,7 @@ export default function CollectionsPage() {
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <h3 className="font-semibold text-white">{collection.name}</h3>
+                        <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-orange-300">{collection.catalog_type}</p>
                         <p className="text-sm text-neutral-500">{itemCount} items</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
@@ -553,6 +586,30 @@ export default function CollectionsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">Webshop</label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+                    { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+                  ] as { key: CatalogType; label: string; icon: React.ReactNode }[]).map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setForm({ ...form, catalog_type: option.key })}
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                        form.catalog_type === option.key
+                          ? 'border-orange-500 bg-orange-500 text-white'
+                          : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white'
+                      }`}
+                    >
+                      {option.icon}
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Options */}
               <div className="space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -604,6 +661,9 @@ export default function CollectionsPage() {
             <h3 className="text-lg font-semibold text-white mb-4">
               Manage Collection Items
             </h3>
+            <p className="mb-4 text-sm text-neutral-400">
+              Showing {catalogFilter} items only so collections stay scoped to one webshop.
+            </p>
             
             {/* Search */}
             <div className="relative mb-4">

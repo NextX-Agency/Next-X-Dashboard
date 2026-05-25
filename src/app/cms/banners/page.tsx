@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   Plus, Edit2, Trash2, Eye, EyeOff, ChevronLeft, GripVertical,
-  Image as ImageIcon, ExternalLink, Calendar, X, Loader2
+  Image as ImageIcon, ExternalLink, Calendar, X, Loader2, Headphones, Watch
 } from 'lucide-react'
 import Link from 'next/link'
 import { PageContainer, LoadingSpinner, Modal } from '@/components/UI'
@@ -15,6 +15,7 @@ interface Banner {
   id: string
   title: string
   subtitle: string | null
+  catalog_type: CatalogType
   image_url: string
   mobile_image: string | null
   link_url: string | null
@@ -26,8 +27,11 @@ interface Banner {
   created_at: string
 }
 
+type CatalogType = 'audio' | 'watches'
+
 export default function BannersPage() {
   const [banners, setBanners] = useState<Banner[]>([])
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>('audio')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null)
@@ -37,6 +41,7 @@ export default function BannersPage() {
   const [form, setForm] = useState({
     title: '',
     subtitle: '',
+    catalog_type: 'audio' as CatalogType,
     image_url: '',
     mobile_image: '',
     link_url: '',
@@ -47,14 +52,16 @@ export default function BannersPage() {
   })
 
   useEffect(() => {
-    loadBanners()
-  }, [])
+    void loadBanners()
+  }, [catalogFilter])
 
   const loadBanners = async () => {
+    setLoading(true)
     try {
       const { data } = await supabase
         .from('banners')
         .select('*')
+        .eq('catalog_type', catalogFilter)
         .order('position')
       if (data) setBanners(data)
     } catch (error) {
@@ -67,6 +74,7 @@ export default function BannersPage() {
     setForm({
       title: '',
       subtitle: '',
+      catalog_type: catalogFilter,
       image_url: '',
       mobile_image: '',
       link_url: '',
@@ -82,6 +90,7 @@ export default function BannersPage() {
     setForm({
       title: banner.title,
       subtitle: banner.subtitle || '',
+      catalog_type: banner.catalog_type,
       image_url: banner.image_url,
       mobile_image: banner.mobile_image || '',
       link_url: banner.link_url || '',
@@ -106,6 +115,7 @@ export default function BannersPage() {
       const bannerData = {
         title: form.title,
         subtitle: form.subtitle || null,
+        catalog_type: form.catalog_type,
         image_url: form.image_url,
         mobile_image: form.mobile_image || null,
         link_url: form.link_url || null,
@@ -126,7 +136,7 @@ export default function BannersPage() {
         action: editingBanner ? 'update' : 'create',
         entityType: 'banner',
         entityName: form.title,
-        details: `${editingBanner ? 'Updated' : 'Created'} banner`
+        details: `${editingBanner ? 'Updated' : 'Created'} ${form.catalog_type} banner`
       })
 
       setShowForm(false)
@@ -184,7 +194,7 @@ export default function BannersPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg lg:text-2xl font-bold text-white">Banners</h1>
-          <p className="text-gray-400 text-xs lg:text-sm hidden sm:block">Manage homepage sliders</p>
+          <p className="text-gray-400 text-xs lg:text-sm hidden sm:block">Manage homepage sliders per webshop</p>
         </div>
         <button
           onClick={() => {
@@ -196,6 +206,27 @@ export default function BannersPage() {
           <Plus size={18} />
           <span className="hidden sm:inline">Add Banner</span>
         </button>
+      </div>
+
+      <div className="mb-4 flex gap-2">
+        {([
+          { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+          { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+        ] as { key: CatalogType; label: string; icon: React.ReactNode }[]).map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setCatalogFilter(option.key)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+              catalogFilter === option.key
+                ? 'border-orange-500 bg-orange-500 text-white'
+                : 'border-gray-700 bg-gray-800/60 text-gray-300 hover:text-white'
+            }`}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        ))}
       </div>
 
       {/* Banners List - Mobile optimized */}
@@ -242,6 +273,9 @@ export default function BannersPage() {
                       <p className="text-xs text-gray-400 truncate mb-2">{banner.subtitle}</p>
                     )}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-medium uppercase text-orange-300">
+                        {banner.catalog_type}
+                      </span>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         banner.is_active 
                           ? 'bg-emerald-500/20 text-emerald-400'
@@ -311,6 +345,9 @@ export default function BannersPage() {
                         <p className="text-sm text-gray-400 mb-2">{banner.subtitle}</p>
                       )}
                       <div className="flex items-center gap-3 text-xs text-gray-500">
+                        <span className="rounded-full bg-orange-500/20 px-2 py-0.5 uppercase text-orange-300">
+                          {banner.catalog_type}
+                        </span>
                         <span className={`px-2 py-0.5 rounded-full ${
                           banner.is_active 
                             ? 'bg-emerald-500/20 text-emerald-400'
@@ -414,6 +451,30 @@ export default function BannersPage() {
                   className="w-full px-4 py-2.5 rounded-xl bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-orange-500"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-2">Webshop</label>
+                <div className="flex gap-2">
+                  {([
+                    { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+                    { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+                  ] as { key: CatalogType; label: string; icon: React.ReactNode }[]).map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setForm({ ...form, catalog_type: option.key })}
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                        form.catalog_type === option.key
+                          ? 'border-orange-500 bg-orange-500 text-white'
+                          : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white'
+                      }`}
+                    >
+                      {option.icon}
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Subtitle */}

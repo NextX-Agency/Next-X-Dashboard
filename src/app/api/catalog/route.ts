@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
         }),
         prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
         prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
-        prisma.banner.findMany({ where: { isActive: true }, orderBy: { position: 'asc' } }),
+        prisma.banner.findMany({ where: { isActive: true, catalogType }, orderBy: { position: 'asc' } }),
         // Fetch collections with their CollectionItems
         prisma.collection.findMany({
-          where: { isActive: true, isFeatured: true },
+          where: { isActive: true, isFeatured: true, catalogType },
           orderBy: { createdAt: 'desc' },
           include: { items: true },
         }),
@@ -175,12 +175,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'banners') {
-      result.banners = await prisma.banner.findMany({ where: { isActive: true }, orderBy: { position: 'asc' } })
+      result.banners = await prisma.banner.findMany({ where: { isActive: true, catalogType }, orderBy: { position: 'asc' } })
     }
 
     if (type === 'collections') {
       const collections = await prisma.collection.findMany({
-        where: { isActive: true, isFeatured: true },
+        where: { isActive: true, isFeatured: true, catalogType },
         orderBy: { createdAt: 'desc' },
         include: { items: true },
       })

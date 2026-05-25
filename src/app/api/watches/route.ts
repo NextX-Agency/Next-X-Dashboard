@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const [categories, items, locations, exchangeRate, settings, stock] = await Promise.all([
+    const [categories, items, locations, exchangeRate, banners, collectionsRaw, settings, stock] = await Promise.all([
       prisma.category.findMany({
         where: { catalogType: 'watches' },
         orderBy: { name: 'asc' },
@@ -24,21 +24,50 @@ export async function GET(request: NextRequest) {
       }),
       prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
       prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
+      prisma.banner.findMany({
+        where: { isActive: true, catalogType: 'watches' },
+        orderBy: { position: 'asc' },
+      }),
+      prisma.collection.findMany({
+        where: { isActive: true, isFeatured: true, catalogType: 'watches' },
+        orderBy: { createdAt: 'desc' },
+        include: { items: true },
+      }),
       prisma.storeSetting.findMany(),
       prisma.stock.findMany(),
     ])
+
+    const collectionItemIds = collectionsRaw.flatMap(collection => collection.items.map(collectionItem => collectionItem.itemId))
+    const collectionItems = collectionItemIds.length > 0
+      ? await prisma.item.findMany({
+        where: { id: { in: [...new Set(collectionItemIds)] }, deletedAt: null, catalogType: 'watches' },
+      })
+      : []
+    const collectionItemMap = new Map(collectionItems.map(item => [item.id, item]))
+
+    const collections = collectionsRaw
+      .map(collection => ({
+        ...collection,
+        collection_items: collection.items
+          .map(collectionItem => ({
+            ...collectionItem,
+            items: collectionItemMap.get(collectionItem.itemId) ?? null,
+          }))
+          .filter(collectionItem => collectionItem.items !== null),
+      }))
+      .filter(collection => collection.collection_items.length > 0)
 
     const settingsMap: Record<string, string> = {}
     settings.forEach(s => { settingsMap[s.key] = s.value })
 
     return NextResponse.json(
-      { categories, items, locations, exchangeRate, settings: settingsMap, stock },
+      { categories, items, locations, exchangeRate, banners, collections, settings: settingsMap, stock },
       { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' } }
     )
   } catch (error) {
     console.error('Watches API error:', error)
     return NextResponse.json(
-      { categories: [], items: [], locations: [], exchangeRate: null, settings: {}, stock: [] },
+      { categories: [], items: [], locations: [], exchangeRate: null, banners: [], collections: [], settings: {}, stock: [] },
       { status: 500 }
     )
   }

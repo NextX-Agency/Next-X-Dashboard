@@ -4,7 +4,7 @@ type ItemRow = Database['public']['Tables']['items']['Row']
 type LocationRow = Database['public']['Tables']['locations']['Row']
 type StockRow = Database['public']['Tables']['stock']['Row']
 
-export type StockPageItem = Pick<ItemRow, 'id' | 'name' | 'image_url' | 'is_combo' | 'deleted_at'>
+export type StockPageItem = Pick<ItemRow, 'id' | 'name' | 'brand' | 'image_url' | 'is_combo' | 'deleted_at' | 'catalog_type'>
 
 export type StockPageLocation = Pick<LocationRow, 'id' | 'name'>
 

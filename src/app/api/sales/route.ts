@@ -203,7 +203,7 @@ function mapRecentSale(sale: {
     seller_id: sale.sellerId,
     currency: sale.currency,
     exchange_rate: sale.exchangeRate === null ? null : toNumber(sale.exchangeRate),
-    total_amount: toNumber(sale.totalAmount),
+    total_amount: sale.saleItems.reduce((sum, saleItem) => sum + toNumber(saleItem.subtotal), 0),
     payment_method: sale.paymentMethod,
     notes: sale.notes,
     created_at: toIsoString(sale.createdAt),
@@ -214,32 +214,47 @@ function mapRecentSale(sale: {
 }
 
 function buildSalesStats(
-  sales: Array<{ createdAt: Date; totalAmount: unknown; currency: string }>,
-  usdToSrdRate: number | null,
+  saleItems: Array<{
+    saleId: string
+    createdAt: Date
+    subtotal: unknown
+    sale: {
+      currency: string
+      exchangeRate: unknown | null
+    }
+  }>,
+  fallbackUsdToSrdRate: number | null,
   todayStart: Date,
 ): SalesPageStats {
   let todaySales = 0
   let weekSales = 0
-  let todayOrders = 0
+  const todaySaleIds = new Set<string>()
+  const weekSaleIds = new Set<string>()
 
-  sales.forEach((sale) => {
-    let convertedAmount = toNumber(sale.totalAmount)
-    if (sale.currency === 'USD' && usdToSrdRate) {
-      convertedAmount *= usdToSrdRate
+  saleItems.forEach((saleItem) => {
+    let convertedAmount = toNumber(saleItem.subtotal)
+    const exchangeRate = saleItem.sale.exchangeRate === null
+      ? fallbackUsdToSrdRate
+      : toNumber(saleItem.sale.exchangeRate)
+
+    if (saleItem.sale.currency === 'USD' && exchangeRate) {
+      convertedAmount *= exchangeRate
     }
 
     weekSales += convertedAmount
-    if (sale.createdAt >= todayStart) {
+    weekSaleIds.add(saleItem.saleId)
+
+    if (saleItem.createdAt >= todayStart) {
       todaySales += convertedAmount
-      todayOrders += 1
+      todaySaleIds.add(saleItem.saleId)
     }
   })
 
   return {
     todaySales,
-    todayOrders,
+    todayOrders: todaySaleIds.size,
     weekSales,
-    weekOrders: sales.length,
+    weekOrders: weekSaleIds.size,
   }
 }
 
@@ -248,13 +263,14 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
+    const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
 
-    const [items, locations, currentRate, recentSales, weekSales] = await prisma.$transaction([
+    const [items, locations, currentRate, recentSales, weekSaleItems] = await prisma.$transaction([
       prisma.item.findMany({
-        where: { deletedAt: null },
+        where: { deletedAt: null, catalogType },
         orderBy: { name: 'asc' },
       }),
       prisma.location.findMany({
@@ -266,10 +282,24 @@ export async function GET(request: NextRequest) {
       }),
       prisma.sale.findMany({
         take: 10,
+        where: {
+          saleItems: {
+            some: {
+              item: {
+                is: { catalogType },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         include: {
           location: true,
           saleItems: {
+            where: {
+              item: {
+                is: { catalogType },
+              },
+            },
             orderBy: { createdAt: 'asc' },
             include: {
               item: true,
@@ -277,16 +307,25 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.sale.findMany({
+      prisma.saleItem.findMany({
         where: {
           createdAt: {
             gte: weekStart,
           },
+          item: {
+            is: { catalogType },
+          },
         },
         select: {
+          saleId: true,
           createdAt: true,
-          totalAmount: true,
-          currency: true,
+          subtotal: true,
+          sale: {
+            select: {
+              currency: true,
+              exchangeRate: true,
+            },
+          },
         },
       }),
     ])
@@ -297,7 +336,7 @@ export async function GET(request: NextRequest) {
       currentRate: currentRate ? mapExchangeRate(currentRate) : null,
       recentSales: recentSales.map(mapRecentSale),
       salesStats: buildSalesStats(
-        weekSales,
+        weekSaleItems,
         currentRate ? toNumber(currentRate.usdToSrd) : null,
         todayStart,
       ),

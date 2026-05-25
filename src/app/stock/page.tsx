@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw } from 'lucide-react'
+import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
 import { logActivity } from '@/lib/activityLog'
@@ -10,11 +11,20 @@ import type { StockPageDataResponse, StockPageItem as Item, StockPageLocation as
 
 type SortField = 'item' | 'location' | 'quantity'
 type SortOrder = 'asc' | 'desc'
+type CatalogType = 'audio' | 'watches'
+
+function normalizeCatalogFilter(value: string | null): CatalogType {
+  return value === 'watches' ? 'watches' : 'audio'
+}
 
 export default function StockPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [stocks, setStocks] = useState<StockWithDetails[]>([])
+  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeCatalogFilter(searchParams.get('catalog')))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
@@ -50,7 +60,7 @@ export default function StockPage() {
     setLoadError(null)
 
     try {
-      const response = await fetch('/api/stock', {
+      const response = await fetch(`/api/stock?catalogType=${catalogFilter}`, {
         cache: 'no-store',
       })
 
@@ -77,11 +87,28 @@ export default function StockPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [catalogFilter])
 
   useEffect(() => {
     void loadData(true)
   }, [loadData])
+
+  useEffect(() => {
+    const nextCatalogFilter = normalizeCatalogFilter(searchParams.get('catalog'))
+    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
+  }, [searchParams])
+
+  useEffect(() => {
+    setAddForm((current) => ({ ...current, item_id: '' }))
+    setTransferForm((current) => ({ ...current, item_id: '' }))
+  }, [catalogFilter])
+
+  const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
+    setCatalogFilter(nextCatalog)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('catalog', nextCatalog)
+    router.replace(`${pathname}?${params.toString()}`)
+  }, [pathname, router, searchParams])
 
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -249,6 +276,7 @@ export default function StockPage() {
         const query = searchQuery.toLowerCase()
         return (
           stock.items?.name?.toLowerCase().includes(query) ||
+          stock.items?.brand?.toLowerCase().includes(query) ||
           stock.locations?.name?.toLowerCase().includes(query)
         )
       })
@@ -337,7 +365,7 @@ export default function StockPage() {
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
         title="Stock Management" 
-        subtitle="Track inventory across locations"
+        subtitle={`Track ${catalogFilter} inventory across locations`}
         icon={<Package size={24} />}
         action={
           <div className="flex gap-2 flex-wrap justify-end">
@@ -363,6 +391,27 @@ export default function StockPage() {
             <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
           </div>
         )}
+
+        <div className="mb-6 flex gap-2">
+          {([
+            { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
+            { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
+          ] as { key: CatalogType; label: string; icon: React.ReactNode }[]).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => handleCatalogFilterChange(option.key)}
+              className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                catalogFilter === option.key
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {option.icon}
+              {option.label}
+            </button>
+          ))}
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
