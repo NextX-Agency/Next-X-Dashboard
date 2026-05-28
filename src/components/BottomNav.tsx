@@ -31,6 +31,11 @@ function BottomNavComponent() {
     return null
   }
 
+  // Wallets has its own mobile quick actions; stacking both bars crowds the viewport.
+  if (pathname.startsWith('/wallets')) {
+    return null
+  }
+
   return (
     <nav className="lg:hidden fixed inset-x-2 bottom-2 z-50">
       <div className="relative overflow-hidden rounded-[24px] border border-gray-800/80 bg-gray-950/95 shadow-[0_18px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl">

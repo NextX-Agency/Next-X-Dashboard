@@ -78,6 +78,23 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     }))
   }, [pathname])
 
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const previousBodyOverflow = document.body.style.overflow
+    const previousHtmlOverflow = document.documentElement.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
+    }
+  }, [isOpen])
+
   const navSections: NavSection[] = [
     {
       title: 'Store',
@@ -181,12 +198,12 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     <>
       {/* Backdrop */}
       <div 
-        className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+        className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] animate-in fade-in duration-200"
         onClick={onClose}
       />
       
       {/* Menu Panel */}
-      <div className="lg:hidden fixed top-0 left-0 h-full w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-50 animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)]">
+      <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-[80] animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
         <div className="relative overflow-hidden p-4 border-b border-gray-800/50 shrink-0">
           <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 via-transparent to-white/5" />
@@ -282,77 +299,79 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           <p className="mt-2 text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 overscroll-contain">
-          {filteredSections.length === 0 ? (
-            <div className="rounded-2xl border border-gray-800/70 bg-gray-900/70 p-4 text-center">
-              <div className="text-sm font-semibold text-white">No menu results</div>
-              <p className="mt-1 text-xs text-gray-400">Try a different term or clear the current search.</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {filteredSections.map((section) => (
-                <div key={section.title} className="mb-1">
-                  {/* Section Header */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(section.title)}
-                    aria-expanded={expandedSections[section.title]}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
-                  >
-                    <span>{section.title}</span>
-                    <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
-                      <ChevronDown size={16} />
-                    </div>
-                  </button>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {/* Navigation */}
+          <nav className="py-3 px-2">
+            {filteredSections.length === 0 ? (
+              <div className="rounded-2xl border border-gray-800/70 bg-gray-900/70 p-4 text-center">
+                <div className="text-sm font-semibold text-white">No menu results</div>
+                <p className="mt-1 text-xs text-gray-400">Try a different term or clear the current search.</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredSections.map((section) => (
+                  <div key={section.title} className="mb-1">
+                    {/* Section Header */}
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(section.title)}
+                      aria-expanded={expandedSections[section.title]}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
+                    >
+                      <span>{section.title}</span>
+                      <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
+                        <ChevronDown size={16} />
+                      </div>
+                    </button>
 
-                  {/* Section Items */}
-                  <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="space-y-0.5 py-1">
-                      {section.items.map((item) => {
-                        const Icon = item.icon
-                        const isActive = isItemActive(item.path)
-                        
-                        return (
-                          <button
-                            type="button"
-                            key={item.path}
-                            onClick={() => handleNavigation(item.path, item.external)}
-                            aria-current={isActive ? 'page' : undefined}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
-                              isActive 
-                                ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                                : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
-                            }`}
-                          >
-                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
-                              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                            </div>
-                            <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                            {item.external && (
-                              <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
-                            )}
-                          </button>
-                        )
-                      })}
+                    {/* Section Items */}
+                    <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className="space-y-0.5 py-1">
+                        {section.items.map((item) => {
+                          const Icon = item.icon
+                          const isActive = isItemActive(item.path)
+                          
+                          return (
+                            <button
+                              type="button"
+                              key={item.path}
+                              onClick={() => handleNavigation(item.path, item.external)}
+                              aria-current={isActive ? 'page' : undefined}
+                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
+                                isActive 
+                                  ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                                  : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
+                              }`}
+                            >
+                              <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
+                                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                              </div>
+                              <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
+                              {item.external && (
+                                <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </nav>
+                ))}
+              </div>
+            )}
+          </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-800/50 bg-gray-950/90 shrink-0">
-          <div className="mb-3 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Shared Admin Focus</div>
-            <div className="mt-1 text-sm font-semibold text-white">{catalog === 'watches' ? 'Watches' : 'Audio'}</div>
-            <div className="mt-1 text-xs text-gray-400">Stock, sales, reservations and shared reports follow this focus.</div>
-          </div>
-          <div className="text-center text-xs text-gray-500">
-            <p className="font-semibold">NextX Dashboard v1.0</p>
-            <p className="mt-0.5">© 2025 All rights reserved</p>
+          {/* Footer */}
+          <div className="border-t border-gray-800/50 bg-gray-950/90 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <div className="mb-3 rounded-2xl border border-gray-800 bg-gray-900/80 px-3 py-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Shared Admin Focus</div>
+              <div className="mt-1 text-sm font-semibold text-white">{catalog === 'watches' ? 'Watches' : 'Audio'}</div>
+              <div className="mt-1 text-xs text-gray-400">Stock, sales, reservations and shared reports follow this focus.</div>
+            </div>
+            <div className="text-center text-xs text-gray-500">
+              <p className="font-semibold">NextX Dashboard v1.0</p>
+              <p className="mt-0.5">© 2025 All rights reserved</p>
+            </div>
           </div>
         </div>
       </div>

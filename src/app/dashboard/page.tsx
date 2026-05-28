@@ -349,7 +349,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8 lg:py-12">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-12 pb-28 sm:pb-32 lg:pb-12">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
             <h2 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">Store overview</h2>
