@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
-import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
+import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { Database } from '@/types/database.types'
 import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye, RefreshCw, AlertTriangle, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
@@ -58,15 +57,11 @@ interface InvoiceData {
 
 
 export default function ReservationsPage() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [clients, setClients] = useState<Client[]>([])
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [recentReservations, setRecentReservations] = useState<ReservationGroup[]>([])
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeAdminCatalog(searchParams.get('catalog') ?? getStoredAdminCatalog()))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [selectedClient, setSelectedClient] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -190,33 +185,6 @@ export default function ReservationsPage() {
   }, [loadData])
 
   useEffect(() => {
-    const queryCatalog = searchParams.get('catalog')
-    if (!queryCatalog) {
-      return
-    }
-
-    const nextCatalogFilter = normalizeAdminCatalog(queryCatalog)
-    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
-    if (preferredCatalog !== nextCatalogFilter) {
-      setPreferredCatalog(nextCatalogFilter)
-    }
-  }, [preferredCatalog, searchParams, setPreferredCatalog])
-
-  useEffect(() => {
-    setCatalogFilter((current) => current === preferredCatalog ? current : preferredCatalog)
-  }, [preferredCatalog])
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (params.get('catalog') === catalogFilter) {
-      return
-    }
-
-    params.set('catalog', catalogFilter)
-    router.replace(`${pathname}?${params.toString()}`)
-  }, [catalogFilter, pathname, router, searchParams])
-
-  useEffect(() => {
     setCart([])
     setCombos([])
     setTempComboItems([])
@@ -225,8 +193,7 @@ export default function ReservationsPage() {
 
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
     setCatalogFilter(nextCatalog)
-    setPreferredCatalog(nextCatalog)
-  }, [setPreferredCatalog])
+  }, [setCatalogFilter])
 
   // Debounce location change to prevent excessive API calls
   useEffect(() => {

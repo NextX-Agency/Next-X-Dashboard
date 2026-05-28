@@ -1,9 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
+import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
@@ -15,14 +14,10 @@ type SortOrder = 'asc' | 'desc'
 type CatalogType = 'audio' | 'watches'
 
 export default function StockPage() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [stocks, setStocks] = useState<StockWithDetails[]>([])
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeAdminCatalog(searchParams.get('catalog') ?? getStoredAdminCatalog()))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
@@ -92,41 +87,13 @@ export default function StockPage() {
   }, [loadData])
 
   useEffect(() => {
-    const queryCatalog = searchParams.get('catalog')
-    if (!queryCatalog) {
-      return
-    }
-
-    const nextCatalogFilter = normalizeAdminCatalog(queryCatalog)
-    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
-    if (preferredCatalog !== nextCatalogFilter) {
-      setPreferredCatalog(nextCatalogFilter)
-    }
-  }, [preferredCatalog, searchParams, setPreferredCatalog])
-
-  useEffect(() => {
-    setCatalogFilter((current) => current === preferredCatalog ? current : preferredCatalog)
-  }, [preferredCatalog])
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (params.get('catalog') === catalogFilter) {
-      return
-    }
-
-    params.set('catalog', catalogFilter)
-    router.replace(`${pathname}?${params.toString()}`)
-  }, [catalogFilter, pathname, router, searchParams])
-
-  useEffect(() => {
     setAddForm((current) => ({ ...current, item_id: '' }))
     setTransferForm((current) => ({ ...current, item_id: '' }))
   }, [catalogFilter])
 
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
     setCatalogFilter(nextCatalog)
-    setPreferredCatalog(nextCatalog)
-  }, [setPreferredCatalog])
+  }, [setCatalogFilter])
 
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault()

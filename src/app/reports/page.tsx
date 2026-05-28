@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   BarChart3, TrendingUp, Package, DollarSign, Calendar,
   Award, ShoppingBag, Wallet, MapPin, Layers, Sparkles, Users,
@@ -10,7 +9,7 @@ import {
   Activity, BookOpen, ArrowRight, Download
 } from 'lucide-react'
 import { PageHeader, Badge } from '@/components/UI'
-import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
+import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { calculateFinancialHealthScore, type FinancialHealthScore } from '@/lib/financialHealth'
@@ -185,14 +184,6 @@ function inRange(dateStr: string, start: Date, end: Date): boolean {
   return d >= start && d <= end
 }
 
-function normalizeReportCatalog(value: string | null): CatalogType {
-  if (value === 'all') {
-    return 'all'
-  }
-
-  return normalizeAdminCatalog(value ?? getStoredAdminCatalog())
-}
-
 const toNum = (v: number | string | null): number => {
   if (v === null) return 0
   return typeof v === 'string' ? parseFloat(v) || 0 : v
@@ -216,10 +207,7 @@ function classifyWalletTransaction(transaction: WalletTransaction): keyof Pick<
 // ─── Main Component ──────────────────────────────────────────────────
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter({ allowAll: true })
   const rate = (exchangeRate as unknown as number) || 40
 
   // ─── State ───
@@ -240,7 +228,6 @@ export default function ReportsPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<PeriodType>('monthly')
-  const [catalogFilter, setCatalogFilter] = useState<CatalogType>(() => normalizeReportCatalog(searchParams.get('catalog')))
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [activeTab, setActiveTab] = useState<ViewTab>('current')
   const [excludeLowValueItems, setExcludeLowValueItems] = useState(false)
@@ -324,46 +311,6 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  useEffect(() => {
-    const queryCatalog = searchParams.get('catalog')
-    if (!queryCatalog) {
-      return
-    }
-
-    const nextCatalogFilter = normalizeReportCatalog(queryCatalog)
-    setCatalogFilter((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
-
-    if (nextCatalogFilter !== 'all' && preferredCatalog !== nextCatalogFilter) {
-      setPreferredCatalog(nextCatalogFilter)
-    }
-  }, [preferredCatalog, searchParams, setPreferredCatalog])
-
-  useEffect(() => {
-    setCatalogFilter((current) => current === 'all' ? current : preferredCatalog)
-  }, [preferredCatalog])
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    const currentCatalog = params.get('catalog')
-
-    if (catalogFilter === 'all') {
-      if (!currentCatalog) {
-        return
-      }
-
-      params.delete('catalog')
-    } else {
-      if (currentCatalog === catalogFilter) {
-        return
-      }
-
-      params.set('catalog', catalogFilter)
-    }
-
-    const nextQuery = params.toString()
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
-  }, [catalogFilter, pathname, router, searchParams])
-
   const downloadReport = useCallback((exportPeriod: 'monthly' | 'yearly') => {
     const params = new URLSearchParams({
       period: exportPeriod,
@@ -386,11 +333,7 @@ export default function ReportsPage() {
 
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
     setCatalogFilter(nextCatalog)
-
-    if (nextCatalog !== 'all') {
-      setPreferredCatalog(nextCatalog)
-    }
-  }, [setPreferredCatalog])
+  }, [setCatalogFilter])
 
   // ─── Helper to check if expense is inventory-related ───
   const isInventoryExpense = useCallback((exp: ExpenseWithCategory): boolean => {

@@ -1,14 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type AdminCatalog = 'audio' | 'watches'
+export type AdminCatalogFilter = AdminCatalog | 'all'
 
 export const ADMIN_CATALOG_STORAGE_KEY = 'nextx:admin-catalog-focus'
 export const ADMIN_CATALOG_EVENT = 'nextx-admin-catalog-change'
 
 export function normalizeAdminCatalog(value: string | null | undefined): AdminCatalog {
   return value === 'watches' ? 'watches' : 'audio'
+}
+
+export function normalizeAdminCatalogFilter(value: string | null | undefined, allowAll: boolean = false): AdminCatalogFilter {
+  if (allowAll && value === 'all') {
+    return 'all'
+  }
+
+  return normalizeAdminCatalog(value)
 }
 
 export function getStoredAdminCatalog(): AdminCatalog {
@@ -40,7 +50,7 @@ export function setStoredAdminCatalog(catalog: AdminCatalog) {
 }
 
 export function useAdminCatalog() {
-  const [catalog, setCatalogState] = useState<AdminCatalog>('audio')
+  const [catalog, setCatalogState] = useState<AdminCatalog>(() => getStoredAdminCatalog())
 
   useEffect(() => {
     const syncCatalog = (nextCatalog?: string | null) => {
@@ -80,5 +90,96 @@ export function useAdminCatalog() {
   return {
     catalog,
     setCatalog,
+  }
+}
+
+type UseSyncedAdminCatalogFilterOptions = {
+  allowAll?: boolean
+}
+
+type UseSyncedAdminCatalogFilterResult<TCatalog extends AdminCatalogFilter> = {
+  catalogFilter: TCatalog
+  setCatalogFilter: (nextCatalog: TCatalog) => void
+}
+
+export function useSyncedAdminCatalogFilter(options: { allowAll: true }): UseSyncedAdminCatalogFilterResult<AdminCatalogFilter>
+export function useSyncedAdminCatalogFilter(options?: { allowAll?: false }): UseSyncedAdminCatalogFilterResult<AdminCatalog>
+export function useSyncedAdminCatalogFilter(options: UseSyncedAdminCatalogFilterOptions = {}) {
+  const { allowAll = false } = options
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
+  const [catalogFilter, setCatalogFilterState] = useState<AdminCatalogFilter>(() =>
+    normalizeAdminCatalogFilter(searchParams.get('catalog') ?? getStoredAdminCatalog(), allowAll)
+  )
+  const lastQueryCatalogRef = useRef<string | null | undefined>(undefined)
+  const previousPreferredCatalogRef = useRef<AdminCatalog | undefined>(undefined)
+
+  useEffect(() => {
+    const queryCatalog = searchParams.get('catalog')
+    if (lastQueryCatalogRef.current === queryCatalog) {
+      return
+    }
+
+    lastQueryCatalogRef.current = queryCatalog
+
+    if (!queryCatalog) {
+      return
+    }
+
+    const nextCatalogFilter = normalizeAdminCatalogFilter(queryCatalog, allowAll)
+    setCatalogFilterState((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
+
+    if (nextCatalogFilter !== 'all' && preferredCatalog !== nextCatalogFilter) {
+      setPreferredCatalog(nextCatalogFilter)
+    }
+  }, [allowAll, preferredCatalog, searchParams, setPreferredCatalog])
+
+  useEffect(() => {
+    const previousPreferredCatalog = previousPreferredCatalogRef.current
+    previousPreferredCatalogRef.current = preferredCatalog
+
+    if (typeof previousPreferredCatalog === 'undefined' || previousPreferredCatalog === preferredCatalog) {
+      return
+    }
+
+    setCatalogFilterState((current) => current === 'all' ? current : current === preferredCatalog ? current : preferredCatalog)
+  }, [preferredCatalog])
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    const currentCatalog = params.get('catalog')
+
+    if (catalogFilter === 'all') {
+      if (!currentCatalog) {
+        return
+      }
+
+      params.delete('catalog')
+    } else {
+      if (currentCatalog === catalogFilter) {
+        return
+      }
+
+      params.set('catalog', catalogFilter)
+    }
+
+    const nextQuery = params.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+  }, [catalogFilter, pathname, router, searchParams])
+
+  const setCatalogFilter = useCallback((nextCatalog: AdminCatalogFilter) => {
+    const normalizedCatalog = normalizeAdminCatalogFilter(nextCatalog, allowAll)
+    setCatalogFilterState(normalizedCatalog)
+
+    if (normalizedCatalog !== 'all') {
+      setPreferredCatalog(normalizedCatalog)
+    }
+  }, [allowAll, setPreferredCatalog])
+
+  return {
+    catalogFilter: catalogFilter as AdminCatalogFilter,
+    setCatalogFilter: setCatalogFilter as (nextCatalog: AdminCatalogFilter) => void,
   }
 }
