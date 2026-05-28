@@ -649,17 +649,17 @@ export default function ExpensesPage() {
               <p className="text-sm text-muted-foreground py-4 text-center w-full">No categories yet</p>
             ) : (
               categories.map((category) => (
-                <div key={category.id} className="group flex items-center gap-1 bg-muted px-3 py-1.5 rounded-full">
+                <div key={category.id} className="group flex items-center gap-1.5 bg-muted px-3 py-1.5 rounded-full">
                   <span className="text-sm font-medium">{category.name}</span>
                   <button
                     onClick={() => handleEditCategory(category)}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-all"
+                    className="p-1 rounded text-muted-foreground transition-all touch-manipulation opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:bg-primary/20 hover:text-primary"
                   >
                     <Edit size={12} />
                   </button>
                   <button
                     onClick={() => handleDeleteCategory(category)}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-all"
+                    className="p-1 rounded text-muted-foreground transition-all touch-manipulation opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:bg-destructive/20 hover:text-destructive"
                   >
                     <X size={12} />
                   </button>

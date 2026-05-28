@@ -106,13 +106,14 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
               className="object-cover"
               unoptimized
             />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <div className="absolute inset-0 flex items-end justify-center gap-2 bg-linear-to-t from-black/70 via-black/20 to-transparent p-3 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
               <Button
                 type="button"
                 onClick={handleClick}
                 variant="secondary"
                 size="sm"
                 disabled={uploading}
+                className="touch-manipulation"
               >
                 <Upload size={16} />
                 Change
@@ -122,7 +123,7 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
                 onClick={handleRemove}
                 variant="ghost"
                 size="sm"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 touch-manipulation"
                 disabled={uploading}
               >
                 <X size={16} />
@@ -168,7 +169,7 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
 
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-          <X className="text-destructive flex-shrink-0" size={16} />
+          <X className="text-destructive shrink-0" size={16} />
           <p className="text-sm text-destructive">{error}</p>
         </div>
       )}

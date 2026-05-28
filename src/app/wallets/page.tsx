@@ -915,25 +915,25 @@ export default function WalletsPage() {
                           </div>
                           
                           {/* Desktop: Hover effect buttons */}
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => {
                                 setSelectedWallet(wallet as WalletWithLocation)
                                 setShowTransactionForm(true)
                               }}
-                              className="flex-1 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              className="flex-1 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors touch-manipulation"
                             >
                               Add/Remove
                             </button>
                             <button
                               onClick={() => handleEditWallet(wallet as WalletWithLocation)}
-                              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors touch-manipulation"
                             >
                               <Edit size={14} />
                             </button>
                             <button
                               onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
-                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors touch-manipulation"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -1090,16 +1090,16 @@ export default function WalletsPage() {
                     </div>
                     <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
                     {/* Desktop: Hover action buttons */}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleEditWallet(wallet)}
-                        className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                        className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors touch-manipulation"
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => handleDeleteWallet(wallet)}
-                        className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                        className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors touch-manipulation"
                       >
                         <Trash2 size={16} />
                       </button>

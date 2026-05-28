@@ -613,16 +613,16 @@ export default function CommissionsPage() {
                                 {rate.commission_rate}%
                               </Badge>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                            <div className="ml-2 flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => openRateModal(seller.id, rate.category_id, rate.commission_rate, rate.id)}
-                                className="text-xs text-primary hover:text-primary/80 px-2 py-1 rounded"
+                                className="rounded px-2 py-1 text-xs text-primary hover:text-primary/80 touch-manipulation"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => handleDeleteRate(rate.id)}
-                                className="text-xs text-destructive hover:text-destructive/80 px-2 py-1 rounded"
+                                className="rounded px-2 py-1 text-xs text-destructive hover:text-destructive/80 touch-manipulation"
                               >
                                 ×
                               </button>
