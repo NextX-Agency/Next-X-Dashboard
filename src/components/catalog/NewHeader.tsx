@@ -59,7 +59,7 @@ export function NewHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
+      <header className="lg:sticky lg:top-0 z-50 border-b border-neutral-200 bg-white">
         <div className="border-b border-neutral-100 hidden sm:block">
           <div className={catalogShellClassName}>
             <div className="flex h-10 items-center justify-between text-xs">

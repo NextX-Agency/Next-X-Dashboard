@@ -41,8 +41,8 @@ function TopBarComponent() {
 
   return (
     <>
-      <header className="bg-gray-900/98 border-b border-gray-800/80 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3 px-3 lg:px-5 py-2 lg:py-2.5">
+      <header className="bg-gray-900/98 border-b border-gray-800/80 lg:sticky lg:top-0 z-40 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 px-3 lg:px-5 py-1.5 lg:py-2.5">
           <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
             <button 
               onClick={openMobileMenu}

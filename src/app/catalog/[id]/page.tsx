@@ -556,7 +556,7 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-white animate-pulse">
         {/* Header skeleton */}
-        <div className="h-16 bg-white border-b border-neutral-200 sticky top-0 z-50">
+        <div className="h-16 bg-white border-b border-neutral-200 lg:sticky lg:top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
             <div className="h-8 w-24 bg-neutral-100 rounded-lg" />
             <div className="h-9 w-9 bg-neutral-100 rounded-full" />
@@ -635,7 +635,7 @@ export default function ProductDetailPage() {
       />
 
       {/* Main Content */}
-      <main className={`${catalogShellClassName} bg-white pt-6 lg:pt-8 pb-40 lg:pb-8`} itemScope itemType="https://schema.org/Product">
+      <main className={`${catalogShellClassName} bg-white pt-6 lg:pt-8 pb-32 sm:pb-36 lg:pb-8`} itemScope itemType="https://schema.org/Product">
         {/* Breadcrumbs */}
         <nav aria-label="Breadcrumb" className="mb-4">
           <ol className="flex items-center text-sm flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
@@ -1019,16 +1019,16 @@ export default function ProductDetailPage() {
       </main>
 
       {/* Mobile Sticky Bottom CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-4 pt-4 pb-6 safe-area-bottom">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-3 pt-3 pb-4 safe-area-bottom">
         {/* Quantity and Total Row */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
           {/* Quantity Selector */}
           <div>
             <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
               <button
                 onClick={decrementQuantity}
                 disabled={quantity <= 1}
-                className={`w-11 h-11 flex items-center justify-center transition-colors ${
+                className={`w-10 h-10 flex items-center justify-center transition-colors ${
                   quantity <= 1
                     ? 'text-neutral-300 cursor-not-allowed'
                     : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
@@ -1037,13 +1037,13 @@ export default function ProductDetailPage() {
               >
                 <Minus size={18} />
               </button>
-              <span className="w-10 text-center text-base font-semibold text-neutral-900 select-none">
+              <span className="w-9 text-center text-sm font-semibold text-neutral-900 select-none">
                 {quantity}
               </span>
               <button
                 onClick={incrementQuantity}
                 disabled={quantity >= maxAvailable || isOutOfStock}
-                className={`w-11 h-11 flex items-center justify-center transition-colors ${
+                className={`w-10 h-10 flex items-center justify-center transition-colors ${
                   quantity >= maxAvailable || isOutOfStock
                     ? 'text-neutral-300 cursor-not-allowed'
                     : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
@@ -1061,7 +1061,7 @@ export default function ProductDetailPage() {
           {/* Total Price */}
           <div className="text-right">
             <p className="text-xs text-neutral-500">Totaal</p>
-            <p className="text-xl font-bold text-neutral-900">
+            <p className="text-lg font-bold text-neutral-900 sm:text-xl">
               {formatCurrency(totalPrice, currency)}
             </p>
           </div>
@@ -1070,7 +1070,7 @@ export default function ProductDetailPage() {
         {/* Add to Cart Button */}
         {isOutOfStock ? (
           <button
-            className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-4"
+            className="w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed"
             disabled
           >
             <AlertCircle size={20} strokeWidth={2} />
@@ -1080,7 +1080,7 @@ export default function ProductDetailPage() {
           <button
             onClick={handleAddToCart}
             disabled={addedToCart}
-            className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg mb-4 ${
+            className={`w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
               addedToCart
                 ? 'bg-green-500 text-white shadow-green-500/20'
                 : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'

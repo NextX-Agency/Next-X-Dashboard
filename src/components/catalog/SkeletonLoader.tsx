@@ -130,7 +130,7 @@ export function PageSkeleton() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header placeholder */}
-      <div className="h-14 sm:h-16 bg-white border-b border-neutral-200 sticky top-0 z-50 animate-pulse">
+      <div className="h-14 sm:h-16 bg-white border-b border-neutral-200 lg:sticky lg:top-0 z-50 animate-pulse">
         <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
           <div className="h-7 sm:h-8 w-20 sm:w-24 bg-neutral-100 rounded-lg" />
           <div className="hidden lg:flex gap-6">

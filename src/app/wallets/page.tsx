@@ -1580,26 +1580,26 @@ export default function WalletsPage() {
         </div>
 
         {/* Sticky Bottom Action Bar - Mobile Only */}
-        <div className="fixed bottom-0 left-0 right-0 z-60">
-          <div className="bg-linear-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-6 pb-8 px-5">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-60">
+          <div className="bg-linear-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-4 pb-5 px-4">
             <div className="flex items-center justify-center gap-4 max-w-sm mx-auto">
               <button
                 onClick={() => setShowTransferForm(true)}
-                className="w-16 h-14 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
+                className="w-14 h-12 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
               >
                 <ArrowRightLeft size={18} />
                 <span className="text-[9px] font-medium">Transfer</span>
               </button>
               <button
                 onClick={() => setShowTransactionHistory(true)}
-                className="w-16 h-14 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
+                className="w-14 h-12 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
               >
                 <History size={18} />
                 <span className="text-[9px] font-medium">History</span>
               </button>
               <button
                 onClick={() => setShowForm(true)}
-                className="h-14 px-6 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
+                className="h-12 px-5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
               >
                 <Plus size={18} />
                 <span className="text-sm font-semibold">New</span>

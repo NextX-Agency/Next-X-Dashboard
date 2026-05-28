@@ -54,7 +54,7 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
             <TopBar />
             
             {/* Page Content - Extra padding on mobile for bottom nav */}
-            <main className="flex-1 overflow-y-auto pb-24 lg:pb-8 overscroll-contain">
+            <main className="flex-1 overflow-y-auto pb-20 sm:pb-22 lg:pb-8 overscroll-contain">
               <div className="h-full">
                 {children}
               </div>

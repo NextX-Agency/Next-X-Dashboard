@@ -103,7 +103,7 @@ export function PublicLayout({
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header - Matches catalog NewHeader design exactly */}
-      <header className="sticky top-0 z-50 bg-white border-b border-neutral-200">
+      <header className="lg:sticky lg:top-0 z-50 bg-white border-b border-neutral-200">
         {/* Top bar - Same as catalog */}
         <div className="border-b border-neutral-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
