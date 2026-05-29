@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
 import type { Currency } from '@/lib/currency'
+import { cn } from '@/lib/utils'
 
 interface FeaturedItem {
   id: string
@@ -56,10 +57,10 @@ function WatchesFeaturedSectionComponent({
 
   if (items.length <= 3) {
     const gridClassName = items.length === 1
-      ? 'grid max-w-md grid-cols-1 gap-5'
+      ? 'mx-auto grid max-w-xl grid-cols-1 gap-5'
       : items.length === 2
-        ? 'grid max-w-5xl grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6'
-        : 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6'
+        ? 'mx-auto grid max-w-6xl grid-cols-1 gap-5 md:grid-cols-2 lg:gap-6'
+        : 'mx-auto grid max-w-7xl grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 lg:gap-6'
 
     return (
       <section
@@ -158,7 +159,7 @@ function WatchesFeaturedSectionComponent({
         )}
 
         {/* Smaller cards — 3 cols, 2 rows */}
-        <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-4 lg:gap-5">
+        <div className={cn('lg:col-span-3 grid gap-4 lg:gap-5', sideItems.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 sm:grid-cols-3')}>
           {sideItems.map((item, i) => (
             <div
               key={item.id}

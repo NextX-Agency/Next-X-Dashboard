@@ -1,6 +1,7 @@
 'use client'
 
 import { memo } from 'react'
+import { cn } from '@/lib/utils'
 
 export interface WatchBrandOption {
   name: string
@@ -30,6 +31,12 @@ function WatchesBrandNavComponent({
   }))
   const resolvedTotal = totalCount ?? options.reduce((sum, option) => sum + option.count, 0)
   const activeOption = options.find(option => option.name.toLowerCase() === activeBrand?.toLowerCase())
+  const totalTiles = options.length + 1
+  const gridClassName = totalTiles <= 2
+    ? 'grid-cols-1 sm:grid-cols-2'
+    : totalTiles === 3
+      ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
 
   return (
     <div aria-label="Browse watches by brand">
@@ -58,7 +65,7 @@ function WatchesBrandNavComponent({
       </div>
 
       <div
-        className="grid grid-cols-1 border-t sm:grid-cols-2 lg:grid-cols-3"
+        className={cn('grid border-t', gridClassName)}
         style={{ borderColor: 'var(--w-border)' }}
       >
         <BrandButton

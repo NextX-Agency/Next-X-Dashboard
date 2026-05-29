@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { cn } from '@/lib/utils'
 import {
   WatchesHeader,
   WatchesHero,
@@ -104,6 +105,26 @@ function resolveWatchBrand(item: Pick<Item, 'brand' | 'name'>) {
     const normalizedBrand = brand.toLowerCase()
     return normalizedName === normalizedBrand || normalizedName.startsWith(`${normalizedBrand} `)
   }) ?? null
+}
+
+function getBalancedGridClass(count: number, options?: { singleMaxWidth?: string; pairMaxWidth?: string; tripleMaxWidth?: string }) {
+  const singleMaxWidth = options?.singleMaxWidth ?? 'max-w-xl'
+  const pairMaxWidth = options?.pairMaxWidth ?? 'max-w-5xl'
+  const tripleMaxWidth = options?.tripleMaxWidth ?? 'max-w-7xl'
+
+  if (count <= 1) {
+    return `mx-auto ${singleMaxWidth} grid-cols-1`
+  }
+
+  if (count === 2) {
+    return `mx-auto ${pairMaxWidth} grid-cols-1 md:grid-cols-2`
+  }
+
+  if (count === 3) {
+    return `mx-auto ${tripleMaxWidth} grid-cols-1 md:grid-cols-2 xl:grid-cols-3`
+  }
+
+  return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
 }
 
 export default function WatchesCatalogClient({
@@ -234,6 +255,16 @@ export default function WatchesCatalogClient({
     return normalizedCollections[0]?.resolvedItems.slice(0, 6) ?? items.slice(0, 6)
   }, [activeCollection, normalizedCollections, items])
 
+  const collectionGridClassName = useMemo(
+    () => getBalancedGridClass(Math.min(normalizedCollections.length, 3), { singleMaxWidth: 'max-w-2xl', pairMaxWidth: 'max-w-6xl' }),
+    [normalizedCollections.length]
+  )
+
+  const catalogGridClassName = useMemo(
+    () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-lg', pairMaxWidth: 'max-w-6xl', tripleMaxWidth: 'max-w-7xl' }),
+    [filteredItems.length]
+  )
+
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
     if (!item) return
@@ -345,7 +376,7 @@ export default function WatchesCatalogClient({
 
         <section id="collections" className="px-6 py-10 lg:px-12 lg:py-14">
           <div
-            className="mx-auto grid max-w-screen-2xl gap-10 border-y py-8 lg:grid-cols-[0.85fr_1.15fr] lg:py-10"
+            className="mx-auto grid max-w-screen-2xl gap-10 border-y py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
             style={{ borderColor: 'var(--w-border)' }}
           >
             <div className="flex flex-col justify-between gap-8">
@@ -428,7 +459,7 @@ export default function WatchesCatalogClient({
                 )}
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className={cn('grid gap-4', collectionGridClassName)}>
                 {normalizedCollections.slice(0, 3).map((collection) => {
                   const previewItem = collection.resolvedItems[0]
                   const isActive = collection.id === activeCollectionId
@@ -524,7 +555,7 @@ export default function WatchesCatalogClient({
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
-              <div className="grid grid-cols-1 gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              <div className={cn('grid gap-x-6 gap-y-14', catalogGridClassName)}>
                 {filteredItems.map(item => (
                   <WatchProductCard
                     key={item.id}
