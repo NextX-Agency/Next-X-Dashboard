@@ -18,9 +18,9 @@ const ADMIN_ROUTES = [
   '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
   '/budgets', '/wallets', '/commissions', '/exchange', '/locations',
   '/reports', '/settings', '/activity', '/reservations', '/invoices',
-  '/cms', '/upload-example', '/migrate', '/recalculate-commissions'
+  '/upload-example', '/migrate', '/recalculate-commissions'
 ]
-const ADMIN_PREFIXES = ['/cms/', '/api/']
+const ADMIN_PREFIXES = ['/api/']
 
 // Protected API routes
 const PROTECTED_API_PREFIXES = [

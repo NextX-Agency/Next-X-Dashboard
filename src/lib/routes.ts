@@ -45,7 +45,6 @@ export const ADMIN_ROUTES = [
   '/activity',
   '/reservations',
   '/invoices',
-  '/cms',
   '/upload-example',
   '/migrate',
   '/recalculate-commissions',
@@ -53,7 +52,6 @@ export const ADMIN_ROUTES = [
 
 // Admin route prefixes (for startsWith matching)
 export const ADMIN_ROUTE_PREFIXES = [
-  '/cms/',       // All CMS sub-pages
   '/api/',       // API routes (handled separately)
 ] as const
 

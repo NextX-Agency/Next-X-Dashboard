@@ -18,14 +18,8 @@ import {
   Activity,
   Settings,
   ExternalLink,
-  FileText,
   Layers,
-  Image as ImageIcon,
-  MessageSquareText,
-  HelpCircle,
-  FileEdit,
   ClipboardList,
-  Newspaper
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
@@ -57,7 +51,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   // Auto-expand current section based on path
   const getCurrentSection = useCallback(() => {
     if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
-    if (pathname.startsWith('/cms')) return 'Content'
     if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
     if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
     if (pathname.startsWith('/reports') || pathname.startsWith('/activity')) return 'Analytics'
@@ -110,18 +103,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       items: [
         { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
         { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
-      ],
-    },
-    {
-      title: 'Content',
-      items: [
-        { name: 'CMS Hub', icon: FileText, path: '/cms' },
-        { name: 'Blog', icon: Newspaper, path: '/cms/blog' },
-        { name: 'Banners', icon: ImageIcon, path: '/cms/banners' },
-        { name: 'Collections', icon: Layers, path: '/cms/collections' },
-        { name: 'Pages', icon: FileEdit, path: '/cms/pages' },
-        { name: 'Testimonials', icon: MessageSquareText, path: '/cms/testimonials' },
-        { name: 'FAQ', icon: HelpCircle, path: '/cms/faq' },
       ],
     },
     {
@@ -198,12 +179,12 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     <>
       {/* Backdrop */}
       <div 
-        className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] animate-in fade-in duration-200"
+        className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-70 animate-in fade-in duration-200"
         onClick={onClose}
       />
       
       {/* Menu Panel */}
-      <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-[80] animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-80 animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
         <div className="relative overflow-hidden p-4 border-b border-gray-800/50 shrink-0">
           <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 via-transparent to-white/5" />
