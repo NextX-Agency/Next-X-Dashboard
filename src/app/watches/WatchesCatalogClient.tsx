@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, useDeferredValue } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import {
   WatchesHeader,
@@ -13,7 +13,7 @@ import {
   WatchCartDrawer,
   WatchesFooter,
 } from '@/components/watches'
-import { WatchesBrandNav } from '@/components/watches/WatchesBrandNav'
+import { WatchesBrandNav, type WatchBrandOption } from '@/components/watches/WatchesBrandNav'
 import { WatchesFeaturedSection } from '@/components/watches/WatchesFeaturedSection'
 
 interface Item {
@@ -77,6 +77,35 @@ interface WatchesCatalogClientProps {
   settings: Record<string, string>
 }
 
+const WATCH_BRAND_FALLBACKS = [
+  'Rolex',
+  'Omega',
+  'Tudor',
+  'Cartier',
+  'Tag Heuer',
+  'Breitling',
+  'Longines',
+  'Tissot',
+  'Seiko',
+  'Citizen',
+  'Bulova',
+  'Invicta',
+  'Michael Kors',
+  'Fossil',
+  'Casio',
+]
+
+function resolveWatchBrand(item: Pick<Item, 'brand' | 'name'>) {
+  const explicitBrand = item.brand?.trim()
+  if (explicitBrand) return explicitBrand
+
+  const normalizedName = item.name.trim().toLowerCase()
+  return WATCH_BRAND_FALLBACKS.find((brand) => {
+    const normalizedBrand = brand.toLowerCase()
+    return normalizedName === normalizedBrand || normalizedName.startsWith(`${normalizedBrand} `)
+  }) ?? null
+}
+
 export default function WatchesCatalogClient({
   items,
   stock,
@@ -125,6 +154,17 @@ export default function WatchesCatalogClient({
     return map
   }, [liveStock])
 
+  const brandByItemId = useMemo(() => {
+    const map: Record<string, string> = {}
+    items.forEach((item) => {
+      const brand = resolveWatchBrand(item)
+      if (brand) {
+        map[item.id] = brand
+      }
+    })
+    return map
+  }, [items])
+
   const normalizedCollections = useMemo(() => {
     return collections
       .map(collection => {
@@ -151,34 +191,43 @@ export default function WatchesCatalogClient({
 
   const heroBanner = banners[0]
 
-  const brands = useMemo(() => {
-    const brandMap = new Map<string, string>()
+  const brandOptions = useMemo<WatchBrandOption[]>(() => {
+    const brandMap = new Map<string, WatchBrandOption>()
 
     items.forEach((item) => {
-      const trimmedBrand = item.brand?.trim()
+      const trimmedBrand = brandByItemId[item.id]
       if (!trimmedBrand) return
 
       const key = trimmedBrand.toLowerCase()
       if (!brandMap.has(key)) {
-        brandMap.set(key, trimmedBrand)
+        brandMap.set(key, { name: trimmedBrand, count: 0, inStockCount: 0 })
+      }
+
+      const brand = brandMap.get(key)
+      if (!brand) return
+
+      brand.count += 1
+      if ((stockMap[item.id] ?? 0) > 0) {
+        brand.inStockCount += 1
       }
     })
 
-    return Array.from(brandMap.values()).sort((left, right) => left.localeCompare(right))
-  }, [items])
+    return Array.from(brandMap.values()).sort((left, right) => left.name.localeCompare(right.name))
+  }, [brandByItemId, items, stockMap])
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const matchesBrand = !activeBrand || item.brand?.trim().toLowerCase() === activeBrand.toLowerCase()
+      const displayBrand = brandByItemId[item.id]
+      const matchesBrand = !activeBrand || displayBrand?.toLowerCase() === activeBrand.toLowerCase()
       const matchesCollection = !activeCollection || activeCollection.itemIds.has(item.id)
-      const matchesSearch = !deferredSearchQuery || [item.name, item.brand ?? '']
+      const matchesSearch = !deferredSearchQuery || [item.name, displayBrand ?? item.brand ?? '']
         .join(' ')
         .toLowerCase()
         .includes(deferredSearchQuery)
 
       return matchesBrand && matchesCollection && matchesSearch
     })
-  }, [items, activeBrand, activeCollection, deferredSearchQuery])
+  }, [items, activeBrand, activeCollection, brandByItemId, deferredSearchQuery])
 
   const featuredItems = useMemo(() => {
     if (activeCollection) return activeCollection.resolvedItems.slice(0, 6)
@@ -188,16 +237,17 @@ export default function WatchesCatalogClient({
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
     if (!item) return
+    const displayBrand = brandByItemId[item.id] ?? item.brand ?? undefined
     setCartItems(prev => {
       const existing = prev.find(c => c.id === itemId)
       if (existing) return prev.map(c => c.id === itemId ? { ...c, quantity: c.quantity + 1 } : c)
       return [...prev, {
-        id: item.id, name: item.name, brand: item.brand ?? undefined, imageUrl: item.imageUrl,
+        id: item.id, name: item.name, brand: displayBrand, imageUrl: item.imageUrl,
         sellingPriceUsd: item.sellingPriceUsd, sellingPriceSrd: item.sellingPriceSrd, quantity: 1,
       }]
     })
     setCartOpen(true)
-  }, [items])
+  }, [brandByItemId, items])
 
   const handleUpdateQty = useCallback((id: string, qty: number) => {
     setCartItems(prev => prev.map(c => c.id === id ? { ...c, quantity: qty } : c))
@@ -205,6 +255,14 @@ export default function WatchesCatalogClient({
 
   const handleRemove = useCallback((id: string) => {
     setCartItems(prev => prev.filter(c => c.id !== id))
+  }, [])
+
+  const hasActiveFilters = Boolean(activeBrand || activeCollectionId || searchQuery.trim())
+
+  const handleClearFilters = useCallback(() => {
+    setActiveBrand(null)
+    setActiveCollectionId(null)
+    setSearchQuery('')
   }, [])
 
   const cartCount = cartItems.reduce((sum, c) => sum + c.quantity, 0)
@@ -248,7 +306,7 @@ export default function WatchesCatalogClient({
                 <Link
                   key={banner.id}
                   href={banner.linkUrl || '/watches#featured'}
-                  className="group relative overflow-hidden rounded-[28px] border p-5 lg:p-6"
+                  className="group relative overflow-hidden border p-5 lg:p-6"
                   style={{ borderColor: 'var(--w-border)', background: 'linear-gradient(135deg, rgba(22,24,30,0.92), rgba(12,12,16,0.96))' }}
                 >
                   {banner.imageUrl && (
@@ -285,31 +343,61 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <section className="px-6 pb-4 lg:px-12">
-          <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 rounded-[28px] border px-5 py-5 lg:flex-row lg:items-end lg:justify-between lg:px-8"
-            style={{ borderColor: 'var(--w-border)', background: 'rgba(15, 17, 22, 0.82)' }}
+        <section id="collections" className="px-6 py-10 lg:px-12 lg:py-14">
+          <div
+            className="mx-auto grid max-w-screen-2xl gap-10 border-y py-8 lg:grid-cols-[0.85fr_1.15fr] lg:py-10"
+            style={{ borderColor: 'var(--w-border)' }}
           >
-            <div className="max-w-xl">
-              <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
-                Refine The Collection
-              </p>
-              <h2
-                className="text-3xl font-light"
-                style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
-              >
-                Search by name, brand, or curated drop
-              </h2>
+            <div className="flex flex-col justify-between gap-8">
+              <div>
+                <p className="mb-3 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                  Refine The Collection
+                </p>
+                <h2
+                  className="mb-4 text-3xl font-light lg:text-4xl"
+                  style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+                >
+                  Find the right house, model, or metal.
+                </h2>
+                <p
+                  className="max-w-lg text-sm font-light leading-loose"
+                  style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+                >
+                  A restrained edit of available timepieces, sorted by maison and live availability.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="relative block w-full max-w-xl">
+                  <Search size={16} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search model, brand, or reference"
+                    className="w-full border-0 border-b bg-transparent py-3 pl-8 pr-4 text-sm outline-none transition-colors"
+                    style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream)' }}
+                  />
+                </label>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleClearFilters}
+                    className="inline-flex items-center gap-2 text-[10px] font-light uppercase tracking-[0.22em] transition-opacity hover:opacity-100"
+                    style={{ color: 'var(--w-cream-2)', opacity: 0.76 }}
+                  >
+                    <X size={13} strokeWidth={1.5} />
+                    Clear selection
+                  </button>
+                )}
+              </div>
             </div>
-            <label className="relative block w-full max-w-xl">
-              <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
-              <input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search Rolex, Invicta, Michael Kors..."
-                className="w-full rounded-full border bg-transparent py-3 pl-11 pr-4 text-sm outline-none transition-colors"
-                style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream)' }}
-              />
-            </label>
+
+            <WatchesBrandNav
+              brandOptions={brandOptions}
+              totalCount={items.length}
+              activeBrand={activeBrand}
+              onChange={setActiveBrand}
+            />
           </div>
         </section>
 
@@ -332,7 +420,7 @@ export default function WatchesCatalogClient({
                   <button
                     type="button"
                     onClick={() => setActiveCollectionId(null)}
-                    className="self-start rounded-full border px-4 py-2 text-[10px] uppercase tracking-[0.24em]"
+                    className="self-start border px-4 py-2 text-[10px] uppercase tracking-[0.24em]"
                     style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream-2)' }}
                   >
                     Clear collection filter
@@ -350,7 +438,7 @@ export default function WatchesCatalogClient({
                       key={collection.id}
                       type="button"
                       onClick={() => setActiveCollectionId(isActive ? null : collection.id)}
-                      className="group overflow-hidden rounded-[30px] border text-left transition-colors"
+                      className="group overflow-hidden border text-left transition-colors"
                       style={{
                         borderColor: isActive ? 'rgba(201,168,76,0.55)' : 'var(--w-border)',
                         background: 'rgba(18, 20, 24, 0.9)',
@@ -389,10 +477,10 @@ export default function WatchesCatalogClient({
                           {collection.resolvedItems.slice(0, 3).map((item) => (
                             <span
                               key={item.id}
-                              className="rounded-full border px-3 py-1 text-[10px] uppercase tracking-[0.18em]"
+                              className="border px-3 py-1 text-[10px] uppercase tracking-[0.18em]"
                               style={{ borderColor: 'var(--w-border)', color: 'var(--w-muted)' }}
                             >
-                              {item.brand || item.name}
+                              {resolveWatchBrand(item) || item.name}
                             </span>
                           ))}
                         </div>
@@ -414,21 +502,8 @@ export default function WatchesCatalogClient({
         />
 
         {/* ══ Browse Collection ════════════════════════ */}
-        <section id="collections">
-          {/* Sticky category nav */}
-          <div
-            className="sticky top-16 lg:top-20 z-50"
-            style={{ background: 'var(--w-bg)' }}
-          >
-            <WatchesBrandNav
-              brands={brands}
-              activeBrand={activeBrand}
-              onChange={setActiveBrand}
-            />
-          </div>
-
-          {/* Product grid */}
-          <div id="new" className="px-6 lg:px-12 pt-10 pb-20 max-w-screen-2xl mx-auto">
+        <section>
+          <div id="new" className="px-6 pb-20 pt-8 lg:px-12 lg:pt-12 max-w-screen-2xl mx-auto">
             <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
@@ -438,24 +513,24 @@ export default function WatchesCatalogClient({
                   className="text-3xl font-light"
                   style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                 >
-                  {activeCollection ? activeCollection.name : 'Every timepiece currently available'}
+                  {activeCollection ? activeCollection.name : activeBrand ? `${activeBrand} watches` : 'Every timepiece currently available'}
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)' }}>
-                {filteredItems.length} watches shown with live stock refreshed each minute.
+                {filteredItems.length} {filteredItems.length === 1 ? 'watch' : 'watches'} shown. Live availability refreshes each minute.
               </p>
             </div>
 
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-14">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {filteredItems.map(item => (
                   <WatchProductCard
                     key={item.id}
                     id={item.id}
                     name={item.name}
-                    brand={item.brand ?? undefined}
+                    brand={brandByItemId[item.id] ?? item.brand ?? undefined}
                     imageUrl={item.imageUrl}
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
@@ -482,7 +557,7 @@ export default function WatchesCatalogClient({
         item={quickViewItem ? {
           id: quickViewItem.id,
           name: quickViewItem.name,
-          brand: quickViewItem.brand ?? undefined,
+          brand: brandByItemId[quickViewItem.id] ?? quickViewItem.brand ?? undefined,
           imageUrl: quickViewItem.imageUrl,
           sellingPriceUsd: quickViewItem.sellingPriceUsd ? Number(quickViewItem.sellingPriceUsd) : null,
           sellingPriceSrd: quickViewItem.sellingPriceSrd ? Number(quickViewItem.sellingPriceSrd) : null,

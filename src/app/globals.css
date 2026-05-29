@@ -1868,9 +1868,9 @@ button {
   --w-border-gold:  rgba(201, 168, 76, 0.25);
 
   /* Brand Orange — CTA & active states */
-  --w-orange:       #f97015;
-  --w-orange-dim:   rgba(249, 112, 21, 0.10);
-  --w-orange-glow:  rgba(249, 112, 21, 0.28);
+  --w-orange:       #C9A84C;
+  --w-orange-dim:   rgba(201, 168, 76, 0.10);
+  --w-orange-glow:  rgba(201, 168, 76, 0.18);
 
   /* Metallic accents */
   --w-steel:        #3D404A;
@@ -2011,8 +2011,8 @@ button {
 }
 
 .w-btn-orange:hover {
-  background: #e0620c;
-  box-shadow: 0 6px 24px var(--w-orange-glow);
+  background: var(--w-gold-light);
+  box-shadow: 0 6px 18px var(--w-orange-glow);
 }
 
 /* Scroll-reveal utility (intersection observer driven) */

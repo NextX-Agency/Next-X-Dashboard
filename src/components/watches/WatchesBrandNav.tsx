@@ -1,98 +1,133 @@
 'use client'
 
-import { memo, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { memo } from 'react'
+
+export interface WatchBrandOption {
+  name: string
+  count: number
+  inStockCount: number
+}
 
 interface WatchesBrandNavProps {
-  brands: string[]
+  brands?: string[]
+  brandOptions?: WatchBrandOption[]
+  totalCount?: number
   activeBrand: string | null
   onChange: (brand: string | null) => void
 }
 
 function WatchesBrandNavComponent({
-  brands,
+  brands = [],
+  brandOptions,
+  totalCount,
   activeBrand,
   onChange,
 }: WatchesBrandNavProps) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  const scroll = (dir: 'left' | 'right') => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
-  }
+  const options = brandOptions ?? brands.map((brand) => ({
+    name: brand,
+    count: 0,
+    inStockCount: 0,
+  }))
+  const resolvedTotal = totalCount ?? options.reduce((sum, option) => sum + option.count, 0)
+  const activeOption = options.find(option => option.name.toLowerCase() === activeBrand?.toLowerCase())
 
   return (
-    <div
-      className="flex items-stretch"
-      style={{ borderBottom: '1px solid var(--w-border)' }}
-    >
-      {/* Left arrow */}
-      <button
-        onClick={() => scroll('left')}
-        className="shrink-0 hidden sm:flex items-center px-3 transition-opacity hover:opacity-100 opacity-35"
-        style={{ color: 'var(--w-cream-2)', borderRight: '1px solid var(--w-border)' }}
-        aria-label="Scroll brands left"
-      >
-        <ChevronLeft size={15} strokeWidth={1.5} />
-      </button>
+    <div aria-label="Browse watches by brand">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-2 text-[9px] uppercase tracking-[0.32em]" style={{ color: 'var(--w-gold)' }}>
+            Browse By Maison
+          </p>
+          <h3
+            className="text-2xl font-light"
+            style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+          >
+            {activeOption ? activeOption.name : 'Every house in the vault'}
+          </h3>
+        </div>
+        <p
+          className="max-w-xs text-sm font-light leading-relaxed sm:text-right"
+          style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+        >
+          {activeOption
+            ? `${activeOption.count} ${activeOption.count === 1 ? 'piece' : 'pieces'} selected`
+            : options.length > 0
+              ? `${resolvedTotal} ${resolvedTotal === 1 ? 'watch' : 'watches'} across ${options.length} ${options.length === 1 ? 'brand' : 'brands'}`
+              : `${resolvedTotal} ${resolvedTotal === 1 ? 'watch' : 'watches'} in the collection`}
+        </p>
+      </div>
 
-      {/* Scrollable tabs */}
       <div
-        ref={scrollRef}
-        className="flex items-stretch overflow-x-auto scrollbar-none flex-1"
-        style={{ scrollSnapType: 'x mandatory' }}
+        className="grid grid-cols-1 border-t sm:grid-cols-2 lg:grid-cols-3"
+        style={{ borderColor: 'var(--w-border)' }}
       >
-        {/* "All" tab */}
-        <Tab
+        <BrandButton
           label="All Watches"
+          count={resolvedTotal}
+          meta="Full collection"
           isActive={activeBrand === null}
           onClick={() => onChange(null)}
         />
-        {brands.map((brand) => (
-          <Tab
-            key={brand}
-            label={brand}
-            isActive={activeBrand === brand}
-            onClick={() => onChange(brand)}
+        {options.map((option) => (
+          <BrandButton
+            key={option.name}
+            label={option.name}
+            count={option.count}
+            meta={`${option.inStockCount} in stock`}
+            isActive={activeBrand?.toLowerCase() === option.name.toLowerCase()}
+            onClick={() => onChange(option.name)}
           />
         ))}
       </div>
-
-      {/* Right arrow */}
-      <button
-        onClick={() => scroll('right')}
-        className="shrink-0 hidden sm:flex items-center px-3 transition-opacity hover:opacity-100 opacity-35"
-        style={{ color: 'var(--w-cream-2)', borderLeft: '1px solid var(--w-border)' }}
-        aria-label="Scroll brands right"
-      >
-        <ChevronRight size={15} strokeWidth={1.5} />
-      </button>
     </div>
   )
 }
 
-function Tab({
+function BrandButton({
   label,
+  count,
+  meta,
   isActive,
   onClick,
 }: {
   label: string
+  count: number
+  meta: string
   isActive: boolean
   onClick: () => void
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="shrink-0 flex items-center px-5 py-4 text-[10px] tracking-[0.22em] uppercase font-light whitespace-nowrap transition-colors"
+      className="group min-h-24 border-b px-4 py-4 text-left transition-colors sm:border-r"
       style={{
-        color: isActive ? 'var(--w-orange)' : 'var(--w-muted)',
-        borderBottom: `2px solid ${isActive ? 'var(--w-orange)' : 'transparent'}`,
+        borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
+        background: isActive ? 'rgba(201,168,76,0.07)' : 'transparent',
+        color: isActive ? 'var(--w-cream)' : 'var(--w-cream-2)',
         fontFamily: 'var(--font-jost, system-ui, sans-serif)',
-        scrollSnapAlign: 'start',
       }}
     >
-      {label}
+      <span className="mb-4 flex items-center justify-between gap-4">
+        <span
+          className="text-[10px] font-light uppercase tracking-[0.22em]"
+          style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
+        >
+          {label}
+        </span>
+        <span
+          className="text-xs font-light"
+          style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
+        >
+          {count.toString().padStart(2, '0')}
+        </span>
+      </span>
+      <span
+        className="block text-xs font-light uppercase tracking-[0.16em]"
+        style={{ color: isActive ? 'var(--w-cream-2)' : 'var(--w-muted)' }}
+      >
+        {meta}
+      </span>
     </button>
   )
 }

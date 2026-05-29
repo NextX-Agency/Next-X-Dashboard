@@ -54,6 +54,61 @@ function WatchesFeaturedSectionComponent({
 
   if (items.length === 0) return null
 
+  if (items.length <= 3) {
+    const gridClassName = items.length === 1
+      ? 'grid max-w-md grid-cols-1 gap-5'
+      : items.length === 2
+        ? 'grid max-w-5xl grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6'
+        : 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6'
+
+    return (
+      <section
+        ref={sectionRef}
+        id="featured"
+        className="px-6 py-16 lg:px-12 lg:py-20 max-w-screen-2xl mx-auto"
+      >
+        <div className="mb-10 w-reveal">
+          <p
+            className="w-subheading mb-4"
+            style={{ color: 'var(--w-gold)' }}
+          >
+            Featured Collection
+          </p>
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="w-heading" style={{ color: 'var(--w-cream)' }}>
+              Handpicked Timepieces
+            </h2>
+            <Link
+              href="/watches#collections"
+              className="hidden sm:inline-flex w-btn-outline"
+              style={{ padding: '0.6rem 1.5rem' }}
+            >
+              Browse All
+            </Link>
+          </div>
+          <div className="mt-5 h-px w-20" style={{ background: 'var(--w-border-gold)' }} />
+        </div>
+
+        <div className={gridClassName}>
+          {items.map((item, i) => (
+            <div
+              key={item.id}
+              className={`w-reveal w-reveal-d${Math.min(i + 1, 6)}`}
+            >
+              <FeaturedCard
+                item={item}
+                stockMap={stockMap}
+                displayCurrency={displayCurrency}
+                onAddToCart={onAddToCart}
+                onQuickView={onQuickView}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
   const [hero, ...rest] = items.slice(0, 6)
   const sideItems = rest.slice(0, 5)
 
