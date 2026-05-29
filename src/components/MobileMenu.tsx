@@ -1,6 +1,6 @@
 'use client'
 
-import { X, ChevronDown, Search, Headphones, Watch } from 'lucide-react'
+import { X, ChevronDown, Headphones, Watch } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { 
@@ -46,8 +46,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { catalog, setCatalog } = useAdminCatalog()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
   
   // Auto-expand current section based on path
   const getCurrentSection = useCallback(() => {
@@ -74,7 +72,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   useEffect(() => {
     if (!isOpen) {
-      setIsSearchOpen(false)
       return
     }
 
@@ -163,30 +160,6 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     onClose()
   }
 
-  // Filter items based on search
-  const filteredSections = useMemo(() => {
-    if (!searchQuery) return navSections
-
-    return navSections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase())),
-      }))
-      .filter((section) => section.items.length > 0)
-  }, [navSections, searchQuery])
-
-  const isSearchVisible = isSearchOpen || searchQuery.length > 0
-
-  const handleSearchToggle = () => {
-    if (isSearchVisible) {
-      setSearchQuery('')
-      setIsSearchOpen(false)
-      return
-    }
-
-    setIsSearchOpen(true)
-  }
-
   if (!isOpen) return null
 
   return (
@@ -215,30 +188,14 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleSearchToggle}
-                className={`p-2 sm:p-2.5 rounded-xl transition-colors ${
-                  isSearchVisible
-                    ? 'bg-orange-500/15 text-orange-200 border border-orange-500/25'
-                    : 'hover:bg-gray-800 active:bg-gray-700 text-gray-300'
-                }`}
-                aria-label={isSearchVisible ? 'Hide search' : 'Show search'}
-                aria-expanded={isSearchVisible}
-                aria-controls="mobile-menu-search"
-              >
-                <Search size={18} />
-              </button>
-              <button 
-                type="button"
-                onClick={onClose}
-                className="p-2 sm:p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
-                aria-label="Close menu"
-              >
-                <X size={22} />
-              </button>
-            </div>
+            <button 
+              type="button"
+              onClick={onClose}
+              className="p-2 sm:p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors shrink-0"
+              aria-label="Close menu"
+            >
+              <X size={22} />
+            </button>
           </div>
 
           <div className="relative mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-gray-800/70 bg-gray-900/80 p-2.5 sm:p-3">
@@ -286,92 +243,59 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </div>
 
         {/* Search */}
-        {isSearchVisible && (
-          <div className="p-2.5 sm:p-3 border-b border-gray-800/30 shrink-0">
-            <div className="relative" id="mobile-menu-search">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search menu..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-700/70 hover:text-gray-200 transition-colors"
-                  aria-label="Clear search"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            <p className="mt-2 hidden sm:block text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
-          </div>
-        )}
-
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {/* Navigation */}
           <nav className="py-3 px-2">
-            {filteredSections.length === 0 ? (
-              <div className="rounded-2xl border border-gray-800/70 bg-gray-900/70 p-4 text-center">
-                <div className="text-sm font-semibold text-white">No menu results</div>
-                <p className="mt-1 text-xs text-gray-400">Try a different term or clear the current search.</p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {filteredSections.map((section) => (
-                  <div key={section.title} className="mb-1">
-                    {/* Section Header */}
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section.title)}
-                      aria-expanded={expandedSections[section.title]}
-                      className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
-                    >
-                      <span>{section.title}</span>
-                      <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
-                        <ChevronDown size={16} />
-                      </div>
-                    </button>
+            <div className="space-y-1">
+              {navSections.map((section) => (
+                <div key={section.title} className="mb-1">
+                  {/* Section Header */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.title)}
+                    aria-expanded={expandedSections[section.title]}
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 active:text-white transition-colors rounded-lg active:bg-gray-800/50"
+                  >
+                    <span>{section.title}</span>
+                    <div className={`transition-transform duration-200 ${expandedSections[section.title] ? 'rotate-0' : '-rotate-90'}`}>
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
 
-                    {/* Section Items */}
-                    <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                      <div className="space-y-0.5 py-1">
-                        {section.items.map((item) => {
-                          const Icon = item.icon
-                          const isActive = isItemActive(item.path)
-                          
-                          return (
-                            <button
-                              type="button"
-                              key={item.path}
-                              onClick={() => handleNavigation(item.path, item.external)}
-                              aria-current={isActive ? 'page' : undefined}
-                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
-                                isActive 
-                                  ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                                  : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
-                              }`}
-                            >
-                              <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
-                                <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
-                              </div>
-                              <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                              {item.external && (
-                                <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
+                  {/* Section Items */}
+                  <div className={`overflow-hidden transition-all duration-200 ${expandedSections[section.title] ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-0.5 py-1">
+                      {section.items.map((item) => {
+                        const Icon = item.icon
+                        const isActive = isItemActive(item.path)
+                        
+                        return (
+                          <button
+                            type="button"
+                            key={item.path}
+                            onClick={() => handleNavigation(item.path, item.external)}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
+                              isActive 
+                                ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                                : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
+                            }`}
+                          >
+                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>
+                              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+                            </div>
+                            <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
+                            {item.external && (
+                              <ExternalLink size={14} className={isActive ? 'text-white/70' : 'text-gray-600'} />
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </nav>
 
           {/* Footer */}
