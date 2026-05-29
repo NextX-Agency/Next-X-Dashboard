@@ -30,7 +30,7 @@ function StatCardComponent({ title, value, icon: Icon, trend, color = 'orange' }
   }
 
   return (
-    <div className="group relative bg-card rounded-2xl p-5 lg:p-6 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
+    <div className="group relative bg-card rounded-lg p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
       {/* Subtle gradient overlay on hover */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 bg-gradient-to-br from-orange-500 to-transparent" />
       
@@ -67,8 +67,8 @@ interface ChartCardProps {
 
 function ChartCardComponent({ title, subtitle, children, action, icon }: ChartCardProps) {
   return (
-    <div className="bg-card rounded-2xl p-5 lg:p-6 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-lg transition-all duration-300">
-      <div className="flex items-start justify-between mb-5 lg:mb-6">
+    <div className="bg-card rounded-lg p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-lg transition-all duration-300">
+      <div className="flex items-start justify-between mb-4 lg:mb-5">
         <div className="flex items-center gap-3">
           {icon && (
             <div className="w-10 h-10 rounded-xl bg-[hsl(var(--primary-muted))] flex items-center justify-center">
@@ -110,7 +110,7 @@ function QuickActionCardComponent({ title, icon: Icon, onClick, color = 'orange'
   return (
     <button
       onClick={onClick}
-      className={`relative overflow-hidden bg-gradient-to-br ${colorClasses[color]} text-white rounded-2xl p-5 lg:p-6 shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97] w-full text-left group border border-white/10`}
+      className={`relative overflow-hidden bg-gradient-to-br ${colorClasses[color]} text-white rounded-lg p-4 lg:p-5 shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97] w-full text-left group border border-white/10`}
     >
       {/* Shine effect */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />

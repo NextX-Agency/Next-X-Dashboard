@@ -27,7 +27,7 @@ import {
   ClipboardList,
   Newspaper
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
 
 interface MobileMenuProps {
@@ -55,7 +55,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const [searchQuery, setSearchQuery] = useState('')
   
   // Auto-expand current section based on path
-  const getCurrentSection = () => {
+  const getCurrentSection = useCallback(() => {
     if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
     if (pathname.startsWith('/cms')) return 'Content'
     if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
@@ -63,7 +63,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     if (pathname.startsWith('/reports') || pathname.startsWith('/activity')) return 'Analytics'
     if (pathname.startsWith('/settings')) return 'System'
     return 'Store'
-  }
+  }, [pathname])
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     [getCurrentSection()]: true,
@@ -76,7 +76,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       ...prev,
       [currentSection]: true,
     }))
-  }, [pathname])
+  }, [getCurrentSection])
 
   useEffect(() => {
     if (!isOpen) {
@@ -95,7 +95,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     }
   }, [isOpen])
 
-  const navSections: NavSection[] = [
+  const navSections: NavSection[] = useMemo(() => [
     {
       title: 'Store',
       items: [
@@ -155,7 +155,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         { name: 'Settings', icon: Settings, path: '/settings' },
       ],
     },
-  ]
+  ], [])
 
   const isItemActive = useMemo(() => (path: string) => {
     return pathname === path || (path !== '/dashboard' && path !== '/catalog' && pathname.startsWith(path))
@@ -165,7 +165,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     return navSections.flatMap((section) => section.items).find((item) => isItemActive(item.path))
   }, [isItemActive, navSections])
 
-  const currentSection = useMemo(() => getCurrentSection(), [pathname])
+  const currentSection = useMemo(() => getCurrentSection(), [getCurrentSection])
 
   const toggleSection = (title: string) => {
     setExpandedSections(prev => ({ ...prev, [title]: !prev[title] }))
@@ -173,7 +173,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   const handleNavigation = (path: string, external?: boolean) => {
     if (external) {
-      window.open(path, '_blank')
+      window.open(path, '_blank', 'noopener,noreferrer')
     } else {
       router.push(path)
     }

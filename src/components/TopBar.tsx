@@ -105,7 +105,7 @@ function TopBarComponent() {
             <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-xl p-0.5 border border-gray-700/50">
               <button
                 onClick={setUSD}
-                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
+                  className={`flex min-h-10 min-w-10 items-center justify-center gap-1 px-2 py-1.5 sm:min-w-[3.25rem] lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'USD'
                     ? 'bg-orange-500 text-white shadow-sm'
                     : 'text-gray-400 hover:text-white active:bg-gray-700'
@@ -116,7 +116,7 @@ function TopBarComponent() {
               </button>
               <button
                 onClick={setSRD}
-                className={`flex items-center gap-1 px-2 py-1.5 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
+                  className={`flex min-h-10 min-w-10 items-center justify-center gap-1 px-2 py-1.5 sm:min-w-[3.25rem] lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'SRD'
                     ? 'bg-orange-500 text-white shadow-sm'
                     : 'text-gray-400 hover:text-white active:bg-gray-700'
@@ -131,7 +131,7 @@ function TopBarComponent() {
               <span>1 USD = {exchangeRate} SRD</span>
             </div>
 
-            <button className="relative p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors">
+            <button type="button" aria-label="Notifications" className="relative flex min-h-10 min-w-10 items-center justify-center p-2 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors">
               <Bell size={18} className="text-gray-400" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full ring-2 ring-gray-900"></span>
             </button>

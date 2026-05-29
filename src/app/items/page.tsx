@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Check, Headphones, Watch } from 'lucide-react'
+import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -32,6 +33,7 @@ export default function ItemsPage() {
   const [showItemForm, setShowItemForm] = useState(false)
   const [showComboForm, setShowComboForm] = useState(false)
   const [editingItem, setEditingItem] = useState<ItemWithComboItems | null>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [categoryForm, setCategoryForm] = useState<{ name: string; catalog_type: CatalogType }>({
     name: '',
     catalog_type: getStoredAdminCatalog(),
@@ -97,19 +99,46 @@ export default function ItemsPage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      const { data } = await supabase.from('categories').insert({
-        name: categoryForm.name.trim(),
-        catalog_type: categoryForm.catalog_type,
-      }).select().single()
-      if (data) {
+      const categoryName = categoryForm.name.trim()
+
+      if (editingCategory) {
+        const { error } = await supabase
+          .from('categories')
+          .update({
+            name: categoryName,
+            catalog_type: categoryForm.catalog_type,
+          })
+          .eq('id', editingCategory.id)
+
+        if (error) throw error
+
         await logActivity({
-          action: 'create',
+          action: 'update',
           entityType: 'category',
-          entityId: data.id,
-          entityName: categoryForm.name,
-          details: `Created ${categoryForm.catalog_type} category: ${categoryForm.name}`
+          entityId: editingCategory.id,
+          entityName: categoryName,
+          details: `Updated category: ${editingCategory.name} to ${categoryName}`
         })
+      } else {
+        const { data, error } = await supabase.from('categories').insert({
+          name: categoryName,
+          catalog_type: categoryForm.catalog_type,
+        }).select().single()
+
+        if (error) throw error
+
+        if (data) {
+          await logActivity({
+            action: 'create',
+            entityType: 'category',
+            entityId: data.id,
+            entityName: categoryName,
+            details: `Created ${categoryForm.catalog_type} category: ${categoryName}`
+          })
+        }
       }
+
+      setEditingCategory(null)
       setCategoryForm({ name: '', catalog_type: defaultCatalog })
       setShowCategoryForm(false)
       loadData()
@@ -161,10 +190,29 @@ export default function ItemsPage() {
     setShowComboForm(false)
   }
 
-  const openCategoryForm = () => {
+  const resetCategoryForm = () => {
+    setEditingCategory(null)
     setCategoryForm({
       name: '',
       catalog_type: defaultCatalog,
+    })
+    setShowCategoryForm(false)
+  }
+
+  const openCategoryForm = () => {
+    setEditingCategory(null)
+    setCategoryForm({
+      name: '',
+      catalog_type: defaultCatalog,
+    })
+    setShowCategoryForm(true)
+  }
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category)
+    setCategoryForm({
+      name: category.name,
+      catalog_type: normalizeAdminCatalog(category.catalog_type),
     })
     setShowCategoryForm(true)
   }
@@ -467,7 +515,7 @@ export default function ItemsPage() {
               placeholder="Search items, combos, or categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-11 min-h-12"
+              className="input-field with-leading-icon min-h-12"
             />
           </div>
           <div className="flex gap-1 p-1 sm:p-1.5 bg-card rounded-xl sm:rounded-2xl border border-border overflow-x-auto">
@@ -590,13 +638,14 @@ export default function ItemsPage() {
                     {/* Combo Image */}
                     {combo.image_url && (
                       <div className="relative w-full h-40 overflow-hidden">
-                        <img
+                        <Image
                           src={combo.image_url}
                           alt={combo.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
+                            e.currentTarget.style.display = 'none'
                           }}
                         />
                         <div className="absolute top-2 right-2">
@@ -712,14 +761,24 @@ export default function ItemsPage() {
                             </div>
                           </div>
                         </div>
-                        <Button 
-                          onClick={() => handleDeleteCategory(category.id)} 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                        <div className="flex shrink-0 gap-1.5">
+                          <Button
+                            onClick={() => handleEditCategory(category)}
+                            variant="ghost"
+                            size="sm"
+                            className="min-h-10"
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            onClick={() => handleDeleteCategory(category.id)} 
+                            variant="ghost" 
+                            size="sm"
+                            className="min-h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -731,7 +790,7 @@ export default function ItemsPage() {
       </PageContainer>
 
       {/* Category Modal */}
-      <Modal isOpen={showCategoryForm} onClose={() => setShowCategoryForm(false)} title="Create Category">
+      <Modal isOpen={showCategoryForm} onClose={resetCategoryForm} title={editingCategory ? 'Edit Category' : 'Create Category'}>
         <form onSubmit={handleCreateCategory} className="space-y-4">
           <Input
             label="Category Name"
@@ -764,9 +823,9 @@ export default function ItemsPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button type="submit" variant="primary" fullWidth loading={submitting} className="min-h-12">
-              Create Category
+              {editingCategory ? 'Update Category' : 'Create Category'}
             </Button>
-            <Button type="button" variant="secondary" fullWidth onClick={() => setShowCategoryForm(false)} className="min-h-12">
+            <Button type="button" variant="secondary" fullWidth onClick={resetCategoryForm} className="min-h-12">
               Cancel
             </Button>
           </div>

@@ -1241,7 +1241,7 @@ export default function ReservationsPage() {
                   placeholder="Search by client or location..."
                   value={reservationSearchQuery}
                   onChange={(e) => setReservationSearchQuery(e.target.value)}
-                  className="input-field pl-10 w-full min-h-12"
+                  className="input-field with-leading-icon w-full min-h-12"
                 />
               </div>
               <Button onClick={() => setShowNewReservation(true)} variant="primary" size="lg" className="min-h-12 shrink-0">

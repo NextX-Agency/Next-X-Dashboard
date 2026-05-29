@@ -369,7 +369,7 @@ export default function InvoicesPage() {
                 placeholder="Search invoices..."
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="input-field pl-10 w-full min-h-12"
+                className="input-field with-leading-icon w-full min-h-12"
               />
             </div>
             {/* Filter selects - grid on mobile, flex on desktop */}

@@ -13,6 +13,22 @@ type SortField = 'item' | 'location' | 'quantity'
 type SortOrder = 'asc' | 'desc'
 type CatalogType = 'audio' | 'watches'
 
+interface StockSummaryLocation {
+  id: string
+  name: string
+  quantity: number
+  stockId: string
+}
+
+interface StockSummary {
+  itemId: string
+  itemName: string
+  brand?: string | null
+  imageUrl?: string | null
+  totalQuantity: number
+  locations: StockSummaryLocation[]
+}
+
 export default function StockPage() {
   const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [items, setItems] = useState<Item[]>([])
@@ -26,6 +42,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [stockFormError, setStockFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [addForm, setAddForm] = useState({
     item_id: '',
@@ -98,31 +115,41 @@ export default function StockPage() {
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
+    setStockFormError(null)
     setSubmitting(true)
     
     try {
       const { item_id, location_id, quantity } = addForm
+      const qty = parseInt(quantity, 10)
       const item = items.find(i => i.id === item_id)
       const location = locations.find(l => l.id === location_id)
+
+      if (!item_id || !location_id || Number.isNaN(qty) || qty <= 0) {
+        throw new Error('Select an item, location, and a quantity greater than 0.')
+      }
       
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('stock')
         .select('*')
         .eq('item_id', item_id)
         .eq('location_id', location_id)
-        .single()
+        .maybeSingle()
+
+      if (existingError) throw existingError
 
       if (existing) {
-        await supabase
+        const { error } = await supabase
           .from('stock')
-          .update({ quantity: existing.quantity + parseInt(quantity) })
+          .update({ quantity: existing.quantity + qty })
           .eq('id', existing.id)
+        if (error) throw error
       } else {
-        await supabase.from('stock').insert({
+        const { error } = await supabase.from('stock').insert({
           item_id,
           location_id,
-          quantity: parseInt(quantity)
+          quantity: qty
         })
+        if (error) throw error
       }
 
       await logActivity({
@@ -136,6 +163,9 @@ export default function StockPage() {
       setAddForm({ item_id: '', location_id: '', quantity: '' })
       setShowAddForm(false)
       await loadData()
+    } catch (error) {
+      console.error('Error adding stock:', error)
+      setStockFormError(error instanceof Error ? error.message : 'Unable to add stock right now.')
     } finally {
       setSubmitting(false)
     }
@@ -144,64 +174,80 @@ export default function StockPage() {
   const handleTransferStock = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
+    setStockFormError(null)
     
     const { item_id, from_location_id, to_location_id, quantity } = transferForm
-    const qty = parseInt(quantity)
+    const qty = parseInt(quantity, 10)
+
+    if (!item_id || !from_location_id || !to_location_id || Number.isNaN(qty) || qty <= 0) {
+      setStockFormError('Select an item, both locations, and a quantity greater than 0.')
+      return
+    }
 
     if (from_location_id === to_location_id) {
-      alert('Cannot transfer to the same location')
+      setStockFormError('Choose two different locations for a transfer.')
       return
     }
-
-    const { data: fromStock } = await supabase
-      .from('stock')
-      .select('*')
-      .eq('item_id', item_id)
-      .eq('location_id', from_location_id)
-      .single()
-
-    if (!fromStock || fromStock.quantity < qty) {
-      alert('Insufficient stock')
-      return
-    }
-
-    const item = items.find(i => i.id === item_id)
-    const fromLocation = locations.find(l => l.id === from_location_id)
-    const toLocation = locations.find(l => l.id === to_location_id)
 
     setSubmitting(true)
     try {
-      await supabase
+      const { data: fromStock, error: fromStockError } = await supabase
         .from('stock')
-        .update({ quantity: fromStock.quantity - qty })
-        .eq('id', fromStock.id)
+        .select('*')
+        .eq('item_id', item_id)
+        .eq('location_id', from_location_id)
+        .maybeSingle()
 
-      const { data: toStock } = await supabase
+      if (fromStockError) throw fromStockError
+
+      if (!fromStock || fromStock.quantity < qty) {
+        throw new Error('Insufficient stock at the selected source location.')
+      }
+
+      const item = items.find(i => i.id === item_id)
+      const fromLocation = locations.find(l => l.id === from_location_id)
+      const toLocation = locations.find(l => l.id === to_location_id)
+
+      const remainingSourceQuantity = fromStock.quantity - qty
+      const { error: updateFromError } = remainingSourceQuantity === 0
+        ? await supabase.from('stock').delete().eq('id', fromStock.id)
+        : await supabase
+          .from('stock')
+          .update({ quantity: remainingSourceQuantity })
+          .eq('id', fromStock.id)
+      if (updateFromError) throw updateFromError
+
+      const { data: toStock, error: toStockError } = await supabase
         .from('stock')
         .select('*')
         .eq('item_id', item_id)
         .eq('location_id', to_location_id)
-        .single()
+        .maybeSingle()
+
+      if (toStockError) throw toStockError
 
       if (toStock) {
-        await supabase
+        const { error } = await supabase
           .from('stock')
           .update({ quantity: toStock.quantity + qty })
           .eq('id', toStock.id)
+        if (error) throw error
       } else {
-        await supabase.from('stock').insert({
+        const { error } = await supabase.from('stock').insert({
           item_id,
           location_id: to_location_id,
           quantity: qty
         })
+        if (error) throw error
       }
 
-      await supabase.from('stock_transfers').insert({
+      const { error: transferLogError } = await supabase.from('stock_transfers').insert({
         item_id,
         from_location_id,
         to_location_id,
         quantity: qty
       })
+      if (transferLogError) throw transferLogError
 
       await logActivity({
         action: 'transfer',
@@ -214,12 +260,15 @@ export default function StockPage() {
       setTransferForm({ item_id: '', from_location_id: '', to_location_id: '', quantity: '' })
       setShowTransferForm(false)
       await loadData()
+    } catch (error) {
+      console.error('Error transferring stock:', error)
+      setStockFormError(error instanceof Error ? error.message : 'Unable to transfer stock right now.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleRemoveStock = (stockId: string, currentQty: number) => {
+  const handleRemoveStock = (stockId: string) => {
     const stock = stocks.find(s => s.id === stockId)
     if (!stock) return
     setRemoveModal({ stock, removeQty: '1' })
@@ -247,40 +296,80 @@ export default function StockPage() {
       : stocks
   }, [selectedLocation, stocks])
 
-  const filteredStocks = useMemo(() => (
+  const stockSummaries = useMemo<StockSummary[]>(() => {
+    const grouped = new Map<string, StockSummary>()
+
+    scopedStocks.forEach((stock) => {
+      const itemId = stock.item_id
+      const existing = grouped.get(itemId)
+      const locationName = stock.locations?.name || 'Unknown Location'
+      const itemName = stock.items?.name || 'Unknown Item'
+
+      if (existing) {
+        existing.totalQuantity += stock.quantity
+        existing.locations.push({
+          id: stock.location_id,
+          name: locationName,
+          quantity: stock.quantity,
+          stockId: stock.id,
+        })
+      } else {
+        grouped.set(itemId, {
+          itemId,
+          itemName,
+          brand: stock.items?.brand,
+          imageUrl: stock.items?.image_url,
+          totalQuantity: stock.quantity,
+          locations: [{
+            id: stock.location_id,
+            name: locationName,
+            quantity: stock.quantity,
+            stockId: stock.id,
+          }],
+        })
+      }
+    })
+
+    return Array.from(grouped.values()).map((summary) => ({
+      ...summary,
+      locations: summary.locations.sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name)),
+    }))
+  }, [scopedStocks])
+
+  const filteredStockSummaries = useMemo(() => (
     showLowStock
-      ? scopedStocks.filter((stock) => stock.quantity < 5)
-      : scopedStocks
-  ), [scopedStocks, showLowStock])
+      ? stockSummaries.filter((stock) => stock.totalQuantity < 5)
+      : stockSummaries
+  ), [showLowStock, stockSummaries])
     
-  // Search and sort filtered stocks
-  const searchedAndSortedStocks = useMemo(() => {
-    return filteredStocks
+  // Search and sort consolidated product stock cards.
+  const searchedAndSortedStockSummaries = useMemo(() => {
+    return filteredStockSummaries
       .filter(stock => {
         if (!searchQuery) return true
         const query = searchQuery.toLowerCase()
         return (
-          stock.items?.name?.toLowerCase().includes(query) ||
-          stock.items?.brand?.toLowerCase().includes(query) ||
-          stock.locations?.name?.toLowerCase().includes(query)
+          stock.itemName.toLowerCase().includes(query) ||
+          stock.brand?.toLowerCase().includes(query) ||
+          stock.locations.some((location) => location.name.toLowerCase().includes(query))
         )
       })
       .sort((a, b) => {
         let comparison = 0
         switch (sortField) {
           case 'item':
-            comparison = (a.items?.name || '').localeCompare(b.items?.name || '')
+            comparison = a.itemName.localeCompare(b.itemName)
             break
           case 'location':
-            comparison = (a.locations?.name || '').localeCompare(b.locations?.name || '')
+            comparison = (a.locations[0]?.name || '').localeCompare(b.locations[0]?.name || '')
             break
           case 'quantity':
-            comparison = a.quantity - b.quantity
+            comparison = a.totalQuantity - b.totalQuantity
             break
         }
         return sortOrder === 'asc' ? comparison : -comparison
       })
-  }, [filteredStocks, searchQuery, sortField, sortOrder])
+  }, [filteredStockSummaries, searchQuery, sortField, sortOrder])
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -301,9 +390,9 @@ export default function StockPage() {
 
   const hasActiveFilters = searchQuery || selectedLocation || showLowStock
 
-  const lowStockCount = scopedStocks.filter((stock) => stock.quantity < 5).length
-  const totalItems = scopedStocks.length
-  const totalQuantity = scopedStocks.reduce((sum, stock) => sum + stock.quantity, 0)
+  const lowStockCount = stockSummaries.filter((stock) => stock.totalQuantity < 5).length
+  const totalItems = stockSummaries.length
+  const totalQuantity = stockSummaries.reduce((sum, stock) => sum + stock.totalQuantity, 0)
   const hasLoadedData = items.length > 0 || locations.length > 0 || stocks.length > 0
 
   if (loading) {
@@ -358,11 +447,11 @@ export default function StockPage() {
               <RefreshCcw size={18} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button onClick={() => setShowTransferForm(true)} variant="secondary">
+            <Button onClick={() => { setStockFormError(null); setShowTransferForm(true) }} variant="secondary">
               <ArrowRightLeft size={20} />
               <span className="hidden sm:inline">Transfer</span>
             </Button>
-            <Button onClick={() => setShowAddForm(true)} variant="primary">
+            <Button onClick={() => { setStockFormError(null); setShowAddForm(true) }} variant="primary">
               <Plus size={20} />
               <span className="hidden sm:inline">Add Stock</span>
             </Button>
@@ -377,7 +466,7 @@ export default function StockPage() {
           </div>
         )}
 
-        <div className="mb-6 flex gap-2">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
           {([
             { key: 'audio', label: 'Audio', icon: <Headphones size={14} /> },
             { key: 'watches', label: 'Watches', icon: <Watch size={14} /> },
@@ -396,6 +485,10 @@ export default function StockPage() {
               {option.label}
             </button>
           ))}
+        </div>
+
+        <div className="mb-6 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Showing one card per product. Location quantities are grouped inside each card so products no longer appear duplicated.
         </div>
 
         {/* Stats Cards */}
@@ -430,10 +523,10 @@ export default function StockPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <input
                 type="text"
-                placeholder="Search items or locations..."
+                placeholder="Search products, brands, locations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-9 text-sm"
+                className="input-field with-leading-icon-sm text-sm"
               />
             </div>
             <Select
@@ -487,22 +580,28 @@ export default function StockPage() {
         </div>
 
         {/* Stock Grid */}
-        {searchedAndSortedStocks.length === 0 ? (
+        {searchedAndSortedStockSummaries.length === 0 ? (
           <EmptyState
             icon={Package}
             title={hasActiveFilters ? 'No matching stock items' : 'No stock items yet'}
             description={hasActiveFilters ? 'Try adjusting your filters.' : 'Add stock to get started.'}
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {searchedAndSortedStocks.map((stock) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {searchedAndSortedStockSummaries.map((stock) => (
               <StockCard
-                key={stock.id}
-                itemName={stock.items?.name || 'Unknown Item'}
-                locationName={stock.locations?.name || 'Unknown Location'}
-                quantity={stock.quantity}
-                imageUrl={stock.items?.image_url}
-                onRemove={() => handleRemoveStock(stock.id, stock.quantity)}
+                key={stock.itemId}
+                itemName={stock.itemName}
+                brand={stock.brand}
+                locationName={
+                  selectedLocation
+                    ? stock.locations[0]?.name
+                    : `${stock.locations.length} ${stock.locations.length === 1 ? 'location' : 'locations'}`
+                }
+                quantity={stock.totalQuantity}
+                imageUrl={stock.imageUrl}
+                locations={stock.locations}
+                onRemoveLocation={handleRemoveStock}
               />
             ))}
           </div>
@@ -510,8 +609,9 @@ export default function StockPage() {
       </PageContainer>
 
       {/* Add Stock Modal */}
-      <Modal isOpen={showAddForm} onClose={() => setShowAddForm(false)} title="Add Stock">
+      <Modal isOpen={showAddForm} onClose={() => { setStockFormError(null); setShowAddForm(false) }} title="Add Stock">
         <form onSubmit={handleAddStock} className="space-y-4">
+          {stockFormError && <div className="error-message">{stockFormError}</div>}
           <Select
             label="Item"
             value={addForm.item_id}
@@ -550,8 +650,9 @@ export default function StockPage() {
       </Modal>
 
       {/* Transfer Stock Modal */}
-      <Modal isOpen={showTransferForm} onClose={() => setShowTransferForm(false)} title="Transfer Stock">
+      <Modal isOpen={showTransferForm} onClose={() => { setStockFormError(null); setShowTransferForm(false) }} title="Transfer Stock">
         <form onSubmit={handleTransferStock} className="space-y-4">
+          {stockFormError && <div className="error-message">{stockFormError}</div>}
           <Select
             label="Item"
             value={transferForm.item_id}

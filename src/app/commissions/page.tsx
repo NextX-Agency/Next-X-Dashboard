@@ -751,7 +751,7 @@ export default function CommissionsPage() {
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input-field pl-9 text-sm"
+                className="input-field with-leading-icon-sm text-sm"
               />
             </div>
             <Select

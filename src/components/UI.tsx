@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react'
-import { memo, forwardRef } from 'react'
+import { Loader2, X } from 'lucide-react'
+import { memo, useEffect } from 'react'
 
 function PageHeaderComponent({ 
   title, 
@@ -40,7 +40,7 @@ export const PageHeader = memo(PageHeaderComponent)
 
 function PageContainerComponent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-24 lg:pb-6 ${className}`}>
+    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-5 lg:py-6 ${className}`}>
       {children}
     </div>
   )
@@ -310,7 +310,7 @@ function InputComponent({
           )}
           <input
             {...props}
-            className={`input-field ${prefix ? 'pl-14 sm:pl-16' : ''} ${suffix ? 'pr-12 sm:pr-14' : ''} ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
+            className={`input-field ${prefix ? 'with-prefix' : ''} ${suffix ? 'with-suffix' : ''} ${error ? 'border-destructive focus:border-destructive focus:ring-destructive/15' : ''}`}
           />
           {suffix && (
             <span className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium pointer-events-none">
@@ -424,7 +424,7 @@ function CardComponent({
   padding?: boolean
 }) {
   return (
-    <div className={`bg-card rounded-xl border border-border ${padding ? 'p-3 sm:p-4 lg:p-6' : ''} ${className}`}>
+    <div className={`bg-card rounded-lg border border-border ${padding ? 'p-3 sm:p-4 lg:p-5' : ''} ${className}`}>
       {children}
     </div>
   )
@@ -505,6 +505,17 @@ function ModalUIComponent({
   children: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
 }) {
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const sizeClasses = {
@@ -516,7 +527,7 @@ function ModalUIComponent({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex h-dvh items-end justify-center p-0 sm:items-center sm:p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -524,7 +535,7 @@ function ModalUIComponent({
       />
       
       {/* Modal */}
-      <div className={`relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-card rounded-t-2xl shadow-xl border border-border sm:max-h-[90vh] sm:rounded-2xl ${sizeClasses[size]}`}>
+      <div className={`relative flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem)] w-full flex-col overflow-hidden bg-card rounded-t-2xl shadow-xl border border-border sm:max-h-[90vh] sm:rounded-xl ${sizeClasses[size]}`}>
         {/* Drag handle for mobile */}
         <div className="sm:hidden flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
@@ -535,11 +546,9 @@ function ModalUIComponent({
             <button
               onClick={onClose}
               className="absolute right-3 sm:right-4 top-3 sm:top-4 p-2 rounded-lg hover:bg-muted transition-colors min-h-11 min-w-11 flex items-center justify-center"
+              aria-label="Close modal"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
+              <X size={20} />
             </button>
           </div>
         )}

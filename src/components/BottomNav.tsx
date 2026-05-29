@@ -37,10 +37,10 @@ function BottomNavComponent() {
   }
 
   return (
-    <nav className="lg:hidden fixed inset-x-2 bottom-2 z-50">
+    <nav className="lg:hidden fixed inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-50">
       <div className="relative overflow-hidden rounded-[24px] border border-gray-800/80 bg-gray-950/95 shadow-[0_18px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl">
         <div className="absolute inset-0 bg-linear-to-r from-orange-500/6 via-transparent to-white/5" />
-        <div className="relative flex items-center justify-around gap-1 px-1.5 py-1.5 pb-safe">
+        <div className="relative flex items-center justify-around gap-1 px-1.5 py-1.5">
         {DEFAULT_NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.path || 

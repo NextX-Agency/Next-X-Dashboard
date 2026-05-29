@@ -44,7 +44,7 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   if (isAuthenticated && isAdmin) {
     return (
       <AuthGuard>
-        <div className="flex h-screen overflow-hidden bg-gray-900">
+        <div className="flex h-dvh overflow-hidden bg-gray-900">
           {/* Desktop Sidebar - only shown to admins */}
           <Sidebar />
           
@@ -54,7 +54,7 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
             <TopBar />
             
             {/* Page Content - Extra padding on mobile for bottom nav */}
-            <main className="flex-1 overflow-y-auto pb-20 sm:pb-22 lg:pb-8 overscroll-contain">
+            <main className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8 overscroll-contain">
               <div className="h-full">
                 {children}
               </div>

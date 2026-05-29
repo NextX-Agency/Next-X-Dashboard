@@ -117,14 +117,6 @@ export default function Sidebar() {
     return pathname === routePath || (routePath !== '/dashboard' && routePath !== '/catalog' && pathname.startsWith(routePath))
   }, [pathname])
 
-  const currentNavSection = useMemo(() => (
-    navSections.find((section) => section.items.some((item) => isItemActive(item.path)))
-  ), [navSections, isItemActive])
-
-  const currentNavItem = useMemo(() => (
-    currentNavSection?.items.find((item) => isItemActive(item.path))
-  ), [currentNavSection, isItemActive])
-
   useEffect(() => {
     try {
       const storedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)
@@ -167,7 +159,7 @@ export default function Sidebar() {
 
   const handleNavigation = useCallback((path: string, isExternal?: boolean) => {
     if (isExternal) {
-      window.open(path, '_blank')
+      window.open(path, '_blank', 'noopener,noreferrer')
     } else {
       router.push(path)
     }
@@ -179,7 +171,7 @@ export default function Sidebar() {
 
   return (
     <aside 
-      className={`hidden lg:flex flex-col bg-linear-to-b from-slate-950 via-gray-950 to-black text-white transition-all duration-300 h-screen sticky top-0 border-r border-gray-800/50 ${
+      className={`hidden lg:flex flex-col bg-linear-to-b from-slate-950 via-gray-950 to-black text-white transition-all duration-300 h-dvh sticky top-0 border-r border-gray-800/50 ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
     >

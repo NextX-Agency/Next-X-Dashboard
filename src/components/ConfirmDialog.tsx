@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useEffect } from 'react'
 import { AlertTriangle, Trash2, AlertCircle } from 'lucide-react'
 
 export interface ConfirmDialogProps {
@@ -30,6 +30,17 @@ function ConfirmDialogComponent({
   cancelLabel = 'Cancel',
   loading = false
 }: ConfirmDialogProps) {
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   const defaultConfirmLabel = variant === 'danger' ? 'Delete' : variant === 'warning' ? 'Confirm' : 'OK'
@@ -50,7 +61,7 @@ function ConfirmDialogComponent({
       : 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-500'
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[200] flex h-dvh items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
@@ -58,7 +69,7 @@ function ConfirmDialogComponent({
       />
 
       {/* Dialog */}
-      <div className="relative bg-card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-2xl border border-border animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 overflow-hidden">
+      <div className="relative bg-card w-full sm:max-w-sm max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem)] rounded-t-2xl sm:rounded-xl shadow-2xl border border-border animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 overflow-hidden">
         {/* Top colored bar */}
         <div
           className={`h-1 w-full ${
@@ -66,7 +77,7 @@ function ConfirmDialogComponent({
           }`}
         />
 
-        <div className="p-5 sm:p-6">
+        <div className="p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] sm:p-6">
           {/* Icon + Title */}
           <div className="flex items-start gap-3 mb-3">
             <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${iconClass}`}>
