@@ -50,7 +50,7 @@ function WatchQuickViewModalComponent({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[150]"
+        className="fixed inset-0 z-150"
         style={{ background: 'rgba(9,9,11,0.7)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
         aria-hidden="true"
@@ -58,7 +58,7 @@ function WatchQuickViewModalComponent({
 
       {/* Slide-in panel from right */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[160] flex flex-col w-full max-w-md"
+        className="fixed right-0 top-0 bottom-0 z-160 flex flex-col w-full max-w-md"
         style={{ background: 'var(--w-surface)', borderLeft: '1px solid var(--w-border)' }}
         role="dialog"
         aria-modal="true"
@@ -85,7 +85,14 @@ function WatchQuickViewModalComponent({
           {/* Image */}
           <div className="relative w-full" style={{ aspectRatio: '5/6' }}>
             {item.imageUrl ? (
-              <Image src={item.imageUrl} alt={item.name} fill sizes="448px" className="object-cover" />
+              <Image
+                src={item.imageUrl}
+                alt={item.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 28rem"
+                quality={92}
+                className="object-cover"
+              />
             ) : (
               <div
                 className="absolute inset-0 flex items-center justify-center"

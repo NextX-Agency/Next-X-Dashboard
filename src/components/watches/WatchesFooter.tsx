@@ -72,10 +72,12 @@ function WatchesFooterComponent({
             <Link href="/watches" className="inline-flex flex-col items-start mb-5">
               <Image
                 src="/nextx-logo-dark.png"
-                alt="NextX"
-                width={60}
-                height={32}
-                className="object-contain"
+                alt="NextX company logo"
+                width={136}
+                height={58}
+                sizes="(max-width: 640px) 120px, 136px"
+                quality={100}
+                className="w-[120px] object-contain sm:w-[136px]"
               />
               <span
                 className="mt-1.5 text-[8px] font-light tracking-[0.38em] uppercase"

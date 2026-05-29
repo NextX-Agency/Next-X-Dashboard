@@ -58,6 +58,9 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
   const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
   const inStock = item.stockCount > 0
+  const relatedImageSizes = relatedItems.length <= 2
+    ? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'
+    : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
   const detailRows: Array<{ label: string; value: string; accent?: boolean }> = []
 
   if (item.brand) {
@@ -151,7 +154,8 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     src={item.imageUrl}
                     alt={item.name}
                     fill
-                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    sizes="(max-width: 1024px) 100vw, 56vw"
+                    quality={95}
                     className="object-cover"
                     priority
                   />
@@ -387,6 +391,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     name={rel.name}
                     brand={rel.brand ?? undefined}
                     imageUrl={rel.imageUrl}
+                    imageSizes={relatedImageSizes}
                     sellingPriceUsd={rel.sellingPriceUsd}
                     sellingPriceSrd={rel.sellingPriceSrd}
                     displayCurrency={displayCurrency}

@@ -12,6 +12,7 @@ interface WatchProductCardProps {
   name: string
   brand?: string
   imageUrl?: string | null
+  imageSizes?: string
   sellingPriceUsd?: number | null
   sellingPriceSrd?: number | null
   displayCurrency?: Currency
@@ -26,6 +27,7 @@ function WatchProductCardComponent({
   name,
   brand,
   imageUrl,
+  imageSizes,
   sellingPriceUsd,
   sellingPriceSrd,
   displayCurrency = 'USD',
@@ -37,6 +39,7 @@ function WatchProductCardComponent({
   const productHref = href ?? `/watches/${id}`
   const price = displayCurrency === 'SRD' ? sellingPriceSrd : sellingPriceUsd
   const inStock = stockCount > 0
+  const resolvedImageSizes = imageSizes ?? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
 
   return (
     <article className="w-product-card group">
@@ -53,7 +56,8 @@ function WatchProductCardComponent({
             src={imageUrl}
             alt={name}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes={resolvedImageSizes}
+            quality={92}
             className="object-cover transition-transform duration-700 will-change-transform group-hover:scale-[1.04]"
           />
         ) : (

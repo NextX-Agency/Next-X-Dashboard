@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
     // Standard responsive breakpoints
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    qualities: [75, 88, 92, 95, 100],
     // Aggressive caching: images cached for 1 year
     minimumCacheTTL: 31536000,
     // Allow SVG (logo)

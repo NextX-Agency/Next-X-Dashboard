@@ -127,6 +127,22 @@ function getBalancedGridClass(count: number, options?: { singleMaxWidth?: string
   return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
 }
 
+function getBalancedImageSizes(count: number) {
+  if (count <= 1) {
+    return '(max-width: 768px) 100vw, 42rem'
+  }
+
+  if (count === 2) {
+    return '(max-width: 768px) 100vw, 50vw'
+  }
+
+  if (count === 3) {
+    return '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'
+  }
+
+  return '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
+}
+
 export default function WatchesCatalogClient({
   items,
   stock,
@@ -270,8 +286,18 @@ export default function WatchesCatalogClient({
     [normalizedCollections.length]
   )
 
+  const collectionImageSizes = useMemo(
+    () => getBalancedImageSizes(Math.min(normalizedCollections.length, 3)),
+    [normalizedCollections.length]
+  )
+
   const catalogGridClassName = useMemo(
     () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-lg', pairMaxWidth: 'max-w-6xl', tripleMaxWidth: 'max-w-7xl' }),
+    [filteredItems.length]
+  )
+
+  const catalogImageSizes = useMemo(
+    () => getBalancedImageSizes(filteredItems.length),
     [filteredItems.length]
   )
 
@@ -356,7 +382,8 @@ export default function WatchesCatalogClient({
                         src={banner.imageUrl}
                         alt={banner.title}
                         fill
-                        sizes="(max-width: 1024px) 100vw, 33vw"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                        quality={92}
                         className="object-cover"
                       />
                     </div>
@@ -491,7 +518,8 @@ export default function WatchesCatalogClient({
                             src={collection.imageUrl || previewItem?.imageUrl || '/hero_section-watches.png'}
                             alt={collection.name}
                             fill
-                            sizes="(max-width: 1024px) 100vw, 33vw"
+                            sizes={collectionImageSizes}
+                            quality={92}
                             className="object-cover transition-transform duration-700 group-hover:scale-105"
                           />
                         ) : null}
@@ -577,6 +605,7 @@ export default function WatchesCatalogClient({
                     imageUrl={item.imageUrl}
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
+                    imageSizes={catalogImageSizes}
                     displayCurrency={displayCurrency}
                     stockCount={stockMap[item.id] ?? 0}
                     onAddToCart={handleAddToCart}

@@ -64,7 +64,7 @@ function WatchCartDrawerComponent({
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-[150]"
+          className="fixed inset-0 z-150"
           style={{ background: 'rgba(9,9,11,0.6)', backdropFilter: 'blur(4px)' }}
           onClick={onClose}
           aria-hidden="true"
@@ -73,7 +73,7 @@ function WatchCartDrawerComponent({
 
       {/* Drawer */}
       <div
-        className="fixed right-0 top-0 bottom-0 z-[160] flex flex-col w-full max-w-md transition-transform duration-500"
+        className="fixed right-0 top-0 bottom-0 z-160 flex flex-col w-full max-w-md transition-transform duration-500"
         style={{
           background: 'var(--w-surface)',
           borderLeft: '1px solid var(--w-border)',
@@ -85,7 +85,7 @@ function WatchCartDrawerComponent({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--w-border)' }}
         >
           <div style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
@@ -136,11 +136,11 @@ function WatchCartDrawerComponent({
                   <li key={item.id} className="flex gap-4 p-4">
                     {/* Image */}
                     <div
-                      className="relative flex-shrink-0 w-20 h-24 overflow-hidden"
+                      className="relative shrink-0 w-20 h-24 overflow-hidden"
                       style={{ background: 'var(--w-bg)' }}
                     >
                       {item.imageUrl ? (
-                        <Image src={item.imageUrl} alt={item.name} fill sizes="80px" className="object-cover" />
+                        <Image src={item.imageUrl} alt={item.name} fill sizes="80px" quality={88} className="object-cover" />
                       ) : (
                         <div
                           className="absolute inset-0 flex items-center justify-center"
@@ -213,7 +213,7 @@ function WatchCartDrawerComponent({
         {/* Footer */}
         {items.length > 0 && (
           <div
-            className="flex-shrink-0 px-6 py-6"
+            className="shrink-0 px-6 py-6"
             style={{ borderTop: '1px solid var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
             {/* Subtotal */}

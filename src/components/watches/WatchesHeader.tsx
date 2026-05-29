@@ -36,10 +36,12 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
       <Link href="/watches" onClick={onClick} className="flex flex-col items-start" aria-label="NextX Watches">
         <Image
           src="/nextx-logo-dark.png"
-          alt="NextX"
-          width={104}
-          height={41}
-          className="w-[92px] object-contain lg:w-[104px]"
+          alt="NextX company logo"
+          width={164}
+          height={70}
+          sizes="(max-width: 640px) 128px, (max-width: 1024px) 148px, 164px"
+          quality={100}
+          className="w-[128px] object-contain sm:w-[148px] lg:w-[164px]"
           style={{ height: 'auto' }}
           priority
         />
