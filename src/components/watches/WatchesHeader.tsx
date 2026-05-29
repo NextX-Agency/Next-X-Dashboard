@@ -55,20 +55,20 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
       >
         <div className="px-6 lg:px-12 max-w-screen-2xl mx-auto">
           <div
-            className="hidden h-6 items-center justify-between border-b sm:flex"
+            className="hidden h-7 items-center justify-between border-b sm:flex"
             style={{ borderColor: 'var(--w-border)' }}
           >
             <p
-              className="text-[9px] font-light uppercase tracking-[0.28em]"
+              className="text-[10px] font-light uppercase tracking-[0.26em]"
               style={{ color: 'var(--w-muted)' }}
             >
               Part of NextX
             </p>
 
-            <div className="flex items-center gap-2.5 text-[10px] font-light uppercase tracking-[0.24em]" style={{ color: 'var(--w-cream-2)' }}>
+            <div className="flex items-center gap-3 text-[11px] font-light uppercase tracking-[0.22em]" style={{ color: 'var(--w-cream-2)' }}>
               <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
               {brandLinks.map((link, index) => (
-                <div key={link.href} className="flex items-center gap-2.5 whitespace-nowrap">
+                <div key={link.href} className="flex items-center gap-3 whitespace-nowrap">
                   {index > 0 && <span style={{ color: 'var(--w-gold)' }}>•</span>}
                   <Link
                     href={link.href}
@@ -82,16 +82,16 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             </div>
           </div>
 
-          <div className="flex h-16 items-center justify-between sm:h-10 lg:h-14">
+          <div className="flex h-16 items-center justify-between sm:h-14 lg:h-[4.5rem]">
             <LogoLockup />
 
             {/* Desktop nav */}
-            <nav className="hidden items-center gap-10 lg:flex" aria-label="Primary navigation">
+            <nav className="hidden items-center gap-12 lg:flex" aria-label="Primary navigation">
               {navLinks.map(link => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-[11px] font-light tracking-[0.2em] uppercase transition-opacity hover:opacity-100 opacity-60"
+                  className="text-[12px] font-light tracking-[0.18em] uppercase transition-opacity hover:opacity-100 opacity-70"
                   style={{ color: 'var(--w-cream)' }}
                 >
                   {link.label}
@@ -100,22 +100,22 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3.5">
               <button
-                className="p-2 transition-opacity hover:opacity-100 opacity-50"
+                className="p-2.5 transition-opacity hover:opacity-100 opacity-55"
                 style={{ color: 'var(--w-cream)' }}
                 aria-label="Search"
               >
-                <Search size={17} strokeWidth={1.5} />
+                <Search size={18} strokeWidth={1.5} />
               </button>
 
               <button
                 onClick={onCartClick}
-                className="relative p-2 transition-opacity hover:opacity-100 opacity-70"
+                className="relative p-2.5 transition-opacity hover:opacity-100 opacity-75"
                 style={{ color: 'var(--w-cream)' }}
                 aria-label={`Cart (${cartCount} items)`}
               >
-                <ShoppingBag size={17} strokeWidth={1.5} />
+                <ShoppingBag size={18} strokeWidth={1.5} />
                 {cartCount > 0 && (
                   <span
                     className="absolute -top-0.5 -right-0.5 min-w-4 h-4 flex items-center justify-center text-[9px] font-medium rounded-full px-0.5"
@@ -128,12 +128,12 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
               {/* Mobile menu toggle */}
               <button
-                className="p-2 transition-opacity hover:opacity-100 opacity-70 lg:hidden"
+                className="p-2.5 transition-opacity hover:opacity-100 opacity-75 lg:hidden"
                 style={{ color: 'var(--w-cream)' }}
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open menu"
               >
-                <Menu size={20} strokeWidth={1.5} />
+                <Menu size={21} strokeWidth={1.5} />
               </button>
             </div>
           </div>

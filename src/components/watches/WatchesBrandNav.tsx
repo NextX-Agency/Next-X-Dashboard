@@ -68,6 +68,26 @@ function WatchesBrandNavComponent({
         className={cn('grid border-t', gridClassName)}
         style={{ borderColor: 'var(--w-border)' }}
       >
+        <div className="sm:hidden col-span-full -mx-1 overflow-x-auto pb-1">
+          <div className="flex min-w-max gap-2 px-1">
+            <MobileBrandButton
+              label="All Watches"
+              count={resolvedTotal}
+              isActive={activeBrand === null}
+              onClick={() => onChange(null)}
+            />
+            {options.map((option) => (
+              <MobileBrandButton
+                key={option.name}
+                label={option.name}
+                count={option.count}
+                isActive={activeBrand?.toLowerCase() === option.name.toLowerCase()}
+                onClick={() => onChange(option.name)}
+              />
+            ))}
+          </div>
+        </div>
+
         <BrandButton
           label="All Watches"
           count={resolvedTotal}
@@ -107,7 +127,7 @@ function BrandButton({
     <button
       type="button"
       onClick={onClick}
-      className="group min-h-24 border-b px-4 py-4 text-left transition-colors sm:border-r"
+      className="group hidden min-h-24 border-b px-4 py-4 text-left transition-colors sm:block sm:border-r"
       style={{
         borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
         background: isActive ? 'rgba(201,168,76,0.07)' : 'transparent',
@@ -134,6 +154,42 @@ function BrandButton({
         style={{ color: isActive ? 'var(--w-cream-2)' : 'var(--w-muted)' }}
       >
         {meta}
+      </span>
+    </button>
+  )
+}
+
+function MobileBrandButton({
+  label,
+  count,
+  isActive,
+  onClick,
+}: {
+  label: string
+  count: number
+  isActive: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-11 items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
+      style={{
+        borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
+        background: isActive ? 'rgba(201,168,76,0.08)' : 'rgba(17,17,19,0.78)',
+        color: isActive ? 'var(--w-cream)' : 'var(--w-cream-2)',
+        fontFamily: 'var(--font-jost, system-ui, sans-serif)',
+      }}
+    >
+      <span
+        className="text-[10px] font-light uppercase tracking-[0.18em]"
+        style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
+      >
+        {label}
+      </span>
+      <span className="text-xs font-light" style={{ color: isActive ? 'var(--w-cream)' : 'var(--w-muted)' }}>
+        {count.toString().padStart(2, '0')}
       </span>
     </button>
   )

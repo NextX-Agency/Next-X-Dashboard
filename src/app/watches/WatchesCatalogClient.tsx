@@ -250,10 +250,20 @@ export default function WatchesCatalogClient({
     })
   }, [items, activeBrand, activeCollection, brandByItemId, deferredSearchQuery])
 
+  const hasActiveFilters = Boolean(activeBrand || activeCollectionId || searchQuery.trim())
+
   const featuredItems = useMemo(() => {
     if (activeCollection) return activeCollection.resolvedItems.slice(0, 6)
     return normalizedCollections[0]?.resolvedItems.slice(0, 6) ?? items.slice(0, 6)
   }, [activeCollection, normalizedCollections, items])
+
+  const shouldShowFeaturedSection = useMemo(() => {
+    if (hasActiveFilters) return false
+    if (normalizedCollections.length === 0) return false
+    if (featuredItems.length < 3) return false
+
+    return items.length >= Math.max(featuredItems.length + 3, 6)
+  }, [featuredItems.length, hasActiveFilters, items.length, normalizedCollections.length])
 
   const collectionGridClassName = useMemo(
     () => getBalancedGridClass(Math.min(normalizedCollections.length, 3), { singleMaxWidth: 'max-w-2xl', pairMaxWidth: 'max-w-6xl' }),
@@ -264,6 +274,8 @@ export default function WatchesCatalogClient({
     () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-lg', pairMaxWidth: 'max-w-6xl', tripleMaxWidth: 'max-w-7xl' }),
     [filteredItems.length]
   )
+
+  const primaryCtaHref = heroBanner?.linkUrl ?? (shouldShowFeaturedSection ? '/watches#featured' : '/watches#new')
 
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
@@ -288,8 +300,6 @@ export default function WatchesCatalogClient({
     setCartItems(prev => prev.filter(c => c.id !== id))
   }, [])
 
-  const hasActiveFilters = Boolean(activeBrand || activeCollectionId || searchQuery.trim())
-
   const handleClearFilters = useCallback(() => {
     setActiveBrand(null)
     setActiveCollectionId(null)
@@ -308,36 +318,36 @@ export default function WatchesCatalogClient({
           title={heroBanner?.title ?? undefined}
           subtitle={heroBanner?.subtitle ?? undefined}
           ctaLabel={heroBanner?.buttonText ?? heroBanner?.linkText ?? undefined}
-          ctaHref={heroBanner?.linkUrl ?? '/watches#featured'}
+          ctaHref={primaryCtaHref}
         />
 
         {/* ── Philosophy strip ────────────────────────── */}
         <div
-          className="flex items-center justify-center gap-6 px-6 py-8"
+          className="flex items-center justify-center gap-4 px-6 py-6 sm:gap-6 sm:py-8"
           style={{ borderBottom: '1px solid var(--w-border)' }}
         >
           <div className="hidden sm:block h-px flex-1 max-w-24" style={{ background: 'var(--w-border-gold)' }} />
           <p
-            className="text-center text-[10px] tracking-[0.3em] uppercase font-light"
+            className="text-center text-[9px] tracking-[0.28em] uppercase font-light sm:text-[10px] sm:tracking-[0.3em]"
             style={{
               fontFamily: 'var(--font-jost, system-ui, sans-serif)',
               color: 'var(--w-muted)',
               maxWidth: '48ch',
             }}
           >
-            Curated for those who measure time in moments, not minutes
+            Chosen for collectors who buy fewer pieces, but better ones
           </p>
           <div className="hidden sm:block h-px flex-1 max-w-24" style={{ background: 'var(--w-border-gold)' }} />
         </div>
 
         {banners.length > 1 && (
-          <section className="px-6 py-6 lg:px-12">
-            <div className="mx-auto grid max-w-screen-2xl gap-4 lg:grid-cols-3">
+          <section className="px-6 py-5 lg:px-12 lg:py-6">
+            <div className="mx-auto grid max-w-screen-2xl gap-4 md:grid-cols-2 xl:grid-cols-3">
               {banners.slice(0, 3).map((banner) => (
                 <Link
                   key={banner.id}
-                  href={banner.linkUrl || '/watches#featured'}
-                  className="group relative overflow-hidden border p-5 lg:p-6"
+                  href={banner.linkUrl || primaryCtaHref}
+                  className="group relative overflow-hidden border p-4 sm:p-5 lg:p-6"
                   style={{ borderColor: 'var(--w-border)', background: 'linear-gradient(135deg, rgba(22,24,30,0.92), rgba(12,12,16,0.96))' }}
                 >
                   {banner.imageUrl && (
@@ -352,12 +362,12 @@ export default function WatchesCatalogClient({
                     </div>
                   )}
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(9,9,11,0.15), rgba(9,9,11,0.88))' }} />
-                  <div className="relative z-10 flex min-h-36 flex-col justify-end">
+                  <div className="relative z-10 flex min-h-32 flex-col justify-end sm:min-h-36">
                     <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
                       Editorial Drop
                     </p>
                     <h2
-                      className="mb-2 text-2xl font-light"
+                      className="mb-2 text-xl font-light sm:text-2xl"
                       style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                     >
                       {banner.title}
@@ -374,9 +384,9 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <section id="collections" className="px-6 py-10 lg:px-12 lg:py-14">
+        <section id="collections" className="px-6 py-8 lg:px-12 lg:py-14">
           <div
-            className="mx-auto grid max-w-screen-2xl gap-10 border-y py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
+            className="mx-auto grid max-w-screen-2xl gap-8 border-y py-6 sm:py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
             style={{ borderColor: 'var(--w-border)' }}
           >
             <div className="flex flex-col justify-between gap-8">
@@ -385,7 +395,7 @@ export default function WatchesCatalogClient({
                   Refine The Collection
                 </p>
                 <h2
-                  className="mb-4 text-3xl font-light lg:text-4xl"
+                  className="mb-4 text-2xl font-light sm:text-3xl lg:text-4xl"
                   style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                 >
                   Find the right house, model, or metal.
@@ -394,7 +404,7 @@ export default function WatchesCatalogClient({
                   className="max-w-lg text-sm font-light leading-loose"
                   style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
                 >
-                  A restrained edit of available timepieces, sorted by maison and live availability.
+                  A private edit of the current vault, arranged by maison, silhouette, and metal so the right reference surfaces quickly.
                 </p>
               </div>
 
@@ -405,7 +415,7 @@ export default function WatchesCatalogClient({
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search model, brand, or reference"
-                    className="w-full border-0 border-b bg-transparent py-3 pl-8 pr-4 text-sm outline-none transition-colors"
+                    className="w-full border-0 border-b bg-transparent py-3 pl-8 pr-4 text-sm outline-none transition-colors sm:text-[15px]"
                     style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream)' }}
                   />
                 </label>
@@ -444,7 +454,7 @@ export default function WatchesCatalogClient({
                     className="text-3xl font-light"
                     style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                   >
-                    Curated by mood, metal, and presence
+                    Composed by mood, metal, and occasion
                   </h2>
                 </div>
                 {activeCollection && (
@@ -524,38 +534,40 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <WatchesFeaturedSection
-          items={featuredItems}
-          stockMap={stockMap}
-          displayCurrency={displayCurrency}
-          onAddToCart={handleAddToCart}
-          onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
-        />
+        {shouldShowFeaturedSection && (
+          <WatchesFeaturedSection
+            items={featuredItems}
+            stockMap={stockMap}
+            displayCurrency={displayCurrency}
+            onAddToCart={handleAddToCart}
+            onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
+          />
+        )}
 
         {/* ══ Browse Collection ════════════════════════ */}
         <section>
-          <div id="new" className="px-6 pb-20 pt-8 lg:px-12 lg:pt-12 max-w-screen-2xl mx-auto">
+          <div id="new" className="px-6 pb-16 pt-8 lg:px-12 lg:pt-12 lg:pb-20 max-w-screen-2xl mx-auto">
             <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
-                  Live Catalog
+                  {shouldShowFeaturedSection ? 'Live Catalog' : 'In The Vault'}
                 </p>
                 <h2
-                  className="text-3xl font-light"
+                  className="text-2xl font-light sm:text-3xl"
                   style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                 >
                   {activeCollection ? activeCollection.name : activeBrand ? `${activeBrand} watches` : 'Every timepiece currently available'}
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)' }}>
-                {filteredItems.length} {filteredItems.length === 1 ? 'watch' : 'watches'} shown. Live availability refreshes each minute.
+                {filteredItems.length} {filteredItems.length === 1 ? 'piece' : 'pieces'} in the current edit. Availability refreshes every minute.
               </p>
             </div>
 
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
-              <div className={cn('grid gap-x-6 gap-y-14', catalogGridClassName)}>
+              <div className={cn('grid gap-x-6 gap-y-10 sm:gap-y-14', catalogGridClassName)}>
                 {filteredItems.map(item => (
                   <WatchProductCard
                     key={item.id}
@@ -650,8 +662,8 @@ function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; s
         style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
         {searchQuery
-          ? 'No watches matched your current search or collection filter. Contact us on WhatsApp and we can source a specific piece for you.'
-          : 'Our curated selection of luxury timepieces is being prepared. Contact us on WhatsApp to be notified first.'}
+          ? 'No piece matches this brief right now. Contact us on WhatsApp and we can help source the right reference.'
+          : 'The next edit is being prepared. Contact us on WhatsApp for first access when new references arrive.'}
       </p>
 
       <Link
@@ -680,7 +692,7 @@ function AtelierSection() {
             className="mb-5 text-[9px] tracking-[0.4em] uppercase"
             style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
-            Our Promise
+            The NextX Standard
           </p>
           <h2
             className="font-light leading-tight"
@@ -691,8 +703,8 @@ function AtelierSection() {
               letterSpacing: '0.01em',
             }}
           >
-            The Art of<br />
-            <em style={{ color: 'var(--w-cream-2)' }}>Timekeeping</em>
+            Selected With<br />
+            <em style={{ color: 'var(--w-cream-2)' }}>Collector Restraint</em>
           </h2>
         </div>
 
@@ -703,13 +715,13 @@ function AtelierSection() {
             className="text-sm font-light leading-loose"
             style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
-            We source and curate exceptional timepieces for the discerning collector. Every piece in our selection is chosen for its craftsmanship, heritage, and precision — watches that transcend trends and become part of your story.
+            We favor timepieces with strong proportion, material honesty, and lasting presence. The goal is not noise, but pieces that still feel right years after the first impression.
           </p>
           <p
             className="text-sm font-light leading-loose"
             style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
-            Based in Suriname, NextX Watches brings luxury horology within reach — with personal service and expert guidance at every step.
+            From Suriname, NextX Watches offers personal guidance, transparent availability, and sourcing support for clients who prefer a more considered way to buy.
           </p>
           <Link
             href="/"

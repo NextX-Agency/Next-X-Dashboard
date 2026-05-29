@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, MessageCircle, PackageCheck, ShieldCheck, ShoppingBag } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency } from '@/lib/currency'
 import {
@@ -58,6 +58,24 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
   const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
   const inStock = item.stockCount > 0
+  const detailRows: Array<{ label: string; value: string; accent?: boolean }> = []
+
+  if (item.brand) {
+    detailRows.push({ label: 'Maison', value: item.brand })
+  }
+
+  if (item.categoryName) {
+    detailRows.push({ label: 'Collection', value: item.categoryName })
+  }
+
+  detailRows.push({
+    label: 'Availability',
+    value: inStock ? `${item.stockCount} piece${item.stockCount === 1 ? '' : 's'} ready for confirmation` : 'Currently unavailable',
+    accent: inStock,
+  })
+  detailRows.push({ label: 'Fulfillment', value: 'Suriname - concierge confirmation' })
+
+  const description = item.description?.trim() || 'A considered reference selected for presence, proportion, and everyday confidence.'
 
   const handleAddToCart = useCallback(() => {
     setCartItems(prev => {
@@ -103,7 +121,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
     <>
       <WatchesHeader cartCount={cartCount} onCartClick={() => setCartOpen(true)} />
 
-      <main style={{ background: 'var(--w-bg)', minHeight: '100svh', color: 'var(--w-cream)', paddingTop: '80px' }}>
+      <main style={{ background: 'var(--w-bg)', minHeight: '100svh', color: 'var(--w-cream)', paddingTop: '88px' }}>
         {/* Breadcrumb */}
         <div
           className="px-6 lg:px-12 py-4 max-w-screen-2xl mx-auto"
@@ -121,165 +139,247 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
         {/* Product detail — 2 columns on desktop */}
         <div className="px-6 lg:px-12 pb-16 max-w-screen-2xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+          <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,0.8fr)] lg:gap-16">
             {/* Image */}
-            <div className="relative w-full overflow-hidden" style={{ aspectRatio: '5/6', background: 'var(--w-surface)' }}>
-              {item.imageUrl ? (
-                <Image
-                  src={item.imageUrl}
-                  alt={item.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                  priority
-                />
-              ) : (
-                <div
-                  className="absolute inset-0 flex items-center justify-center"
-                  style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-border)', fontSize: '5rem' }}
-                >
-                  W
+            <div className="space-y-4 sm:space-y-5">
+              <div
+                className="relative w-full overflow-hidden border"
+                style={{ aspectRatio: '5/6', background: 'var(--w-surface)', borderColor: 'var(--w-border)' }}
+              >
+                {item.imageUrl ? (
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover"
+                    priority
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-border)', fontSize: '5rem' }}
+                  >
+                    W
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
+                  <ShieldCheck size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
+                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Curated Stock
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Each reference is listed with live availability pulled from current stock.
+                  </p>
                 </div>
-              )}
+                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
+                  <PackageCheck size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
+                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Local Guidance
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    We help clients in Suriname choose the right piece with practical advice, not pressure.
+                  </p>
+                </div>
+                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
+                  <MessageCircle size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
+                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Fast Confirmation
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Orders are confirmed personally so availability and next steps stay clear.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Details */}
             <div
-              className="flex flex-col justify-center"
+              className="flex flex-col gap-8 lg:sticky lg:top-24"
               style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
             >
-              {item.brand && (
+              <div>
                 <p
-                  className="mb-2 text-[10px] font-light tracking-[0.3em] uppercase"
+                  className="mb-3 text-[9px] font-light uppercase tracking-[0.34em]"
                   style={{ color: 'var(--w-gold)' }}
                 >
-                  {item.brand}
+                  Private Viewing
                 </p>
-              )}
 
-              <h1
-                className="mb-4 font-light leading-tight"
-                style={{
-                  fontFamily: 'var(--font-cormorant, Georgia, serif)',
-                  color: 'var(--w-cream)',
-                  fontSize: 'clamp(2rem, 5vw, 3.5rem)',
-                }}
-              >
-                {item.name}
-              </h1>
+                {item.brand && (
+                  <p
+                    className="mb-2 text-[10px] font-light tracking-[0.3em] uppercase"
+                    style={{ color: 'var(--w-gold)' }}
+                  >
+                    {item.brand}
+                  </p>
+                )}
 
-              {/* Price */}
-              <p
-                className="mb-2 text-2xl font-light"
-                style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
-              >
-                {price != null ? formatCurrency(price, displayCurrency) : 'Price on request'}
-              </p>
+                <h1
+                  className="mb-4 font-light leading-tight"
+                  style={{
+                    fontFamily: 'var(--font-cormorant, Georgia, serif)',
+                    color: 'var(--w-cream)',
+                    fontSize: 'clamp(2.2rem, 7vw, 3.85rem)',
+                  }}
+                >
+                  {item.name}
+                </h1>
 
-              {/* Stock status */}
-              <p
-                className="mb-6 text-xs font-light tracking-wide"
-                style={{ color: inStock ? 'var(--w-gold)' : 'var(--w-muted)' }}
-              >
-                {inStock ? `In Stock (${item.stockCount} available)` : 'Currently Unavailable'}
-              </p>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  <p
+                    className="text-2xl font-light sm:text-3xl"
+                    style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
+                  >
+                    {price != null ? formatCurrency(price, displayCurrency) : 'Price on request'}
+                  </p>
+                  <p
+                    className="text-[11px] font-light uppercase tracking-[0.18em]"
+                    style={{ color: inStock ? 'var(--w-gold)' : 'var(--w-muted)' }}
+                  >
+                    {inStock ? `${item.stockCount} available now` : 'Currently unavailable'}
+                  </p>
+                </div>
 
-              {/* Description */}
-              {item.description && (
-                <p className="mb-8 text-sm font-light leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
-                  {item.description}
+                <p className="mt-6 max-w-2xl text-[15px] font-light leading-7" style={{ color: 'var(--w-cream-2)' }}>
+                  {description}
                 </p>
-              )}
+              </div>
 
-              {/* Quantity + Add to cart */}
-              {inStock && (
-                <div className="flex flex-col gap-4 max-w-xs">
-                  {/* Qty selector */}
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs font-light tracking-[0.1em] uppercase" style={{ color: 'var(--w-muted)' }}>
-                      Qty
-                    </span>
-                    <div className="flex items-center gap-4" style={{ borderBottom: '1px solid var(--w-border)', paddingBottom: '4px' }}>
-                      <button
-                        onClick={() => setQty(q => Math.max(1, q - 1))}
-                        className="text-lg font-light transition-opacity hover:opacity-60 w-6 text-center"
-                        style={{ color: 'var(--w-muted)' }}
-                        aria-label="Decrease quantity"
-                      >
-                        −
-                      </button>
-                      <span className="text-base font-light w-4 text-center" style={{ color: 'var(--w-cream)' }}>
-                        {qty}
-                      </span>
-                      <button
-                        onClick={() => setQty(q => Math.min(item.stockCount, q + 1))}
-                        className="text-lg font-light transition-opacity hover:opacity-60 w-6 text-center"
-                        style={{ color: 'var(--w-muted)' }}
-                        aria-label="Increase quantity"
-                      >
-                        +
-                      </button>
-                    </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="border px-4 py-4"
+                    style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}
+                  >
+                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                      {row.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed" style={{ color: row.accent ? 'var(--w-gold)' : 'var(--w-cream-2)' }}>
+                      {row.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border px-5 py-5 sm:px-6 sm:py-6" style={{ borderColor: 'var(--w-border)', background: 'linear-gradient(180deg, rgba(18,20,24,0.9), rgba(10,10,12,0.96))' }}>
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-gold)' }}>
+                      Selection
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                      Add this reference to your selection and confirm the final order with the NextX team.
+                    </p>
                   </div>
 
-                  <button
-                    onClick={handleAddToCart}
-                    className="w-btn-gold flex items-center justify-center gap-2"
-                  >
-                    <ShoppingBag size={16} strokeWidth={1.5} />
-                    Add to Selection
-                  </button>
-                </div>
-              )}
+                  {inStock ? (
+                    <>
+                      <div className="flex items-center justify-between gap-4 border px-4 py-3" style={{ borderColor: 'var(--w-border)' }}>
+                        <span className="text-[11px] font-light uppercase tracking-[0.18em]" style={{ color: 'var(--w-muted)' }}>
+                          Quantity
+                        </span>
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={() => setQty(q => Math.max(1, q - 1))}
+                            className="text-lg font-light transition-opacity hover:opacity-60 w-7 text-center"
+                            style={{ color: 'var(--w-muted)' }}
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="text-base font-light min-w-5 text-center" style={{ color: 'var(--w-cream)' }}>
+                            {qty}
+                          </span>
+                          <button
+                            onClick={() => setQty(q => Math.min(item.stockCount, q + 1))}
+                            className="text-lg font-light transition-opacity hover:opacity-60 w-7 text-center"
+                            style={{ color: 'var(--w-muted)' }}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
 
-              {/* Divider + Specs table */}
-              <div className="mt-10 pt-10" style={{ borderTop: '1px solid var(--w-border)' }}>
+                      <button
+                        onClick={handleAddToCart}
+                        className="w-btn-gold flex items-center justify-center gap-2 w-full"
+                      >
+                        <ShoppingBag size={16} strokeWidth={1.5} />
+                        Add to Selection
+                      </button>
+                    </>
+                  ) : (
+                    <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                        This reference is currently spoken for. Browse the live catalog for available pieces while the next edit is being prepared.
+                      </p>
+                    </div>
+                  )}
+
+                  <Link
+                    href="/watches#new"
+                    className="w-btn-outline flex items-center justify-center gap-2 w-full"
+                  >
+                    Browse Available Watches
+                  </Link>
+                </div>
+              </div>
+
+              <div className="pt-2">
                 <h2
                   className="text-[10px] font-light tracking-[0.3em] uppercase mb-4"
                   style={{ color: 'var(--w-gold)' }}
                 >
-                  Details
+                  Purchase Notes
                 </h2>
-                <table className="w-full text-xs font-light" style={{ color: 'var(--w-cream-2)', borderCollapse: 'collapse' }}>
-                  <tbody>
-                    {item.brand && (
-                      <tr style={{ borderBottom: '1px solid var(--w-border)' }}>
-                        <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)', width: '40%' }}>Brand</td>
-                        <td className="py-2.5">{item.brand}</td>
-                      </tr>
-                    )}
-                    {item.categoryName && (
-                      <tr style={{ borderBottom: '1px solid var(--w-border)' }}>
-                        <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)', width: '40%' }}>Category</td>
-                        <td className="py-2.5">{item.categoryName}</td>
-                      </tr>
-                    )}
-                    <tr style={{ borderBottom: '1px solid var(--w-border)' }}>
-                      <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)' }}>Availability</td>
-                      <td className="py-2.5" style={{ color: inStock ? 'var(--w-gold)' : 'var(--w-muted)' }}>
-                        {inStock ? 'In Stock' : 'Sold Out'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 pr-4" style={{ color: 'var(--w-muted)' }}>Delivery</td>
-                      <td className="py-2.5">Suriname — WhatsApp order</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
+                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                      Pricing
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                      Pricing follows your active currency setting so you can compare pieces in the format you prefer.
+                    </p>
+                  </div>
+                  <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
+                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                      Confirmation
+                    </p>
+                    <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                      Every order is reviewed manually so stock, payment, and pickup or delivery details stay clear before anything is finalized.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Related watches */}
           {relatedItems.length > 0 && (
-            <section className="mt-20">
-              <h2
-                className="mb-8 text-xl font-light"
-                style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
-              >
-                Related Timepieces
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-10">
+            <section className="mt-20 sm:mt-24">
+              <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] uppercase tracking-[0.34em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                    Continue Exploring
+                  </p>
+                  <h2
+                    className="text-2xl font-light"
+                    style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
+                  >
+                    Other references worth your time
+                  </h2>
+                </div>
+                <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                  A few adjacent pieces from the current edit, selected to keep the same mood and profile in view.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-4">
                 {relatedItems.map(rel => (
                   <WatchProductCard
                     key={rel.id}

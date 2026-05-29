@@ -112,10 +112,10 @@ function WatchProductCardComponent({
       </Link>
 
       {/* Product info */}
-      <div className="pt-4 pb-2">
+      <div className="pt-5 pb-3">
         {brand && (
           <p
-            className="mb-1 text-[8px] tracking-[0.28em] uppercase"
+            className="mb-1.5 text-[9px] tracking-[0.24em] uppercase lg:text-[10px]"
             style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
             {brand}
@@ -128,7 +128,7 @@ function WatchProductCardComponent({
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
-              fontSize: 'clamp(1rem, 2vw, 1.15rem)',
+              fontSize: 'clamp(1.125rem, 2vw, 1.35rem)',
             }}
           >
             {name}
@@ -137,7 +137,7 @@ function WatchProductCardComponent({
 
         <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--w-border)' }}>
           <p
-            className="text-sm font-light"
+            className="text-base font-light"
             style={{
               color: price ? 'var(--w-cream-2)' : 'var(--w-muted)',
               fontFamily: 'var(--font-jost, system-ui, sans-serif)',

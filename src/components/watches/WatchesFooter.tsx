@@ -64,11 +64,11 @@ function WatchesFooterComponent({
         fontFamily: 'var(--font-jost, system-ui, sans-serif)',
       }}
     >
-      <div className="max-w-screen-2xl mx-auto px-6 lg:px-12 py-16">
+      <div className="max-w-screen-2xl mx-auto px-6 lg:px-12 py-14 sm:py-16">
         {/* Top: brand + columns */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 gap-10 mb-12 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
-          <div className="col-span-2 lg:col-span-1">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-1">
             <Link href="/watches" className="inline-flex flex-col items-start mb-5">
               <Image
                 src="/nextx-logo-dark.png"
@@ -122,14 +122,14 @@ function WatchesFooterComponent({
               >
                 {col.heading}
               </h3>
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3.5">
                 {col.links.map(link => {
                   const isText = (link as { isText?: boolean }).isText
                   if (isText) {
                     return (
                       <li key={link.label}>
                         <span
-                          className="text-xs font-light"
+                          className="text-sm font-light"
                           style={{ color: 'var(--w-cream-2)' }}
                         >
                           {link.label}
@@ -143,7 +143,7 @@ function WatchesFooterComponent({
                         href={link.href}
                         target={(link as { external?: boolean }).external ? '_blank' : undefined}
                         rel={(link as { external?: boolean }).external ? 'noopener noreferrer' : undefined}
-                        className="text-xs font-light transition-opacity hover:opacity-70"
+                        className="text-sm font-light transition-opacity hover:opacity-70"
                         style={{ color: 'var(--w-cream-2)' }}
                       >
                         {link.label}

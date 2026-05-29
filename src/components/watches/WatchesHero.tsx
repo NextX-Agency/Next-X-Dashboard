@@ -13,8 +13,8 @@ interface WatchesHeroProps {
 
 function WatchesHeroComponent({
   title = 'Timeless\nPrecision',
-  subtitle = 'Curated luxury timepieces for the discerning collector',
-  ctaLabel = 'Explore Collection',
+  subtitle = 'A quieter edit of statement and everyday timepieces, selected for collectors who value proportion, presence, and lasting appeal.',
+  ctaLabel = 'Enter The Vault',
   ctaHref = '/watches#featured',
 }: WatchesHeroProps) {
   const bgRef = useRef<HTMLDivElement>(null)
@@ -32,7 +32,7 @@ function WatchesHeroComponent({
   return (
     <section
       className="relative flex items-center overflow-hidden"
-      style={{ height: 'min(100svh, 980px)', minHeight: 520 }}
+      style={{ height: 'min(92svh, 980px)', minHeight: 460 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -73,11 +73,11 @@ function WatchesHeroComponent({
       />
 
       {/* Content */}
-      <div className="relative z-10 px-6 lg:px-12 py-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
-        <div className="max-w-lg">
+      <div className="relative z-10 px-6 lg:px-12 py-12 sm:py-14 lg:py-16 max-w-screen-2xl mx-auto w-full">
+        <div className="max-w-xl">
           {/* Eyebrow label */}
           <p
-            className="mb-6 text-[10px] font-light tracking-[0.45em] uppercase"
+            className="mb-5 text-[9px] font-light tracking-[0.34em] uppercase sm:mb-6 sm:text-[10px] sm:tracking-[0.45em]"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-gold)' }}
           >
             NextX Watches — Luxury Collection
@@ -89,7 +89,7 @@ function WatchesHeroComponent({
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
-              fontSize: 'clamp(3.5rem, 8vw, 7.5rem)',
+              fontSize: 'clamp(3rem, 11vw, 7.25rem)',
               whiteSpace: 'pre-line',
               letterSpacing: '-0.01em',
             }}
@@ -102,19 +102,19 @@ function WatchesHeroComponent({
 
           {/* Subtitle */}
           <p
-            className="mb-10 max-w-sm text-sm font-light leading-relaxed"
+            className="mb-8 max-w-sm text-sm font-light leading-relaxed sm:mb-10 sm:text-[15px]"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-cream-2)', letterSpacing: '0.02em' }}
           >
             {subtitle}
           </p>
 
           {/* CTAs */}
-          <div className="flex flex-wrap items-center gap-4">
-            <Link href={ctaHref} className="w-btn-orange inline-flex items-center gap-3">
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <Link href={ctaHref} className="w-btn-orange inline-flex w-full items-center justify-center gap-3 sm:w-auto">
               {ctaLabel}
               <span className="text-xs opacity-80">→</span>
             </Link>
-            <Link href="/watches#new" className="w-btn-outline inline-flex items-center gap-3">
+            <Link href="/watches#new" className="w-btn-outline inline-flex w-full items-center justify-center gap-3 sm:w-auto">
               New Arrivals
             </Link>
           </div>
