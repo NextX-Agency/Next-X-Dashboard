@@ -282,28 +282,31 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-900/30 rounded-full blur-3xl" />
 
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-10 lg:py-16">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-6 sm:py-8 lg:py-16">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
             <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-4 py-2 rounded-full mb-4 border border-white/25 shadow-sm">
-                <Activity size={16} className="text-white" />
-                <span className="text-sm font-bold text-white tracking-wide">Operations Pulse</span>
+              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-full mb-3 sm:mb-4 border border-white/25 shadow-sm">
+                <Activity size={14} className="text-white sm:h-4 sm:w-4" />
+                <span className="text-xs sm:text-sm font-bold text-white tracking-wide">Operations Pulse</span>
               </div>
-              <h1 className="text-3xl lg:text-5xl font-bold text-white mb-4 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4 tracking-tight leading-tight">
                 A cleaner view of what needs attention today.
               </h1>
-              <p className="text-orange-100/90 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
+              <p className="sm:hidden text-sm text-orange-100/90 font-medium max-w-xl leading-relaxed">
+                Server-computed metrics for sales, stock risk, profit, and the live exchange rate.
+              </p>
+              <p className="hidden sm:block text-orange-100/90 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
                 Server-computed metrics keep the dashboard fast, while the summary below highlights sales pace, weekly profit, stock risk, and the live exchange rate without waiting for the browser to crunch raw tables.
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-2">
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-md">
+              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
+                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs sm:text-sm font-medium text-white/90 backdrop-blur-md">
                   {hasData ? `Updated ${getTimeAgo(lastUpdatedAt)}` : 'Preparing first sync'}
                 </div>
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-md">
+                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs sm:text-sm font-medium text-white/90 backdrop-blur-md">
                   {hasData ? `${stats.lowStockItems} low-stock items` : 'Checking inventory alerts'}
                 </div>
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-md">
+                <div className="hidden sm:block rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-md">
                   {hasData ? `1 USD = ${stats.exchangeRate} SRD` : 'Checking exchange rate'}
                 </div>
               </div>
@@ -317,12 +320,12 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="text-sm font-semibold text-orange-100 mb-1.5">Today&apos;s Sales</div>
-                    <div className="text-2xl lg:text-3xl font-bold">
+                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 text-white shadow-lg">
+                    <div className="text-xs sm:text-sm font-semibold text-orange-100 mb-1">Today&apos;s Sales</div>
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
                       {hasData ? formatCurrency(todaysSalesDisplay, displayCurrency) : '—'}
                     </div>
-                    <div className="text-xs text-orange-200 mt-2 flex items-center gap-1">
+                    <div className="text-[11px] sm:text-xs text-orange-200 mt-1.5 sm:mt-2 flex items-center gap-1">
                       {hasData ? (
                         <>
                           {stats.salesTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -335,10 +338,10 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-5 text-white shadow-lg">
-                    <div className="text-sm font-semibold text-orange-100 mb-1.5">Active Orders</div>
-                    <div className="text-2xl lg:text-3xl font-bold">{hasData ? stats.activeOrders : '—'}</div>
-                    <div className="text-xs text-orange-200 mt-2">
+                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 text-white shadow-lg">
+                    <div className="text-xs sm:text-sm font-semibold text-orange-100 mb-1">Active Orders</div>
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{hasData ? stats.activeOrders : '—'}</div>
+                    <div className="text-[11px] sm:text-xs text-orange-200 mt-1.5 sm:mt-2">
                       {hasData ? 'Reservations waiting to be handled' : 'Checking queue health'}
                     </div>
                   </div>

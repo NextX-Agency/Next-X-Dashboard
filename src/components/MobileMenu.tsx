@@ -186,7 +186,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       {/* Menu Panel */}
       <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-80 animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
-        <div className="relative overflow-hidden p-4 border-b border-gray-800/50 shrink-0">
+        <div className="relative overflow-hidden p-3 sm:p-4 border-b border-gray-800/50 shrink-0">
           <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 via-transparent to-white/5" />
           <div className="relative flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -204,50 +204,50 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             <button 
               type="button"
               onClick={onClose}
-              className="p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
+              className="p-2 sm:p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
               aria-label="Close menu"
             >
               <X size={22} />
             </button>
           </div>
 
-          <div className="relative mt-4 rounded-2xl border border-gray-800/70 bg-gray-900/80 p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Current Workspace</div>
-            <div className="mt-2 flex items-center justify-between gap-3">
+          <div className="relative mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-gray-800/70 bg-gray-900/80 p-2.5 sm:p-3">
+            <div className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Current Workspace</div>
+            <div className="flex items-center justify-between gap-3 sm:mt-2">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-white">{currentNavItem?.name || 'Dashboard'}</div>
-                <div className="text-xs text-gray-400">{currentSection} section</div>
+                <div className="text-[11px] sm:text-xs text-gray-400">{currentSection} section</div>
               </div>
-              <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 px-2.5 py-1.5 text-xs font-semibold text-orange-300 shrink-0">
+              <div className="rounded-lg sm:rounded-xl border border-orange-500/20 bg-orange-500/10 px-2 py-1 text-[11px] sm:text-xs font-semibold text-orange-300 shrink-0">
                 {currentSection}
               </div>
             </div>
 
-            <div className="mt-3 border-t border-gray-800/70 pt-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Catalog Focus</div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-2.5 border-t border-gray-800/70 pt-2.5 sm:mt-3 sm:pt-3">
+              <div className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Catalog Focus</div>
+              <div className="grid grid-cols-2 gap-2 sm:mt-2">
                 <button
                   type="button"
                   onClick={() => setCatalog('audio')}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm font-semibold transition-colors ${
                     catalog === 'audio'
                       ? 'bg-orange-500 text-white shadow-sm'
                       : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <Headphones size={15} />
+                  <Headphones size={14} />
                   Audio
                 </button>
                 <button
                   type="button"
                   onClick={() => setCatalog('watches')}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm font-semibold transition-colors ${
                     catalog === 'watches'
                       ? 'bg-orange-500 text-white shadow-sm'
                       : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
-                  <Watch size={15} />
+                  <Watch size={14} />
                   Watches
                 </button>
               </div>
@@ -256,7 +256,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </div>
 
         {/* Search */}
-        <div className="p-3 border-b border-gray-800/30 shrink-0">
+        <div className="p-2.5 sm:p-3 border-b border-gray-800/30 shrink-0">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -264,7 +264,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               placeholder="Search menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+              className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
             />
             {searchQuery && (
               <button
@@ -277,7 +277,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
               </button>
             )}
           </div>
-          <p className="mt-2 text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
+          <p className="mt-2 hidden sm:block text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
