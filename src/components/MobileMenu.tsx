@@ -47,6 +47,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const router = useRouter()
   const { catalog, setCatalog } = useAdminCatalog()
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   
   // Auto-expand current section based on path
   const getCurrentSection = useCallback(() => {
@@ -73,6 +74,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   useEffect(() => {
     if (!isOpen) {
+      setIsSearchOpen(false)
       return
     }
 
@@ -173,6 +175,18 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       .filter((section) => section.items.length > 0)
   }, [navSections, searchQuery])
 
+  const isSearchVisible = isSearchOpen || searchQuery.length > 0
+
+  const handleSearchToggle = () => {
+    if (isSearchVisible) {
+      setSearchQuery('')
+      setIsSearchOpen(false)
+      return
+    }
+
+    setIsSearchOpen(true)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -201,14 +215,30 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                 />
               </div>
             </div>
-            <button 
-              type="button"
-              onClick={onClose}
-              className="p-2 sm:p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
-              aria-label="Close menu"
-            >
-              <X size={22} />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleSearchToggle}
+                className={`p-2 sm:p-2.5 rounded-xl transition-colors ${
+                  isSearchVisible
+                    ? 'bg-orange-500/15 text-orange-200 border border-orange-500/25'
+                    : 'hover:bg-gray-800 active:bg-gray-700 text-gray-300'
+                }`}
+                aria-label={isSearchVisible ? 'Hide search' : 'Show search'}
+                aria-expanded={isSearchVisible}
+                aria-controls="mobile-menu-search"
+              >
+                <Search size={18} />
+              </button>
+              <button 
+                type="button"
+                onClick={onClose}
+                className="p-2 sm:p-2.5 hover:bg-gray-800 active:bg-gray-700 rounded-xl transition-colors"
+                aria-label="Close menu"
+              >
+                <X size={22} />
+              </button>
+            </div>
           </div>
 
           <div className="relative mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-gray-800/70 bg-gray-900/80 p-2.5 sm:p-3">
@@ -256,29 +286,31 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
         </div>
 
         {/* Search */}
-        <div className="p-2.5 sm:p-3 border-b border-gray-800/30 shrink-0">
-          <div className="relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search menu..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-700/70 hover:text-gray-200 transition-colors"
-                aria-label="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
+        {isSearchVisible && (
+          <div className="p-2.5 sm:p-3 border-b border-gray-800/30 shrink-0">
+            <div className="relative" id="mobile-menu-search">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-800/50 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-500 hover:bg-gray-700/70 hover:text-gray-200 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <p className="mt-2 hidden sm:block text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
           </div>
-          <p className="mt-2 hidden sm:block text-xs text-gray-500">Jump to any admin area without leaving the current page context.</p>
-        </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {/* Navigation */}
