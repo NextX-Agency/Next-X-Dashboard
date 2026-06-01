@@ -46,7 +46,7 @@ export function NewHero({
 
   const isAudioAccent = accentVariant === 'audio'
   const primaryActionClassName = isAudioAccent
-    ? 'group inline-flex items-center gap-2 rounded-lg bg-[#f97015] px-8 py-4 font-semibold text-white shadow-[0_14px_28px_rgba(20,28,46,0.12)] ring-1 ring-black/5 [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-[#ea630e] hover:shadow-[0_18px_34px_rgba(20,28,46,0.16)] active:translate-y-0 active:scale-[0.98]'
+    ? 'group inline-flex items-center gap-2 rounded-lg bg-[#f97015] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(20,28,46,0.12)] ring-1 ring-black/5 [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-[#ea630e] hover:shadow-[0_18px_34px_rgba(20,28,46,0.16)] active:translate-y-0 active:scale-[0.98] sm:px-8 sm:py-4 sm:text-base'
     : 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
   const mapCardClassName = isAudioAccent
     ? 'relative overflow-hidden rounded-3xl bg-white shadow-[0_18px_40px_rgba(20,28,46,0.10)] transition-all duration-300'
@@ -75,13 +75,35 @@ export function NewHero({
     <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
       {isAudioAccent && (
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-x-4 top-6 bottom-6 opacity-70 sm:inset-x-8 sm:top-8 sm:bottom-8 lg:inset-x-10 lg:top-10 lg:bottom-10">
+          <div className="absolute left-1/2 top-5 h-20 w-56 -translate-x-1/2 opacity-[0.12] lg:hidden">
             <Image
               src="/nextx-hero-accent.svg"
               alt=""
               fill
-              sizes="100vw"
-              className="object-cover"
+              sizes="224px"
+              className="object-contain"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="absolute left-8 top-16 hidden h-36 w-100 opacity-[0.14] lg:block xl:left-12 xl:h-40 xl:w-116">
+            <Image
+              src="/nextx-hero-accent.svg"
+              alt=""
+              fill
+              sizes="464px"
+              className="object-contain object-top-left"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="absolute bottom-12 right-10 hidden h-16 w-52 opacity-[0.08] lg:block xl:right-16 xl:w-56">
+            <Image
+              src="/nextx-hero-accent.svg"
+              alt=""
+              fill
+              sizes="224px"
+              className="object-contain object-bottom-right"
               aria-hidden="true"
             />
           </div>
@@ -92,10 +114,10 @@ export function NewHero({
 
       <div className={catalogShellClassName}>
         <div className="lg:hidden">
-          <div className="py-8 text-center">
-            {isAudioAccent && <div className="catalog-reveal mx-auto mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
+          <div className="pt-6 pb-5 text-center sm:pt-8 sm:pb-6">
+            {isAudioAccent && <div className="mx-auto mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
 
-            <h1 className={`catalog-reveal mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl ${isAudioAccent ? 'sm:max-w-xl sm:mx-auto' : ''}`}>
+            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal '}mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl ${isAudioAccent ? 'sm:max-w-xl sm:mx-auto' : ''}`}>
               <span className="flex flex-col items-center gap-2">
                 <span>Welcome to</span>
                 <Image
@@ -104,21 +126,39 @@ export function NewHero({
                   width={240}
                   height={77}
                   className="relative"
-                  style={{ height: 'auto', width: '240px' }}
+                  style={{ height: 'auto', width: '228px' }}
                   priority
                 />
               </span>
             </h1>
 
             {heroSubtitle && (
-              <p className="catalog-reveal catalog-reveal-d1 mx-auto mb-8 max-w-lg text-lg leading-relaxed text-[#141c2e]/70">
+              <p className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d1 '}mx-auto mb-7 max-w-[20rem] text-base leading-8 text-[#141c2e]/70 sm:max-w-lg sm:text-lg sm:leading-relaxed`}>
                 {heroSubtitle}
               </p>
             )}
+
+            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d2 '}mb-6 flex flex-wrap justify-center gap-4`}>
+              <button onClick={onExploreClick} className={primaryActionClassName}>
+                Ontdek Producten
+                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
+              </button>
+            </div>
+
+            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d3 '}flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-[#141c2e]/60`}>
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
+                <MapPin size={16} className="text-[#f97015]" />
+                <span>Lokale Afhaallocatie</span>
+              </div>
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
+                <Clock size={16} className="text-[#f97015]" />
+                <span>WhatsApp Bestellingen</span>
+              </div>
+            </div>
           </div>
 
-          <div className="pb-8">
-            <div className="relative mx-auto aspect-square max-w-sm">
+          <div className="pb-8 pt-1">
+            <div className="relative mx-auto aspect-5/4 max-w-86 sm:aspect-square sm:max-w-sm">
               {isAudioAccent && (
                 <div className="absolute inset-3 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
               )}
@@ -132,7 +172,7 @@ export function NewHero({
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1 bg-[#f97015]" />
                 )}
 
-                <div className="relative aspect-square">
+                <div className="relative aspect-5/4 sm:aspect-square">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
                     className="absolute inset-0 h-full w-full border-0"
@@ -155,61 +195,41 @@ export function NewHero({
               </div>
             </div>
           </div>
-
-          <div className="pb-8 text-center">
-            <div className="catalog-reveal catalog-reveal-d3 mb-8 flex flex-wrap justify-center gap-4">
-              <button onClick={onExploreClick} className={primaryActionClassName}>
-                Ontdek Producten
-                <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
-              </button>
-            </div>
-
-            <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center justify-center gap-6 text-sm text-[#141c2e]/60">
-              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
-                <MapPin size={16} className="text-[#f97015]" />
-                <span>Lokale Afhaallocatie</span>
-              </div>
-              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
-                <Clock size={16} className="text-[#f97015]" />
-                <span>WhatsApp Bestellingen</span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <div className="hidden items-center gap-8 py-16 lg:grid lg:grid-cols-2 lg:gap-16 lg:py-24">
-          <div className="order-2 lg:order-1">
-            {isAudioAccent && <div className="catalog-reveal mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
+        <div className="hidden items-center gap-10 py-16 lg:grid lg:grid-cols-2 lg:gap-20 lg:py-20 xl:gap-24 xl:py-24">
+          <div className="order-2 lg:order-1 lg:pr-4">
+            {isAudioAccent && <div className="mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
 
-            <h1 className={`catalog-reveal catalog-reveal-d1 mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl lg:text-6xl ${isAudioAccent ? 'max-w-xl' : ''}`}>
-              <span className="inline-flex items-center">
+            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d1 '}mb-6 text-4xl font-bold leading-[1.05] tracking-tight text-[#141c2e] sm:text-5xl lg:text-[4.25rem] ${isAudioAccent ? 'max-w-xl' : ''}`}>
+              <span className="inline-flex items-center gap-3 xl:gap-4">
                 <span>Welcome to</span>
                 <Image
                   src="/Colored - White background.png"
                   alt="Next x Logo"
                   width={280}
                   height={90}
-                  className="relative ml-3 sm:ml-4"
-                  style={{ height: '1.15em', width: 'auto', top: '0.08em' }}
+                  className="relative"
+                  style={{ height: '0.92em', width: 'auto', top: '0.03em' }}
                   priority
                 />
               </span>
             </h1>
 
             {heroSubtitle && (
-              <p className="catalog-reveal catalog-reveal-d2 mb-8 max-w-lg text-lg leading-relaxed text-[#141c2e]/70">
+              <p className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d2 '}mb-8 max-w-xl text-lg leading-9 text-[#141c2e]/70`}>
                 {heroSubtitle}
               </p>
             )}
 
-            <div className="catalog-reveal catalog-reveal-d3 mb-12 flex flex-wrap gap-4">
+            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d3 '}mb-12 flex flex-wrap gap-4`}>
               <button onClick={onExploreClick} className={primaryActionClassName}>
                 Ontdek Producten
                 <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
               </button>
             </div>
 
-            <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center gap-6 text-sm text-[#141c2e]/60">
+            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d4 '}flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-[#141c2e]/60`}>
               <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
                 <MapPin size={16} className="text-[#f97015]" />
                 <span>Lokale Afhaallocatie</span>
@@ -222,7 +242,7 @@ export function NewHero({
           </div>
 
           <div className="order-1 relative lg:order-2">
-            <div className="relative mx-auto aspect-square max-w-md lg:max-w-none">
+            <div className="relative mx-auto aspect-[1.02/1] max-w-lg lg:ml-auto xl:max-w-136">
               {isAudioAccent && (
                 <div className="absolute inset-4 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
               )}
@@ -236,7 +256,7 @@ export function NewHero({
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1 bg-[#f97015]" />
                 )}
 
-                <div className="relative aspect-square">
+                <div className="relative aspect-[1.02/1]">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
                     className="absolute inset-0 h-full w-full border-0"

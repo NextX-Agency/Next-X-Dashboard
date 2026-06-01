@@ -2,8 +2,8 @@
   <defs>
     <style>
       .orange{stroke:#f97015;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
-      .navy{stroke:#141c2e;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.18}
-      .panel{fill:#f97015;opacity:.04}
+      .navy{stroke:#141c2e;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.12}
+      .panel{fill:#f97015;opacity:.03}
       .dot{fill:#f97015}
     </style>
   </defs>
@@ -21,7 +21,6 @@
   <path class="orange" d="M718 118v60"/>
   <path class="navy" d="M682 632h210"/>
   <path class="navy" d="M548 660h420"/>
-  <path d="M624 266h24l44 46 44-46h24l-56 58 56 58h-24l-44-46-44 46h-24l56-58-56-58z" fill="#141c2e" opacity=".08"/>
   <path class="orange" d="M1114 556h86"/>
   <path class="orange" d="M1114 586h48"/>
   <path class="navy" d="M100 484h94"/>
