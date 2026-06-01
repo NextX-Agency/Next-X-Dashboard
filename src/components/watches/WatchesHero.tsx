@@ -22,6 +22,8 @@ function WatchesHeroComponent({
   useEffect(() => {
     const bg = bgRef.current
     if (!bg) return
+    if (window.matchMedia('(max-width: 767px)').matches) return
+
     const handleScroll = () => {
       bg.style.transform = `translateY(${window.scrollY * 0.28}px)`
     }
@@ -32,7 +34,7 @@ function WatchesHeroComponent({
   return (
     <section
       className="relative flex items-center overflow-hidden"
-      style={{ height: 'min(92svh, 980px)', minHeight: 460 }}
+      style={{ height: 'min(84svh, 980px)', minHeight: 380 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -73,7 +75,7 @@ function WatchesHeroComponent({
       />
 
       {/* Content */}
-      <div className="relative z-10 px-6 lg:px-12 py-12 sm:py-14 lg:py-16 max-w-screen-2xl mx-auto w-full">
+      <div className="relative z-10 px-5 py-10 sm:px-6 sm:py-14 lg:px-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
         <div className="max-w-xl">
           {/* Eyebrow label */}
           <p
@@ -89,7 +91,7 @@ function WatchesHeroComponent({
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
-              fontSize: 'clamp(3rem, 11vw, 7.25rem)',
+              fontSize: 'clamp(2.65rem, 11vw, 7.25rem)',
               whiteSpace: 'pre-line',
               letterSpacing: '-0.01em',
             }}
@@ -102,7 +104,7 @@ function WatchesHeroComponent({
 
           {/* Subtitle */}
           <p
-            className="mb-8 max-w-sm text-sm font-light leading-relaxed sm:mb-10 sm:text-[15px]"
+            className="mb-7 max-w-[18rem] text-sm font-light leading-relaxed sm:mb-10 sm:max-w-sm sm:text-[15px]"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-cream-2)', letterSpacing: '0.02em' }}
           >
             {subtitle}

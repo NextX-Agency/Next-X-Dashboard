@@ -68,8 +68,8 @@ function WatchesBrandNavComponent({
         className={cn('grid border-t', gridClassName)}
         style={{ borderColor: 'var(--w-border)' }}
       >
-        <div className="sm:hidden col-span-full -mx-1 overflow-x-auto pb-1">
-          <div className="flex min-w-max gap-2 px-1">
+        <div className="sm:hidden col-span-full -mx-1 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none]">
+          <div className="flex min-w-max snap-x snap-mandatory gap-2 px-1">
             <MobileBrandButton
               label="All Watches"
               count={resolvedTotal}
@@ -174,7 +174,7 @@ function MobileBrandButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-11 items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
+      className="inline-flex min-h-11 snap-start items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
       style={{
         borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
         background: isActive ? 'rgba(201,168,76,0.08)' : 'rgba(17,17,19,0.78)',

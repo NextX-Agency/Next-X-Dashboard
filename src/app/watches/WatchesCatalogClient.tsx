@@ -308,7 +308,7 @@ export default function WatchesCatalogClient({
   )
 
   const catalogGridClassName = useMemo(
-    () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-md', pairMaxWidth: 'max-w-5xl', tripleMaxWidth: 'max-w-6xl' }),
+    () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-sm', pairMaxWidth: 'max-w-[54rem]', tripleMaxWidth: 'max-w-5xl' }),
     [filteredItems.length]
   )
 
@@ -463,9 +463,9 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <section id="collections" className="px-6 py-8 lg:px-12 lg:py-14">
+        <section id="collections" className="px-5 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-14">
           <div
-            className="mx-auto grid max-w-screen-2xl gap-8 border-y py-6 sm:py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
+            className="mx-auto grid max-w-screen-2xl gap-6 border-y py-5 sm:gap-8 sm:py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
             style={{ borderColor: 'var(--w-border)' }}
           >
             <div className="flex flex-col justify-between gap-8">
@@ -522,7 +522,7 @@ export default function WatchesCatalogClient({
         </section>
 
         {normalizedCollections.length > 0 && (
-          <section id="featured-collections" className="px-6 py-10 lg:px-12 lg:py-14">
+          <section id="featured-collections" className="px-5 py-8 sm:px-6 sm:py-10 lg:px-12 lg:py-14">
             <div className="mx-auto max-w-screen-2xl">
               <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -628,7 +628,7 @@ export default function WatchesCatalogClient({
 
         {/* ══ Browse Collection ════════════════════════ */}
         <section>
-          <div id="new" className="px-6 pb-16 pt-8 lg:px-12 lg:pt-12 lg:pb-20 max-w-screen-2xl mx-auto">
+          <div id="new" className="px-5 pb-12 pt-6 sm:px-6 sm:pb-16 sm:pt-8 lg:px-12 lg:pt-12 lg:pb-20 max-w-screen-2xl mx-auto">
             <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
@@ -649,7 +649,7 @@ export default function WatchesCatalogClient({
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
-              <div className={cn('grid gap-x-6 gap-y-10 sm:gap-y-14', catalogGridClassName)}>
+              <div className={cn('grid gap-x-4 gap-y-8 min-[560px]:gap-x-5 sm:gap-x-6 sm:gap-y-12', filteredItems.length > 1 && 'min-[560px]:grid-cols-2', catalogGridClassName)}>
                 {filteredItems.map(item => (
                   <WatchProductCard
                     key={item.id}
@@ -663,6 +663,7 @@ export default function WatchesCatalogClient({
                     cartQuantity={getWatchesCartQuantity(cartItems, item.id)}
                     displayCurrency={displayCurrency}
                     stockCount={stockMap[item.id] ?? 0}
+                    compact
                     onAddToCart={handleAddToCart}
                     onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
                   />
