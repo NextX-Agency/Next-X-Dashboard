@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 760" fill="none">
+  <defs>
+    <style>
+      .orange{stroke:#f97015;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .navy{stroke:#141c2e;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.18}
+      .panel{fill:#f97015;opacity:.04}
+      .dot{fill:#f97015}
+    </style>
+  </defs>
+  <rect x="928" y="112" width="376" height="376" rx="32" class="panel"/>
+  <rect x="902" y="86" width="428" height="428" rx="36" class="navy"/>
+  <path class="orange" d="M120 172h172l42-42h144"/>
+  <path class="navy" d="M120 212h224"/>
+  <path class="navy" d="M120 240h164"/>
+  <path class="orange" d="M120 604h128v-78"/>
+  <path class="orange" d="M1320 120h-136v96"/>
+  <path class="navy" d="M1074 120h148"/>
+  <path class="orange" d="M1320 574h-196l-42 42H936"/>
+  <path class="navy" d="M1032 616h190"/>
+  <path class="orange" d="M692 96v44"/>
+  <path class="orange" d="M718 118v60"/>
+  <path class="navy" d="M682 632h210"/>
+  <path class="navy" d="M548 660h420"/>
+  <path d="M624 266h24l44 46 44-46h24l-56 58 56 58h-24l-44-46-44 46h-24l56-58-56-58z" fill="#141c2e" opacity=".08"/>
+  <path class="orange" d="M1114 556h86"/>
+  <path class="orange" d="M1114 586h48"/>
+  <path class="navy" d="M100 484h94"/>
+  <path class="navy" d="M100 514h144"/>
+  <circle class="dot" cx="120" cy="172" r="5"/>
+  <circle class="dot" cx="334" cy="130" r="5"/>
+  <circle class="dot" cx="120" cy="604" r="5"/>
+  <circle class="dot" cx="248" cy="526" r="5"/>
+  <circle class="dot" cx="1320" cy="120" r="5"/>
+  <circle class="dot" cx="1184" cy="216" r="5"/>
+  <circle class="dot" cx="1320" cy="574" r="5"/>
+  <circle class="dot" cx="1082" cy="616" r="5"/>
+  <circle class="dot" cx="692" cy="96" r="5"/>
+  <circle class="dot" cx="718" cy="178" r="5"/>
+</svg>

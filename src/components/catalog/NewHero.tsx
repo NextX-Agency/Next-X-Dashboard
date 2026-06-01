@@ -46,10 +46,10 @@ export function NewHero({
 
   const isAudioAccent = accentVariant === 'audio'
   const primaryActionClassName = isAudioAccent
-    ? 'group inline-flex items-center gap-2 rounded-lg bg-[#f97015] px-8 py-4 font-semibold text-white shadow-[0_18px_40px_rgba(249,112,21,0.28)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-[#ea630e] hover:shadow-[0_24px_48px_rgba(249,112,21,0.34)] active:translate-y-0 active:scale-[0.98]'
+    ? 'group inline-flex items-center gap-2 rounded-lg bg-[#f97015] px-8 py-4 font-semibold text-white shadow-[0_14px_28px_rgba(20,28,46,0.12)] ring-1 ring-black/5 [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-[#ea630e] hover:shadow-[0_18px_34px_rgba(20,28,46,0.16)] active:translate-y-0 active:scale-[0.98]'
     : 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
   const mapCardClassName = isAudioAccent
-    ? 'relative overflow-hidden rounded-[1.75rem] bg-white shadow-[0_28px_60px_rgba(20,28,46,0.14)] transition-all duration-300'
+    ? 'relative overflow-hidden rounded-3xl bg-white shadow-[0_18px_40px_rgba(20,28,46,0.10)] transition-all duration-300'
     : 'relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300'
 
   useEffect(() => {
@@ -74,19 +74,21 @@ export function NewHero({
   return (
     <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
       {isAudioAccent && (
-        <>
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 18% 22%, rgba(249, 112, 21, 0.08) 0%, rgba(249, 112, 21, 0) 30%), linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 38%)'
-            }}
-          />
-          <div className="absolute left-1/2 top-24 h-px w-[90%] max-w-6xl -translate-x-1/2 bg-linear-to-r from-transparent via-[#f97015]/16 to-transparent" />
-        </>
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-x-4 top-6 bottom-6 opacity-70 sm:inset-x-8 sm:top-8 sm:bottom-8 lg:inset-x-10 lg:top-10 lg:bottom-10">
+            <Image
+              src="/nextx-hero-accent.svg"
+              alt=""
+              fill
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden="true"
+            />
+          </div>
+        </div>
       )}
-      <div className="absolute top-0 right-0 h-full w-1/2 bg-linear-to-l from-[#141c2e]/5 to-transparent" />
-      <div className="absolute bottom-0 left-0 h-96 w-96 -translate-x-1/2 translate-y-1/2 rounded-full bg-linear-to-tr from-[#f97015]/10 to-transparent" />
+      {!isAudioAccent && <div className="absolute top-0 right-0 h-full w-1/2 bg-linear-to-l from-[#141c2e]/5 to-transparent" />}
+      {!isAudioAccent && <div className="absolute bottom-0 left-0 h-96 w-96 -translate-x-1/2 translate-y-1/2 rounded-full bg-linear-to-tr from-[#f97015]/10 to-transparent" />}
 
       <div className={catalogShellClassName}>
         <div className="lg:hidden">
@@ -118,7 +120,7 @@ export function NewHero({
           <div className="pb-8">
             <div className="relative mx-auto aspect-square max-w-sm">
               {isAudioAccent && (
-                <div className="absolute inset-3 rounded-4xl border border-[#f97015]/12 bg-[#f97015]/5" />
+                <div className="absolute inset-3 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
               )}
 
               <div
@@ -222,7 +224,7 @@ export function NewHero({
           <div className="order-1 relative lg:order-2">
             <div className="relative mx-auto aspect-square max-w-md lg:max-w-none">
               {isAudioAccent && (
-                <div className="absolute inset-4 rounded-4xl border border-[#f97015]/12 bg-[#f97015]/5" />
+                <div className="absolute inset-4 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
               )}
 
               <div
