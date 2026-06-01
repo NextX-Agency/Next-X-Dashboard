@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
           location_id: true,
           category_id: true,
           sale: {
-            select: { currency: true },
+            select: { currency: true, exchangeRate: true },
           },
         },
         orderBy: { createdAt: 'desc' },
@@ -333,7 +333,12 @@ export async function GET(request: NextRequest) {
         created_at: toIsoString(commission.createdAt),
         location_id: commission.location_id,
         category_id: commission.category_id,
-        sales: commission.sale ? { currency: commission.sale.currency } : null,
+        sales: commission.sale
+          ? {
+            currency: commission.sale.currency,
+            exchange_rate: commission.sale.exchangeRate == null ? null : toNumber(commission.sale.exchangeRate),
+          }
+          : null,
       })),
       wallets: wallets.map<ReportWallet>((wallet) => ({
         id: wallet.id,

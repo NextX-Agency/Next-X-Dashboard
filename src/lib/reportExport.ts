@@ -1,6 +1,12 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import { calculateFinancialHealthScore } from '@/lib/financialHealth'
 import { prisma } from '@/lib/prisma'
+import {
+  calculateSaleFinancials,
+  calculateScaledLineAmount,
+  convertReportCurrency,
+  getReportExchangeRate,
+} from '@/lib/reportCalculations'
 
 export type ReportExportPeriod = 'monthly' | 'yearly'
 export type ReportExportCatalogType = 'all' | 'audio' | 'watches'
@@ -239,7 +245,7 @@ export async function buildReportExportData(
     ...(locationId ? { locationId } : {}),
   }
 
-  const [rawSales, rawExpenses, locations, settings, rawWallets, rawStocks, rawPeriodPurchaseOrders, rawOpenPurchaseOrders] = await Promise.all([
+  const [rawSales, rawExpenses, locations, settings, currentRate, rawWallets, rawStocks, rawPeriodPurchaseOrders, rawOpenPurchaseOrders] = await Promise.all([
     prisma.sale.findMany({
       where: salesWhere,
       select: {
@@ -300,6 +306,10 @@ export async function buildReportExportData(
         key: true,
         value: true,
       },
+    }),
+    prisma.exchangeRate.findFirst({
+      where: { isActive: true },
+      orderBy: { setAt: 'desc' },
     }),
     prisma.wallet.findMany({
       where: locationId ? { location_id: locationId } : undefined,
@@ -504,6 +514,7 @@ export async function buildReportExportData(
     ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     : String(now.getFullYear())
   const settingsMap = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))
+  const fallbackExchangeRate = getReportExchangeRate(currentRate?.usdToSrd, DEFAULT_EXCHANGE_RATE)
 
   const itemRows = new Map<string, ReportExportItemRow>()
   const locationRows = new Map<string, ReportExportLocationRow>()
@@ -515,12 +526,41 @@ export async function buildReportExportData(
   let totalRevenueUsd = 0
   let totalCogsSrd = 0
   let totalCogsUsd = 0
+  let missingSaleItemCount = 0
+  let unitemizedRevenueUsd = 0
+  let adjustedSaleTotalCount = 0
+  let saleTotalAdjustmentUsd = 0
 
   for (const sale of sales) {
-    const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
-    const scopedSaleTotal = sale.saleItems.reduce((sum, saleItem) => sum + toNumber(saleItem.subtotal), 0)
-    const saleRevenueSrd = sale.currency === 'SRD' ? scopedSaleTotal : scopedSaleTotal * saleRate
-    const saleRevenueUsd = sale.currency === 'USD' ? scopedSaleTotal : scopedSaleTotal / saleRate
+    const lineSubtotal = sale.saleItems.reduce((sum, saleItem) => sum + toNumber(saleItem.subtotal), 0)
+    const saleFinancials = calculateSaleFinancials({
+      totalAmount: exactSaleIds.has(sale.id) ? sale.totalAmount : lineSubtotal,
+      currency: sale.currency,
+      exchangeRate: sale.exchangeRate,
+      fallbackRate: fallbackExchangeRate,
+      items: sale.saleItems.map((saleItem) => ({
+        subtotal: saleItem.subtotal,
+        quantity: saleItem.quantity,
+        purchasePriceUsd: saleItem.item?.purchasePriceUsd ?? 0,
+      })),
+    })
+    const saleRate = saleFinancials.exchangeRate
+    const saleRevenueSrd = saleFinancials.revenueSrd
+    const saleRevenueUsd = saleFinancials.revenueUsd
+
+    if (saleFinancials.missingSaleItems) {
+      missingSaleItemCount += 1
+      unitemizedRevenueUsd += saleFinancials.revenueUsd
+    } else if (saleFinancials.hasMaterialTotalMismatch) {
+      adjustedSaleTotalCount += 1
+      saleTotalAdjustmentUsd += convertReportCurrency(
+        saleFinancials.saleTotalDiffInSaleCurrency,
+        sale.currency,
+        'USD',
+        saleFinancials.exchangeRate,
+      )
+    }
+
     const locationName = locationNameById.get(sale.locationId) || 'Unknown location'
     const locationEntry = locationRows.get(sale.locationId) ?? {
       locationName,
@@ -547,8 +587,9 @@ export async function buildReportExportData(
     for (const saleItem of sale.saleItems) {
       const itemName = saleItem.item?.name || 'Deleted item'
       const categoryName = saleItem.item?.category?.name || 'Uncategorized'
-      const revenueSrd = sale.currency === 'SRD' ? toNumber(saleItem.subtotal) : toNumber(saleItem.subtotal) * saleRate
-      const revenueUsd = sale.currency === 'USD' ? toNumber(saleItem.subtotal) : toNumber(saleItem.subtotal) / saleRate
+      const scaledLineAmount = calculateScaledLineAmount(saleItem.subtotal, saleFinancials)
+      const revenueSrd = convertReportCurrency(scaledLineAmount, sale.currency, 'SRD', saleRate)
+      const revenueUsd = convertReportCurrency(scaledLineAmount, sale.currency, 'USD', saleRate)
       const rowKey = `${sale.locationId}:${saleItem.item?.id || itemName}`
       const currentItemRow = itemRows.get(rowKey) ?? {
         locationName,
@@ -582,21 +623,21 @@ export async function buildReportExportData(
 
   const totalExpensesSrd = expenses.reduce((sum, expense) => {
     const amount = toNumber(expense.amount)
-    return sum + (expense.currency === 'SRD' ? amount : amount * DEFAULT_EXCHANGE_RATE)
+    return sum + (expense.currency === 'SRD' ? amount : amount * fallbackExchangeRate)
   }, 0)
   const totalExpensesUsd = expenses.reduce((sum, expense) => {
     const amount = toNumber(expense.amount)
-    return sum + (expense.currency === 'USD' ? amount : amount / DEFAULT_EXCHANGE_RATE)
+    return sum + (expense.currency === 'USD' ? amount : amount / fallbackExchangeRate)
   }, 0)
 
   const totalCommissionsSrd = commissions.reduce((sum, commission) => {
     const amount = toNumber(commission.commissionAmount)
-    const rate = toNumber(commission.sale?.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    const rate = getReportExchangeRate(commission.sale?.exchangeRate, fallbackExchangeRate)
     return sum + ((commission.sale?.currency || 'USD') === 'SRD' ? amount : amount * rate)
   }, 0)
   const totalCommissionsUsd = commissions.reduce((sum, commission) => {
     const amount = toNumber(commission.commissionAmount)
-    const rate = toNumber(commission.sale?.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    const rate = getReportExchangeRate(commission.sale?.exchangeRate, fallbackExchangeRate)
     return sum + ((commission.sale?.currency || 'USD') === 'USD' ? amount : amount / rate)
   }, 0)
 
@@ -609,15 +650,15 @@ export async function buildReportExportData(
     ? totalGrossProfitUsd - totalCommissionsUsd
     : totalGrossProfitUsd - totalExpensesUsd - totalCommissionsUsd
 
-  const walletBalanceSrd = wallets.reduce((sum, wallet) => sum + toSrd(toNumber(wallet.balance), wallet.currency), 0)
-  const walletBalanceUsd = wallets.reduce((sum, wallet) => sum + toUsd(toNumber(wallet.balance), wallet.currency), 0)
+  const walletBalanceSrd = wallets.reduce((sum, wallet) => sum + toSrd(toNumber(wallet.balance), wallet.currency, fallbackExchangeRate), 0)
+  const walletBalanceUsd = wallets.reduce((sum, wallet) => sum + toUsd(toNumber(wallet.balance), wallet.currency, fallbackExchangeRate), 0)
 
   const stockValueUsd = stocks.reduce((sum, stock) => sum + (toNumber(stock.item?.purchasePriceUsd) * stock.quantity), 0)
-  const stockValueSrd = stockValueUsd * DEFAULT_EXCHANGE_RATE
+  const stockValueSrd = stockValueUsd * fallbackExchangeRate
   const totalStockUnits = stocks.reduce((sum, stock) => sum + stock.quantity, 0)
 
   const onOrderCommitmentUsd = openPurchaseOrders.reduce((sum, order) => {
-    const orderRate = toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE
+    const orderRate = getReportExchangeRate(order.exchange_rate, fallbackExchangeRate)
     const remainingInOrderCurrency = order.purchase_order_items.reduce((lineSum, item) => {
       const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
       return lineSum + (remainingQuantity * toNumber(item.unit_cost))
@@ -625,7 +666,7 @@ export async function buildReportExportData(
     return sum + toUsd(remainingInOrderCurrency, order.currency, orderRate)
   }, 0)
   const onOrderCommitmentSrd = openPurchaseOrders.reduce((sum, order) => {
-    const orderRate = toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE
+    const orderRate = getReportExchangeRate(order.exchange_rate, fallbackExchangeRate)
     const remainingInOrderCurrency = order.purchase_order_items.reduce((lineSum, item) => {
       const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
       return lineSum + (remainingQuantity * toNumber(item.unit_cost))
@@ -637,39 +678,39 @@ export async function buildReportExportData(
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => {
       const scopedOrderTotal = order.purchase_order_items.reduce((lineSum, item) => lineSum + toNumber(item.subtotal), 0)
-      return sum + toUsd(scopedOrderTotal, order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE)
+      return sum + toUsd(scopedOrderTotal, order.currency, getReportExchangeRate(order.exchange_rate, fallbackExchangeRate))
     }, 0)
   const purchaseCapitalDeployedSrd = periodPurchaseOrders
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => {
       const scopedOrderTotal = order.purchase_order_items.reduce((lineSum, item) => lineSum + toNumber(item.subtotal), 0)
-      return sum + toSrd(scopedOrderTotal, order.currency, toNumber(order.exchange_rate) || DEFAULT_EXCHANGE_RATE)
+      return sum + toSrd(scopedOrderTotal, order.currency, getReportExchangeRate(order.exchange_rate, fallbackExchangeRate))
     }, 0)
 
   const walletSalesMappedUsd = sales.reduce((sum, sale) => {
     if (!sale.wallet_id || !walletCurrencyById.has(sale.wallet_id)) return sum
-    const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    const saleRate = getReportExchangeRate(sale.exchangeRate, fallbackExchangeRate)
     return sum + toUsd(toNumber(sale.totalAmount), sale.currency, saleRate)
   }, 0)
   const walletSalesMappedSrd = sales.reduce((sum, sale) => {
     if (!sale.wallet_id || !walletCurrencyById.has(sale.wallet_id)) return sum
-    const saleRate = toNumber(sale.exchangeRate) || DEFAULT_EXCHANGE_RATE
+    const saleRate = getReportExchangeRate(sale.exchangeRate, fallbackExchangeRate)
     return sum + toSrd(toNumber(sale.totalAmount), sale.currency, saleRate)
   }, 0)
 
   const expensesBookedToWalletsUsd = expenses.reduce((sum, expense) => {
     if (!expense.walletId || !walletCurrencyById.has(expense.walletId)) return sum
-    return sum + toUsd(toNumber(expense.amount), expense.currency)
+    return sum + toUsd(toNumber(expense.amount), expense.currency, fallbackExchangeRate)
   }, 0)
   const expensesBookedToWalletsSrd = expenses.reduce((sum, expense) => {
     if (!expense.walletId || !walletCurrencyById.has(expense.walletId)) return sum
-    return sum + toSrd(toNumber(expense.amount), expense.currency)
+    return sum + toSrd(toNumber(expense.amount), expense.currency, fallbackExchangeRate)
   }, 0)
 
   const walletMetrics = walletTransactions.reduce((summary, transaction) => {
     const currency = transaction.currency || walletCurrencyById.get(transaction.wallet_id) || 'SRD'
-    const amountUsd = toUsd(toNumber(transaction.amount), currency)
-    const amountSrd = toSrd(toNumber(transaction.amount), currency)
+    const amountUsd = toUsd(toNumber(transaction.amount), currency, fallbackExchangeRate)
+    const amountSrd = toSrd(toNumber(transaction.amount), currency, fallbackExchangeRate)
     const signedUsd = transaction.type === 'debit' ? -amountUsd : amountUsd
     const signedSrd = transaction.type === 'debit' ? -amountSrd : amountSrd
     const bucket = classifyWalletTransaction(transaction)
@@ -766,14 +807,26 @@ export async function buildReportExportData(
         liquidityCoverage: 0,
       }
 
-  const limitations = isCatalogScoped
-    ? [
-        `${activeCatalogLabel} export includes only sales lines, stock, reservations, and purchase orders tied to this catalog.`,
-        'Operating expenses and wallet reconciliation are omitted because those records are not catalog-tagged yet.',
-        ...(mixedSaleCount > 0 ? [`${mixedSaleCount} mixed sale${mixedSaleCount === 1 ? '' : 's'} were excluded from commission attribution.`] : []),
-        ...(mixedPurchaseOrderIds.size > 0 ? [`${mixedPurchaseOrderIds.size} mixed purchase order${mixedPurchaseOrderIds.size === 1 ? '' : 's'} were scoped by matching line items only.`] : []),
-      ]
-    : []
+  const dataQualityNotes = [
+    ...(adjustedSaleTotalCount > 0
+      ? [`${adjustedSaleTotalCount} sale${adjustedSaleTotalCount === 1 ? '' : 's'} had line totals scaled to the recorded sale total (${formatMoney(saleTotalAdjustmentUsd, 'USD')} adjustment).`]
+      : []),
+    ...(missingSaleItemCount > 0
+      ? [`${missingSaleItemCount} sale${missingSaleItemCount === 1 ? '' : 's'} have recorded revenue but no item lines; ${formatMoney(unitemizedRevenueUsd, 'USD')} cannot be itemized into COGS/top-item details.`]
+      : []),
+  ]
+
+  const limitations = [
+    ...(isCatalogScoped
+      ? [
+          `${activeCatalogLabel} export includes only sales lines, stock, reservations, and purchase orders tied to this catalog.`,
+          'Operating expenses and wallet reconciliation are omitted because those records are not catalog-tagged yet.',
+          ...(mixedSaleCount > 0 ? [`${mixedSaleCount} mixed sale${mixedSaleCount === 1 ? '' : 's'} were excluded from commission attribution.`] : []),
+          ...(mixedPurchaseOrderIds.size > 0 ? [`${mixedPurchaseOrderIds.size} mixed purchase order${mixedPurchaseOrderIds.size === 1 ? '' : 's'} were scoped by matching line items only.`] : []),
+        ]
+      : []),
+    ...dataQualityNotes,
+  ]
 
   return {
     period,
@@ -891,7 +944,6 @@ export async function buildReportPdf(data: ReportExportData) {
   const scopeDescriptor = data.scopeLabel === 'All locations' ? 'Company-wide overview' : `Focused on ${data.scopeLabel}`
   const highlightProfitLabel = data.financialHealthAvailable ? 'Net Profit' : 'Gross Profit'
   const highlightProfitUsd = data.financialHealthAvailable ? netUsd : grossUsd
-  const highlightProfitSrd = data.financialHealthAvailable ? netSrd : grossSrd
 
   let page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - PAGE_MARGIN
@@ -1337,6 +1389,10 @@ export async function buildReportPdf(data: ReportExportData) {
     data.branding.storeAddress ? `Address: ${data.branding.storeAddress}.` : 'Address: not configured in store settings.',
     data.branding.storeEmail ? `Contact: ${data.branding.storeEmail}.` : 'Contact: no report email configured in store settings.',
   ])
+
+  if (data.financialHealthAvailable && data.limitations.length > 0) {
+    drawInsightPanel('Data Quality Notes', data.limitations)
+  }
 
   drawTable(
     'Financial Reconciliation Snapshot',

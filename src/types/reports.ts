@@ -51,6 +51,7 @@ export interface ReportCommission extends Pick<
 > {
   sales?: {
     currency: string
+    exchange_rate: number | null
   } | null
 }
 

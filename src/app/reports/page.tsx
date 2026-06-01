@@ -6,20 +6,26 @@ import {
   Award, ShoppingBag, Wallet, MapPin, Layers, Sparkles, Users,
   ArrowUpRight, ArrowDownRight, CreditCard, PieChart, Target,
   Clock, ChevronDown, ChevronUp, History,
-  Activity, BookOpen, ArrowRight, Download
+  Activity, BookOpen, ArrowRight, Download, AlertTriangle
 } from 'lucide-react'
 import { PageHeader, Badge } from '@/components/UI'
 import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { calculateFinancialHealthScore, type FinancialHealthScore } from '@/lib/financialHealth'
+import {
+  calculateSaleFinancials,
+  calculateScaledLineAmount,
+  convertReportCurrency,
+  getReportExchangeRate,
+  toReportNumber,
+  type SaleFinancials,
+} from '@/lib/reportCalculations'
 import { cn } from '@/lib/utils'
 import type {
   ReportCategory as Category,
-  ReportComboItem as ComboItem,
   ReportCommission as CommissionWithSale,
   ReportExpense as ExpenseWithCategory,
-  ReportExpenseCategory as ExpenseCategory,
   ReportItem as Item,
   ReportLocation as Location,
   ReportPurchaseOrder as PurchaseOrder,
@@ -74,6 +80,76 @@ interface CatalogScopedSalesResult {
 interface CatalogScopedPurchaseOrdersResult {
   orders: PurchaseOrder[]
   mixedOrderCount: number
+}
+
+interface DeepDebugIssueCount {
+  missingSaleItems: number
+  deletedItems: number
+  noCOGS: number
+  noCategory: number
+}
+
+interface DeepDebugMissingSale {
+  saleId: string
+  date: string
+  locationName: string
+  currency: string
+  recordedTotal: number
+  recordedTotalUSD: number
+}
+
+interface DeepDebugCategoryRow {
+  categoryId: string | null
+  name: string
+  revenueUSD: number
+  profitUSD: number
+  salesCount: number
+  marginPct: number
+}
+
+interface DeepDebugSaleItem {
+  itemId: string
+  itemName: string
+  categoryId: string | null
+  categoryName: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  purchasePriceUsd: number | null
+  revenueUSD: number
+  costUSD: number | null
+  profitUSD: number | null
+  issue: string | null
+}
+
+interface DeepDebugSale {
+  saleId: string
+  date: string
+  totalAmount: number
+  recordedTotalUSD: number
+  currency: string
+  exchangeRate: number
+  locationName: string
+  totalRevenueUSD: number
+  totalProfitUSD: number
+  grossMarginPct: number
+  missingItems: boolean
+  items: DeepDebugSaleItem[]
+  issues: Array<{ item: string; issue: string }>
+}
+
+interface DeepDebugData {
+  summary: {
+    totalSales: number
+    totalRevenueUSD: number
+    totalProfitUSD: number
+    grossMarginPct: number
+    salesWithIssues: number
+    issueCount: DeepDebugIssueCount
+    salesMissingItems: DeepDebugMissingSale[]
+  }
+  categoryBreakdown: DeepDebugCategoryRow[]
+  sales: DeepDebugSale[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -208,7 +284,7 @@ function classifyWalletTransaction(transaction: WalletTransaction): keyof Pick<
 export default function ReportsPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter({ allowAll: true })
-  const rate = (exchangeRate as unknown as number) || 40
+  const rate = getReportExchangeRate(exchangeRate as unknown as number, 40)
 
   // ─── State ───
   const [allSales, setAllSales] = useState<SaleWithItems[]>([])
@@ -220,7 +296,6 @@ export default function ReportsPage() {
   const [wallets, setWallets] = useState<WalletRow[]>([])
   const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([])
   const [reservations, setReservations] = useState<ReservationWithItem[]>([])
-  const [comboItems, setComboItems] = useState<ComboItem[]>([])
   const [sellers, setSellers] = useState<Seller[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
@@ -233,7 +308,7 @@ export default function ReportsPage() {
   const [excludeLowValueItems, setExcludeLowValueItems] = useState(false)
   const [excludeInventoryExpenses, setExcludeInventoryExpenses] = useState(true)
   const [showDebugInfo, setShowDebugInfo] = useState(false)
-  const [deepDebugData, setDeepDebugData] = useState<any>(null)
+  const [deepDebugData, setDeepDebugData] = useState<DeepDebugData | null>(null)
   const [deepDebugLoading, setDeepDebugLoading] = useState(false)
   const [deepDebugError, setDeepDebugError] = useState<string | null>(null)
 
@@ -297,7 +372,6 @@ export default function ReportsPage() {
       setWallets(payload.data.wallets)
       setWalletTransactions(payload.data.walletTransactions)
       setReservations(payload.data.reservations)
-      setComboItems(payload.data.comboItems)
       setSellers(payload.data.sellers)
       setCategories(payload.data.categories)
       setPurchaseOrders(payload.data.purchaseOrders)
@@ -393,6 +467,8 @@ export default function ReportsPage() {
     return items.filter((item) => item.catalog_type === catalogFilter)
   }, [catalogFilter, isCatalogScoped, items])
 
+  const catalogItemById = useMemo(() => new Map(catalogItems.map((item) => [item.id, item])), [catalogItems])
+
   const catalogItemIds = useMemo(() => new Set(catalogItems.map((item) => item.id)), [catalogItems])
 
   const catalogCategories = useMemo(() => {
@@ -431,7 +507,8 @@ export default function ReportsPage() {
       if (matchingItems.length === 0) return
 
       const originalItemCount = sale.sale_items?.length ?? 0
-      if (matchingItems.length === originalItemCount) {
+      const isExactCatalogSale = matchingItems.length === originalItemCount
+      if (isExactCatalogSale) {
         exactSaleIds.add(sale.id)
       } else {
         mixedSaleCount += 1
@@ -439,7 +516,9 @@ export default function ReportsPage() {
 
       sales.push({
         ...sale,
-        total_amount: matchingItems.reduce((sum, saleItem) => sum + saleItem.subtotal, 0),
+        total_amount: isExactCatalogSale
+          ? sale.total_amount
+          : matchingItems.reduce((sum, saleItem) => sum + saleItem.subtotal, 0),
         sale_items: matchingItems,
       })
     })
@@ -472,13 +551,16 @@ export default function ReportsPage() {
 
       if (matchingItems.length === 0) return
 
-      if (matchingItems.length !== (order.purchase_order_items || []).length) {
+      const isExactCatalogOrder = matchingItems.length === (order.purchase_order_items || []).length
+      if (!isExactCatalogOrder) {
         mixedOrderCount += 1
       }
 
       orders.push({
         ...order,
-        total_amount: matchingItems.reduce((sum, item) => sum + toNum(item.subtotal), 0),
+        total_amount: isExactCatalogOrder
+          ? order.total_amount
+          : matchingItems.reduce((sum, item) => sum + toNum(item.subtotal), 0),
         purchase_order_items: matchingItems,
       })
     })
@@ -588,38 +670,31 @@ export default function ReportsPage() {
   )
 
   // ─── Calculation helpers ───
+  const getSaleFinancials = useCallback((sale: SaleWithItems): SaleFinancials => {
+    return calculateSaleFinancials({
+      totalAmount: sale.total_amount,
+      currency: sale.currency,
+      exchangeRate: sale.exchange_rate,
+      fallbackRate: rate,
+      items: (sale.sale_items || []).map((saleItem) => {
+        const item = catalogItemById.get(saleItem.item_id)
+        return {
+          subtotal: saleItem.subtotal,
+          quantity: saleItem.quantity,
+          purchasePriceUsd: item?.purchase_price_usd ?? 0,
+        }
+      }),
+    })
+  }, [catalogItemById, rate])
+
   const saleAmountInDisplay = useCallback((sale: SaleWithItems): number => {
-    // Use sale's recorded exchange rate, or fallback to 40 (safer assumption than current rate)
-    const saleRate = (sale.exchange_rate as number) || 40
-    if (displayCurrency === 'USD') {
-      return sale.currency === 'USD' ? sale.total_amount : sale.total_amount / saleRate
-    }
-    // When displaying in SRD, use the original amount if sale was in SRD
-    if (sale.currency === 'SRD' && displayCurrency === 'SRD') {
-      return sale.total_amount
-    }
-    // Convert USD sale to SRD using sale's rate or display rate
-    return sale.currency === 'SRD' ? sale.total_amount : sale.total_amount * saleRate
-  }, [displayCurrency])
+    const financials = getSaleFinancials(sale)
+    return displayCurrency === 'USD' ? financials.revenueUsd : financials.revenueSrd
+  }, [displayCurrency, getSaleFinancials])
 
   const saleProfitUSD = useCallback((sale: SaleWithItems): number => {
-    // Use sale's recorded exchange rate, or fallback to 40
-    const saleRate = (sale.exchange_rate as number) || 40
-    let profit = 0
-    sale.sale_items?.forEach(si => {
-      const item = catalogItems.find(i => i.id === si.item_id)
-      if (item?.purchase_price_usd) {
-        const cost = toNum(item.purchase_price_usd) * si.quantity
-        const revenue = sale.currency === 'SRD' ? si.subtotal / saleRate : si.subtotal
-        profit += revenue - cost
-      } else if (item) {
-        // If no cost data, assume 0 cost (don't skip the sale)
-        const revenue = sale.currency === 'SRD' ? si.subtotal / saleRate : si.subtotal
-        profit += revenue
-      }
-    })
-    return profit
-  }, [catalogItems])
+    return getSaleFinancials(sale).grossProfitUsd
+  }, [getSaleFinancials])
 
   const profitInDisplay = useCallback((profitUSD: number): number =>
     displayCurrency === 'USD' ? profitUSD : profitUSD * rate,
@@ -627,22 +702,25 @@ export default function ReportsPage() {
   )
 
   const amountInDisplay = useCallback((amount: number, currency: string | null | undefined, sourceRate?: number | null): number => {
-    const conversionRate = sourceRate || rate
-    if (displayCurrency === 'USD') {
-      return currency === 'SRD' ? amount / conversionRate : amount
-    }
-    return currency === 'USD' ? amount * conversionRate : amount
+    return convertReportCurrency(amount, currency, displayCurrency, sourceRate || rate)
   }, [displayCurrency, rate])
+
+  const saleLineAmountInDisplay = useCallback((sale: SaleWithItems, lineSubtotal: number): number => {
+    const financials = getSaleFinancials(sale)
+    const scaledLineAmount = calculateScaledLineAmount(lineSubtotal, financials)
+    return convertReportCurrency(scaledLineAmount, sale.currency, displayCurrency, financials.exchangeRate)
+  }, [displayCurrency, getSaleFinancials])
+
+  const saleLineAmountInUsd = useCallback((sale: SaleWithItems, lineSubtotal: number): number => {
+    const financials = getSaleFinancials(sale)
+    const scaledLineAmount = calculateScaledLineAmount(lineSubtotal, financials)
+    return convertReportCurrency(scaledLineAmount, sale.currency, 'USD', financials.exchangeRate)
+  }, [getSaleFinancials])
 
   const walletTransactionInDisplay = useCallback((transaction: WalletTransaction): number => {
     const currency = transaction.currency || visibleWallets.find(wallet => wallet.id === transaction.wallet_id)?.currency || 'SRD'
     return amountInDisplay(toNum(transaction.amount), currency)
   }, [amountInDisplay, visibleWallets])
-
-  const signedWalletTransactionAmount = useCallback((transaction: WalletTransaction): number => {
-    const amount = walletTransactionInDisplay(transaction)
-    return transaction.type === 'debit' ? -amount : amount
-  }, [walletTransactionInDisplay])
 
   const purchaseOrderTotalInDisplay = useCallback((order: PurchaseOrder): number =>
     amountInDisplay(toNum(order.total_amount), order.currency, order.exchange_rate),
@@ -697,30 +775,14 @@ export default function ReportsPage() {
   }, [walletTransactionInDisplay])
 
   const expenseInDisplay = useCallback((exp: ExpenseWithCategory): number => {
-    if (displayCurrency === 'USD') {
-      return exp.currency === 'USD' ? exp.amount : exp.amount / 40  // Use 40 as standard rate
-    }
-    if (displayCurrency === 'SRD' && exp.currency === 'SRD') {
-      return exp.amount  // Keep original SRD amount
-    }
-    return exp.currency === 'SRD' ? exp.amount : exp.amount * 40
-  }, [displayCurrency])
+    return amountInDisplay(exp.amount, exp.currency)
+  }, [amountInDisplay])
 
   const commissionInDisplay = useCallback((c: CommissionWithSale): number => {
     const amt = toNum(c.commission_amount)
-    // 🔧 FIX: Commissions inherit currency from their source sale
-    // Check the related sale's currency to determine conversion
-    const commissionCurrency = c.sales?.currency || 'USD' // Default to USD if not available
-    
-    // Convert commission based on source currency vs display currency
-    if (commissionCurrency === 'USD') {
-      // Commission is in USD
-      return displayCurrency === 'SRD' ? amt * 40 : amt
-    } else {
-      // Commission is in SRD
-      return displayCurrency === 'USD' ? amt / 40 : amt
-    }
-  }, [displayCurrency])
+    const commissionCurrency = c.sales?.currency || 'USD'
+    return amountInDisplay(amt, commissionCurrency, c.sales?.exchange_rate)
+  }, [amountInDisplay])
 
   // ─── Aggregates ───
   const totalRevenue = useMemo(() => filteredSales.reduce((s, sale) => s + saleAmountInDisplay(sale), 0), [filteredSales, saleAmountInDisplay])
@@ -749,24 +811,62 @@ export default function ReportsPage() {
   const prevCommissionsAmt = useMemo(() => prevCommissions.reduce((s, c) => s + commissionInDisplay(c), 0), [prevCommissions, commissionInDisplay])
   const prevNetProfit = prevGrossProfit - prevExpensesAmt - prevCommissionsAmt
 
+  const reportQuality = useMemo(() => {
+    let missingSaleItems = 0
+    let unitemizedRevenue = 0
+    let adjustedSaleTotals = 0
+    let saleTotalAdjustment = 0
+    let roundingDifferences = 0
+    let missingExchangeRates = 0
+
+    filteredSales.forEach((sale) => {
+      const financials = getSaleFinancials(sale)
+
+      if (financials.missingSaleItems) {
+        missingSaleItems += 1
+        unitemizedRevenue += saleAmountInDisplay(sale)
+      }
+
+      if (financials.hasMaterialTotalMismatch && !financials.missingSaleItems) {
+        adjustedSaleTotals += 1
+        saleTotalAdjustment += convertReportCurrency(
+          financials.saleTotalDiffInSaleCurrency,
+          sale.currency,
+          displayCurrency,
+          financials.exchangeRate,
+        )
+      } else if (financials.hasRoundingTotalMismatch) {
+        roundingDifferences += 1
+      }
+
+      if (sale.currency === 'SRD' && toReportNumber(sale.exchange_rate) <= 0) {
+        missingExchangeRates += 1
+      }
+    })
+
+    return {
+      missingSaleItems,
+      unitemizedRevenue,
+      adjustedSaleTotals,
+      saleTotalAdjustment,
+      roundingDifferences,
+      missingExchangeRates,
+      hasIssues: missingSaleItems > 0 || adjustedSaleTotals > 0 || missingExchangeRates > 0,
+    }
+  }, [displayCurrency, filteredSales, getSaleFinancials, saleAmountInDisplay])
+
   // ─── Combo Stats ───
   const comboStats = useMemo(() => {
     let totalCombos = 0; let totalComboRevenue = 0
     
     // Track items in each sale to detect combo patterns
     filteredSales.forEach(sale => {
-      const saleRate = (sale.exchange_rate as number) || rate
-      
       // First, count explicit combo items (is_combo=true)
       sale.sale_items?.forEach(si => {
-        const item = catalogItems.find(i => i.id === si.item_id)
+        const item = catalogItemById.get(si.item_id)
         if (item?.is_combo) {
           totalCombos += si.quantity
-          if (displayCurrency === 'USD') {
-            totalComboRevenue += sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate
-          } else {
-            totalComboRevenue += sale.currency === 'SRD' ? si.subtotal : si.subtotal * rate
-          }
+          totalComboRevenue += saleLineAmountInDisplay(sale, si.subtotal)
         }
       })
       
@@ -776,14 +876,15 @@ export default function ReportsPage() {
         const itemCounts = new Map<string, { name: string; quantity: number; subtotal: number }>()
         
         sale.sale_items.forEach(si => {
-          const item = catalogItems.find(i => i.id === si.item_id)
+          const item = catalogItemById.get(si.item_id)
           if (item && !item.is_combo) {
             const existing = itemCounts.get(item.name)
+            const displaySubtotal = saleLineAmountInDisplay(sale, si.subtotal)
             if (existing) {
               existing.quantity += si.quantity
-              existing.subtotal += si.subtotal
+              existing.subtotal += displaySubtotal
             } else {
-              itemCounts.set(item.name, { name: item.name, quantity: si.quantity, subtotal: si.subtotal })
+              itemCounts.set(item.name, { name: item.name, quantity: si.quantity, subtotal: displaySubtotal })
             }
           }
         })
@@ -801,7 +902,7 @@ export default function ReportsPage() {
         const dacCount = itemCounts.get('ESSAGER AUX(3.5mm) to Type-C DAC')?.quantity || 0
         
         // Check each IEM type for combo patterns
-        kzIEMs.forEach(([iemName, iemData]) => {
+        kzIEMs.forEach(([, iemData]) => {
           const comboSets = Math.min(iemData.quantity, pouchCount, dacCount)
           
           if (comboSets > 0) {
@@ -814,29 +915,23 @@ export default function ReportsPage() {
             const dacRevPerUnit = (itemCounts.get('ESSAGER AUX(3.5mm) to Type-C DAC')?.subtotal || 0) / dacCount
             
             const comboRevThisSale = (iemRevPerUnit + pouchRevPerUnit + dacRevPerUnit) * comboSets
-            
-            if (displayCurrency === 'USD') {
-              totalComboRevenue += sale.currency === 'USD' ? comboRevThisSale : comboRevThisSale / saleRate
-            } else {
-              totalComboRevenue += sale.currency === 'SRD' ? comboRevThisSale : comboRevThisSale * rate
-            }
+            totalComboRevenue += comboRevThisSale
           }
         })
       }
     })
     
     return { totalCombos, totalComboRevenue }
-  }, [filteredSales, catalogItems, displayCurrency, rate])
+  }, [filteredSales, catalogItemById, saleLineAmountInDisplay])
 
   // ─── Top Selling Items ───
   const topSellingItems = useMemo(() => {
     const map = new Map<string, { name: string; quantity: number; revenueUSD: number }>()
     filteredSales.forEach(sale => {
-      const saleRate = (sale.exchange_rate as number) || rate
       sale.sale_items?.forEach(si => {
-        const item = catalogItems.find(i => i.id === si.item_id)
+        const item = catalogItemById.get(si.item_id)
         if (item) {
-          const revUSD = sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate
+          const revUSD = saleLineAmountInUsd(sale, si.subtotal)
           const existing = map.get(si.item_id)
           if (existing) { existing.quantity += si.quantity; existing.revenueUSD += revUSD }
           else map.set(si.item_id, { name: item.name, quantity: si.quantity, revenueUSD: revUSD })
@@ -847,22 +942,18 @@ export default function ReportsPage() {
       .sort((a, b) => b.revenueUSD - a.revenueUSD)
       .slice(0, 10)
       .map(i => ({ ...i, revenue: displayCurrency === 'USD' ? i.revenueUSD : i.revenueUSD * rate }))
-  }, [filteredSales, catalogItems, displayCurrency, rate])
+  }, [filteredSales, catalogItemById, saleLineAmountInUsd, displayCurrency, rate])
 
   // ─── Top Combos ───
   const topCombos = useMemo(() => {
     const map = new Map<string, { name: string; count: number; revenue: number }>()
     
     filteredSales.forEach(sale => {
-      const saleRate = (sale.exchange_rate as number) || rate
-      
       // Count explicit combo items
       sale.sale_items?.forEach(si => {
-        const item = catalogItems.find(i => i.id === si.item_id)
+        const item = catalogItemById.get(si.item_id)
         if (item?.is_combo) {
-          const rev = displayCurrency === 'USD'
-            ? (sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate)
-            : (sale.currency === 'SRD' ? si.subtotal : si.subtotal * rate)
+          const rev = saleLineAmountInDisplay(sale, si.subtotal)
           const existing = map.get(item.id)
           if (existing) { existing.count += si.quantity; existing.revenue += rev }
           else map.set(item.id, { name: item.name, count: si.quantity, revenue: rev })
@@ -874,14 +965,15 @@ export default function ReportsPage() {
         const itemCounts = new Map<string, { quantity: number; subtotal: number }>()
         
         sale.sale_items.forEach(si => {
-          const item = catalogItems.find(i => i.id === si.item_id)
+          const item = catalogItemById.get(si.item_id)
           if (item && !item.is_combo) {
             const existing = itemCounts.get(item.name)
+            const displaySubtotal = saleLineAmountInDisplay(sale, si.subtotal)
             if (existing) {
               existing.quantity += si.quantity
-              existing.subtotal += si.subtotal
+              existing.subtotal += displaySubtotal
             } else {
-              itemCounts.set(item.name, { quantity: si.quantity, subtotal: si.subtotal })
+              itemCounts.set(item.name, { quantity: si.quantity, subtotal: displaySubtotal })
             }
           }
         })
@@ -911,10 +1003,7 @@ export default function ReportsPage() {
               const pouchRevPerUnit = pouchData.subtotal / pouchData.quantity
               const dacRevPerUnit = dacData.subtotal / dacData.quantity
               const comboRevThisSale = (iemRevPerUnit + pouchRevPerUnit + dacRevPerUnit) * comboSets
-              
-              const rev = displayCurrency === 'USD'
-                ? (sale.currency === 'USD' ? comboRevThisSale : comboRevThisSale / saleRate)
-                : (sale.currency === 'SRD' ? comboRevThisSale : comboRevThisSale * rate)
+              const rev = comboRevThisSale
               
               const existing = map.get(comboName)
               if (existing) { 
@@ -930,7 +1019,7 @@ export default function ReportsPage() {
     })
     
     return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 5)
-  }, [filteredSales, catalogItems, displayCurrency, rate])
+  }, [filteredSales, catalogItemById, saleLineAmountInDisplay])
 
   // ─── Expenses by Category ───
   const expensesByCategory = useMemo(() => {
@@ -958,13 +1047,12 @@ export default function ReportsPage() {
   const categoryPerformance = useMemo(() => {
     const map = new Map<string, { name: string; revenue: number; profitUSD: number; salesCount: number; quantity: number }>()
     filteredSales.forEach(sale => {
-      const saleRate = (sale.exchange_rate as number) || rate
       sale.sale_items?.forEach(si => {
-        const item = catalogItems.find(i => i.id === si.item_id)
+        const item = catalogItemById.get(si.item_id)
         if (item) {
           const catId = item.category_id || 'uncategorized'
           const catName = catalogCategories.find(c => c.id === catId)?.name || 'Uncategorized'
-          const revUSD = sale.currency === 'USD' ? si.subtotal : si.subtotal / saleRate
+          const revUSD = saleLineAmountInUsd(sale, si.subtotal)
           const cost = toNum(item.purchase_price_usd) * si.quantity
           const profit = revUSD - cost
           const existing = map.get(catId)
@@ -985,7 +1073,7 @@ export default function ReportsPage() {
         margin: c.revenue > 0 ? (c.profitUSD / c.revenue) * 100 : 0,
       }))
       .sort((a, b) => b.revenueDisplay - a.revenueDisplay)
-  }, [filteredSales, catalogItems, catalogCategories, displayCurrency, rate])
+  }, [filteredSales, catalogItemById, catalogCategories, saleLineAmountInUsd, displayCurrency, rate])
 
   // ─── Location Performance ───
   const locationPerformance = useMemo(() => {
@@ -996,7 +1084,9 @@ export default function ReportsPage() {
       const revenue = locSales.reduce((s, sale) => s + saleAmountInDisplay(sale), 0)
       const profitUSD = locSales.reduce((s, sale) => s + saleProfitUSD(sale), 0)
       const grossProfit = profitInDisplay(profitUSD)
-      const expenses = locExpenses.reduce((s, e) => s + expenseInDisplay(e), 0)
+      const expenses = locExpenses
+        .filter((expense) => !excludeInventoryExpenses || !isInventoryExpense(expense))
+        .reduce((s, e) => s + expenseInDisplay(e), 0)
       const commissions = locCommissions.reduce((s, c) => s + commissionInDisplay(c), 0)
       const locNetProfit = grossProfit - expenses - commissions
       const stockValueUSD = catalogStocks
@@ -1012,7 +1102,7 @@ export default function ReportsPage() {
         avgTransaction: locSales.length > 0 ? revenue / locSales.length : 0,
       }
     }).sort((a, b) => b.revenue - a.revenue)
-  }, [locations, filteredSales, filteredExpenses, filteredCommissions, catalogStocks, catalogItems, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate])
+  }, [locations, filteredSales, filteredExpenses, filteredCommissions, catalogStocks, catalogItems, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate, excludeInventoryExpenses, isInventoryExpense])
 
   // ─── Seller Performance ───
   const sellerPerformance = useMemo(() => {
@@ -1310,7 +1400,9 @@ export default function ReportsPage() {
 
       const totalSales = monthSales.reduce((sum, sale) => sum + saleAmountInDisplay(sale), 0)
       const grossProfit = monthSales.reduce((sum, sale) => sum + profitInDisplay(saleProfitUSD(sale)), 0)
-      const totalExpenses = monthExpenses.reduce((sum, expense) => sum + expenseInDisplay(expense), 0)
+      const totalExpenses = monthExpenses
+        .filter((expense) => !excludeInventoryExpenses || !isInventoryExpense(expense))
+        .reduce((sum, expense) => sum + expenseInDisplay(expense), 0)
       const totalCommissions = monthCommissions.reduce((sum, commission) => sum + commissionInDisplay(commission), 0)
 
       months.push({
@@ -1332,7 +1424,9 @@ export default function ReportsPage() {
     catalogSalesScope.sales,
     commissionInDisplay,
     expenseInDisplay,
+    excludeInventoryExpenses,
     isCatalogScoped,
+    isInventoryExpense,
     now,
     profitInDisplay,
     saleAmountInDisplay,
@@ -1597,6 +1691,43 @@ export default function ReportsPage() {
           </div>
         )}
 
+        {reportQuality.hasIssues && (
+          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm text-muted-foreground">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div className="space-y-2">
+                <div className="font-semibold text-foreground">Report accuracy check</div>
+                <div>
+                  Revenue now follows the recorded sale total. Item-level revenue is scaled when a sale total differs from its lines, so discounts and reservation combo prices no longer inflate profit.
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  {reportQuality.adjustedSaleTotals > 0 && (
+                    <div className="rounded-xl border border-amber-500/20 bg-card/60 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-amber-600">Adjusted sales</div>
+                      <div className="mt-1 font-bold text-foreground">{reportQuality.adjustedSaleTotals}</div>
+                      <div className="text-xs">Line totals adjusted by {formatCurrency(reportQuality.saleTotalAdjustment, displayCurrency)}.</div>
+                    </div>
+                  )}
+                  {reportQuality.missingSaleItems > 0 && (
+                    <div className="rounded-xl border border-red-500/20 bg-card/60 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-red-600">Missing item lines</div>
+                      <div className="mt-1 font-bold text-foreground">{reportQuality.missingSaleItems}</div>
+                      <div className="text-xs">{formatCurrency(reportQuality.unitemizedRevenue, displayCurrency)} revenue has no item/COGS breakdown.</div>
+                    </div>
+                  )}
+                  {reportQuality.missingExchangeRates > 0 && (
+                    <div className="rounded-xl border border-blue-500/20 bg-card/60 p-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-blue-600">Fallback rates</div>
+                      <div className="mt-1 font-bold text-foreground">{reportQuality.missingExchangeRates}</div>
+                      <div className="text-xs">SRD sales without stored rate use 1 USD = {rate} SRD.</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Period indicator */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
           <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1626,8 +1757,8 @@ export default function ReportsPage() {
                   const res = await fetch(`/api/debug-profit?start=${start}&end=${end}`)
                   if (!res.ok) throw new Error(await res.text())
                   setDeepDebugData(await res.json())
-                } catch (err: any) {
-                  setDeepDebugError(err.message)
+                } catch (err: unknown) {
+                  setDeepDebugError(err instanceof Error ? err.message : String(err))
                 } finally {
                   setDeepDebugLoading(false)
                 }
@@ -1702,8 +1833,8 @@ export default function ReportsPage() {
                         const res = await fetch(`/api/debug-profit?start=${start}&end=${end}`)
                         if (!res.ok) throw new Error(await res.text())
                         setDeepDebugData(await res.json())
-                      } catch (err: any) {
-                        setDeepDebugError(err.message)
+                      } catch (err: unknown) {
+                        setDeepDebugError(err instanceof Error ? err.message : String(err))
                       } finally {
                         setDeepDebugLoading(false)
                       }
@@ -1736,7 +1867,7 @@ export default function ReportsPage() {
                           Revenue and profit from these sales are invisible to the report. <strong className="text-white">FIX: Go to Sales page → find the sale → click Undo → re-record it.</strong>
                         </div>
                         <div className="space-y-1 pt-1 border-t border-red-500/20">
-                          {deepDebugData.summary.salesMissingItems.map((s: any) => (
+                          {deepDebugData.summary.salesMissingItems.map((s) => (
                             <div key={s.saleId} className="flex justify-between text-red-300">
                               <span>{new Date(s.date).toLocaleString()} · {s.locationName} · {s.currency}</span>
                               <span className="text-white font-bold">
@@ -1763,7 +1894,7 @@ export default function ReportsPage() {
                           <div className="text-yellow-300">• {deepDebugData.summary.issueCount.noCOGS} line item(s) have purchase_price_usd = $0 — profit overstated</div>
                         )}
                         {deepDebugData.summary.issueCount.noCategory > 0 && (
-                          <div className="text-orange-300">• {deepDebugData.summary.issueCount.noCategory} line item(s) have no category — won't appear in Category Performance</div>
+                          <div className="text-orange-300">• {deepDebugData.summary.issueCount.noCategory} line item(s) have no category — won&apos;t appear in Category Performance</div>
                         )}
                       </div>
                     )}
@@ -1796,7 +1927,7 @@ export default function ReportsPage() {
                     <div>
                       <div className="font-bold text-purple-400 mb-2">CATEGORY BREAKDOWN (server)</div>
                       <div className="space-y-1">
-                        {deepDebugData.categoryBreakdown.map((cat: any) => (
+                        {deepDebugData.categoryBreakdown.map((cat) => (
                           <div key={cat.name} className="flex justify-between bg-muted/20 rounded px-2 py-1">
                             <span className={cat.name === 'Uncategorized' || cat.name === '[deleted]' ? 'text-red-400' : 'text-foreground'}>
                               {cat.name}
@@ -1814,7 +1945,7 @@ export default function ReportsPage() {
                     <div>
                       <div className="font-bold text-orange-400 mb-2">PER-SALE BREAKDOWN</div>
                       <div className="space-y-3">
-                        {deepDebugData.sales.map((sale: any) => (
+                        {deepDebugData.sales.map((sale) => (
                           <div key={sale.saleId} className={`rounded border p-2 space-y-1 ${
                             sale.missingItems ? 'border-red-600/60 bg-red-600/10' :
                             sale.issues.length > 0 ? 'border-red-500/30 bg-red-500/5' : 'border-border/30 bg-muted/10'
@@ -1835,11 +1966,11 @@ export default function ReportsPage() {
                             </div>
                             {sale.issues.length > 0 && (
                               <div className="text-red-400">
-                                Issues: {sale.issues.map((iss: any) => `${iss.item} → ${iss.issue}`).join(', ')}
+                                Issues: {sale.issues.map((iss) => `${iss.item} → ${iss.issue}`).join(', ')}
                               </div>
                             )}
                             <div className="pl-2 space-y-0.5">
-                              {sale.items.map((si: any, idx: number) => (
+                              {sale.items.map((si, idx) => (
                                 <div key={idx} className={`flex justify-between ${
                                   si.issue === 'ITEM_DELETED' ? 'text-red-400' :
                                   si.issue === 'NO_COGS' ? 'text-yellow-400' :

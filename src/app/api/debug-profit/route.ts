@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import {
+  calculateSaleFinancials,
+  calculateScaledLineAmount,
+  convertReportCurrency,
+} from '@/lib/reportCalculations'
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request)
@@ -36,21 +41,30 @@ export async function GET(request: NextRequest) {
 
   // ─── Per-sale diagnostics ───────────────────────────────────────────
   const saleDetails = sales.map(sale => {
-    const saleRate = Number(sale.exchangeRate) || 40
-    let totalProfitUSD = 0
-    let totalRevenueUSD = 0
+    const saleFinancials = calculateSaleFinancials({
+      totalAmount: sale.totalAmount,
+      currency: sale.currency,
+      exchangeRate: sale.exchangeRate,
+      fallbackRate: 40,
+      items: sale.saleItems.map(si => ({
+        subtotal: si.subtotal,
+        quantity: si.quantity,
+        purchasePriceUsd: si.item?.purchasePriceUsd ?? 0,
+      })),
+    })
 
     const itemBreakdown = sale.saleItems.map(si => {
       const item = si.item
-      const revenueUSD =
-        sale.currency === 'SRD'
-          ? Number(si.subtotal) / saleRate
-          : Number(si.subtotal)
-      totalRevenueUSD += revenueUSD
+      const scaledLineAmount = calculateScaledLineAmount(si.subtotal, saleFinancials)
+      const revenueUSD = convertReportCurrency(
+        scaledLineAmount,
+        sale.currency,
+        'USD',
+        saleFinancials.exchangeRate,
+      )
 
       if (!item) {
         // Item was deleted — we have no cost data
-        totalProfitUSD += revenueUSD // counted as 100% margin gap
         return {
           itemId: si.itemId,
           itemName: '[item deleted from database]',
@@ -70,7 +84,6 @@ export async function GET(request: NextRequest) {
       const purchasePriceUsd = Number(item.purchasePriceUsd)
       const costUSD = purchasePriceUsd * si.quantity
       const profitUSD = revenueUSD - costUSD
-      totalProfitUSD += profitUSD
 
       const issue =
         purchasePriceUsd === 0
@@ -95,26 +108,21 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const recordedTotalUSD =
-      sale.currency === 'USD'
-        ? Number(sale.totalAmount)
-        : Number(sale.totalAmount) / saleRate
-
     const missingItems = itemBreakdown.length === 0 && Number(sale.totalAmount) > 0
 
     return {
       saleId: sale.id,
       date: sale.createdAt,
       totalAmount: Number(sale.totalAmount),
-      recordedTotalUSD: Math.round(recordedTotalUSD * 100) / 100,
+      recordedTotalUSD: Math.round(saleFinancials.revenueUsd * 100) / 100,
       currency: sale.currency,
-      exchangeRate: saleRate,
+      exchangeRate: saleFinancials.exchangeRate,
       locationName: sale.location?.name ?? 'Unknown',
-      totalRevenueUSD,
-      totalProfitUSD,
+      totalRevenueUSD: saleFinancials.revenueUsd,
+      totalProfitUSD: saleFinancials.grossProfitUsd,
       grossMarginPct:
-        totalRevenueUSD > 0
-          ? (totalProfitUSD / totalRevenueUSD) * 100
+        saleFinancials.revenueUsd > 0
+          ? (saleFinancials.grossProfitUsd / saleFinancials.revenueUsd) * 100
           : 0,
       missingItems,
       items: itemBreakdown,
