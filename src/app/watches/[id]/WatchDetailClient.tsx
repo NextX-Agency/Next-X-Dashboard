@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Check, ChevronLeft, MessageCircle, PackageCheck, ShieldCheck, ShoppingBag } from 'lucide-react'
+import { Check, ChevronLeft, ShoppingBag } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency } from '@/lib/currency'
 import {
@@ -72,33 +72,6 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
     ? `${item.stockCount} ${item.stockCount === 1 ? 'piece' : 'pieces'} available now`
     : 'Currently unavailable'
   const detailRows: Array<{ label: string; value: string; accent?: boolean }> = []
-  const trustHighlights = [
-    {
-      label: 'Curated Stock',
-      description: 'Live availability stays tied to current inventory.',
-      icon: ShieldCheck,
-    },
-    {
-      label: 'Local Guidance',
-      description: 'Concierge help for fit, style, and practical next steps.',
-      icon: PackageCheck,
-    },
-    {
-      label: 'Clear Confirmation',
-      description: 'Every order is reviewed personally before anything is finalized.',
-      icon: MessageCircle,
-    },
-  ]
-  const purchaseNotes = [
-    {
-      label: 'Pricing',
-      description: 'Prices follow your active currency setting so comparisons stay easy.',
-    },
-    {
-      label: 'Confirmation',
-      description: 'Stock, payment, and pickup or delivery details are confirmed manually with you.',
-    },
-  ]
   const relatedGridClassName = relatedItems.length <= 1
     ? 'mx-auto max-w-sm grid-cols-1'
     : relatedItems.length === 2
@@ -269,29 +242,6 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                 )}
               </div>
 
-              <div className="border px-4 py-4 sm:px-5" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {trustHighlights.map((highlight, index) => {
-                    const Icon = highlight.icon
-
-                    return (
-                      <div
-                        key={highlight.label}
-                        className={index === 0 ? '' : 'sm:border-l sm:pl-4'}
-                        style={{ borderColor: 'var(--w-border)' }}
-                      >
-                        <Icon size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
-                        <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                          {highlight.label}
-                        </p>
-                        <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                          {highlight.description}
-                        </p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
 
             {/* Details */}
@@ -443,28 +393,6 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                       Browse Available Watches
                     </Link>
                   )}
-                </div>
-              </div>
-
-              <div className="border px-5 py-5 sm:px-6" style={{ borderColor: 'var(--w-border)' }}>
-                <p className="text-[10px] font-light uppercase tracking-[0.3em]" style={{ color: 'var(--w-gold)' }}>
-                  Purchase Notes
-                </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {purchaseNotes.map((note, index) => (
-                    <div
-                      key={note.label}
-                      className={index === 0 ? '' : 'sm:border-l sm:pl-4'}
-                      style={{ borderColor: 'var(--w-border)' }}
-                    >
-                      <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
-                        {note.label}
-                      </p>
-                      <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
-                        {note.description}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
