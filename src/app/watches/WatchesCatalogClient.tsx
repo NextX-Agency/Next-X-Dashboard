@@ -308,7 +308,7 @@ export default function WatchesCatalogClient({
   )
 
   const catalogGridClassName = useMemo(
-    () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-lg', pairMaxWidth: 'max-w-6xl', tripleMaxWidth: 'max-w-7xl' }),
+    () => getBalancedGridClass(filteredItems.length, { singleMaxWidth: 'max-w-md', pairMaxWidth: 'max-w-5xl', tripleMaxWidth: 'max-w-6xl' }),
     [filteredItems.length]
   )
 
