@@ -7,6 +7,17 @@ import { Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { cn } from '@/lib/utils'
 import {
+  buildWatchesCartWhatsAppMessage,
+  clearWatchesCart,
+  getWatchesCartCount,
+  getWatchesCartQuantity,
+  removeWatchesCartItem,
+  setWatchesCartItemQuantity,
+  subscribeWatchesCart,
+  type WatchesCartEntry,
+  upsertWatchesCartItem,
+} from '@/lib/watchesCart'
+import {
   WatchesHeader,
   WatchesHero,
   WatchProductCard,
@@ -58,16 +69,6 @@ interface Collection {
   description?: string | null
   imageUrl?: string | null
   collection_items?: CollectionItem[]
-}
-
-interface CartEntry {
-  id: string
-  name: string
-  brand?: string
-  imageUrl?: string | null
-  sellingPriceUsd?: number | null
-  sellingPriceSrd?: number | null
-  quantity: number
 }
 
 interface WatchesCatalogClientProps {
@@ -154,10 +155,13 @@ export default function WatchesCatalogClient({
   const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [cartItems, setCartItems] = useState<CartEntry[]>([])
+  const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quickViewItem, setQuickViewItem] = useState<Item | null>(null)
   const [liveStock, setLiveStock] = useState(stock)
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
 
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase())
 
@@ -185,6 +189,10 @@ export default function WatchesCatalogClient({
     return () => window.clearInterval(intervalId)
   }, [])
 
+  useEffect(() => {
+    return subscribeWatchesCart(setCartItems)
+  }, [])
+
   const stockMap = useMemo(() => {
     const map: Record<string, number> = {}
     liveStock.forEach(s => { map[s.itemId] = (map[s.itemId] ?? 0) + s.quantity })
@@ -201,6 +209,14 @@ export default function WatchesCatalogClient({
     })
     return map
   }, [items])
+
+  const cartQuantityByItemId = useMemo(() => {
+    const map: Record<string, number> = {}
+    cartItems.forEach((item) => {
+      map[item.id] = item.quantity
+    })
+    return map
+  }, [cartItems])
 
   const normalizedCollections = useMemo(() => {
     return collections
@@ -306,25 +322,61 @@ export default function WatchesCatalogClient({
   const handleAddToCart = useCallback((itemId: string) => {
     const item = items.find(i => i.id === itemId)
     if (!item) return
+    const available = stockMap[itemId] ?? 0
+    if (available <= 0) return
+
     const displayBrand = brandByItemId[item.id] ?? item.brand ?? undefined
-    setCartItems(prev => {
-      const existing = prev.find(c => c.id === itemId)
-      if (existing) return prev.map(c => c.id === itemId ? { ...c, quantity: c.quantity + 1 } : c)
-      return [...prev, {
-        id: item.id, name: item.name, brand: displayBrand, imageUrl: item.imageUrl,
-        sellingPriceUsd: item.sellingPriceUsd, sellingPriceSrd: item.sellingPriceSrd, quantity: 1,
-      }]
-    })
-    setCartOpen(true)
-  }, [brandByItemId, items])
+    const currentQuantity = getWatchesCartQuantity(cartItems, itemId)
+    const nextQuantity = Math.min(currentQuantity + 1, available)
+    if (nextQuantity <= currentQuantity) return
+
+    upsertWatchesCartItem({
+      id: item.id,
+      name: item.name,
+      brand: displayBrand,
+      imageUrl: item.imageUrl,
+      sellingPriceUsd: item.sellingPriceUsd,
+      sellingPriceSrd: item.sellingPriceSrd,
+      quantity: nextQuantity,
+    }, nextQuantity)
+  }, [brandByItemId, cartItems, items, stockMap])
 
   const handleUpdateQty = useCallback((id: string, qty: number) => {
-    setCartItems(prev => prev.map(c => c.id === id ? { ...c, quantity: qty } : c))
-  }, [])
+    const available = stockMap[id] ?? Number.POSITIVE_INFINITY
+    const nextQuantity = Math.max(0, Math.min(qty, available))
+
+    if (nextQuantity <= 0) {
+      removeWatchesCartItem(id)
+      return
+    }
+
+    setWatchesCartItemQuantity(id, nextQuantity)
+  }, [stockMap])
 
   const handleRemove = useCallback((id: string) => {
-    setCartItems(prev => prev.filter(c => c.id !== id))
+    removeWatchesCartItem(id)
   }, [])
+
+  const handleSubmitOrder = useCallback(() => {
+    if (cartItems.length === 0) return
+
+    const message = buildWatchesCartWhatsAppMessage({
+      items: cartItems,
+      currency: displayCurrency,
+      customerName,
+      customerPhone,
+      customerNotes,
+    })
+
+    const sanitizedNumber = whatsappNumber.replace(/[^0-9]/g, '')
+    window.open(`https://wa.me/${sanitizedNumber}?text=${encodeURIComponent(message)}`, '_blank')
+
+    clearWatchesCart()
+    setCustomerName('')
+    setCustomerPhone('')
+    setCustomerNotes('')
+    setCartOpen(false)
+  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
 
   const handleClearFilters = useCallback(() => {
     setActiveBrand(null)
@@ -332,7 +384,7 @@ export default function WatchesCatalogClient({
     setSearchQuery('')
   }, [])
 
-  const cartCount = cartItems.reduce((sum, c) => sum + c.quantity, 0)
+  const cartCount = getWatchesCartCount(cartItems)
 
   return (
     <>
@@ -566,6 +618,8 @@ export default function WatchesCatalogClient({
           <WatchesFeaturedSection
             items={featuredItems}
             stockMap={stockMap}
+            brandByItemId={brandByItemId}
+            cartQuantityByItemId={cartQuantityByItemId}
             displayCurrency={displayCurrency}
             onAddToCart={handleAddToCart}
             onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
@@ -606,6 +660,7 @@ export default function WatchesCatalogClient({
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
                     imageSizes={catalogImageSizes}
+                    cartQuantity={getWatchesCartQuantity(cartItems, item.id)}
                     displayCurrency={displayCurrency}
                     stockCount={stockMap[item.id] ?? 0}
                     onAddToCart={handleAddToCart}
@@ -644,10 +699,16 @@ export default function WatchesCatalogClient({
         open={cartOpen}
         items={cartItems}
         displayCurrency={displayCurrency}
-        whatsappNumber={whatsappNumber}
         onClose={() => setCartOpen(false)}
         onUpdateQty={handleUpdateQty}
         onRemove={handleRemove}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
+        customerNotes={customerNotes}
+        onCustomerNotesChange={setCustomerNotes}
+        onSubmitOrder={handleSubmitOrder}
       />
     </>
   )

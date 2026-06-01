@@ -2,8 +2,7 @@
 
 import { memo, useEffect } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { X, Plus, Minus, Trash2, MessageCircle } from 'lucide-react'
+import { X, Plus, Minus, Trash2, MessageCircle, ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
 import type { Currency } from '@/lib/currency'
 
@@ -21,20 +20,32 @@ interface WatchCartDrawerProps {
   open: boolean
   items: CartItem[]
   displayCurrency?: Currency
-  whatsappNumber?: string
   onClose: () => void
   onUpdateQty: (id: string, qty: number) => void
   onRemove: (id: string) => void
+  customerName: string
+  onCustomerNameChange: (name: string) => void
+  customerPhone: string
+  onCustomerPhoneChange: (phone: string) => void
+  customerNotes: string
+  onCustomerNotesChange: (notes: string) => void
+  onSubmitOrder: () => void
 }
 
 function WatchCartDrawerComponent({
   open,
   items,
   displayCurrency = 'USD',
-  whatsappNumber = '5978555555',
   onClose,
   onUpdateQty,
   onRemove,
+  customerName,
+  onCustomerNameChange,
+  customerPhone,
+  onCustomerPhoneChange,
+  customerNotes,
+  onCustomerNotesChange,
+  onSubmitOrder,
 }: WatchCartDrawerProps) {
   useEffect(() => {
     if (!open) return
@@ -45,19 +56,12 @@ function WatchCartDrawerComponent({
   const getPrice = (item: CartItem) =>
     displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
 
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
+
   const subtotal = items.reduce((sum, item) => {
     const p = getPrice(item) ?? 0
     return sum + p * item.quantity
   }, 0)
-
-  const buildWhatsAppMessage = () => {
-    const lines = items.map((item) => {
-      const itemLabel = item.brand ? `${item.brand} ${item.name}` : item.name
-      return `• ${itemLabel} × ${item.quantity} — ${formatCurrency(getPrice(item) ?? 0, displayCurrency)}`
-    })
-    const text = `Hi! I'd like to order:\n${lines.join('\n')}\n\nTotal: ${formatCurrency(subtotal, displayCurrency)}`
-    return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`
-  }
 
   return (
     <>
@@ -88,16 +92,21 @@ function WatchCartDrawerComponent({
           className="flex items-center justify-between px-6 py-4 shrink-0"
           style={{ borderBottom: '1px solid var(--w-border)' }}
         >
-          <div style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-            <p
-              className="text-[10px] font-light tracking-[0.3em] uppercase"
-              style={{ color: 'var(--w-muted)' }}
-            >
-              Your Selection
-            </p>
-            <p className="text-base font-light" style={{ color: 'var(--w-cream)' }}>
-              {items.length} {items.length === 1 ? 'item' : 'items'}
-            </p>
+          <div className="flex items-center gap-3" style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--w-gold)' }}>
+              <ShoppingBag size={18} strokeWidth={1.7} />
+            </div>
+            <div>
+              <p
+                className="text-[10px] font-light tracking-[0.3em] uppercase"
+                style={{ color: 'var(--w-muted)' }}
+              >
+                Your Selection
+              </p>
+              <p className="text-base font-light" style={{ color: 'var(--w-cream)' }}>
+                {totalItems} {totalItems === 1 ? 'piece' : 'pieces'}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} style={{ color: 'var(--w-muted)' }} aria-label="Close cart">
             <X size={18} strokeWidth={1.5} />
@@ -136,8 +145,8 @@ function WatchCartDrawerComponent({
                   <li key={item.id} className="flex gap-4 p-4">
                     {/* Image */}
                     <div
-                      className="relative shrink-0 w-20 h-24 overflow-hidden"
-                      style={{ background: 'var(--w-bg)' }}
+                      className="relative shrink-0 w-20 h-24 overflow-hidden rounded-2xl border"
+                      style={{ background: 'var(--w-bg)', borderColor: 'var(--w-border)' }}
                     >
                       {item.imageUrl ? (
                         <Image src={item.imageUrl} alt={item.name} fill sizes="80px" quality={88} className="object-cover" />
@@ -216,34 +225,65 @@ function WatchCartDrawerComponent({
             className="shrink-0 px-6 py-6"
             style={{ borderTop: '1px solid var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
-            {/* Subtotal */}
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm font-light" style={{ color: 'var(--w-muted)' }}>Subtotal</p>
-              <p
-                className="text-xl font-light"
-                style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-gold)' }}
+            <div className="space-y-4">
+              <div className="rounded-3xl border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.8)' }}>
+                <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-gold)' }}>
+                  Order Details
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(event) => onCustomerNameChange(event.target.value)}
+                    placeholder="Your name"
+                    className="h-11 rounded-2xl border px-4 text-sm outline-none"
+                    style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
+                  />
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(event) => onCustomerPhoneChange(event.target.value)}
+                    placeholder="Phone number"
+                    className="h-11 rounded-2xl border px-4 text-sm outline-none"
+                    style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
+                  />
+                  <textarea
+                    value={customerNotes}
+                    onChange={(event) => onCustomerNotesChange(event.target.value)}
+                    placeholder="Notes or preferred contact details"
+                    rows={3}
+                    className="rounded-2xl border px-4 py-3 text-sm outline-none resize-none"
+                    style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-light" style={{ color: 'var(--w-muted)' }}>Total ({totalItems} items)</p>
+                <p
+                  className="text-xl font-light"
+                  style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-gold)' }}
+                >
+                  {formatCurrency(subtotal, displayCurrency)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onSubmitOrder}
+                className="w-btn-gold flex items-center justify-center gap-2 w-full"
               >
-                {formatCurrency(subtotal, displayCurrency)}
+                <MessageCircle size={15} strokeWidth={1.5} />
+                Order via WhatsApp
+              </button>
+
+              <p
+                className="text-center text-[10px] font-light"
+                style={{ color: 'var(--w-muted)' }}
+              >
+                Your selection and details will be prepared in WhatsApp before sending.
               </p>
             </div>
-
-            {/* Checkout via WhatsApp */}
-            <a
-              href={buildWhatsAppMessage()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-btn-gold flex items-center justify-center gap-2 w-full"
-            >
-              <MessageCircle size={15} strokeWidth={1.5} />
-              Proceed to Checkout
-            </a>
-
-            <p
-              className="text-center mt-3 text-[10px] font-light"
-              style={{ color: 'var(--w-muted)' }}
-            >
-              Order via WhatsApp — we'll confirm availability
-            </p>
           </div>
         )}
       </div>

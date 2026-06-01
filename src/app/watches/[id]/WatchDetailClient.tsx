@@ -1,11 +1,22 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, MessageCircle, PackageCheck, ShieldCheck, ShoppingBag } from 'lucide-react'
+import { Check, ChevronLeft, MessageCircle, PackageCheck, ShieldCheck, ShoppingBag } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency } from '@/lib/currency'
+import {
+  buildWatchesCartWhatsAppMessage,
+  clearWatchesCart,
+  getWatchesCartCount,
+  getWatchesCartQuantity,
+  removeWatchesCartItem,
+  setWatchesCartItemQuantity,
+  subscribeWatchesCart,
+  type WatchesCartEntry,
+  upsertWatchesCartItem,
+} from '@/lib/watchesCart'
 import {
   WatchesHeader,
   WatchProductCard,
@@ -35,16 +46,6 @@ interface RelatedItem {
   stockCount: number
 }
 
-interface CartEntry {
-  id: string
-  name: string
-  brand?: string
-  imageUrl?: string | null
-  sellingPriceUsd?: number | null
-  sellingPriceSrd?: number | null
-  quantity: number
-}
-
 interface WatchDetailClientProps {
   item: ItemDetail
   relatedItems: RelatedItem[]
@@ -53,11 +54,17 @@ interface WatchDetailClientProps {
 export default function WatchDetailClient({ item, relatedItems }: WatchDetailClientProps) {
   const { displayCurrency } = useCurrency()
   const [qty, setQty] = useState(1)
-  const [cartItems, setCartItems] = useState<CartEntry[]>([])
+  const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
+  const [addedToCart, setAddedToCart] = useState(false)
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
 
   const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
   const inStock = item.stockCount > 0
+  const currentCartQuantity = getWatchesCartQuantity(cartItems, item.id)
+  const maxAvailable = Math.max(0, item.stockCount - currentCartQuantity)
   const relatedImageSizes = relatedItems.length <= 2
     ? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'
     : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
@@ -80,45 +87,101 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
   const description = item.description?.trim() || 'A considered reference selected for presence, proportion, and everyday confidence.'
 
+  useEffect(() => {
+    return subscribeWatchesCart(setCartItems)
+  }, [])
+
+  useEffect(() => {
+    if (maxAvailable > 0) {
+      setQty((currentQty) => Math.min(currentQty, maxAvailable))
+      return
+    }
+
+    setQty(1)
+  }, [maxAvailable])
+
+  const incrementQuantity = useCallback(() => {
+    setQty((currentQty) => Math.min(currentQty + 1, Math.max(maxAvailable, 1)))
+  }, [maxAvailable])
+
+  const decrementQuantity = useCallback(() => {
+    setQty((currentQty) => Math.max(1, currentQty - 1))
+  }, [])
+
   const handleAddToCart = useCallback(() => {
-    setCartItems(prev => {
-      const existing = prev.find(c => c.id === item.id)
-      if (existing) {
-        return prev.map(c => c.id === item.id ? { ...c, quantity: c.quantity + qty } : c)
-      }
-      return [...prev, {
-        id: item.id,
-        name: item.name,
-        brand: item.brand ?? undefined,
-        imageUrl: item.imageUrl,
-        sellingPriceUsd: item.sellingPriceUsd,
-        sellingPriceSrd: item.sellingPriceSrd,
-        quantity: qty,
-      }]
-    })
-    setCartOpen(true)
-  }, [item, qty])
+    if (!inStock || maxAvailable <= 0) return
+
+    const nextQuantity = Math.min(currentCartQuantity + qty, item.stockCount)
+    if (nextQuantity <= currentCartQuantity) return
+
+    upsertWatchesCartItem({
+      id: item.id,
+      name: item.name,
+      brand: item.brand ?? undefined,
+      imageUrl: item.imageUrl,
+      sellingPriceUsd: item.sellingPriceUsd,
+      sellingPriceSrd: item.sellingPriceSrd,
+      quantity: nextQuantity,
+    }, nextQuantity)
+
+    setAddedToCart(true)
+    window.setTimeout(() => setAddedToCart(false), 1800)
+  }, [currentCartQuantity, inStock, item, maxAvailable, qty])
 
   const handleRelatedAddToCart = useCallback((itemId: string) => {
     const rel = relatedItems.find(r => r.id === itemId)
     if (!rel) return
-    setCartItems(prev => {
-      const existing = prev.find(c => c.id === itemId)
-      if (existing) return prev.map(c => c.id === itemId ? { ...c, quantity: c.quantity + 1 } : c)
-      return [...prev, {
-        id: rel.id,
-        name: rel.name,
-          brand: rel.brand ?? undefined,
-        imageUrl: rel.imageUrl,
-        sellingPriceUsd: rel.sellingPriceUsd,
-        sellingPriceSrd: rel.sellingPriceSrd,
-        quantity: 1,
-      }]
-    })
-    setCartOpen(true)
-  }, [relatedItems])
+    const currentQuantity = getWatchesCartQuantity(cartItems, itemId)
+    const nextQuantity = Math.min(currentQuantity + 1, rel.stockCount)
+    if (nextQuantity <= currentQuantity) return
 
-  const cartCount = cartItems.reduce((s, c) => s + c.quantity, 0)
+    upsertWatchesCartItem({
+      id: rel.id,
+      name: rel.name,
+      brand: rel.brand ?? undefined,
+      imageUrl: rel.imageUrl,
+      sellingPriceUsd: rel.sellingPriceUsd,
+      sellingPriceSrd: rel.sellingPriceSrd,
+      quantity: nextQuantity,
+    }, nextQuantity)
+  }, [cartItems, relatedItems])
+
+  const getCartStockLimit = useCallback((itemId: string) => {
+    if (itemId === item.id) return item.stockCount
+    return relatedItems.find((relatedItem) => relatedItem.id === itemId)?.stockCount ?? Number.POSITIVE_INFINITY
+  }, [item.id, item.stockCount, relatedItems])
+
+  const handleUpdateQty = useCallback((itemId: string, quantity: number) => {
+    const nextQuantity = Math.max(0, Math.min(quantity, getCartStockLimit(itemId)))
+    if (nextQuantity <= 0) {
+      removeWatchesCartItem(itemId)
+      return
+    }
+
+    setWatchesCartItemQuantity(itemId, nextQuantity)
+  }, [getCartStockLimit])
+
+  const handleSubmitOrder = useCallback(() => {
+    if (cartItems.length === 0) return
+
+    const message = buildWatchesCartWhatsAppMessage({
+      items: cartItems,
+      currency: displayCurrency,
+      customerName,
+      customerPhone,
+      customerNotes,
+    })
+
+    window.open(`https://wa.me/5978555555?text=${encodeURIComponent(message)}`, '_blank')
+
+    clearWatchesCart()
+    setCustomerName('')
+    setCustomerPhone('')
+    setCustomerNotes('')
+    setCartOpen(false)
+  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency])
+
+  const cartCount = getWatchesCartCount(cartItems)
 
   return (
     <>
@@ -141,7 +204,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
         </div>
 
         {/* Product detail — 2 columns on desktop */}
-        <div className="px-6 lg:px-12 pb-16 max-w-screen-2xl mx-auto">
+        <div className="px-6 lg:px-12 pb-28 lg:pb-16 max-w-screen-2xl mx-auto">
           <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,0.8fr)] lg:gap-16">
             {/* Image */}
             <div className="space-y-4 sm:space-y-5">
@@ -251,6 +314,12 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                 <p className="mt-6 max-w-2xl text-[15px] font-light leading-7" style={{ color: 'var(--w-cream-2)' }}>
                   {description}
                 </p>
+
+                {currentCartQuantity > 0 && (
+                  <p className="mt-4 text-[11px] uppercase tracking-[0.18em]" style={{ color: 'var(--w-gold)' }}>
+                    {currentCartQuantity} {currentCartQuantity === 1 ? 'piece is' : 'pieces are'} already in your cart
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -289,7 +358,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                         </span>
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => setQty(q => Math.max(1, q - 1))}
+                            onClick={decrementQuantity}
                             className="text-lg font-light transition-opacity hover:opacity-60 w-7 text-center"
                             style={{ color: 'var(--w-muted)' }}
                             aria-label="Decrease quantity"
@@ -300,7 +369,8 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                             {qty}
                           </span>
                           <button
-                            onClick={() => setQty(q => Math.min(item.stockCount, q + 1))}
+                            onClick={incrementQuantity}
+                            disabled={qty >= maxAvailable}
                             className="text-lg font-light transition-opacity hover:opacity-60 w-7 text-center"
                             style={{ color: 'var(--w-muted)' }}
                             aria-label="Increase quantity"
@@ -313,9 +383,10 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                       <button
                         onClick={handleAddToCart}
                         className="w-btn-gold flex items-center justify-center gap-2 w-full"
+                        disabled={addedToCart}
                       >
-                        <ShoppingBag size={16} strokeWidth={1.5} />
-                        Add to Selection
+                        {addedToCart ? <Check size={16} strokeWidth={1.5} /> : <ShoppingBag size={16} strokeWidth={1.5} />}
+                        {addedToCart ? 'Added to cart' : 'Place in cart'}
                       </button>
                     </>
                   ) : (
@@ -392,6 +463,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     brand={rel.brand ?? undefined}
                     imageUrl={rel.imageUrl}
                     imageSizes={relatedImageSizes}
+                    cartQuantity={getWatchesCartQuantity(cartItems, rel.id)}
                     sellingPriceUsd={rel.sellingPriceUsd}
                     sellingPriceSrd={rel.sellingPriceSrd}
                     displayCurrency={displayCurrency}
@@ -403,6 +475,53 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
             </section>
           )}
         </div>
+
+        {inStock && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 border-t px-4 pb-4 pt-3 lg:hidden" style={{ background: 'rgba(9,9,11,0.96)', borderColor: 'var(--w-border)', backdropFilter: 'blur(14px)' }}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--w-border)', background: 'var(--w-surface)' }}>
+                <button
+                  onClick={decrementQuantity}
+                  className="h-10 w-10 text-base"
+                  style={{ color: 'var(--w-muted)' }}
+                  aria-label="Decrease quantity"
+                >
+                  −
+                </button>
+                <span className="min-w-10 text-center text-sm font-medium" style={{ color: 'var(--w-cream)' }}>
+                  {qty}
+                </span>
+                <button
+                  onClick={incrementQuantity}
+                  disabled={qty >= maxAvailable}
+                  className="h-10 w-10 text-base"
+                  style={{ color: 'var(--w-muted)' }}
+                  aria-label="Increase quantity"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="text-right">
+                <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color: 'var(--w-muted)' }}>
+                  Total
+                </p>
+                <p className="text-lg font-light" style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}>
+                  {formatCurrency((price ?? 0) * qty, displayCurrency)}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={addedToCart}
+              className="w-btn-gold flex h-12 w-full items-center justify-center gap-2"
+            >
+              {addedToCart ? <Check size={16} strokeWidth={1.5} /> : <ShoppingBag size={16} strokeWidth={1.5} />}
+              {addedToCart ? 'Added to cart' : 'Place in cart'}
+            </button>
+          </div>
+        )}
       </main>
 
       <WatchesFooter />
@@ -412,8 +531,15 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
         items={cartItems}
         displayCurrency={displayCurrency}
         onClose={() => setCartOpen(false)}
-        onUpdateQty={(id, qty) => setCartItems(prev => prev.map(c => c.id === id ? { ...c, quantity: qty } : c))}
-        onRemove={id => setCartItems(prev => prev.filter(c => c.id !== id))}
+        onUpdateQty={handleUpdateQty}
+        onRemove={removeWatchesCartItem}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
+        customerNotes={customerNotes}
+        onCustomerNotesChange={setCustomerNotes}
+        onSubmitOrder={handleSubmitOrder}
       />
     </>
   )
