@@ -13,6 +13,7 @@ interface NewHeroProps {
   logoUrl?: string
   featuredImageUrl?: string
   onExploreClick: () => void
+  accentVariant?: 'default' | 'audio'
 }
 
 export function NewHero({
@@ -20,7 +21,8 @@ export function NewHero({
   heroTitle,
   heroSubtitle,
   storeAddress,
-  onExploreClick
+  onExploreClick,
+  accentVariant = 'default'
 }: NewHeroProps) {
   const [mapActive, setMapActive] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
@@ -42,7 +44,13 @@ export function NewHero({
     }
   }, [mapActive])
 
-  const primaryActionClassName = 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
+  const isAudioAccent = accentVariant === 'audio'
+  const primaryActionClassName = isAudioAccent
+    ? 'group inline-flex items-center gap-2 rounded-lg bg-[#f97015] px-8 py-4 font-semibold text-white shadow-[0_18px_40px_rgba(249,112,21,0.28)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-[#ea630e] hover:shadow-[0_24px_48px_rgba(249,112,21,0.34)] active:translate-y-0 active:scale-[0.98]'
+    : 'group inline-flex items-center gap-2 rounded-lg bg-[#141c2e] px-8 py-4 font-medium text-white shadow-[0_18px_36px_rgba(20,28,46,0.16)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:bg-[#1c2945] active:scale-[0.98]'
+  const mapCardClassName = isAudioAccent
+    ? 'relative overflow-hidden rounded-[1.75rem] bg-white shadow-[0_28px_60px_rgba(20,28,46,0.14)] transition-all duration-300'
+    : 'relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300'
 
   useEffect(() => {
     const el = sectionRef.current
@@ -65,13 +73,27 @@ export function NewHero({
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
+      {isAudioAccent && (
+        <>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 18% 22%, rgba(249, 112, 21, 0.08) 0%, rgba(249, 112, 21, 0) 30%), linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 38%)'
+            }}
+          />
+          <div className="absolute left-1/2 top-24 h-px w-[90%] max-w-6xl -translate-x-1/2 bg-linear-to-r from-transparent via-[#f97015]/16 to-transparent" />
+        </>
+      )}
       <div className="absolute top-0 right-0 h-full w-1/2 bg-linear-to-l from-[#141c2e]/5 to-transparent" />
       <div className="absolute bottom-0 left-0 h-96 w-96 -translate-x-1/2 translate-y-1/2 rounded-full bg-linear-to-tr from-[#f97015]/10 to-transparent" />
 
       <div className={catalogShellClassName}>
         <div className="lg:hidden">
           <div className="py-8 text-center">
-            <h1 className="catalog-reveal mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl">
+            {isAudioAccent && <div className="catalog-reveal mx-auto mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
+
+            <h1 className={`catalog-reveal mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl ${isAudioAccent ? 'sm:max-w-xl sm:mx-auto' : ''}`}>
               <span className="flex flex-col items-center gap-2">
                 <span>Welcome to</span>
                 <Image
@@ -95,11 +117,19 @@ export function NewHero({
 
           <div className="pb-8">
             <div className="relative mx-auto aspect-square max-w-sm">
+              {isAudioAccent && (
+                <div className="absolute inset-3 rounded-4xl border border-[#f97015]/12 bg-[#f97015]/5" />
+              )}
+
               <div
                 ref={mapRef}
-                className="relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300"
+                className={mapCardClassName}
                 style={{ border: mapActive ? '2px solid #f97015' : '2px solid rgba(249, 112, 21, 0.2)' }}
               >
+                {isAudioAccent && (
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1 bg-[#f97015]" />
+                )}
+
                 <div className="relative aspect-square">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
@@ -114,7 +144,7 @@ export function NewHero({
                   {!mapActive && (
                     <>
                       <div className="absolute inset-0 cursor-pointer" onClick={() => setMapActive(true)} />
-                      <div className="absolute right-3 top-3 rounded-lg border border-[#f97015]/30 bg-white/90 px-2 py-1 shadow-sm backdrop-blur-sm">
+                      <div className={`absolute right-3 top-3 border border-[#f97015]/30 bg-white/90 shadow-sm backdrop-blur-sm ${isAudioAccent ? 'rounded-lg px-3 py-1.5' : 'rounded-lg px-2 py-1'}`}>
                         <p className="text-xs font-medium text-[#141c2e]/80">Tap to interact</p>
                       </div>
                     </>
@@ -133,11 +163,11 @@ export function NewHero({
             </div>
 
             <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center justify-center gap-6 text-sm text-[#141c2e]/60">
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
                 <MapPin size={16} className="text-[#f97015]" />
                 <span>Lokale Afhaallocatie</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
                 <Clock size={16} className="text-[#f97015]" />
                 <span>WhatsApp Bestellingen</span>
               </div>
@@ -147,7 +177,9 @@ export function NewHero({
 
         <div className="hidden items-center gap-8 py-16 lg:grid lg:grid-cols-2 lg:gap-16 lg:py-24">
           <div className="order-2 lg:order-1">
-            <h1 className="catalog-reveal catalog-reveal-d1 mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl lg:text-6xl">
+            {isAudioAccent && <div className="catalog-reveal mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
+
+            <h1 className={`catalog-reveal catalog-reveal-d1 mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl lg:text-6xl ${isAudioAccent ? 'max-w-xl' : ''}`}>
               <span className="inline-flex items-center">
                 <span>Welcome to</span>
                 <Image
@@ -176,11 +208,11 @@ export function NewHero({
             </div>
 
             <div className="catalog-reveal catalog-reveal-d4 flex flex-wrap items-center gap-6 text-sm text-[#141c2e]/60">
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
                 <MapPin size={16} className="text-[#f97015]" />
                 <span>Lokale Afhaallocatie</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isAudioAccent ? 'font-medium text-[#141c2e]/72' : ''}`}>
                 <Clock size={16} className="text-[#f97015]" />
                 <span>WhatsApp Bestellingen</span>
               </div>
@@ -189,11 +221,19 @@ export function NewHero({
 
           <div className="order-1 relative lg:order-2">
             <div className="relative mx-auto aspect-square max-w-md lg:max-w-none">
+              {isAudioAccent && (
+                <div className="absolute inset-4 rounded-4xl border border-[#f97015]/12 bg-[#f97015]/5" />
+              )}
+
               <div
                 ref={mapRef}
-                className="relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-300"
+                className={mapCardClassName}
                 style={{ border: mapActive ? '2px solid #f97015' : '2px solid rgba(249, 112, 21, 0.2)' }}
               >
+                {isAudioAccent && (
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1 bg-[#f97015]" />
+                )}
+
                 <div className="relative aspect-square">
                   <iframe
                     src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
@@ -208,7 +248,7 @@ export function NewHero({
                   {!mapActive && (
                     <>
                       <div className="absolute inset-0 cursor-pointer" onClick={() => setMapActive(true)} />
-                      <div className="absolute right-4 top-4 rounded-lg border border-[#f97015]/30 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
+                      <div className={`absolute right-4 top-4 border border-[#f97015]/30 bg-white/90 shadow-sm backdrop-blur-sm ${isAudioAccent ? 'rounded-lg px-4 py-2' : 'rounded-lg px-3 py-2'}`}>
                         <p className="text-sm font-medium text-[#141c2e]/80">Click to interact</p>
                       </div>
                     </>

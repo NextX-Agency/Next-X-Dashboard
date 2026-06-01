@@ -924,6 +924,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
               logoUrl={settings.store_logo_url}
               featuredImageUrl={items[0]?.image_url || undefined}
               onExploreClick={scrollToProducts}
+              accentVariant="audio"
             />
           )}
         </>
