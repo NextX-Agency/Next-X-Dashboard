@@ -33,8 +33,8 @@ function WatchesHeroComponent({
 
   return (
     <section
-      className="relative flex items-center overflow-hidden"
-      style={{ height: 'min(84svh, 980px)', minHeight: 380 }}
+      className="relative flex items-end overflow-hidden sm:items-center"
+      style={{ height: 'min(86svh, 980px)', minHeight: 420 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -47,7 +47,7 @@ function WatchesHeroComponent({
           src="/hero_section-watches.png"
           alt=""
           fill
-          className="object-cover"
+          className="object-cover object-[72%_center] sm:object-[70%_center] lg:object-center"
           priority
           sizes="100vw"
         />
@@ -57,14 +57,21 @@ function WatchesHeroComponent({
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to top, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.55) 30%, rgba(9,9,11,0.15) 55%, transparent 80%)',
+          background: 'linear-gradient(to top, rgba(9,9,11,0.96) 0%, rgba(9,9,11,0.6) 28%, rgba(9,9,11,0.18) 54%, transparent 78%)',
         }}
       />
       {/* Left edge subtle darkening */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to right, rgba(9,9,11,0.4) 0%, rgba(9,9,11,0.05) 35%, transparent 55%)',
+          background: 'linear-gradient(to right, rgba(9,9,11,0.62) 0%, rgba(9,9,11,0.22) 32%, rgba(9,9,11,0.02) 52%, transparent 66%)',
+        }}
+      />
+
+      <div
+        className="absolute inset-0 sm:hidden"
+        style={{
+          background: 'linear-gradient(110deg, transparent 42%, rgba(9,9,11,0.08) 56%, rgba(9,9,11,0.26) 72%, rgba(9,9,11,0.42) 100%)',
         }}
       />
 
@@ -75,8 +82,8 @@ function WatchesHeroComponent({
       />
 
       {/* Content */}
-      <div className="relative z-10 px-5 py-10 sm:px-6 sm:py-14 lg:px-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
-        <div className="max-w-xl">
+      <div className="relative z-10 px-5 pb-8 pt-24 sm:px-6 sm:py-14 lg:px-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
+        <div className="max-w-60 sm:max-w-xl">
           {/* Eyebrow label */}
           <p
             className="mb-5 text-[9px] font-light tracking-[0.34em] uppercase sm:mb-6 sm:text-[10px] sm:tracking-[0.45em]"
@@ -91,7 +98,7 @@ function WatchesHeroComponent({
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
-              fontSize: 'clamp(2.65rem, 11vw, 7.25rem)',
+              fontSize: 'clamp(2.15rem, 14vw, 7.25rem)',
               whiteSpace: 'pre-line',
               letterSpacing: '-0.01em',
             }}
@@ -104,7 +111,7 @@ function WatchesHeroComponent({
 
           {/* Subtitle */}
           <p
-            className="mb-7 max-w-[18rem] text-sm font-light leading-relaxed sm:mb-10 sm:max-w-sm sm:text-[15px]"
+            className="mb-6 max-w-56 text-[13px] font-light leading-7 sm:mb-10 sm:max-w-sm sm:text-[15px] sm:leading-relaxed"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-cream-2)', letterSpacing: '0.02em' }}
           >
             {subtitle}
@@ -116,7 +123,7 @@ function WatchesHeroComponent({
               {ctaLabel}
               <span className="text-xs opacity-80">→</span>
             </Link>
-            <Link href="/watches#new" className="w-btn-outline inline-flex w-full items-center justify-center gap-3 sm:w-auto">
+            <Link href="/watches#new" className="hidden sm:inline-flex w-btn-outline items-center justify-center gap-3 sm:w-auto">
               New Arrivals
             </Link>
           </div>

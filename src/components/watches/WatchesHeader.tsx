@@ -39,9 +39,9 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           alt="NextX company logo"
           width={164}
           height={70}
-          sizes="(max-width: 640px) 128px, (max-width: 1024px) 148px, 164px"
+          sizes="(max-width: 640px) 112px, (max-width: 1024px) 148px, 164px"
           quality={100}
-          className="w-[128px] object-contain sm:w-[148px] lg:w-[164px]"
+          className="w-28 object-contain sm:w-[148px] lg:w-[164px]"
           style={{ height: 'auto' }}
           priority
         />
@@ -55,7 +55,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
         className={`watches-header ${scrolled ? 'scrolled' : ''}`}
         style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
       >
-        <div className="px-6 lg:px-12 max-w-screen-2xl mx-auto">
+        <div className="px-4 sm:px-6 lg:px-12 max-w-screen-2xl mx-auto">
           <div
             className="hidden h-7 items-center justify-between border-b sm:flex"
             style={{ borderColor: 'var(--w-border)' }}
@@ -84,7 +84,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             </div>
           </div>
 
-          <div className="flex h-16 items-center justify-between sm:h-14 lg:h-[4.5rem]">
+          <div className="flex h-14 items-center justify-between sm:h-14 lg:h-18">
             <LogoLockup />
 
             {/* Desktop nav */}
@@ -102,9 +102,9 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             </nav>
 
             {/* Actions */}
-            <div className="flex items-center gap-3.5">
+            <div className="flex items-center gap-1.5 sm:gap-3.5">
               <button
-                className="p-2.5 transition-opacity hover:opacity-100 opacity-55"
+                className="p-2 transition-opacity hover:opacity-100 opacity-55 sm:p-2.5"
                 style={{ color: 'var(--w-cream)' }}
                 aria-label="Search"
               >
@@ -113,7 +113,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
               <button
                 onClick={onCartClick}
-                className="relative p-2.5 transition-opacity hover:opacity-100 opacity-75"
+                className="relative p-2 transition-opacity hover:opacity-100 opacity-75 sm:p-2.5"
                 style={{ color: 'var(--w-cream)' }}
                 aria-label={`Cart (${cartCount} items)`}
               >
@@ -130,7 +130,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
               {/* Mobile menu toggle */}
               <button
-                className="p-2.5 transition-opacity hover:opacity-100 opacity-75 lg:hidden"
+                className="p-2 transition-opacity hover:opacity-100 opacity-75 sm:p-2.5 lg:hidden"
                 style={{ color: 'var(--w-cream)' }}
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open menu"
