@@ -73,42 +73,7 @@ export function NewHero({
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden catalog-bg-light">
-      {isAudioAccent && (
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-5 h-20 w-56 -translate-x-1/2 opacity-[0.12] lg:hidden">
-            <Image
-              src="/nextx-hero-accent.svg"
-              alt=""
-              fill
-              sizes="224px"
-              className="object-contain"
-              aria-hidden="true"
-            />
-          </div>
-
-          <div className="absolute left-8 top-16 hidden h-36 w-100 opacity-[0.14] lg:block xl:left-12 xl:h-40 xl:w-116">
-            <Image
-              src="/nextx-hero-accent.svg"
-              alt=""
-              fill
-              sizes="464px"
-              className="object-contain object-top-left"
-              aria-hidden="true"
-            />
-          </div>
-
-          <div className="absolute bottom-12 right-10 hidden h-16 w-52 opacity-[0.08] lg:block xl:right-16 xl:w-56">
-            <Image
-              src="/nextx-hero-accent.svg"
-              alt=""
-              fill
-              sizes="224px"
-              className="object-contain object-bottom-right"
-              aria-hidden="true"
-            />
-          </div>
-        </div>
-      )}
+      {isAudioAccent && <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[#141c2e]/8" />}
       {!isAudioAccent && <div className="absolute top-0 right-0 h-full w-1/2 bg-linear-to-l from-[#141c2e]/5 to-transparent" />}
       {!isAudioAccent && <div className="absolute bottom-0 left-0 h-96 w-96 -translate-x-1/2 translate-y-1/2 rounded-full bg-linear-to-tr from-[#f97015]/10 to-transparent" />}
 
@@ -117,7 +82,7 @@ export function NewHero({
           <div className="pt-6 pb-5 text-center sm:pt-8 sm:pb-6">
             {isAudioAccent && <div className="mx-auto mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
 
-            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal '}mb-6 text-4xl font-bold leading-[1.1] tracking-tight text-[#141c2e] sm:text-5xl ${isAudioAccent ? 'sm:max-w-xl sm:mx-auto' : ''}`}>
+            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal '}mb-5 text-4xl font-bold leading-[1.05] tracking-tight text-[#141c2e] sm:text-5xl ${isAudioAccent ? 'sm:max-w-xl sm:mx-auto' : ''}`}>
               <span className="flex flex-col items-center gap-2">
                 <span>Welcome to</span>
                 <Image
@@ -160,7 +125,7 @@ export function NewHero({
           <div className="pb-8 pt-1">
             <div className="relative mx-auto aspect-5/4 max-w-86 sm:aspect-square sm:max-w-sm">
               {isAudioAccent && (
-                <div className="absolute inset-3 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
+                <div className="absolute inset-3 rounded-4xl border border-[#141c2e]/8 bg-white/80" />
               )}
 
               <div
@@ -197,32 +162,32 @@ export function NewHero({
           </div>
         </div>
 
-        <div className="hidden items-center gap-10 py-16 lg:grid lg:grid-cols-2 lg:gap-20 lg:py-20 xl:gap-24 xl:py-24">
-          <div className="order-2 lg:order-1 lg:pr-4">
+        <div className="hidden items-center gap-12 py-12 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(28rem,32rem)] lg:gap-14 lg:py-14 xl:gap-18 xl:py-16">
+          <div className="order-2 max-w-xl lg:order-1 lg:pr-2">
             {isAudioAccent && <div className="mb-6 h-1 w-16 rounded-full bg-[#f97015]" />}
 
-            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d1 '}mb-6 text-4xl font-bold leading-[1.05] tracking-tight text-[#141c2e] sm:text-5xl lg:text-[4.25rem] ${isAudioAccent ? 'max-w-xl' : ''}`}>
-              <span className="inline-flex items-center gap-3 xl:gap-4">
-                <span>Welcome to</span>
+            <h1 className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d1 '}mb-6 text-4xl font-bold leading-[0.98] tracking-tight text-[#141c2e] sm:text-5xl lg:text-[4rem] ${isAudioAccent ? 'max-w-xl' : ''}`}>
+              <span className="block">Welcome to</span>
+              <span className="mt-3 block xl:mt-4">
                 <Image
                   src="/Colored - White background.png"
                   alt="Next x Logo"
-                  width={280}
-                  height={90}
+                  width={268}
+                  height={86}
                   className="relative"
-                  style={{ height: '0.92em', width: 'auto', top: '0.03em' }}
+                  style={{ height: 'auto', width: '268px' }}
                   priority
                 />
               </span>
             </h1>
 
             {heroSubtitle && (
-              <p className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d2 '}mb-8 max-w-xl text-lg leading-9 text-[#141c2e]/70`}>
+              <p className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d2 '}mb-8 max-w-lg text-[1.15rem] leading-9 text-[#141c2e]/70`}>
                 {heroSubtitle}
               </p>
             )}
 
-            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d3 '}mb-12 flex flex-wrap gap-4`}>
+            <div className={`${isAudioAccent ? '' : 'catalog-reveal catalog-reveal-d3 '}mb-10 flex flex-wrap gap-4`}>
               <button onClick={onExploreClick} className={primaryActionClassName}>
                 Ontdek Producten
                 <ArrowRight size={18} className="transition-transform group-hover:translate-x-1" />
@@ -242,9 +207,9 @@ export function NewHero({
           </div>
 
           <div className="order-1 relative lg:order-2">
-            <div className="relative mx-auto aspect-[1.02/1] max-w-lg lg:ml-auto xl:max-w-136">
+            <div className="relative mx-auto aspect-[1.02/1] max-w-124 lg:ml-auto xl:max-w-lg">
               {isAudioAccent && (
-                <div className="absolute inset-4 rounded-4xl border border-[#141c2e]/8 bg-white/70" />
+                <div className="absolute inset-4 rounded-4xl border border-[#141c2e]/8 bg-white/82" />
               )}
 
               <div
