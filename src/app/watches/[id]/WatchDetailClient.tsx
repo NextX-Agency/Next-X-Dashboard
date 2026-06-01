@@ -68,7 +68,44 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
   const relatedImageSizes = relatedItems.length <= 2
     ? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'
     : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
+  const availabilitySummary = inStock
+    ? `${item.stockCount} ${item.stockCount === 1 ? 'piece' : 'pieces'} available now`
+    : 'Currently unavailable'
   const detailRows: Array<{ label: string; value: string; accent?: boolean }> = []
+  const trustHighlights = [
+    {
+      label: 'Curated Stock',
+      description: 'Live availability stays tied to current inventory.',
+      icon: ShieldCheck,
+    },
+    {
+      label: 'Local Guidance',
+      description: 'Concierge help for fit, style, and practical next steps.',
+      icon: PackageCheck,
+    },
+    {
+      label: 'Clear Confirmation',
+      description: 'Every order is reviewed personally before anything is finalized.',
+      icon: MessageCircle,
+    },
+  ]
+  const purchaseNotes = [
+    {
+      label: 'Pricing',
+      description: 'Prices follow your active currency setting so comparisons stay easy.',
+    },
+    {
+      label: 'Confirmation',
+      description: 'Stock, payment, and pickup or delivery details are confirmed manually with you.',
+    },
+  ]
+  const relatedGridClassName = relatedItems.length <= 1
+    ? 'mx-auto max-w-sm grid-cols-1'
+    : relatedItems.length === 2
+      ? 'mx-auto max-w-4xl grid-cols-1 sm:grid-cols-2'
+      : relatedItems.length === 3
+        ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+        : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
 
   if (item.brand) {
     detailRows.push({ label: 'Maison', value: item.brand })
@@ -232,33 +269,27 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
-                  <ShieldCheck size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Curated Stock
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Each reference is listed with live availability pulled from current stock.
-                  </p>
-                </div>
-                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
-                  <PackageCheck size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Local Guidance
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    We help clients in Suriname choose the right piece with practical advice, not pressure.
-                  </p>
-                </div>
-                <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
-                  <MessageCircle size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
-                  <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Fast Confirmation
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Orders are confirmed personally so availability and next steps stay clear.
-                  </p>
+              <div className="border px-4 py-4 sm:px-5" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {trustHighlights.map((highlight, index) => {
+                    const Icon = highlight.icon
+
+                    return (
+                      <div
+                        key={highlight.label}
+                        className={index === 0 ? '' : 'sm:border-l sm:pl-4'}
+                        style={{ borderColor: 'var(--w-border)' }}
+                      >
+                        <Icon size={16} strokeWidth={1.5} style={{ color: 'var(--w-gold)' }} />
+                        <p className="mt-3 text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                          {highlight.label}
+                        </p>
+                        <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                          {highlight.description}
+                        </p>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -269,11 +300,8 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
               style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
             >
               <div>
-                <p
-                  className="mb-3 text-[9px] font-light uppercase tracking-[0.34em]"
-                  style={{ color: 'var(--w-gold)' }}
-                >
-                  Private Viewing
+                <p className="mb-3 text-[9px] font-light uppercase tracking-[0.34em]" style={{ color: 'var(--w-gold)' }}>
+                  Watch Reference
                 </p>
 
                 {item.brand && (
@@ -307,7 +335,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     className="text-[11px] font-light uppercase tracking-[0.18em]"
                     style={{ color: inStock ? 'var(--w-gold)' : 'var(--w-muted)' }}
                   >
-                    {inStock ? `${item.stockCount} available now` : 'Currently unavailable'}
+                    {availabilitySummary}
                   </p>
                 </div>
 
@@ -322,31 +350,33 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                {detailRows.map((row) => (
-                  <div
-                    key={row.label}
-                    className="border px-4 py-4"
-                    style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}
-                  >
-                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
-                      {row.label}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed" style={{ color: row.accent ? 'var(--w-gold)' : 'var(--w-cream-2)' }}>
-                      {row.value}
-                    </p>
-                  </div>
-                ))}
+              <div className="border px-5 py-5 sm:px-6" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.72)' }}>
+                <div className={`grid gap-4 ${detailRows.length > 2 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                  {detailRows.map((row, index) => (
+                    <div
+                      key={row.label}
+                      className={index === 0 ? '' : 'sm:border-l sm:pl-4'}
+                      style={{ borderColor: 'var(--w-border)' }}
+                    >
+                      <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                        {row.label}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed" style={{ color: row.accent ? 'var(--w-gold)' : 'var(--w-cream-2)' }}>
+                        {row.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="border px-5 py-5 sm:px-6 sm:py-6" style={{ borderColor: 'var(--w-border)', background: 'linear-gradient(180deg, rgba(18,20,24,0.9), rgba(10,10,12,0.96))' }}>
                 <div className="flex flex-col gap-5">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-gold)' }}>
-                      Selection
+                      Purchase Panel
                     </p>
                     <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
-                      Add this reference to your selection and confirm the final order with the NextX team.
+                      Add this reference to your cart and confirm the final order with the NextX team.
                     </p>
                   </div>
 
@@ -388,6 +418,14 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                         {addedToCart ? <Check size={16} strokeWidth={1.5} /> : <ShoppingBag size={16} strokeWidth={1.5} />}
                         {addedToCart ? 'Added to cart' : 'Place in cart'}
                       </button>
+
+                      <Link
+                        href="/watches#new"
+                        className="inline-flex w-fit items-center gap-2 text-[11px] uppercase tracking-[0.18em] transition-opacity hover:opacity-70"
+                        style={{ color: 'var(--w-muted)' }}
+                      >
+                        Continue browsing the catalog
+                      </Link>
                     </>
                   ) : (
                     <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
@@ -397,39 +435,36 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     </div>
                   )}
 
-                  <Link
-                    href="/watches#new"
-                    className="w-btn-outline flex items-center justify-center gap-2 w-full"
-                  >
-                    Browse Available Watches
-                  </Link>
+                  {!inStock && (
+                    <Link
+                      href="/watches#new"
+                      className="w-btn-outline flex items-center justify-center gap-2 w-full"
+                    >
+                      Browse Available Watches
+                    </Link>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-2">
-                <h2
-                  className="text-[10px] font-light tracking-[0.3em] uppercase mb-4"
-                  style={{ color: 'var(--w-gold)' }}
-                >
+              <div className="border px-5 py-5 sm:px-6" style={{ borderColor: 'var(--w-border)' }}>
+                <p className="text-[10px] font-light uppercase tracking-[0.3em]" style={{ color: 'var(--w-gold)' }}>
                   Purchase Notes
-                </h2>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
-                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
-                      Pricing
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
-                      Pricing follows your active currency setting so you can compare pieces in the format you prefer.
-                    </p>
-                  </div>
-                  <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)' }}>
-                    <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
-                      Confirmation
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
-                      Every order is reviewed manually so stock, payment, and pickup or delivery details stay clear before anything is finalized.
-                    </p>
-                  </div>
+                </p>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {purchaseNotes.map((note, index) => (
+                    <div
+                      key={note.label}
+                      className={index === 0 ? '' : 'sm:border-l sm:pl-4'}
+                      style={{ borderColor: 'var(--w-border)' }}
+                    >
+                      <p className="text-[10px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                        {note.label}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                        {note.description}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -437,24 +472,19 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
           {/* Related watches */}
           {relatedItems.length > 0 && (
-            <section className="mt-20 sm:mt-24">
-              <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="mb-2 text-[9px] uppercase tracking-[0.34em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                    Continue Exploring
-                  </p>
-                  <h2
-                    className="text-2xl font-light"
-                    style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
-                  >
-                    Other references worth your time
-                  </h2>
-                </div>
-                <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                  A few adjacent pieces from the current edit, selected to keep the same mood and profile in view.
+            <section className="mt-16 sm:mt-20">
+              <div className="mb-8">
+                <p className="mb-2 text-[9px] uppercase tracking-[0.34em]" style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                  Continue Exploring
                 </p>
+                <h2
+                  className="text-2xl font-light"
+                  style={{ fontFamily: 'var(--font-cormorant, Georgia, serif)', color: 'var(--w-cream)' }}
+                >
+                  More from this edit
+                </h2>
               </div>
-              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 xl:grid-cols-4">
+              <div className={`grid gap-x-6 gap-y-10 ${relatedGridClassName}`}>
                 {relatedItems.map(rel => (
                   <WatchProductCard
                     key={rel.id}
