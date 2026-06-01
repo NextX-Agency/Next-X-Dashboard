@@ -21,6 +21,14 @@ export function normalizeAdminCatalogFilter(value: string | null | undefined, al
   return normalizeAdminCatalog(value)
 }
 
+function getInitialAdminCatalogFilter(queryCatalog: string | null, allowAll: boolean): AdminCatalogFilter {
+  if (allowAll && !queryCatalog) {
+    return 'all'
+  }
+
+  return normalizeAdminCatalogFilter(queryCatalog ?? getStoredAdminCatalog(), allowAll)
+}
+
 export function getStoredAdminCatalog(): AdminCatalog {
   if (typeof window === 'undefined') {
     return 'audio'
@@ -111,7 +119,7 @@ export function useSyncedAdminCatalogFilter(options: UseSyncedAdminCatalogFilter
   const searchParams = useSearchParams()
   const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
   const [catalogFilter, setCatalogFilterState] = useState<AdminCatalogFilter>(() =>
-    normalizeAdminCatalogFilter(searchParams.get('catalog') ?? getStoredAdminCatalog(), allowAll)
+    getInitialAdminCatalogFilter(searchParams.get('catalog'), allowAll)
   )
   const lastQueryCatalogRef = useRef<string | null | undefined>(undefined)
   const previousPreferredCatalogRef = useRef<AdminCatalog | undefined>(undefined)
@@ -124,11 +132,7 @@ export function useSyncedAdminCatalogFilter(options: UseSyncedAdminCatalogFilter
 
     lastQueryCatalogRef.current = queryCatalog
 
-    if (!queryCatalog) {
-      return
-    }
-
-    const nextCatalogFilter = normalizeAdminCatalogFilter(queryCatalog, allowAll)
+    const nextCatalogFilter = getInitialAdminCatalogFilter(queryCatalog, allowAll)
     setCatalogFilterState((current) => current === nextCatalogFilter ? current : nextCatalogFilter)
 
     if (nextCatalogFilter !== 'all' && preferredCatalog !== nextCatalogFilter) {
