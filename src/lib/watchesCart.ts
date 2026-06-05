@@ -1,4 +1,6 @@
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
 
 export interface WatchesCartEntry {
   id: string
@@ -117,6 +119,7 @@ export function getWatchesCartCount(items: WatchesCartEntry[]) {
 interface BuildWatchesCartWhatsAppMessageArgs {
   items: WatchesCartEntry[]
   currency: Currency
+  exchangeRate?: number
   customerName?: string
   customerPhone?: string
   customerNotes?: string
@@ -125,6 +128,7 @@ interface BuildWatchesCartWhatsAppMessageArgs {
 export function buildWatchesCartWhatsAppMessage({
   items,
   currency,
+  exchangeRate = DEFAULT_EXCHANGE_RATE,
   customerName,
   customerPhone,
   customerNotes,
@@ -133,7 +137,7 @@ export function buildWatchesCartWhatsAppMessage({
   message += 'I would like to place an order for:\n\n'
 
   items.forEach((item, index) => {
-    const unitPrice = currency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
+    const unitPrice = getWatchSellingPrice(item, currency, exchangeRate)
     const linePrice = (unitPrice ?? 0) * item.quantity
     const itemLabel = item.brand ? `${item.brand} ${item.name}` : item.name
 
@@ -142,7 +146,7 @@ export function buildWatchesCartWhatsAppMessage({
   })
 
   const total = items.reduce((sum, item) => {
-    const unitPrice = currency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
+    const unitPrice = getWatchSellingPrice(item, currency, exchangeRate)
     return sum + (unitPrice ?? 0) * item.quantity
   }, 0)
 

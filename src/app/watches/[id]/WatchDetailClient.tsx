@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Check, ChevronLeft, ShoppingBag } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
+import { normalizeExchangeRate } from '@/lib/pricing'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
 import {
   buildWatchesCartWhatsAppMessage,
   clearWatchesCart,
@@ -51,10 +53,15 @@ interface WatchDetailClientProps {
   item: ItemDetail
   relatedItems: RelatedItem[]
   whatsappNumber: string
+  initialExchangeRate?: number | null
 }
 
-export default function WatchDetailClient({ item, relatedItems, whatsappNumber }: WatchDetailClientProps) {
-  const { displayCurrency } = useCurrency()
+export default function WatchDetailClient({ item, relatedItems, whatsappNumber, initialExchangeRate }: WatchDetailClientProps) {
+  const {
+    displayCurrency,
+    exchangeRate: liveExchangeRate,
+    isLoading: isCurrencyLoading,
+  } = useCurrency()
   const [qty, setQty] = useState(1)
   const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
@@ -63,7 +70,12 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber }
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerNotes, setCustomerNotes] = useState('')
 
-  const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
+  const activeExchangeRate = useMemo(() => (
+    isCurrencyLoading
+      ? normalizeExchangeRate(initialExchangeRate)
+      : normalizeExchangeRate(liveExchangeRate)
+  ), [initialExchangeRate, isCurrencyLoading, liveExchangeRate])
+  const price = getWatchSellingPrice(item, displayCurrency, activeExchangeRate)
   const inStock = item.stockCount > 0
   const unoptimizedImage = shouldBypassNextImageOptimization(item.imageUrl)
   const currentCartQuantity = getWatchesCartQuantity(cartItems, item.id)
@@ -180,6 +192,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber }
     const message = buildWatchesCartWhatsAppMessage({
       items: cartItems,
       currency: displayCurrency,
+      exchangeRate: activeExchangeRate,
       customerName,
       customerPhone,
       customerNotes,
@@ -193,7 +206,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber }
     setCustomerPhone('')
     setCustomerNotes('')
     setCartOpen(false)
-  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
+  }, [activeExchangeRate, cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
 
   const cartCount = getWatchesCartCount(cartItems)
 
@@ -430,6 +443,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber }
                     sellingPriceUsd={rel.sellingPriceUsd}
                     sellingPriceSrd={rel.sellingPriceSrd}
                     displayCurrency={displayCurrency}
+                    exchangeRate={activeExchangeRate}
                     stockCount={rel.stockCount}
                     onAddToCart={handleRelatedAddToCart}
                   />
@@ -493,6 +507,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber }
         open={cartOpen}
         items={cartItems}
         displayCurrency={displayCurrency}
+        exchangeRate={activeExchangeRate}
         onClose={() => setCartOpen(false)}
         onUpdateQty={handleUpdateQty}
         onRemove={removeWatchesCartItem}

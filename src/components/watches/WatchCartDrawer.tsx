@@ -4,6 +4,8 @@ import { memo, useEffect } from 'react'
 import Image from 'next/image'
 import { X, Plus, Minus, Trash2, MessageCircle, ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
+import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
 import type { Currency } from '@/lib/currency'
 
 interface CartItem {
@@ -20,6 +22,7 @@ interface WatchCartDrawerProps {
   open: boolean
   items: CartItem[]
   displayCurrency?: Currency
+  exchangeRate?: number
   onClose: () => void
   onUpdateQty: (id: string, qty: number) => void
   onRemove: (id: string) => void
@@ -36,6 +39,7 @@ function WatchCartDrawerComponent({
   open,
   items,
   displayCurrency = 'USD',
+  exchangeRate = DEFAULT_EXCHANGE_RATE,
   onClose,
   onUpdateQty,
   onRemove,
@@ -54,7 +58,7 @@ function WatchCartDrawerComponent({
   }, [open])
 
   const getPrice = (item: CartItem) =>
-    displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
+    getWatchSellingPrice(item, displayCurrency, exchangeRate)
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
 

@@ -22,6 +22,7 @@ interface WatchesFeaturedSectionProps {
   brandByItemId?: Record<string, string>
   cartQuantityByItemId?: Record<string, number>
   displayCurrency: Currency
+  exchangeRate: number
   onAddToCart?: (id: string) => void
   onQuickView?: (id: string) => void
 }
@@ -32,6 +33,7 @@ function WatchesFeaturedSectionComponent({
   brandByItemId,
   cartQuantityByItemId,
   displayCurrency,
+  exchangeRate,
   onAddToCart,
   onQuickView,
 }: WatchesFeaturedSectionProps) {
@@ -105,6 +107,7 @@ function WatchesFeaturedSectionComponent({
                 brandByItemId={brandByItemId}
                 cartQuantityByItemId={cartQuantityByItemId}
                 displayCurrency={displayCurrency}
+                exchangeRate={exchangeRate}
                 onAddToCart={onAddToCart}
                 onQuickView={onQuickView}
               />
@@ -158,6 +161,7 @@ function WatchesFeaturedSectionComponent({
               brandByItemId={brandByItemId}
               cartQuantityByItemId={cartQuantityByItemId}
               displayCurrency={displayCurrency}
+              exchangeRate={exchangeRate}
               isHero
               onAddToCart={onAddToCart}
               onQuickView={onQuickView}
@@ -178,6 +182,7 @@ function WatchesFeaturedSectionComponent({
                 brandByItemId={brandByItemId}
                 cartQuantityByItemId={cartQuantityByItemId}
                 displayCurrency={displayCurrency}
+                exchangeRate={exchangeRate}
                 onAddToCart={onAddToCart}
                 onQuickView={onQuickView}
               />
@@ -204,6 +209,7 @@ interface FeaturedCardProps {
   brandByItemId?: Record<string, string>
   cartQuantityByItemId?: Record<string, number>
   displayCurrency: Currency
+  exchangeRate: number
   isHero?: boolean
   onAddToCart?: (id: string) => void
   onQuickView?: (id: string) => void
@@ -215,6 +221,7 @@ function FeaturedCard({
   brandByItemId,
   cartQuantityByItemId,
   displayCurrency,
+  exchangeRate,
   isHero,
   onAddToCart,
   onQuickView,
@@ -230,6 +237,7 @@ function FeaturedCard({
       sellingPriceUsd={item.sellingPriceUsd}
       sellingPriceSrd={item.sellingPriceSrd}
       displayCurrency={displayCurrency}
+      exchangeRate={exchangeRate}
       stockCount={stockMap[item.id] ?? 0}
       onAddToCart={onAddToCart}
       onQuickView={onQuickView}

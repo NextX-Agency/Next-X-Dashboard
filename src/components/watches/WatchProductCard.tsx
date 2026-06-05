@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { Eye, ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
+import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
 import type { Currency } from '@/lib/currency'
 
 interface WatchProductCardProps {
@@ -18,6 +20,7 @@ interface WatchProductCardProps {
   sellingPriceUsd?: number | null
   sellingPriceSrd?: number | null
   displayCurrency?: Currency
+  exchangeRate?: number
   stockCount?: number
   href?: string
   compact?: boolean
@@ -35,6 +38,7 @@ function WatchProductCardComponent({
   sellingPriceUsd,
   sellingPriceSrd,
   displayCurrency = 'USD',
+  exchangeRate = DEFAULT_EXCHANGE_RATE,
   stockCount = 0,
   href,
   compact = false,
@@ -42,7 +46,7 @@ function WatchProductCardComponent({
   onQuickView,
 }: WatchProductCardProps) {
   const productHref = href ?? `/watches/${id}`
-  const price = displayCurrency === 'SRD' ? sellingPriceSrd : sellingPriceUsd
+  const price = getWatchSellingPrice({ sellingPriceUsd, sellingPriceSrd }, displayCurrency, exchangeRate)
   const inStock = stockCount > 0
   const resolvedImageSizes = imageSizes ?? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
   const unoptimizedImage = shouldBypassNextImageOptimization(imageUrl)

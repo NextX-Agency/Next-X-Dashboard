@@ -4,6 +4,7 @@ import { memo, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { WatchProductCard } from '@/components/watches'
 import type { Currency } from '@/lib/currency'
+import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
 
 interface NewArrivalItem {
   id: string
@@ -17,6 +18,7 @@ interface WatchNewArrivalsSectionProps {
   items: NewArrivalItem[]
   stockMap: Record<string, number>
   displayCurrency: Currency
+  exchangeRate?: number
   onAddToCart?: (id: string) => void
   onQuickView?: (id: string) => void
 }
@@ -25,6 +27,7 @@ function WatchNewArrivalsSectionComponent({
   items,
   stockMap,
   displayCurrency,
+  exchangeRate = DEFAULT_EXCHANGE_RATE,
   onAddToCart,
   onQuickView,
 }: WatchNewArrivalsSectionProps) {
@@ -95,6 +98,7 @@ function WatchNewArrivalsSectionComponent({
                 sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                 sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
                 displayCurrency={displayCurrency}
+                exchangeRate={exchangeRate}
                 stockCount={stockMap[item.id] ?? 0}
                 onAddToCart={onAddToCart}
                 onQuickView={onQuickView}

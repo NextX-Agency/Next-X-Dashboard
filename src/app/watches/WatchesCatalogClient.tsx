@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
+import { normalizeExchangeRate } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 import {
   buildWatchesCartWhatsAppMessage,
@@ -78,6 +79,7 @@ interface WatchesCatalogClientProps {
   banners: Banner[]
   collections: Collection[]
   settings: Record<string, string>
+  initialExchangeRate?: number | null
 }
 
 const WATCH_BRAND_FALLBACKS = [
@@ -151,8 +153,13 @@ export default function WatchesCatalogClient({
   banners,
   collections,
   settings,
+  initialExchangeRate,
 }: WatchesCatalogClientProps) {
-  const { displayCurrency } = useCurrency()
+  const {
+    displayCurrency,
+    exchangeRate: liveExchangeRate,
+    isLoading: isCurrencyLoading,
+  } = useCurrency()
   const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -167,6 +174,12 @@ export default function WatchesCatalogClient({
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase())
 
   const whatsappNumber = settings.whatsapp_number ?? '5978555555'
+  const serverExchangeRate = useMemo(() => normalizeExchangeRate(initialExchangeRate), [initialExchangeRate])
+  const activeExchangeRate = useMemo(() => (
+    isCurrencyLoading
+      ? serverExchangeRate
+      : normalizeExchangeRate(liveExchangeRate)
+  ), [isCurrencyLoading, liveExchangeRate, serverExchangeRate])
 
   useEffect(() => {
     setLiveStock(stock)
@@ -364,6 +377,7 @@ export default function WatchesCatalogClient({
     const message = buildWatchesCartWhatsAppMessage({
       items: cartItems,
       currency: displayCurrency,
+      exchangeRate: activeExchangeRate,
       customerName,
       customerPhone,
       customerNotes,
@@ -377,7 +391,7 @@ export default function WatchesCatalogClient({
     setCustomerPhone('')
     setCustomerNotes('')
     setCartOpen(false)
-  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
+  }, [activeExchangeRate, cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
 
   const handleClearFilters = useCallback(() => {
     setActiveBrand(null)
@@ -627,6 +641,7 @@ export default function WatchesCatalogClient({
             brandByItemId={brandByItemId}
             cartQuantityByItemId={cartQuantityByItemId}
             displayCurrency={displayCurrency}
+            exchangeRate={activeExchangeRate}
             onAddToCart={handleAddToCart}
             onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
           />
@@ -668,6 +683,7 @@ export default function WatchesCatalogClient({
                     imageSizes={catalogImageSizes}
                     cartQuantity={getWatchesCartQuantity(cartItems, item.id)}
                     displayCurrency={displayCurrency}
+                    exchangeRate={activeExchangeRate}
                     stockCount={stockMap[item.id] ?? 0}
                     compact
                     onAddToCart={handleAddToCart}
@@ -698,6 +714,7 @@ export default function WatchesCatalogClient({
           stockCount: stockMap[quickViewItem.id] ?? 0,
         } : null}
         displayCurrency={displayCurrency}
+        exchangeRate={activeExchangeRate}
         onClose={() => setQuickViewItem(null)}
         onAddToCart={handleAddToCart}
       />
@@ -706,6 +723,7 @@ export default function WatchesCatalogClient({
         open={cartOpen}
         items={cartItems}
         displayCurrency={displayCurrency}
+        exchangeRate={activeExchangeRate}
         onClose={() => setCartOpen(false)}
         onUpdateQty={handleUpdateQty}
         onRemove={handleRemove}

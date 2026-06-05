@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { X, ShoppingBag, ArrowRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
+import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
 import type { Currency } from '@/lib/currency'
 
 interface WatchItem {
@@ -21,6 +23,7 @@ interface WatchItem {
 interface WatchQuickViewModalProps {
   item: WatchItem | null
   displayCurrency?: Currency
+  exchangeRate?: number
   onClose: () => void
   onAddToCart?: (id: string) => void
 }
@@ -28,6 +31,7 @@ interface WatchQuickViewModalProps {
 function WatchQuickViewModalComponent({
   item,
   displayCurrency = 'USD',
+  exchangeRate = DEFAULT_EXCHANGE_RATE,
   onClose,
   onAddToCart,
 }: WatchQuickViewModalProps) {
@@ -44,7 +48,7 @@ function WatchQuickViewModalComponent({
 
   if (!item) return null
 
-  const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
+  const price = getWatchSellingPrice(item, displayCurrency, exchangeRate)
   const inStock = (item.stockCount ?? 0) > 0
   const unoptimizedImage = shouldBypassNextImageOptimization(item.imageUrl)
 

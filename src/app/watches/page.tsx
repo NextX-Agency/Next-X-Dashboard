@@ -57,6 +57,12 @@ export default async function WatchesPage() {
     }>
   }>) ?? []
   const settings = (data.settings as Record<string, string>) ?? {}
+  const rawExchangeRate = (data.exchangeRate as {
+    usdToSrd?: number | string | null
+    usd_to_srd?: number | string | null
+  } | null) ?? null
+  const exchangeRateValue = rawExchangeRate?.usdToSrd ?? rawExchangeRate?.usd_to_srd
+  const initialExchangeRate = exchangeRateValue == null ? null : Number(exchangeRateValue)
 
   return (
     <WatchesCatalogClient
@@ -65,6 +71,7 @@ export default async function WatchesPage() {
       banners={banners}
       collections={collections}
       settings={settings}
+      initialExchangeRate={Number.isFinite(initialExchangeRate) ? initialExchangeRate : null}
     />
   )
 }

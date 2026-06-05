@@ -40,9 +40,10 @@ export default async function WatchDetailPage({ params }: PageProps) {
   let item
   let related: typeof item[] = []
   let whatsappNumber = '5978555555'
+  let activeExchangeRate: number | null = null
 
   try {
-    const [resolvedItem, whatsappSetting] = await Promise.all([
+    const [resolvedItem, whatsappSetting, exchangeRate] = await Promise.all([
       prisma.item.findFirst({
         where: {
           id,
@@ -54,10 +55,12 @@ export default async function WatchDetailPage({ params }: PageProps) {
         include: { category: true, stock: true },
       }),
       prisma.storeSetting.findUnique({ where: { key: 'whatsapp_number' } }),
+      prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
     ])
 
     item = resolvedItem
     whatsappNumber = whatsappSetting?.value || whatsappNumber
+    activeExchangeRate = exchangeRate?.usdToSrd ? Number(exchangeRate.usdToSrd) : null
 
     if (!item) notFound()
 
@@ -149,6 +152,7 @@ export default async function WatchDetailPage({ params }: PageProps) {
         }}
         relatedItems={relatedMapped}
         whatsappNumber={whatsappNumber}
+        initialExchangeRate={activeExchangeRate}
       />
     </>
   )

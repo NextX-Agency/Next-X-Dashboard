@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { ShoppingBag, Search, X, Menu } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import type { Currency } from '@/lib/currency'
+import { formatCurrencyInputAmount } from '@/lib/pricing'
 
 interface WatchesHeaderProps {
   cartCount?: number
@@ -46,18 +47,16 @@ function WatchesLogoLockup({ onClick }: { onClick?: () => void }) {
 function WatchesCurrencyToggle({
   currency,
   onChange,
-  compact = false,
 }: {
   currency: Currency
   onChange: (currency: Currency) => void
-  compact?: boolean
 }) {
   return (
     <div
-      className={`inline-grid grid-cols-2 border ${compact ? 'h-9 min-w-28' : 'h-10 min-w-32'}`}
+      className="inline-flex items-center gap-1 rounded-full border px-1 py-0.5"
       style={{
-        borderColor: 'var(--w-border)',
-        background: 'rgba(9,9,11,0.5)',
+        borderColor: 'rgba(240,235,225,0.12)',
+        background: 'rgba(240,235,225,0.025)',
       }}
       role="group"
       aria-label="Display currency"
@@ -70,11 +69,10 @@ function WatchesCurrencyToggle({
             key={option}
             type="button"
             onClick={() => onChange(option)}
-            className={`px-3 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors ${compact ? 'sm:px-3' : 'sm:px-4'}`}
+            className="rounded-full px-2 py-1 text-[10px] font-light uppercase tracking-[0.16em] transition-colors sm:px-2.5"
             style={{
-              background: isActive ? 'var(--w-gold)' : 'transparent',
-              color: isActive ? '#09090B' : 'var(--w-cream-2)',
-              borderRight: option === 'SRD' ? '1px solid var(--w-border)' : undefined,
+              background: isActive ? 'rgba(201,168,76,0.18)' : 'transparent',
+              color: isActive ? 'var(--w-gold)' : 'var(--w-muted)',
             }}
             aria-pressed={isActive}
           >
@@ -87,7 +85,7 @@ function WatchesCurrencyToggle({
 }
 
 function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderProps) {
-  const { displayCurrency, setDisplayCurrency } = useCurrency()
+  const { displayCurrency, setDisplayCurrency, exchangeRate } = useCurrency()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -129,6 +127,12 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
             </p>
 
             <div className="flex items-center gap-3 text-[11px] font-light uppercase tracking-[0.22em]" style={{ color: 'var(--w-cream-2)' }}>
+              <span
+                className="hidden whitespace-nowrap md:inline"
+                style={{ color: 'var(--w-muted)', letterSpacing: '0.18em' }}
+              >
+                1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
+              </span>
               <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
               {brandLinks.map((link, index) => (
                 <div key={link.href} className="flex items-center gap-3 whitespace-nowrap">
@@ -167,7 +171,6 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
               <WatchesCurrencyToggle
                 currency={displayCurrency}
                 onChange={setDisplayCurrency}
-                compact
               />
 
               <button
@@ -263,6 +266,12 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
                 currency={displayCurrency}
                 onChange={setDisplayCurrency}
               />
+              <p
+                className="mt-3 text-[10px] font-light uppercase tracking-[0.18em]"
+                style={{ color: 'var(--w-muted)' }}
+              >
+                1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
+              </p>
             </div>
             <div className="flex items-center gap-2.5 border-t pt-4 text-[11px] font-light uppercase tracking-[0.22em]" style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}>
               <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
