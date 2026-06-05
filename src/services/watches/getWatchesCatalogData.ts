@@ -34,7 +34,16 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
       include: { items: true },
     }),
     prisma.storeSetting.findMany(),
-    prisma.stock.findMany(),
+    prisma.stock.findMany({
+      where: {
+        item: {
+          catalogType: 'watches',
+          isPublic: true,
+          is_combo: false,
+          deletedAt: null,
+        },
+      },
+    }),
   ])
 
   const collectionItemIds = collectionsRaw.flatMap(collection =>
@@ -42,7 +51,13 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   )
   const collectionItems = collectionItemIds.length > 0
     ? await prisma.item.findMany({
-      where: { id: { in: [...new Set(collectionItemIds)] }, deletedAt: null, catalogType: 'watches' },
+      where: {
+        id: { in: [...new Set(collectionItemIds)] },
+        catalogType: 'watches',
+        isPublic: true,
+        is_combo: false,
+        deletedAt: null,
+      },
     })
     : []
   const collectionItemMap = new Map(collectionItems.map(item => [item.id, item]))

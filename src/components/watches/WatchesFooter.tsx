@@ -70,15 +70,16 @@ function WatchesFooterComponent({
           {/* Brand */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-1">
             <Link href="/watches" className="inline-flex flex-col items-start mb-5">
-              <Image
-                src="/nextx-logo-dark.png"
-                alt="NextX company logo"
-                width={136}
-                height={58}
-                sizes="(max-width: 640px) 120px, 136px"
-                quality={100}
-                className="w-[120px] object-contain sm:w-[136px]"
-              />
+              <span className="relative block h-[51px] w-[120px] sm:h-[58px] sm:w-[136px]">
+                <Image
+                  src="/nextx-logo-dark.png"
+                  alt="NextX company logo"
+                  fill
+                  sizes="(max-width: 640px) 120px, 136px"
+                  quality={100}
+                  className="object-contain"
+                />
+              </span>
               <span
                 className="mt-1.5 text-[8px] font-light tracking-[0.38em] uppercase"
                 style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}

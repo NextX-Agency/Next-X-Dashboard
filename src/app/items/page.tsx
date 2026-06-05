@@ -302,6 +302,11 @@ export default function ItemsPage() {
     try {
       const formForSave = syncSrdPrimarySellingPrice(itemForm)
 
+      if (formForSave.is_combo && formForSave.catalog_type === 'watches') {
+        alert('Watch combos are disabled. Create watch items individually.')
+        return
+      }
+
       const data = {
         name: formForSave.name,
         brand: formForSave.brand.trim() || null,
@@ -516,21 +521,23 @@ export default function ItemsPage() {
         action={
           <div className="flex gap-2">
             {activeTab === 'combos' && (
-              <Button 
-                onClick={() => {
-                  resetItemForm()
-                  setItemForm(prev => ({
-                    ...prev,
-                    is_combo: true,
-                    catalog_type: defaultCatalog,
-                  }))
-                  setShowComboForm(true)
-                }} 
-                variant="primary"
-              >
-                <Layers size={20} />
-                <span className="hidden sm:inline">New Combo</span>
-              </Button>
+              defaultCatalog === 'watches' ? null : (
+                <Button
+                  onClick={() => {
+                    resetItemForm()
+                    setItemForm(prev => ({
+                      ...prev,
+                      is_combo: true,
+                      catalog_type: defaultCatalog,
+                    }))
+                    setShowComboForm(true)
+                  }}
+                  variant="primary"
+                >
+                  <Layers size={20} />
+                  <span className="hidden sm:inline">New Combo</span>
+                </Button>
+              )
             )}
             {activeTab === 'items' && (
               <Button 
@@ -562,6 +569,12 @@ export default function ItemsPage() {
         <div className="mb-4 rounded-2xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
           Storefront focus defaults to <span className="font-semibold text-foreground">{preferredCatalog === 'watches' ? 'Watches' : 'Audio'}</span> across the admin. Switch to <span className="font-semibold text-foreground">All</span> here when you need to review both storefronts together.
         </div>
+
+        {activeTab === 'combos' && catalogFilter === 'watches' && (
+          <div className="mb-4 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-200">
+            Watches are managed as individual references. Combo creation is disabled for the watches storefront.
+          </div>
+        )}
 
         {/* Search and Tabs */}
         <div className="mb-5 sm:mb-6">
@@ -658,6 +671,7 @@ export default function ItemsPage() {
                       sellingPriceSRD={item.selling_price_srd}
                       sellingPriceUSD={getItemUsdSellingPrice(item)}
                       imageUrl={item.image_url}
+                      catalogType={item.catalog_type}
                       onEdit={() => handleEditItem(item)}
                       onDelete={() => handleDeleteItem(item.id)}
                     />
@@ -735,9 +749,14 @@ export default function ItemsPage() {
                           {combo.name}
                         </h3>
                         {combo.image_url && (
-                          <Badge variant="default" className="text-xs">
-                            {combo.combo_items?.length || 0} items
-                          </Badge>
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            <Badge variant={combo.catalog_type === 'watches' ? 'info' : 'default'} className="text-xs uppercase">
+                              {combo.catalog_type === 'watches' ? 'Watches' : 'Audio'}
+                            </Badge>
+                            <Badge variant="default" className="text-xs">
+                              {combo.combo_items?.length || 0} items
+                            </Badge>
+                          </div>
                         )}
                       </div>
                       

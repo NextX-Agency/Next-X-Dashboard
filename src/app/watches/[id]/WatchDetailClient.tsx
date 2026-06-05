@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Check, ChevronLeft, ShoppingBag } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency } from '@/lib/currency'
+import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import {
   buildWatchesCartWhatsAppMessage,
   clearWatchesCart,
@@ -49,9 +50,10 @@ interface RelatedItem {
 interface WatchDetailClientProps {
   item: ItemDetail
   relatedItems: RelatedItem[]
+  whatsappNumber: string
 }
 
-export default function WatchDetailClient({ item, relatedItems }: WatchDetailClientProps) {
+export default function WatchDetailClient({ item, relatedItems, whatsappNumber }: WatchDetailClientProps) {
   const { displayCurrency } = useCurrency()
   const [qty, setQty] = useState(1)
   const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
@@ -63,6 +65,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
 
   const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
   const inStock = item.stockCount > 0
+  const unoptimizedImage = shouldBypassNextImageOptimization(item.imageUrl)
   const currentCartQuantity = getWatchesCartQuantity(cartItems, item.id)
   const maxAvailable = Math.max(0, item.stockCount - currentCartQuantity)
   const relatedImageSizes = relatedItems.length <= 2
@@ -182,14 +185,15 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
       customerNotes,
     })
 
-    window.open(`https://wa.me/5978555555?text=${encodeURIComponent(message)}`, '_blank')
+    const sanitizedNumber = whatsappNumber.replace(/[^0-9]/g, '')
+    window.open(`https://wa.me/${sanitizedNumber}?text=${encodeURIComponent(message)}`, '_blank')
 
     clearWatchesCart()
     setCustomerName('')
     setCustomerPhone('')
     setCustomerNotes('')
     setCartOpen(false)
-  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency])
+  }, [cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
 
   const cartCount = getWatchesCartCount(cartItems)
 
@@ -229,6 +233,7 @@ export default function WatchDetailClient({ item, relatedItems }: WatchDetailCli
                     fill
                     sizes="(max-width: 1024px) 100vw, 56vw"
                     quality={95}
+                    unoptimized={unoptimizedImage}
                     className="object-cover"
                     priority
                   />

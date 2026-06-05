@@ -7,10 +7,23 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'full'
 
     if (type === 'stock') {
-      const stock = await prisma.stock.findMany()
+      const stock = await prisma.stock.findMany({
+        where: {
+          item: {
+            catalogType: 'watches',
+            isPublic: true,
+            is_combo: false,
+            deletedAt: null,
+          },
+        },
+      })
       return NextResponse.json({ stock }, {
         headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
       })
+    }
+
+    if (type !== 'full') {
+      return NextResponse.json({ error: 'Unsupported watches payload type' }, { status: 400 })
     }
 
     const [categories, items, locations, exchangeRate, banners, collectionsRaw, settings, stock] = await Promise.all([
@@ -34,13 +47,28 @@ export async function GET(request: NextRequest) {
         include: { items: true },
       }),
       prisma.storeSetting.findMany(),
-      prisma.stock.findMany(),
+      prisma.stock.findMany({
+        where: {
+          item: {
+            catalogType: 'watches',
+            isPublic: true,
+            is_combo: false,
+            deletedAt: null,
+          },
+        },
+      }),
     ])
 
     const collectionItemIds = collectionsRaw.flatMap(collection => collection.items.map(collectionItem => collectionItem.itemId))
     const collectionItems = collectionItemIds.length > 0
       ? await prisma.item.findMany({
-        where: { id: { in: [...new Set(collectionItemIds)] }, deletedAt: null, catalogType: 'watches' },
+        where: {
+          id: { in: [...new Set(collectionItemIds)] },
+          catalogType: 'watches',
+          isPublic: true,
+          is_combo: false,
+          deletedAt: null,
+        },
       })
       : []
     const collectionItemMap = new Map(collectionItems.map(item => [item.id, item]))

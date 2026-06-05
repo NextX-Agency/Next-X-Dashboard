@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import { cn } from '@/lib/utils'
 import {
   buildWatchesCartWhatsAppMessage,
@@ -395,6 +396,8 @@ export default function WatchesCatalogClient({
         <WatchesHero
           title={heroBanner?.title ?? undefined}
           subtitle={heroBanner?.subtitle ?? undefined}
+          imageUrl={heroBanner?.imageUrl ?? undefined}
+          mobileImageUrl={heroBanner?.mobileImage ?? undefined}
           ctaLabel={heroBanner?.buttonText ?? heroBanner?.linkText ?? undefined}
           ctaHref={primaryCtaHref}
         />
@@ -436,6 +439,7 @@ export default function WatchesCatalogClient({
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                         quality={92}
+                        unoptimized={shouldBypassNextImageOptimization(banner.imageUrl)}
                         className="object-cover"
                       />
                     </div>
@@ -491,6 +495,7 @@ export default function WatchesCatalogClient({
                 <label className="relative block w-full max-w-xl">
                   <Search size={16} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
                   <input
+                    id="watches-search-input"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search model, brand, or reference"
@@ -572,6 +577,7 @@ export default function WatchesCatalogClient({
                             fill
                             sizes={collectionImageSizes}
                             quality={92}
+                            unoptimized={shouldBypassNextImageOptimization(collection.imageUrl || previewItem?.imageUrl)}
                             className="object-cover transition-transform duration-700 group-hover:scale-105"
                           />
                         ) : null}
@@ -715,6 +721,8 @@ export default function WatchesCatalogClient({
   )
 }
 function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; searchQuery: string }) {
+  const sanitizedNumber = whatsappNumber.replace(/[^0-9]/g, '')
+
   return (
     <div className="flex flex-col items-center py-28 lg:py-40">
       {/* Decorative ring */}
@@ -758,7 +766,7 @@ function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; s
       </p>
 
       <Link
-        href={`https://wa.me/${whatsappNumber}?text=Hello NextX, I would like to know more about your watch collection.`}
+        href={`https://wa.me/${sanitizedNumber}?text=Hello NextX, I would like to know more about your watch collection.`}
         target="_blank"
         rel="noopener noreferrer"
         className="w-btn-gold inline-flex items-center gap-3"

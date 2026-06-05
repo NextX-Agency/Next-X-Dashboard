@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { X, ShoppingBag, ArrowRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
+import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import type { Currency } from '@/lib/currency'
 
 interface WatchItem {
@@ -45,6 +46,7 @@ function WatchQuickViewModalComponent({
 
   const price = displayCurrency === 'SRD' ? item.sellingPriceSrd : item.sellingPriceUsd
   const inStock = (item.stockCount ?? 0) > 0
+  const unoptimizedImage = shouldBypassNextImageOptimization(item.imageUrl)
 
   return (
     <>
@@ -91,6 +93,7 @@ function WatchQuickViewModalComponent({
                 fill
                 sizes="(max-width: 768px) 100vw, 28rem"
                 quality={92}
+                unoptimized={unoptimizedImage}
                 className="object-cover"
               />
             ) : (

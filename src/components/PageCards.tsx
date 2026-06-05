@@ -2,7 +2,7 @@
 
 import { memo, useEffect } from 'react'
 import Image from 'next/image'
-import { X } from 'lucide-react'
+import { Headphones, Watch, X } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 
 interface WalletCardProps {
@@ -54,6 +54,7 @@ interface ItemCardProps {
   sellingPriceSRD?: number | null
   sellingPriceUSD?: number | null
   imageUrl?: string | null
+  catalogType?: string | null
   onEdit: () => void
   onDelete: () => void
 }
@@ -66,9 +67,13 @@ function ItemCardComponent({
   sellingPriceSRD,
   sellingPriceUSD,
   imageUrl,
+  catalogType,
   onEdit,
   onDelete
 }: ItemCardProps) {
+  const isWatch = catalogType === 'watches'
+  const CatalogIcon = isWatch ? Watch : Headphones
+
   return (
     <div className="bg-card rounded-lg border border-border overflow-hidden hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
       {imageUrl ? (
@@ -88,9 +93,21 @@ function ItemCardComponent({
             </p>
           )}
           <h3 className="font-bold text-foreground mb-1.5 text-lg group-hover:text-primary transition-colors">{name}</h3>
-          <span className="badge badge-neutral text-xs">
-            {categoryName}
-          </span>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="badge badge-neutral text-xs">
+              {categoryName}
+            </span>
+            {catalogType && (
+              <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
+                isWatch
+                  ? 'border-blue-500/25 bg-blue-500/10 text-blue-400'
+                  : 'border-orange-500/25 bg-orange-500/10 text-orange-400'
+              }`}>
+                <CatalogIcon size={12} />
+                {isWatch ? 'Watches' : 'Audio'}
+              </span>
+            )}
+          </div>
         </div>
         <div className="space-y-2 mb-5 text-sm">
           <div className="flex justify-between items-center py-1 border-b border-border/50">

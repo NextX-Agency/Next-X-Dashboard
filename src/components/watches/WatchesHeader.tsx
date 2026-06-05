@@ -1,16 +1,93 @@
 'use client'
 
-import { memo, useState, useEffect } from 'react'
+import { memo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ShoppingBag, Search, X, Menu } from 'lucide-react'
+import { useCurrency } from '@/lib/CurrencyContext'
+import type { Currency } from '@/lib/currency'
 
 interface WatchesHeaderProps {
   cartCount?: number
   onCartClick?: () => void
 }
 
+const navLinks = [
+  { label: 'Collections', href: '/watches#collections' },
+  { label: 'New Arrivals', href: '/watches#new' },
+  { label: 'About', href: '/watches#about' },
+]
+
+const brandLinks = [
+  { label: 'Audio', href: '/audio' },
+  { label: 'Portal', href: '/' },
+]
+
+function WatchesLogoLockup({ onClick }: { onClick?: () => void }) {
+  return (
+    <div className="flex flex-col items-start leading-none shrink-0">
+      <Link href="/watches" onClick={onClick} className="flex flex-col items-start" aria-label="NextX Watches">
+        <span className="relative block h-[48px] w-28 sm:h-[63px] sm:w-[148px] lg:h-[70px] lg:w-[164px]">
+          <Image
+            src="/nextx-logo-dark.png"
+            alt="NextX company logo"
+            fill
+            sizes="(max-width: 640px) 112px, (max-width: 1024px) 148px, 164px"
+            quality={100}
+            className="object-contain"
+            priority
+          />
+        </span>
+      </Link>
+    </div>
+  )
+}
+
+function WatchesCurrencyToggle({
+  currency,
+  onChange,
+  compact = false,
+}: {
+  currency: Currency
+  onChange: (currency: Currency) => void
+  compact?: boolean
+}) {
+  return (
+    <div
+      className={`inline-grid grid-cols-2 border ${compact ? 'h-9 min-w-28' : 'h-10 min-w-32'}`}
+      style={{
+        borderColor: 'var(--w-border)',
+        background: 'rgba(9,9,11,0.5)',
+      }}
+      role="group"
+      aria-label="Display currency"
+    >
+      {(['SRD', 'USD'] as const).map((option) => {
+        const isActive = currency === option
+
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={`px-3 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors ${compact ? 'sm:px-3' : 'sm:px-4'}`}
+            style={{
+              background: isActive ? 'var(--w-gold)' : 'transparent',
+              color: isActive ? '#09090B' : 'var(--w-cream-2)',
+              borderRight: option === 'SRD' ? '1px solid var(--w-border)' : undefined,
+            }}
+            aria-pressed={isActive}
+          >
+            {option}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderProps) {
+  const { displayCurrency, setDisplayCurrency } = useCurrency()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -20,34 +97,18 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const navLinks = [
-    { label: 'Collections', href: '/watches#collections' },
-    { label: 'New Arrivals', href: '/watches#new' },
-    { label: 'About', href: '/watches#about' },
-  ]
+  const handleSearchClick = useCallback(() => {
+    const searchInput = document.getElementById('watches-search-input') as HTMLInputElement | null
 
-  const brandLinks = [
-    { label: 'Audio', href: '/audio' },
-    { label: 'Portal', href: '/' },
-  ]
+    if (!searchInput) {
+      window.location.href = '/watches#collections'
+      return
+    }
 
-  const LogoLockup = ({ onClick }: { onClick?: () => void }) => (
-    <div className="flex flex-col items-start leading-none shrink-0">
-      <Link href="/watches" onClick={onClick} className="flex flex-col items-start" aria-label="NextX Watches">
-        <Image
-          src="/nextx-logo-dark.png"
-          alt="NextX company logo"
-          width={164}
-          height={70}
-          sizes="(max-width: 640px) 112px, (max-width: 1024px) 148px, 164px"
-          quality={100}
-          className="w-28 object-contain sm:w-[148px] lg:w-[164px]"
-          style={{ height: 'auto' }}
-          priority
-        />
-      </Link>
-    </div>
-  )
+    window.history.replaceState(null, '', '#collections')
+    searchInput.focus({ preventScroll: true })
+    searchInput.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [])
 
   return (
     <>
@@ -85,7 +146,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           </div>
 
           <div className="flex h-14 items-center justify-between sm:h-14 lg:h-18">
-            <LogoLockup />
+            <WatchesLogoLockup />
 
             {/* Desktop nav */}
             <nav className="hidden items-center gap-12 lg:flex" aria-label="Primary navigation">
@@ -103,10 +164,18 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 sm:gap-3.5">
+              <WatchesCurrencyToggle
+                currency={displayCurrency}
+                onChange={setDisplayCurrency}
+                compact
+              />
+
               <button
+                type="button"
+                onClick={handleSearchClick}
                 className="p-2 transition-opacity hover:opacity-100 opacity-55 sm:p-2.5"
                 style={{ color: 'var(--w-cream)' }}
-                aria-label="Search"
+                aria-label="Search watches"
               >
                 <Search size={18} strokeWidth={1.5} />
               </button>
@@ -149,7 +218,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           style={{ background: 'var(--w-bg)' }}
         >
           <div className="flex items-center justify-between h-16 px-6 border-b" style={{ borderColor: 'var(--w-border)' }}>
-            <LogoLockup onClick={() => setMobileOpen(false)} />
+            <WatchesLogoLockup onClick={() => setMobileOpen(false)} />
             <button
               onClick={() => setMobileOpen(false)}
               className="p-2 opacity-50 hover:opacity-100 transition-opacity"
@@ -183,6 +252,18 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           </nav>
 
           <div className="mt-auto px-6 pb-12">
+            <div className="mb-6">
+              <p
+                className="mb-3 text-[10px] font-light uppercase tracking-[0.28em]"
+                style={{ color: 'var(--w-muted)' }}
+              >
+                Currency
+              </p>
+              <WatchesCurrencyToggle
+                currency={displayCurrency}
+                onChange={setDisplayCurrency}
+              />
+            </div>
             <div className="flex items-center gap-2.5 border-t pt-4 text-[11px] font-light uppercase tracking-[0.22em]" style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}>
               <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />
               <Link

@@ -10,7 +10,15 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
   try {
-    const item = await prisma.item.findUnique({ where: { id, catalogType: 'watches' } })
+    const item = await prisma.item.findFirst({
+      where: {
+        id,
+        catalogType: 'watches',
+        isPublic: true,
+        is_combo: false,
+        deletedAt: null,
+      },
+    })
     if (!item) return { title: 'Watch not found | NextX Watches' }
     return {
       title: `${item.name} | NextX Watches`,
@@ -31,26 +39,60 @@ export default async function WatchDetailPage({ params }: PageProps) {
 
   let item
   let related: typeof item[] = []
+  let whatsappNumber = '5978555555'
 
   try {
-    item = await prisma.item.findUnique({
-      where: { id, catalogType: 'watches' },
-      include: { category: true, stock: true },
-    })
+    const [resolvedItem, whatsappSetting] = await Promise.all([
+      prisma.item.findFirst({
+        where: {
+          id,
+          catalogType: 'watches',
+          isPublic: true,
+          is_combo: false,
+          deletedAt: null,
+        },
+        include: { category: true, stock: true },
+      }),
+      prisma.storeSetting.findUnique({ where: { key: 'whatsapp_number' } }),
+    ])
+
+    item = resolvedItem
+    whatsappNumber = whatsappSetting?.value || whatsappNumber
+
     if (!item) notFound()
+
+    const relatedBaseWhere = {
+      catalogType: 'watches',
+      isPublic: true,
+      is_combo: false,
+      deletedAt: null,
+      id: { not: id },
+    }
 
     related = await prisma.item.findMany({
       where: {
-        catalogType: 'watches',
-        isPublic: true,
-        deletedAt: null,
-        id: { not: id },
+        ...relatedBaseWhere,
         ...(item.categoryId ? { categoryId: item.categoryId } : {}),
       },
       take: 4,
       orderBy: { createdAt: 'desc' },
-      include: { stock: true },
+      include: { category: true, stock: true },
     })
+
+    if (related.length < 4) {
+      const relatedIds = new Set(related.map(relatedItem => relatedItem.id))
+      const fallbackRelated = await prisma.item.findMany({
+        where: {
+          ...relatedBaseWhere,
+          id: { notIn: [id, ...relatedIds] },
+        },
+        take: 4 - related.length,
+        orderBy: { createdAt: 'desc' },
+        include: { category: true, stock: true },
+      })
+
+      related = [...related, ...fallbackRelated]
+    }
   } catch {
     notFound()
   }
@@ -67,20 +109,47 @@ export default async function WatchDetailPage({ params }: PageProps) {
     stockCount: r.stock.reduce((s, st) => s + st.quantity, 0),
   }))
 
+  const numericSrdPrice = item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null
+  const numericUsdPrice = item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.name,
+    brand: item.brand ? { '@type': 'Brand', name: item.brand } : undefined,
+    category: item.category?.name,
+    image: item.imageUrl ? [item.imageUrl] : undefined,
+    description: item.description ?? undefined,
+    offers: {
+      '@type': 'Offer',
+      url: `https://shop-nextx.com/watches/${item.id}`,
+      priceCurrency: numericSrdPrice != null ? 'SRD' : 'USD',
+      price: numericSrdPrice ?? numericUsdPrice ?? undefined,
+      availability: totalStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+  }
+
   return (
-    <WatchDetailClient
-      item={{
-        id: item.id,
-        name: item.name,
-        brand: item.brand,
-        description: item.description,
-        imageUrl: item.imageUrl,
-        sellingPriceUsd: item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null,
-        sellingPriceSrd: item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null,
-        categoryName: item.category?.name,
-        stockCount: totalStock,
-      }}
-      relatedItems={relatedMapped}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
+      <WatchDetailClient
+        item={{
+          id: item.id,
+          name: item.name,
+          brand: item.brand,
+          description: item.description,
+          imageUrl: item.imageUrl,
+          sellingPriceUsd: numericUsdPrice,
+          sellingPriceSrd: numericSrdPrice,
+          categoryName: item.category?.name,
+          stockCount: totalStock,
+        }}
+        relatedItems={relatedMapped}
+        whatsappNumber={whatsappNumber}
+      />
+    </>
   )
 }

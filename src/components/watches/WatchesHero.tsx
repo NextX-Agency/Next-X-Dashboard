@@ -3,10 +3,13 @@
 import { memo, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 
 interface WatchesHeroProps {
   title?: string
   subtitle?: string
+  imageUrl?: string
+  mobileImageUrl?: string
   ctaLabel?: string
   ctaHref?: string
 }
@@ -14,10 +17,16 @@ interface WatchesHeroProps {
 function WatchesHeroComponent({
   title = 'Timeless\nPrecision',
   subtitle = 'A quieter edit of statement and everyday timepieces, selected for collectors who value proportion, presence, and lasting appeal.',
+  imageUrl,
+  mobileImageUrl,
   ctaLabel = 'Enter The Vault',
   ctaHref = '/watches#featured',
 }: WatchesHeroProps) {
   const bgRef = useRef<HTMLDivElement>(null)
+  const desktopImage = imageUrl || '/hero_section-watches.png'
+  const mobileImage = mobileImageUrl || desktopImage
+  const unoptimizedDesktopImage = shouldBypassNextImageOptimization(desktopImage)
+  const unoptimizedMobileImage = shouldBypassNextImageOptimization(mobileImage)
 
   useEffect(() => {
     const bg = bgRef.current
@@ -44,13 +53,25 @@ function WatchesHeroComponent({
         style={{ inset: '0', height: '100%' }}
       >
         <Image
-          src="/hero_section-watches.png"
+          src={desktopImage}
           alt=""
           fill
-          className="object-cover object-[72%_center] sm:object-[70%_center] lg:object-center"
+          className={`${mobileImageUrl ? 'hidden sm:block' : ''} object-cover object-[72%_center] sm:object-[70%_center] lg:object-center`}
           priority
+          unoptimized={unoptimizedDesktopImage}
           sizes="100vw"
         />
+        {mobileImageUrl && (
+          <Image
+            src={mobileImage}
+            alt=""
+            fill
+            className="object-cover object-[68%_center] sm:hidden"
+            priority
+            unoptimized={unoptimizedMobileImage}
+            sizes="100vw"
+          />
+        )}
       </div>
 
       {/* Overlay: bottom-to-top soft gradient for text readability */}

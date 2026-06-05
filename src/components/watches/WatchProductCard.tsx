@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Eye, ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '@/lib/currency'
+import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import type { Currency } from '@/lib/currency'
 
 interface WatchProductCardProps {
@@ -44,6 +45,7 @@ function WatchProductCardComponent({
   const price = displayCurrency === 'SRD' ? sellingPriceSrd : sellingPriceUsd
   const inStock = stockCount > 0
   const resolvedImageSizes = imageSizes ?? '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
+  const unoptimizedImage = shouldBypassNextImageOptimization(imageUrl)
   const availabilityLabel = !inStock
     ? 'Sold out'
     : stockCount <= 3
@@ -74,6 +76,7 @@ function WatchProductCardComponent({
               fill
               sizes={resolvedImageSizes}
               quality={92}
+              unoptimized={unoptimizedImage}
               className="object-cover transition-transform duration-700 will-change-transform group-hover:scale-[1.03]"
             />
           ) : (
