@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -30,8 +30,7 @@ import {
   Store,
   Minus,
   Plus,
-  AlertCircle,
-  Bell
+  AlertCircle
 } from 'lucide-react'
 
 type Item = Database['public']['Tables']['items']['Row']
@@ -89,6 +88,7 @@ export default function ProductDetailPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
+  const [stockByLocation, setStockByLocation] = useState<Map<string, Map<string, number>>>(new Map())
   const [settings, setSettings] = useState<StoreSettings>({
     whatsapp_number: '+5978318508',
     store_name: 'NextX',
@@ -139,7 +139,7 @@ export default function ProductDetailPage() {
         supabase.from('store_settings').select('*'),
         supabase.from('categories').select('*').eq('is_active', true).order('name'),
         supabase.from('locations').select('*').eq('is_active', true).order('name'),
-        supabase.from('stock').select('item_id, quantity')
+        supabase.from('stock').select('item_id, location_id, quantity')
       ])
 
       if (productRes.data) {
@@ -191,12 +191,20 @@ export default function ProductDetailPage() {
       // Build stock map
       if (stockRes.data) {
         const map = new Map<string, number>()
-        stockRes.data.forEach((stock: { item_id: string; quantity: number }) => {
+        const locationMap = new Map<string, Map<string, number>>()
+
+        stockRes.data.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
           const current = map.get(stock.item_id) || 0
           map.set(stock.item_id, current + stock.quantity)
+
+          const itemLocations = locationMap.get(stock.item_id) || new Map<string, number>()
+          const currentLocationQuantity = itemLocations.get(stock.location_id) || 0
+          itemLocations.set(stock.location_id, currentLocationQuantity + stock.quantity)
+          locationMap.set(stock.item_id, itemLocations)
         })
         console.log('Stock map built:', Object.fromEntries(map))
         setStockMap(map)
+        setStockByLocation(locationMap)
       }
 
       if (rateRes.data) setExchangeRate(normalizeExchangeRate(rateRes.data.usd_to_srd))
@@ -263,6 +271,39 @@ export default function ProductDetailPage() {
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
   const isCombo = product?.is_combo && product?.combo_items && product.combo_items.length > 0
+  const locationStockAvailability = useMemo(() => {
+    if (!product || locations.length === 0) return []
+
+    return locations.map((location) => {
+      let quantity = 0
+
+      if (product.is_combo && product.combo_items && product.combo_items.length > 0) {
+        let availableCombos = Number.POSITIVE_INFINITY
+
+        product.combo_items.forEach((comboItem) => {
+          const childItemId = comboItem.child_item_id || comboItem.item_id
+          const requiredQuantity = Math.max(1, comboItem.quantity || 1)
+          const componentStock = stockByLocation.get(childItemId)?.get(location.id) || 0
+          availableCombos = Math.min(availableCombos, Math.floor(componentStock / requiredQuantity))
+        })
+
+        quantity = availableCombos === Number.POSITIVE_INFINITY ? 0 : availableCombos
+      } else {
+        quantity = stockByLocation.get(product.id)?.get(location.id) || 0
+      }
+
+      return {
+        ...location,
+        quantity
+      }
+    }).sort((a, b) => {
+      if (a.quantity > 0 && b.quantity <= 0) return -1
+      if (b.quantity > 0 && a.quantity <= 0) return 1
+      if (a.quantity !== b.quantity) return b.quantity - a.quantity
+      return a.name.localeCompare(b.name)
+    })
+  }, [locations, product, stockByLocation])
+  const stockedLocationCount = locationStockAvailability.filter((location) => location.quantity > 0).length
   const stockBadgeClassName = isOutOfStock
     ? 'border-red-200 bg-white text-red-700'
     : isLowStock
@@ -817,7 +858,7 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="mb-6 rounded-lg bg-white p-5">
+            <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 items-center justify-center shrink-0">
                   <Store size={20} className="text-neutral-600" />
@@ -825,10 +866,48 @@ export default function ProductDetailPage() {
                 <div>
                   <p className="font-semibold text-neutral-900 mb-1">Alleen ophalen</p>
                   <p className="text-sm text-neutral-600">
-                    Dit product is beschikbaar voor ophalen bij onze winkel in {settings.store_address}
+                    {stockedLocationCount > 0
+                      ? `Beschikbaar voor ophalen bij ${stockedLocationCount} ${stockedLocationCount === 1 ? 'locatie' : 'locaties'}.`
+                      : 'Momenteel geen voorraad op onze actieve locaties.'}
                   </p>
                 </div>
               </div>
+
+              {locationStockAvailability.length > 0 && (
+                <div className="mt-4 border-t border-neutral-100 pt-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      Voorraad per locatie
+                    </p>
+                    <span className="shrink-0 text-xs text-neutral-500">
+                      {stockedLocationCount}/{locationStockAvailability.length} op voorraad
+                    </span>
+                  </div>
+                  <div className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
+                    {locationStockAvailability.map((location) => {
+                      const hasStock = location.quantity > 0
+
+                      return (
+                        <div key={location.id} className="flex items-center justify-between gap-3 px-3 py-2 sm:py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-neutral-900">{location.name}</p>
+                            {location.address && (
+                              <p className="hidden truncate text-xs text-neutral-500 sm:block">{location.address}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                            hasStock
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : 'border-neutral-200 bg-neutral-50 text-neutral-500'
+                          }`}>
+                            {hasStock ? `${location.quantity} beschikbaar` : 'Geen voorraad'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Description */}
