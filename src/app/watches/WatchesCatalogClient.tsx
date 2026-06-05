@@ -481,40 +481,45 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <section id="collections" className="px-5 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-14">
+        <section id="collections" className="px-5 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
           <div
-            className="mx-auto grid max-w-screen-2xl gap-6 border-y py-5 sm:gap-8 sm:py-8 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)] xl:gap-14 lg:py-10"
+            className="mx-auto max-w-screen-2xl border-y py-5 sm:py-6"
             style={{ borderColor: 'var(--w-border)' }}
           >
-            <div className="flex flex-col justify-between gap-8">
+            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="mb-3 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
-                  Refine The Collection
+                <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
+                  Live Vault
                 </p>
                 <h2
-                  className="mb-4 text-2xl font-light sm:text-3xl lg:text-4xl"
+                  className="text-2xl font-light sm:text-3xl"
                   style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                 >
-                  Find the right house, model, or metal.
+                  Explore the current watch edit
                 </h2>
-                <p
-                  className="max-w-lg text-sm font-light leading-loose"
-                  style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
-                >
-                  A private edit of the current vault, arranged by maison, silhouette, and metal so the right reference surfaces quickly.
-                </p>
               </div>
+              <p className="text-sm font-light lg:text-right" style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+                {items.length} {items.length === 1 ? 'watch' : 'watches'} across {brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
+              </p>
+            </div>
 
-              <div className="space-y-3">
-                <label className="relative block w-full max-w-xl">
-                  <Search size={16} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
+            <div
+              className="grid gap-3 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.35fr)] lg:items-center"
+              style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+            >
+              <div className="space-y-2">
+                <label
+                  className="relative block w-full border px-4"
+                  style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.58)' }}
+                >
+                  <Search size={15} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--w-muted)' }} />
                   <input
                     id="watches-search-input"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search model, brand, or reference"
-                    className="w-full border-0 border-b bg-transparent py-3 pl-8 pr-4 text-sm outline-none transition-colors sm:text-[15px]"
-                    style={{ borderColor: 'var(--w-border-gold)', color: 'var(--w-cream)' }}
+                    className="h-12 w-full border-0 bg-transparent pl-7 pr-3 text-sm outline-none"
+                    style={{ color: 'var(--w-cream)' }}
                   />
                 </label>
                 {hasActiveFilters && (
@@ -529,14 +534,14 @@ export default function WatchesCatalogClient({
                   </button>
                 )}
               </div>
-            </div>
 
-            <WatchesBrandNav
-              brandOptions={brandOptions}
-              totalCount={items.length}
-              activeBrand={activeBrand}
-              onChange={setActiveBrand}
-            />
+              <WatchesBrandNav
+                brandOptions={brandOptions}
+                totalCount={items.length}
+                activeBrand={activeBrand}
+                onChange={setActiveBrand}
+              />
+            </div>
           </div>
         </section>
 

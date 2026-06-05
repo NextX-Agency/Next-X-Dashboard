@@ -1,7 +1,6 @@
 'use client'
 
 import { memo } from 'react'
-import { cn } from '@/lib/utils'
 
 export interface WatchBrandOption {
   name: string
@@ -30,64 +29,13 @@ function WatchesBrandNavComponent({
     inStockCount: 0,
   }))
   const resolvedTotal = totalCount ?? options.reduce((sum, option) => sum + option.count, 0)
-  const activeOption = options.find(option => option.name.toLowerCase() === activeBrand?.toLowerCase())
-  const totalTiles = options.length + 1
-  const gridClassName = totalTiles <= 2
-    ? 'grid-cols-1 sm:grid-cols-2'
-    : totalTiles === 3
-      ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
-      : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
 
   return (
-    <div aria-label="Browse watches by brand">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="mb-2 text-[9px] uppercase tracking-[0.32em]" style={{ color: 'var(--w-gold)' }}>
-            Browse By Maison
-          </p>
-          <h3
-            className="text-2xl font-light"
-            style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
-          >
-            {activeOption ? activeOption.name : 'Every house in the vault'}
-          </h3>
-        </div>
-        <p
-          className="max-w-xs text-sm font-light leading-relaxed sm:text-right"
-          style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
-        >
-          {activeOption
-            ? `${activeOption.count} ${activeOption.count === 1 ? 'piece' : 'pieces'} selected`
-            : options.length > 0
-              ? `${resolvedTotal} ${resolvedTotal === 1 ? 'watch' : 'watches'} across ${options.length} ${options.length === 1 ? 'brand' : 'brands'}`
-              : `${resolvedTotal} ${resolvedTotal === 1 ? 'watch' : 'watches'} in the collection`}
-        </p>
-      </div>
-
-      <div
-        className={cn('grid border-t', gridClassName)}
-        style={{ borderColor: 'var(--w-border)' }}
-      >
-        <div className="sm:hidden col-span-full -mx-1 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none]">
-          <div className="flex min-w-max snap-x snap-mandatory gap-2 px-1">
-            <MobileBrandButton
-              label="All Watches"
-              count={resolvedTotal}
-              isActive={activeBrand === null}
-              onClick={() => onChange(null)}
-            />
-            {options.map((option) => (
-              <MobileBrandButton
-                key={option.name}
-                label={option.name}
-                count={option.count}
-                isActive={activeBrand?.toLowerCase() === option.name.toLowerCase()}
-                onClick={() => onChange(option.name)}
-              />
-            ))}
-          </div>
-        </div>
-
+    <div
+      className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none]"
+      aria-label="Browse watches by brand"
+    >
+      <div className="flex min-w-max snap-x snap-mandatory gap-2">
         <BrandButton
           label="All Watches"
           count={resolvedTotal}
@@ -127,57 +75,10 @@ function BrandButton({
     <button
       type="button"
       onClick={onClick}
-      className="group hidden min-h-24 border-b px-4 py-4 text-left transition-colors sm:block sm:border-r"
+      className="group inline-flex min-h-11 snap-start items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
       style={{
         borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
-        background: isActive ? 'rgba(201,168,76,0.07)' : 'transparent',
-        color: isActive ? 'var(--w-cream)' : 'var(--w-cream-2)',
-        fontFamily: 'var(--font-jost, system-ui, sans-serif)',
-      }}
-    >
-      <span className="mb-4 flex items-center justify-between gap-4">
-        <span
-          className="text-[10px] font-light uppercase tracking-[0.22em]"
-          style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
-        >
-          {label}
-        </span>
-        <span
-          className="text-xs font-light"
-          style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
-        >
-          {count.toString().padStart(2, '0')}
-        </span>
-      </span>
-      <span
-        className="block text-xs font-light uppercase tracking-[0.16em]"
-        style={{ color: isActive ? 'var(--w-cream-2)' : 'var(--w-muted)' }}
-      >
-        {meta}
-      </span>
-    </button>
-  )
-}
-
-function MobileBrandButton({
-  label,
-  count,
-  isActive,
-  onClick,
-}: {
-  label: string
-  count: number
-  isActive: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex min-h-11 snap-start items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
-      style={{
-        borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
-        background: isActive ? 'rgba(201,168,76,0.08)' : 'rgba(17,17,19,0.78)',
+        background: isActive ? 'rgba(201,168,76,0.08)' : 'rgba(17,17,19,0.58)',
         color: isActive ? 'var(--w-cream)' : 'var(--w-cream-2)',
         fontFamily: 'var(--font-jost, system-ui, sans-serif)',
       }}
@@ -190,6 +91,12 @@ function MobileBrandButton({
       </span>
       <span className="text-xs font-light" style={{ color: isActive ? 'var(--w-cream)' : 'var(--w-muted)' }}>
         {count.toString().padStart(2, '0')}
+      </span>
+      <span
+        className="hidden text-[10px] font-light uppercase tracking-[0.14em] lg:inline"
+        style={{ color: isActive ? 'var(--w-cream-2)' : 'var(--w-muted)' }}
+      >
+        {meta}
       </span>
     </button>
   )
