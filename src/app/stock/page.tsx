@@ -413,9 +413,18 @@ export default function StockPage() {
     return (
       <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm">
         <div className="font-semibold text-foreground">{item.name}</div>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-          <span className="text-primary">{formatCurrency(srdPrice, 'SRD')}</span>
-          <span className="text-muted-foreground">USD {formatCurrency(usdPrice, 'USD')} at 1 USD = {exchangeRate} SRD</span>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-background/60 px-2 py-1.5">
+            <div className="font-semibold uppercase text-muted-foreground">SRD</div>
+            <div className="font-bold text-primary">{formatCurrency(srdPrice, 'SRD')}</div>
+          </div>
+          <div className="rounded-lg bg-background/60 px-2 py-1.5">
+            <div className="font-semibold uppercase text-muted-foreground">USD</div>
+            <div className="font-bold text-foreground">{formatCurrency(usdPrice, 'USD')}</div>
+          </div>
+        </div>
+        <div className="mt-1.5 text-[11px] font-medium text-muted-foreground">
+          1 USD = {exchangeRate} SRD
         </div>
       </div>
     )

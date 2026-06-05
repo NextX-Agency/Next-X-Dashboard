@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch, ArrowRightLeft } from 'lucide-react'
+import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -134,15 +134,18 @@ export default function ItemsPage() {
     setItemForm((previous) => syncSrdPrimarySellingPrice(previous))
   }, [exchangeRate, showItemForm, showComboForm, syncSrdPrimarySellingPrice])
 
-  const renderSellingPriceAutomationControl = (id: string) => (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <div id={id} className="flex min-h-8 items-center gap-2 text-sm font-medium text-foreground">
-        <ArrowRightLeft size={15} className="text-primary" />
-        SRD price drives USD
+  const renderUsdPreviewField = (value: string) => (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-foreground">USD Preview</span>
+        <Badge variant="info" className="shrink-0 text-[11px]">
+          1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
+        </Badge>
       </div>
-      <Badge variant="info" className="w-fit">
-        1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
-      </Badge>
+      <div className="input-field flex min-h-12 items-center justify-between gap-3 bg-muted/40">
+        <span className="text-sm font-medium text-muted-foreground">$</span>
+        <span className="truncate text-base font-semibold text-foreground">{value || '0.00'}</span>
+      </div>
     </div>
   )
 
@@ -944,7 +947,6 @@ export default function ItemsPage() {
             className="min-h-12"
             required
           />
-          {renderSellingPriceAutomationControl('auto_convert_selling_price')}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Selling Price (SRD)"
@@ -957,17 +959,7 @@ export default function ItemsPage() {
               suffix="SRD"
               className="min-h-12"
             />
-            <Input
-              label="Selling Price (USD)"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              value={itemForm.selling_price_usd}
-              readOnly
-              placeholder="0.00"
-              prefix="$"
-              className="min-h-12"
-            />
+            {renderUsdPreviewField(itemForm.selling_price_usd)}
           </div>
           <ImageUpload
             value={itemForm.image_url}
@@ -1165,7 +1157,6 @@ export default function ItemsPage() {
           )}
           
           {/* Combo Price */}
-          {renderSellingPriceAutomationControl('auto_convert_combo_price')}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Combo Price (SRD)"
@@ -1178,17 +1169,7 @@ export default function ItemsPage() {
               suffix="SRD"
               className="min-h-12"
             />
-            <Input
-              label="Combo Price (USD)"
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              value={itemForm.selling_price_usd}
-              readOnly
-              placeholder="0.00"
-              prefix="$"
-              className="min-h-12"
-            />
+            {renderUsdPreviewField(itemForm.selling_price_usd)}
           </div>
           
           <ImageUpload

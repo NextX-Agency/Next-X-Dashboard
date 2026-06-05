@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { type Currency } from '@/lib/currency'
+import { DEFAULT_EXCHANGE_RATE, normalizeExchangeRate } from '@/lib/pricing'
 
 interface CurrencyContextType {
   displayCurrency: Currency
@@ -19,7 +20,7 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [displayCurrency, setDisplayCurrency] = useState<Currency>('USD')
-  const [exchangeRate, setExchangeRate] = useState<number>(40) // Default rate
+  const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_EXCHANGE_RATE)
   const [isLoading, setIsLoading] = useState(true)
 
   const refreshExchangeRate = useCallback(async () => {
@@ -31,7 +32,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
         .single()
 
       if (data) {
-        setExchangeRate(data.usd_to_srd)
+        setExchangeRate(normalizeExchangeRate(data.usd_to_srd))
       }
     } catch (error) {
       console.error('Error loading exchange rate:', error)
@@ -54,7 +55,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     const handleExchangeRateUpdated = (event: Event) => {
       const nextRate = (event as CustomEvent<{ usdToSrd?: number }>).detail?.usdToSrd
       if (typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0) {
-        setExchangeRate(nextRate)
+        setExchangeRate(normalizeExchangeRate(nextRate))
         return
       }
 
@@ -80,10 +81,10 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     
     if (displayCurrency === 'USD') {
       // Convert SRD to USD
-      return amount / exchangeRate
+      return amount / normalizeExchangeRate(exchangeRate)
     } else {
       // Convert USD to SRD
-      return amount * exchangeRate
+      return amount * normalizeExchangeRate(exchangeRate)
     }
   }, [displayCurrency, exchangeRate])
 
@@ -94,7 +95,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (fromCurrency === 'USD') {
       return amount
     }
-    return amount / exchangeRate
+    return amount / normalizeExchangeRate(exchangeRate)
   }, [exchangeRate])
 
   /**
@@ -104,7 +105,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (fromCurrency === 'SRD') {
       return amount
     }
-    return amount * exchangeRate
+    return amount * normalizeExchangeRate(exchangeRate)
   }, [exchangeRate])
 
   const contextValue = useMemo(() => ({

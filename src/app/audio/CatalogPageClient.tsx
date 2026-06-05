@@ -7,6 +7,7 @@ import { fetchCatalogData } from '@/lib/catalogApi'
 import type { NormalizedCatalogData } from '@/lib/catalogData'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
 import { 
   getItemStockStatus, 
   getItemStockLevel, 
@@ -180,7 +181,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   const [settings, setSettings] = useState<StoreSettings>(() => createStoreSettings(initialData.settings))
   const [exchangeRate, setExchangeRate] = useState<number>(() => {
     const rate = initialData.exchangeRate as { usd_to_srd?: number } | null
-    return rate?.usd_to_srd ?? 1
+    return normalizeExchangeRate(rate?.usd_to_srd)
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -316,7 +317,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         
         // Set exchange rate
         if (apiData.exchangeRate) {
-          setExchangeRate((apiData.exchangeRate as { usd_to_srd: number }).usd_to_srd)
+          setExchangeRate(normalizeExchangeRate((apiData.exchangeRate as { usd_to_srd: number }).usd_to_srd))
         }
         
         // Set banners
@@ -433,7 +434,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         }
         if (bannersRes.data) setBanners(bannersRes.data as Banner[])
         if (collectionsRes.data) setCollections(collectionsRes.data as Collection[])
-        if (rateRes.data) setExchangeRate(rateRes.data.usd_to_srd)
+        if (rateRes.data) setExchangeRate(normalizeExchangeRate(rateRes.data.usd_to_srd))
         if (settingsRes.data) {
           const settingsMap: Record<string, string> = {}
           settingsRes.data.forEach((s: { key: string; value: string }) => {
@@ -527,10 +528,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
 
   // Price calculation
   const getPrice = (item: Item): number => {
-    if (currency === 'USD') {
-      return item.selling_price_srd ? item.selling_price_srd / exchangeRate : (item.selling_price_usd || 0)
-    }
-    return item.selling_price_srd || (item.selling_price_usd ? item.selling_price_usd * exchangeRate : 0)
+    return getSellingPrice(item, currency, exchangeRate)
   }
 
   // Stock status helper - uses centralized utility for consistency

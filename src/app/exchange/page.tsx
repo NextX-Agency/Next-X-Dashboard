@@ -109,7 +109,7 @@ export default function ExchangeRatePage() {
       window.dispatchEvent(new CustomEvent('exchange-rate-updated', { detail: { usdToSrd: parsedRate } }))
       await refreshExchangeRate()
       setNewRate('')
-      setSyncSummary(`Updated exchange rate and refreshed ${updates.length} item USD price${updates.length === 1 ? '' : 's'} from SRD.`)
+      setSyncSummary(`${updates.length} product price${updates.length === 1 ? '' : 's'} synced from SRD.`)
       await loadRates()
     } catch (error) {
       console.error('Error updating exchange rate:', error)

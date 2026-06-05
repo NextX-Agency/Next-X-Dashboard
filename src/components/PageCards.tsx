@@ -99,14 +99,14 @@ function ItemCardComponent({
           </div>
           {sellingPriceSRD != null && (
             <div className="flex justify-between items-center py-1 border-b border-border/50">
-              <span className="text-muted-foreground">Sell (SRD)</span>
-              <span className="font-semibold text-primary">{sellingPriceSRD.toFixed(2)} SRD</span>
+              <span className="text-muted-foreground">Selling price</span>
+              <span className="font-semibold text-primary">{formatCurrency(sellingPriceSRD, 'SRD')}</span>
             </div>
           )}
           {sellingPriceUSD != null && (
             <div className="flex justify-between items-center py-1">
-              <span className="text-muted-foreground">Sell (USD)</span>
-              <span className="font-semibold text-primary">${sellingPriceUSD.toFixed(2)}</span>
+              <span className="text-muted-foreground">USD preview</span>
+              <span className="font-semibold text-foreground">{formatCurrency(sellingPriceUSD, 'USD')}</span>
             </div>
           )}
         </div>
@@ -243,7 +243,7 @@ function StockCardComponent({
                 <span className="font-semibold text-primary">{formatCurrency(sellingPriceSrd, 'SRD')}</span>
               )}
               {sellingPriceUsd != null && (
-                <span className="text-muted-foreground">approx. {formatCurrency(sellingPriceUsd, 'USD')}</span>
+                <span className="text-muted-foreground">{formatCurrency(sellingPriceUsd, 'USD')} USD</span>
               )}
             </div>
           )}

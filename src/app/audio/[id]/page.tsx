@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { DEFAULT_EXCHANGE_RATE, getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
 import { catalogShellClassName } from '@/components/catalog/shell'
 import { NewHeader, NewFooter, NewCartDrawer } from '@/components/catalog'
 import { 
@@ -94,7 +95,7 @@ export default function ProductDetailPage() {
     store_address: 'Commewijne, Noord',
     store_logo_url: ''
   })
-  const [exchangeRate, setExchangeRate] = useState<number>(1)
+  const [exchangeRate, setExchangeRate] = useState<number>(DEFAULT_EXCHANGE_RATE)
   const [currency, setCurrency] = useState<Currency>('SRD')
   const [loading, setLoading] = useState(true)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -198,7 +199,7 @@ export default function ProductDetailPage() {
         setStockMap(map)
       }
 
-      if (rateRes.data) setExchangeRate(rateRes.data.usd_to_srd)
+      if (rateRes.data) setExchangeRate(normalizeExchangeRate(rateRes.data.usd_to_srd))
       
       if (settingsRes.data) {
         const settingsMap: Record<string, string> = {}
@@ -235,10 +236,7 @@ export default function ProductDetailPage() {
   // Price calculation
   const getPrice = useCallback((): number => {
     if (!product) return 0
-    if (currency === 'USD') {
-      return product.selling_price_srd ? product.selling_price_srd / exchangeRate : (product.selling_price_usd || 0)
-    }
-    return product.selling_price_srd || (product.selling_price_usd ? product.selling_price_usd * exchangeRate : 0)
+    return getSellingPrice(product, currency, exchangeRate)
   }, [product, currency, exchangeRate])
 
   // Stock status helpers - handles both regular items and combos
@@ -398,9 +396,7 @@ export default function ProductDetailPage() {
             id: cartItem.item.id,
             name: cartItem.item.name,
             imageUrl: cartItem.item.image_url,
-            price: currency === 'USD' 
-              ? (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : (cartItem.item.selling_price_usd || 0))
-              : cartItem.item.selling_price_srd || (cartItem.item.selling_price_usd ? cartItem.item.selling_price_usd * exchangeRate : 0),
+            price: getSellingPrice(cartItem.item, currency, exchangeRate),
             quantity: cartItem.quantity,
             isCombo: cartItem.item.is_combo || (cartItem.item.id === productId && isCombo),
             comboItems: comboItemsData
@@ -484,6 +480,7 @@ export default function ProductDetailPage() {
 
   // Computed values
   const unitPrice = getPrice()
+  const usdPreviewPrice = product ? getSellingPrice(product, 'USD', exchangeRate) : 0
   const totalPrice = unitPrice * quantity
   const images = product?.image_url ? [product.image_url] : []
   const cartItems = loadCartItems()
@@ -791,9 +788,9 @@ export default function ProductDetailPage() {
                 <span className={`text-3xl sm:text-4xl font-black ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
                   {formatCurrency(unitPrice, currency)}
                 </span>
-                {currency === 'SRD' && product.selling_price_usd && (
+                {currency === 'SRD' && usdPreviewPrice > 0 && (
                   <span className="text-sm text-neutral-500">
-                    (≈ {formatCurrency(product.selling_price_usd, 'USD')})
+                    (≈ {formatCurrency(usdPreviewPrice, 'USD')})
                   </span>
                 )}
               </div>
