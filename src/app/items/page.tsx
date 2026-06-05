@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch } from 'lucide-react'
+import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch, ArrowRightLeft } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -12,6 +12,9 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
+import type { Currency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
+import { convertSellingPrice, formatCurrencyInputAmount } from '@/lib/pricing'
 import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 
 type Category = Database['public']['Tables']['categories']['Row']
@@ -26,6 +29,7 @@ interface ItemWithComboItems extends Item {
 
 export default function ItemsPage() {
   const { dialogProps, confirm } = useConfirmDialog()
+  const { exchangeRate } = useCurrency()
   const { catalog: preferredCatalog, setCatalog: setPreferredCatalog } = useAdminCatalog()
   const [categories, setCategories] = useState<Category[]>([])
   const [items, setItems] = useState<ItemWithComboItems[]>([])
@@ -57,6 +61,8 @@ export default function ItemsPage() {
     allow_custom_price: false,
     catalog_type: getStoredAdminCatalog(),
   })
+  const [autoConvertSellingPrice, setAutoConvertSellingPrice] = useState(true)
+  const [sellingPriceSource, setSellingPriceSource] = useState<Currency>('USD')
   const [comboItems, setComboItems] = useState<{ item_id: string; quantity: number }[]>([])
   const defaultCatalog = catalogFilter === 'all' ? preferredCatalog : catalogFilter
 
@@ -93,6 +99,79 @@ export default function ItemsPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  const getConvertedSellingPriceValue = useCallback((value: string, fromCurrency: Currency) => {
+    const amount = parseFloat(value)
+    if (!Number.isFinite(amount) || !Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      return ''
+    }
+
+    return formatCurrencyInputAmount(convertSellingPrice(amount, fromCurrency, exchangeRate))
+  }, [exchangeRate])
+
+  const syncAutoConvertedSellingPrice = useCallback((form: typeof itemForm, sourceCurrency: Currency) => {
+    if (sourceCurrency === 'USD') {
+      return {
+        ...form,
+        selling_price_srd: form.selling_price_usd
+          ? getConvertedSellingPriceValue(form.selling_price_usd, 'USD')
+          : '',
+      }
+    }
+
+    return {
+      ...form,
+      selling_price_usd: form.selling_price_srd
+        ? getConvertedSellingPriceValue(form.selling_price_srd, 'SRD')
+        : '',
+    }
+  }, [getConvertedSellingPriceValue])
+
+  const handleSellingPriceChange = useCallback((currency: Currency, value: string) => {
+    setSellingPriceSource(currency)
+    setItemForm((previous) => {
+      const nextForm = currency === 'SRD'
+        ? { ...previous, selling_price_srd: value }
+        : { ...previous, selling_price_usd: value }
+
+      return autoConvertSellingPrice
+        ? syncAutoConvertedSellingPrice(nextForm, currency)
+        : nextForm
+    })
+  }, [autoConvertSellingPrice, syncAutoConvertedSellingPrice])
+
+  const handleAutoConvertChange = useCallback((checked: boolean) => {
+    setAutoConvertSellingPrice(checked)
+
+    if (checked) {
+      setItemForm((previous) => syncAutoConvertedSellingPrice(previous, sellingPriceSource))
+    }
+  }, [sellingPriceSource, syncAutoConvertedSellingPrice])
+
+  useEffect(() => {
+    if (!autoConvertSellingPrice || (!showItemForm && !showComboForm)) return
+
+    setItemForm((previous) => syncAutoConvertedSellingPrice(previous, sellingPriceSource))
+  }, [autoConvertSellingPrice, exchangeRate, sellingPriceSource, showItemForm, showComboForm, syncAutoConvertedSellingPrice])
+
+  const renderSellingPriceAutomationControl = (id: string) => (
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <label htmlFor={id} className="flex min-h-8 items-center gap-2 text-sm font-medium text-foreground">
+        <input
+          type="checkbox"
+          id={id}
+          checked={autoConvertSellingPrice}
+          onChange={(e) => handleAutoConvertChange(e.target.checked)}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary touch-manipulation"
+        />
+        <ArrowRightLeft size={15} className="text-primary" />
+        Auto convert
+      </label>
+      <Badge variant="info" className="w-fit">
+        1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
+      </Badge>
+    </div>
+  )
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -184,6 +263,8 @@ export default function ItemsPage() {
       allow_custom_price: false,
       catalog_type: defaultCatalog,
     })
+    setAutoConvertSellingPrice(true)
+    setSellingPriceSource('USD')
     setComboItems([])
     setEditingItem(null)
     setShowItemForm(false)
@@ -245,19 +326,23 @@ export default function ItemsPage() {
     if (submitting) return
     setSubmitting(true)
     try {
+      const formForSave = autoConvertSellingPrice
+        ? syncAutoConvertedSellingPrice(itemForm, sellingPriceSource)
+        : itemForm
+
       const data = {
-        name: itemForm.name,
-        brand: itemForm.brand.trim() || null,
-        description: itemForm.description || null,
-        category_id: itemForm.category_id || null,
-        purchase_price_usd: parseFloat(itemForm.purchase_price_usd) || 0,
-        selling_price_srd: itemForm.selling_price_srd ? parseFloat(itemForm.selling_price_srd) : null,
-        selling_price_usd: itemForm.selling_price_usd ? parseFloat(itemForm.selling_price_usd) : null,
-        image_url: itemForm.image_url || null,
-        is_public: itemForm.is_public,
-        is_combo: itemForm.is_combo,
-        allow_custom_price: itemForm.allow_custom_price,
-        catalog_type: itemForm.catalog_type || 'audio',
+        name: formForSave.name,
+        brand: formForSave.brand.trim() || null,
+        description: formForSave.description || null,
+        category_id: formForSave.category_id || null,
+        purchase_price_usd: parseFloat(formForSave.purchase_price_usd) || 0,
+        selling_price_srd: formForSave.selling_price_srd ? parseFloat(formForSave.selling_price_srd) : null,
+        selling_price_usd: formForSave.selling_price_usd ? parseFloat(formForSave.selling_price_usd) : null,
+        image_url: formForSave.image_url || null,
+        is_public: formForSave.is_public,
+        is_combo: formForSave.is_combo,
+        allow_custom_price: formForSave.allow_custom_price,
+        catalog_type: formForSave.catalog_type || 'audio',
       }
 
       if (editingItem) {
@@ -324,7 +409,8 @@ export default function ItemsPage() {
   const handleEditItem = (item: ItemWithComboItems) => {
     setEditingItem(item)
     const isCombo = item.is_combo ?? false
-    setItemForm({
+    const nextSellingPriceSource: Currency = item.selling_price_usd ? 'USD' : 'SRD'
+    const nextForm = {
       name: item.name,
       brand: item.brand || '',
       description: item.description || '',
@@ -337,7 +423,10 @@ export default function ItemsPage() {
       is_combo: isCombo,
       allow_custom_price: item.allow_custom_price ?? false,
       catalog_type: normalizeAdminCatalog(item.catalog_type),
-    })
+    }
+    setAutoConvertSellingPrice(true)
+    setSellingPriceSource(nextSellingPriceSource)
+    setItemForm(syncAutoConvertedSellingPrice(nextForm, nextSellingPriceSource))
     if (isCombo && item.combo_items && item.combo_items.length > 0) {
       setComboItems(item.combo_items.map(ci => ({
         item_id: ci.item_id,
@@ -889,6 +978,7 @@ export default function ItemsPage() {
             className="min-h-12"
             required
           />
+          {renderSellingPriceAutomationControl('auto_convert_selling_price')}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Selling Price (SRD)"
@@ -896,7 +986,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
-              onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
+              onChange={(e) => handleSellingPriceChange('SRD', e.target.value)}
               placeholder="0.00"
               suffix="SRD"
               className="min-h-12"
@@ -907,7 +997,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
-              onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
+              onChange={(e) => handleSellingPriceChange('USD', e.target.value)}
               placeholder="0.00"
               prefix="$"
               className="min-h-12"
@@ -1109,6 +1199,7 @@ export default function ItemsPage() {
           )}
           
           {/* Combo Price */}
+          {renderSellingPriceAutomationControl('auto_convert_combo_price')}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Combo Price (SRD)"
@@ -1116,7 +1207,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
-              onChange={(e) => setItemForm({ ...itemForm, selling_price_srd: e.target.value })}
+              onChange={(e) => handleSellingPriceChange('SRD', e.target.value)}
               placeholder="0.00"
               suffix="SRD"
               className="min-h-12"
@@ -1127,7 +1218,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
-              onChange={(e) => setItemForm({ ...itemForm, selling_price_usd: e.target.value })}
+              onChange={(e) => handleSellingPriceChange('USD', e.target.value)}
               placeholder="0.00"
               prefix="$"
               className="min-h-12"

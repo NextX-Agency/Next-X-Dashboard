@@ -12,6 +12,7 @@ import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { getSellingPrice } from '@/lib/pricing'
 import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
 
@@ -113,6 +114,10 @@ export default function SalesPage() {
   // Location wallets
   const [locationWallets, setLocationWallets] = useState<WalletType[]>([])
   const combosAllowed = catalogFilter === 'audio'
+  const activeExchangeRate = currentRate?.usd_to_srd ?? 0
+  const getItemSellingPrice = useCallback((item: Item) => (
+    getSellingPrice(item, currency, activeExchangeRate)
+  ), [currency, activeExchangeRate])
 
   const applySalesPageData = useCallback((payload: SalesPageDataPayload) => {
     setItems(payload.items)
@@ -277,9 +282,7 @@ export default function SalesPage() {
 
   const calculateTempComboOriginalPrice = () => {
     return tempComboItems.reduce((sum, cartItem) => {
-      const price = currency === 'SRD' 
-        ? (cartItem.item.selling_price_srd || 0)
-        : (cartItem.item.selling_price_usd || 0)
+      const price = getItemSellingPrice(cartItem.item)
       return sum + (price * cartItem.quantity)
     }, 0)
   }
@@ -327,9 +330,7 @@ export default function SalesPage() {
     // Regular cart items (with custom price support)
     const cartTotal = cart.reduce((sum, cartItem) => {
       // Use custom price if set, otherwise use regular price
-      const regularPrice = currency === 'SRD' 
-        ? (cartItem.item.selling_price_srd || 0)
-        : (cartItem.item.selling_price_usd || 0)
+      const regularPrice = getItemSellingPrice(cartItem.item)
       const price = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
         ? cartItem.customPrice 
         : regularPrice
@@ -398,9 +399,7 @@ export default function SalesPage() {
 
       // Process regular cart items
       for (const cartItem of cart) {
-        const originalPrice = currency === 'SRD'
-          ? (cartItem.item.selling_price_srd || 0)
-          : (cartItem.item.selling_price_usd || 0)
+        const originalPrice = getItemSellingPrice(cartItem.item)
         
         // Use custom price if set
         const isCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
@@ -537,9 +536,7 @@ export default function SalesPage() {
 
               // Calculate commission for this category
               for (const cartItem of categoryItems) {
-                const regularPrice = currency === 'SRD'
-                  ? (cartItem.item.selling_price_srd || 0)
-                  : (cartItem.item.selling_price_usd || 0)
+                const regularPrice = getItemSellingPrice(cartItem.item)
                 const actualPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
                   ? cartItem.customPrice 
                   : regularPrice
@@ -787,7 +784,7 @@ export default function SalesPage() {
         details: buildActivityDetails({
           Total: formatCurrency(sale.total_amount, sale.currency as Currency),
           Location: sale.locations?.name || 'Unknown',
-          Items: `${sale.sale_items?.map((i: any) => `${i.quantity}x ${i.items?.name || '?'}`).join(', ') || 'N/A'}`
+          Items: `${sale.sale_items?.map((i) => `${i.quantity}x ${i.items?.name || '?'}`).join(', ') || 'N/A'}`
         }),
         userId: user?.id
       })
@@ -947,7 +944,7 @@ export default function SalesPage() {
 
   const availableItems = items.filter(item => {
     const stock = getAvailableStock(item.id)
-    const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+    const price = getItemSellingPrice(item)
     return stock > 0 && price
   })
 
@@ -1222,7 +1219,7 @@ export default function SalesPage() {
                   <div className="space-y-2">
                     {availableItems.map((item) => {
                       const stock = getAvailableStock(item.id)
-                      const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+                      const price = getItemSellingPrice(item)
                       const inCart = cart.find(c => c.item.id === item.id)
                       const inCombo = tempComboItems.find(c => c.item.id === item.id)
                       const isDisabled = comboMode ? false : (inCart && inCart.quantity >= stock)
@@ -1357,9 +1354,7 @@ export default function SalesPage() {
                       
                       {/* Regular Cart Items */}
                       {cart.map((cartItem) => {
-                        const originalPrice = currency === 'SRD'
-                          ? (cartItem.item.selling_price_srd || 0)
-                          : (cartItem.item.selling_price_usd || 0)
+                        const originalPrice = getItemSellingPrice(cartItem.item)
                         const hasCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
                         const displayPrice = hasCustomPrice ? cartItem.customPrice! : originalPrice
                         const isEditing = editingPriceItemId === cartItem.item.id

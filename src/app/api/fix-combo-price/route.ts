@@ -26,18 +26,25 @@ export async function POST(request: Request) {
 
     // Generate a combo_id for this group
     const comboId = `combo-${Date.now()}`
+    const { data: currentRate } = await supabase
+      .from('exchange_rates')
+      .select('usd_to_srd')
+      .eq('is_active', true)
+      .single()
     
     // Calculate original price from all items
     let originalPrice = 0
     for (const res of matchingReservations) {
       const { data: item } = await supabase
         .from('items')
-        .select('selling_price_srd')
+        .select('selling_price_srd, selling_price_usd')
         .eq('id', res.item_id)
         .single()
       
       if (item) {
-        originalPrice += (item.selling_price_srd || 0) * res.quantity
+        const itemPrice = item.selling_price_srd
+          || (item.selling_price_usd && currentRate?.usd_to_srd ? item.selling_price_usd * currentRate.usd_to_srd : 0)
+        originalPrice += itemPrice * res.quantity
       }
     }
 

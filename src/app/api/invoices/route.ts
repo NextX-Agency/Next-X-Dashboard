@@ -18,6 +18,19 @@ function toNumber(value: unknown): number {
   return Number(value ?? 0)
 }
 
+function getPriceInSrd(
+  item: { sellingPriceSrd: unknown | null; sellingPriceUsd?: unknown | null },
+  exchangeRate: number | null,
+): number {
+  const srdPrice = toNumber(item.sellingPriceSrd)
+  if (srdPrice > 0) return srdPrice
+
+  const usdPrice = toNumber(item.sellingPriceUsd)
+  if (usdPrice <= 0 || !exchangeRate || exchangeRate <= 0) return 0
+
+  return Math.round((usdPrice * exchangeRate + Number.EPSILON) * 100) / 100
+}
+
 function mapLocation(location: {
   id: string
   name: string
@@ -62,9 +75,9 @@ function buildReservationInvoices(reservations: Array<{
   combo_id: string | null
   combo_price: unknown | null
   client: { id: string; name: string }
-  item: { id: string; name: string; sellingPriceSrd: unknown | null }
+  item: { id: string; name: string; sellingPriceSrd: unknown | null; sellingPriceUsd: unknown | null }
   location: { id: string; name: string }
-}>): InvoicesPageReservationGroup[] {
+}>, exchangeRate: number | null): InvoicesPageReservationGroup[] {
   const groupedMap = new Map<string, InvoicesPageReservationGroup>()
   const comboTracker = new Map<string, Set<string>>()
   const comboPrices = new Map<string, number>()
@@ -84,7 +97,7 @@ function buildReservationInvoices(reservations: Array<{
       comboTracker.set(groupKey, new Set())
     }
 
-    const price = toNumber(reservation.item.sellingPriceSrd)
+    const price = getPriceInSrd(reservation.item, exchangeRate)
     const subtotal = price * reservation.quantity
     const comboId = reservation.combo_id
 
@@ -157,7 +170,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const [locations, sales, reservations] = await prisma.$transaction([
+    const [locations, sales, reservations, currentRate] = await prisma.$transaction([
       prisma.location.findMany({
         orderBy: { name: 'asc' },
       }),
@@ -186,6 +199,10 @@ export async function GET(request: NextRequest) {
           location: true,
         },
       }),
+      prisma.exchangeRate.findFirst({
+        where: { isActive: true },
+        orderBy: { setAt: 'desc' },
+      }),
     ])
 
     const saleInvoices: InvoicesPageSaleInvoice[] = sales.map((sale) => ({
@@ -211,7 +228,10 @@ export async function GET(request: NextRequest) {
       })),
     }))
 
-    const reservationInvoices = buildReservationInvoices(reservations)
+    const reservationInvoices = buildReservationInvoices(
+      reservations,
+      currentRate ? toNumber(currentRate.usdToSrd) : null,
+    )
     const invoices = [...saleInvoices, ...reservationInvoices].sort(
       (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
     )

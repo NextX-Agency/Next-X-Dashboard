@@ -22,6 +22,19 @@ function toNumber(value: unknown): number {
   return Number(value ?? 0)
 }
 
+function getPriceInSrd(
+  item: { sellingPriceSrd: unknown | null; sellingPriceUsd?: unknown | null },
+  exchangeRate: number | null,
+): number {
+  const srdPrice = toNumber(item.sellingPriceSrd)
+  if (srdPrice > 0) return srdPrice
+
+  const usdPrice = toNumber(item.sellingPriceUsd)
+  if (usdPrice <= 0 || !exchangeRate || exchangeRate <= 0) return 0
+
+  return Math.round((usdPrice * exchangeRate + Number.EPSILON) * 100) / 100
+}
+
 function mapClient(client: {
   id: string
   name: string
@@ -117,9 +130,9 @@ function buildReservationGroups(reservations: Array<{
   combo_id: string | null
   combo_price: unknown
   client: { id: string; name: string }
-  item: { id: string; name: string; sellingPriceSrd: unknown | null }
+  item: { id: string; name: string; sellingPriceSrd: unknown | null; sellingPriceUsd: unknown | null }
   location: { id: string; name: string }
-}>): ReservationsPageReservationGroup[] {
+}>, exchangeRate: number | null): ReservationsPageReservationGroup[] {
   const groupedMap = new Map<string, ReservationsPageReservationGroup>()
   const comboTracker = new Map<string, Set<string>>()
   const comboPrices = new Map<string, number>()
@@ -148,7 +161,7 @@ function buildReservationGroups(reservations: Array<{
     const timestamp = reservation.createdAt.getTime()
     const roundedTime = Math.floor(timestamp / (5 * 60 * 1000)) * (5 * 60 * 1000)
     const groupKey = `${reservation.clientId}-${reservation.locationId}-${roundedTime}-${reservation.status}`
-    const unitPrice = toNumber(reservation.item.sellingPriceSrd)
+    const unitPrice = getPriceInSrd(reservation.item, exchangeRate)
     const subtotal = unitPrice * reservation.quantity
     const comboId = reservation.combo_id
 
@@ -229,17 +242,18 @@ function buildReservationGroups(reservations: Array<{
 }
 
 function buildReservationStats(
-  reservations: Array<{ createdAt: Date; quantity: number; item: { sellingPriceSrd: unknown | null } }>,
+  reservations: Array<{ createdAt: Date; quantity: number; item: { sellingPriceSrd: unknown | null; sellingPriceUsd: unknown | null } }>,
   pendingCount: number,
   completedCount: number,
   todayStart: Date,
+  exchangeRate: number | null,
 ): ReservationsPageStats {
   let todayReservations = 0
   let todayTotal = 0
   let weekTotal = 0
 
   reservations.forEach((reservation) => {
-    const price = toNumber(reservation.item.sellingPriceSrd)
+    const price = getPriceInSrd(reservation.item, exchangeRate)
     const subtotal = price * reservation.quantity
     weekTotal += subtotal
 
@@ -269,7 +283,7 @@ export async function GET(request: NextRequest) {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
 
-    const [clients, items, locations, recentReservationsRaw, statsReservations, pendingCount, completedCount] = await Promise.all([
+    const [clients, items, locations, currentRate, recentReservationsRaw, statsReservations, pendingCount, completedCount] = await Promise.all([
       prisma.client.findMany({
         select: {
           id: true,
@@ -319,6 +333,10 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { name: 'asc' },
       }),
+      prisma.exchangeRate.findFirst({
+        where: { isActive: true },
+        orderBy: { setAt: 'desc' },
+      }),
       prisma.reservation.findMany({
         take: 20,
         where: {
@@ -348,6 +366,7 @@ export async function GET(request: NextRequest) {
               id: true,
               name: true,
               sellingPriceSrd: true,
+              sellingPriceUsd: true,
             },
           },
           location: {
@@ -371,6 +390,7 @@ export async function GET(request: NextRequest) {
           item: {
             select: {
               sellingPriceSrd: true,
+              sellingPriceUsd: true,
             },
           },
         },
@@ -397,8 +417,14 @@ export async function GET(request: NextRequest) {
       clients: clients.map(mapClient),
       items: items.map(mapItem),
       locations: locations.map(mapLocation),
-      recentReservations: buildReservationGroups(recentReservationsRaw),
-      reservationStats: buildReservationStats(statsReservations, pendingCount, completedCount, todayStart),
+      recentReservations: buildReservationGroups(recentReservationsRaw, currentRate ? toNumber(currentRate.usdToSrd) : null),
+      reservationStats: buildReservationStats(
+        statsReservations,
+        pendingCount,
+        completedCount,
+        todayStart,
+        currentRate ? toNumber(currentRate.usdToSrd) : null,
+      ),
     }
 
     return NextResponse.json({ data }, {

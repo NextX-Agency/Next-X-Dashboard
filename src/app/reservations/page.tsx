@@ -9,6 +9,8 @@ import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, 
 import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
+import { getSellingPrice } from '@/lib/pricing'
 import { logActivity } from '@/lib/activityLog'
 import type {
   ReservationsPageClient as Client,
@@ -57,6 +59,7 @@ interface InvoiceData {
 
 
 export default function ReservationsPage() {
+  const { exchangeRate } = useCurrency()
   const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [clients, setClients] = useState<Client[]>([])
   const [items, setItems] = useState<Item[]>([])
@@ -106,6 +109,9 @@ export default function ReservationsPage() {
     completedCount: 0
   })
   const combosAllowed = catalogFilter === 'audio'
+  const getItemSellingPrice = useCallback((item: Item) => (
+    getSellingPrice(item, currency, exchangeRate)
+  ), [currency, exchangeRate])
 
   const loadData = useCallback(async (showLoadingState: boolean = false) => {
     try {
@@ -304,9 +310,7 @@ export default function ReservationsPage() {
 
   const calculateTempComboOriginalPrice = () => {
     return tempComboItems.reduce((sum, cartItem) => {
-      const price = currency === 'SRD' 
-        ? (cartItem.item.selling_price_srd || 0)
-        : (cartItem.item.selling_price_usd || 0)
+      const price = getItemSellingPrice(cartItem.item)
       return sum + (price * cartItem.quantity)
     }, 0)
   }
@@ -352,9 +356,7 @@ export default function ReservationsPage() {
 
   const calculateTotal = () => {
     const cartTotal = cart.reduce((sum, cartItem) => {
-      const price = currency === 'SRD' 
-        ? (cartItem.item.selling_price_srd || 0)
-        : (cartItem.item.selling_price_usd || 0)
+      const price = getItemSellingPrice(cartItem.item)
       return sum + (price * cartItem.quantity)
     }, 0)
     
@@ -530,9 +532,7 @@ export default function ReservationsPage() {
       
       // Create reservation for each cart item
       for (const cartItem of cart) {
-        const price = currency === 'SRD' 
-          ? (cartItem.item.selling_price_srd || 0)
-          : (cartItem.item.selling_price_usd || 0)
+        const price = getItemSellingPrice(cartItem.item)
         
         await supabase.from('reservations').insert({
           client_id: selectedClient,
@@ -1098,7 +1098,7 @@ export default function ReservationsPage() {
 
   const availableItems = items.filter(item => {
     const stock = getAvailableStock(item.id)
-    const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+    const price = getItemSellingPrice(item)
     return stock > 0 && price
   })
 
@@ -1585,7 +1585,7 @@ export default function ReservationsPage() {
                       .filter(item => !itemSearchQuery || item.name.toLowerCase().includes(itemSearchQuery.toLowerCase()))
                       .map((item) => {
                         const stock = getAvailableStock(item.id)
-                        const price = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+                        const price = getItemSellingPrice(item)
                         const inCart = cart.find(c => c.item.id === item.id)
                         const inCombo = tempComboItems.find(c => c.item.id === item.id)
                         const isDisabled = comboMode ? false : (inCart && inCart.quantity >= stock)
@@ -1691,7 +1691,7 @@ export default function ReservationsPage() {
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-foreground text-xs truncate">{cartItem.item.name}</div>
                           <div className="text-xs text-muted-foreground">
-                            {formatCurrency((currency === 'SRD' ? cartItem.item.selling_price_srd : cartItem.item.selling_price_usd) || 0, currency)}
+                            {formatCurrency(getItemSellingPrice(cartItem.item), currency)}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
