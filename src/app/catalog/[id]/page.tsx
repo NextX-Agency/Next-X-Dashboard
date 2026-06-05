@@ -236,7 +236,7 @@ export default function ProductDetailPage() {
   const getPrice = useCallback((): number => {
     if (!product) return 0
     if (currency === 'USD') {
-      return product.selling_price_usd || (product.selling_price_srd ? product.selling_price_srd / exchangeRate : 0)
+      return product.selling_price_srd ? product.selling_price_srd / exchangeRate : (product.selling_price_usd || 0)
     }
     return product.selling_price_srd || (product.selling_price_usd ? product.selling_price_usd * exchangeRate : 0)
   }, [product, currency, exchangeRate])
@@ -320,7 +320,7 @@ export default function ProductDetailPage() {
     try {
       // Get existing cart
       const savedCart = localStorage.getItem(CART_STORAGE_KEY)
-      let cart: CartItem[] = savedCart ? JSON.parse(savedCart) : []
+      const cart: CartItem[] = savedCart ? JSON.parse(savedCart) : []
 
       // Check if product already exists in cart
       const existingIndex = cart.findIndex(item => item.item.id === product.id)
@@ -399,7 +399,7 @@ export default function ProductDetailPage() {
             name: cartItem.item.name,
             imageUrl: cartItem.item.image_url,
             price: currency === 'USD' 
-              ? cartItem.item.selling_price_usd || (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : 0)
+              ? (cartItem.item.selling_price_srd ? cartItem.item.selling_price_srd / exchangeRate : (cartItem.item.selling_price_usd || 0))
               : cartItem.item.selling_price_srd || (cartItem.item.selling_price_usd ? cartItem.item.selling_price_usd * exchangeRate : 0),
             quantity: cartItem.quantity,
             isCombo: cartItem.item.is_combo || (cartItem.item.id === productId && isCombo),

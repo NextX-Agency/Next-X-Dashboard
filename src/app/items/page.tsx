@@ -12,9 +12,8 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
-import type { Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
-import { convertSellingPrice, formatCurrencyInputAmount } from '@/lib/pricing'
+import { convertSellingPrice, formatCurrencyInputAmount, getSellingPrice } from '@/lib/pricing'
 import { getStoredAdminCatalog, normalizeAdminCatalog, useAdminCatalog } from '@/lib/adminCatalog'
 
 type Category = Database['public']['Tables']['categories']['Row']
@@ -61,10 +60,11 @@ export default function ItemsPage() {
     allow_custom_price: false,
     catalog_type: getStoredAdminCatalog(),
   })
-  const [autoConvertSellingPrice, setAutoConvertSellingPrice] = useState(true)
-  const [sellingPriceSource, setSellingPriceSource] = useState<Currency>('USD')
   const [comboItems, setComboItems] = useState<{ item_id: string; quantity: number }[]>([])
   const defaultCatalog = catalogFilter === 'all' ? preferredCatalog : catalogFilter
+  const getItemUsdSellingPrice = useCallback((item: Item) => (
+    getSellingPrice(item, 'USD', exchangeRate)
+  ), [exchangeRate])
 
   useEffect(() => {
     setCatalogFilter((current) => current === 'all' ? current : preferredCatalog)
@@ -100,7 +100,7 @@ export default function ItemsPage() {
     loadData()
   }, [])
 
-  const getConvertedSellingPriceValue = useCallback((value: string, fromCurrency: Currency) => {
+  const getConvertedSellingPriceValue = useCallback((value: string, fromCurrency: 'SRD' | 'USD') => {
     const amount = parseFloat(value)
     if (!Number.isFinite(amount) || !Number.isFinite(exchangeRate) || exchangeRate <= 0) {
       return ''
@@ -109,64 +109,37 @@ export default function ItemsPage() {
     return formatCurrencyInputAmount(convertSellingPrice(amount, fromCurrency, exchangeRate))
   }, [exchangeRate])
 
-  const syncAutoConvertedSellingPrice = useCallback((form: typeof itemForm, sourceCurrency: Currency) => {
-    if (sourceCurrency === 'USD') {
-      return {
-        ...form,
-        selling_price_srd: form.selling_price_usd
-          ? getConvertedSellingPriceValue(form.selling_price_usd, 'USD')
-          : '',
-      }
-    }
+  const syncSrdPrimarySellingPrice = useCallback((form: typeof itemForm) => {
+    const srdPrice = form.selling_price_srd
+      || (form.selling_price_usd ? getConvertedSellingPriceValue(form.selling_price_usd, 'USD') : '')
 
     return {
       ...form,
-      selling_price_usd: form.selling_price_srd
-        ? getConvertedSellingPriceValue(form.selling_price_srd, 'SRD')
+      selling_price_srd: srdPrice,
+      selling_price_usd: srdPrice
+        ? getConvertedSellingPriceValue(srdPrice, 'SRD')
         : '',
     }
   }, [getConvertedSellingPriceValue])
 
-  const handleSellingPriceChange = useCallback((currency: Currency, value: string) => {
-    setSellingPriceSource(currency)
+  const handleSrdSellingPriceChange = useCallback((value: string) => {
     setItemForm((previous) => {
-      const nextForm = currency === 'SRD'
-        ? { ...previous, selling_price_srd: value }
-        : { ...previous, selling_price_usd: value }
-
-      return autoConvertSellingPrice
-        ? syncAutoConvertedSellingPrice(nextForm, currency)
-        : nextForm
+      return syncSrdPrimarySellingPrice({ ...previous, selling_price_srd: value })
     })
-  }, [autoConvertSellingPrice, syncAutoConvertedSellingPrice])
-
-  const handleAutoConvertChange = useCallback((checked: boolean) => {
-    setAutoConvertSellingPrice(checked)
-
-    if (checked) {
-      setItemForm((previous) => syncAutoConvertedSellingPrice(previous, sellingPriceSource))
-    }
-  }, [sellingPriceSource, syncAutoConvertedSellingPrice])
+  }, [syncSrdPrimarySellingPrice])
 
   useEffect(() => {
-    if (!autoConvertSellingPrice || (!showItemForm && !showComboForm)) return
+    if (!showItemForm && !showComboForm) return
 
-    setItemForm((previous) => syncAutoConvertedSellingPrice(previous, sellingPriceSource))
-  }, [autoConvertSellingPrice, exchangeRate, sellingPriceSource, showItemForm, showComboForm, syncAutoConvertedSellingPrice])
+    setItemForm((previous) => syncSrdPrimarySellingPrice(previous))
+  }, [exchangeRate, showItemForm, showComboForm, syncSrdPrimarySellingPrice])
 
   const renderSellingPriceAutomationControl = (id: string) => (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <label htmlFor={id} className="flex min-h-8 items-center gap-2 text-sm font-medium text-foreground">
-        <input
-          type="checkbox"
-          id={id}
-          checked={autoConvertSellingPrice}
-          onChange={(e) => handleAutoConvertChange(e.target.checked)}
-          className="h-4 w-4 rounded border-border text-primary focus:ring-primary touch-manipulation"
-        />
+      <div id={id} className="flex min-h-8 items-center gap-2 text-sm font-medium text-foreground">
         <ArrowRightLeft size={15} className="text-primary" />
-        Auto convert
-      </label>
+        SRD price drives USD
+      </div>
       <Badge variant="info" className="w-fit">
         1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
       </Badge>
@@ -263,8 +236,6 @@ export default function ItemsPage() {
       allow_custom_price: false,
       catalog_type: defaultCatalog,
     })
-    setAutoConvertSellingPrice(true)
-    setSellingPriceSource('USD')
     setComboItems([])
     setEditingItem(null)
     setShowItemForm(false)
@@ -326,9 +297,7 @@ export default function ItemsPage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      const formForSave = autoConvertSellingPrice
-        ? syncAutoConvertedSellingPrice(itemForm, sellingPriceSource)
-        : itemForm
+      const formForSave = syncSrdPrimarySellingPrice(itemForm)
 
       const data = {
         name: formForSave.name,
@@ -409,7 +378,6 @@ export default function ItemsPage() {
   const handleEditItem = (item: ItemWithComboItems) => {
     setEditingItem(item)
     const isCombo = item.is_combo ?? false
-    const nextSellingPriceSource: Currency = item.selling_price_usd ? 'USD' : 'SRD'
     const nextForm = {
       name: item.name,
       brand: item.brand || '',
@@ -424,9 +392,7 @@ export default function ItemsPage() {
       allow_custom_price: item.allow_custom_price ?? false,
       catalog_type: normalizeAdminCatalog(item.catalog_type),
     }
-    setAutoConvertSellingPrice(true)
-    setSellingPriceSource(nextSellingPriceSource)
-    setItemForm(syncAutoConvertedSellingPrice(nextForm, nextSellingPriceSource))
+    setItemForm(syncSrdPrimarySellingPrice(nextForm))
     if (isCombo && item.combo_items && item.combo_items.length > 0) {
       setComboItems(item.combo_items.map(ci => ({
         item_id: ci.item_id,
@@ -497,7 +463,7 @@ export default function ItemsPage() {
     return comboItems.reduce((sum, ci) => {
       const item = items.find(i => i.id === ci.item_id)
       if (!item) return sum
-      return sum + (item.selling_price_usd || 0) * ci.quantity
+      return sum + getItemUsdSellingPrice(item) * ci.quantity
     }, 0)
   }
 
@@ -687,7 +653,7 @@ export default function ItemsPage() {
                       categoryName={getCategoryName(item.category_id)}
                       purchasePrice={item.purchase_price_usd}
                       sellingPriceSRD={item.selling_price_srd}
-                      sellingPriceUSD={item.selling_price_usd}
+                      sellingPriceUSD={getItemUsdSellingPrice(item)}
                       imageUrl={item.image_url}
                       onEdit={() => handleEditItem(item)}
                       onDelete={() => handleDeleteItem(item.id)}
@@ -796,7 +762,7 @@ export default function ItemsPage() {
                         <div>
                           <div className="text-xs text-muted-foreground">Combo Price</div>
                           <div className="font-bold text-primary text-lg">
-                            {formatCurrency(combo.selling_price_usd || 0, 'USD')}
+                            {formatCurrency(getItemUsdSellingPrice(combo), 'USD')}
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -986,7 +952,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
-              onChange={(e) => handleSellingPriceChange('SRD', e.target.value)}
+              onChange={(e) => handleSrdSellingPriceChange(e.target.value)}
               placeholder="0.00"
               suffix="SRD"
               className="min-h-12"
@@ -997,7 +963,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
-              onChange={(e) => handleSellingPriceChange('USD', e.target.value)}
+              readOnly
               placeholder="0.00"
               prefix="$"
               className="min-h-12"
@@ -1137,7 +1103,7 @@ export default function ItemsPage() {
                 .filter(item => !comboItems.find(ci => ci.item_id === item.id))
                 .map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} - {formatCurrency(item.selling_price_usd || 0, 'USD')}
+                    {item.name} - {formatCurrency(getItemUsdSellingPrice(item), 'USD')}
                   </option>
                 ))}
             </Select>
@@ -1156,7 +1122,7 @@ export default function ItemsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{item.name}</div>
                         <div className="text-sm text-muted-foreground">
-                          {formatCurrency(item.selling_price_usd || 0, 'USD')} each
+                          {formatCurrency(getItemUsdSellingPrice(item), 'USD')} each
                         </div>
                       </div>
                       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -1207,7 +1173,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_srd}
-              onChange={(e) => handleSellingPriceChange('SRD', e.target.value)}
+              onChange={(e) => handleSrdSellingPriceChange(e.target.value)}
               placeholder="0.00"
               suffix="SRD"
               className="min-h-12"
@@ -1218,7 +1184,7 @@ export default function ItemsPage() {
               inputMode="decimal"
               step="0.01"
               value={itemForm.selling_price_usd}
-              onChange={(e) => handleSellingPriceChange('USD', e.target.value)}
+              readOnly
               placeholder="0.00"
               prefix="$"
               className="min-h-12"

@@ -12,6 +12,7 @@ import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
 import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
@@ -65,6 +66,7 @@ type CatalogType = 'audio' | 'watches'
 export default function SalesPage() {
   const { dialogProps, confirm } = useConfirmDialog()
   const { user } = useAuth()
+  const { exchangeRate } = useCurrency()
   const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -114,7 +116,7 @@ export default function SalesPage() {
   // Location wallets
   const [locationWallets, setLocationWallets] = useState<WalletType[]>([])
   const combosAllowed = catalogFilter === 'audio'
-  const activeExchangeRate = currentRate?.usd_to_srd ?? 0
+  const activeExchangeRate = exchangeRate || currentRate?.usd_to_srd || 0
   const getItemSellingPrice = useCallback((item: Item) => (
     getSellingPrice(item, currency, activeExchangeRate)
   ), [currency, activeExchangeRate])
@@ -382,7 +384,7 @@ export default function SalesPage() {
         .insert({
           location_id: selectedLocation,
           currency,
-          exchange_rate: currentRate?.usd_to_srd || null,
+          exchange_rate: activeExchangeRate || null,
           total_amount: total,
           payment_method: paymentMethod,
           wallet_id: matchingWallet?.id || null

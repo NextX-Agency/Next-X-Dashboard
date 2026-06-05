@@ -7,6 +7,9 @@ import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowU
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
 import { logActivity } from '@/lib/activityLog'
+import { formatCurrency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
+import { getSellingPrice } from '@/lib/pricing'
 import type { StockPageDataResponse, StockPageItem as Item, StockPageLocation as Location, StockPageRow as StockWithDetails } from '@/types/stock'
 
 type SortField = 'item' | 'location' | 'quantity'
@@ -25,11 +28,14 @@ interface StockSummary {
   itemName: string
   brand?: string | null
   imageUrl?: string | null
+  sellingPriceSrd?: number | null
+  sellingPriceUsd?: number | null
   totalQuantity: number
   locations: StockSummaryLocation[]
 }
 
 export default function StockPage() {
+  const { exchangeRate } = useCurrency()
   const { catalogFilter, setCatalogFilter } = useSyncedAdminCatalogFilter()
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -319,6 +325,8 @@ export default function StockPage() {
           itemName,
           brand: stock.items?.brand,
           imageUrl: stock.items?.image_url,
+          sellingPriceSrd: stock.items ? getSellingPrice(stock.items, 'SRD', exchangeRate) : null,
+          sellingPriceUsd: stock.items ? getSellingPrice(stock.items, 'USD', exchangeRate) : null,
           totalQuantity: stock.quantity,
           locations: [{
             id: stock.location_id,
@@ -334,7 +342,7 @@ export default function StockPage() {
       ...summary,
       locations: summary.locations.sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name)),
     }))
-  }, [scopedStocks])
+  }, [exchangeRate, scopedStocks])
 
   const filteredStockSummaries = useMemo(() => (
     showLowStock
@@ -394,6 +402,24 @@ export default function StockPage() {
   const totalItems = stockSummaries.length
   const totalQuantity = stockSummaries.reduce((sum, stock) => sum + stock.totalQuantity, 0)
   const hasLoadedData = items.length > 0 || locations.length > 0 || stocks.length > 0
+  const renderSelectedItemPrice = (itemId: string) => {
+    const item = items.find((stockItem) => stockItem.id === itemId)
+    if (!item) return null
+
+    const srdPrice = getSellingPrice(item, 'SRD', exchangeRate)
+    const usdPrice = getSellingPrice(item, 'USD', exchangeRate)
+    if (srdPrice <= 0 && usdPrice <= 0) return null
+
+    return (
+      <div className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm">
+        <div className="font-semibold text-foreground">{item.name}</div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          <span className="text-primary">{formatCurrency(srdPrice, 'SRD')}</span>
+          <span className="text-muted-foreground">USD {formatCurrency(usdPrice, 'USD')} at 1 USD = {exchangeRate} SRD</span>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -599,6 +625,8 @@ export default function StockPage() {
                     : `${stock.locations.length} ${stock.locations.length === 1 ? 'location' : 'locations'}`
                 }
                 quantity={stock.totalQuantity}
+                sellingPriceSrd={stock.sellingPriceSrd}
+                sellingPriceUsd={stock.sellingPriceUsd}
                 imageUrl={stock.imageUrl}
                 locations={stock.locations}
                 onRemoveLocation={handleRemoveStock}
@@ -623,6 +651,7 @@ export default function StockPage() {
               <option key={item.id} value={item.id}>{item.name}</option>
             ))}
           </Select>
+          {renderSelectedItemPrice(addForm.item_id)}
           <Select
             label="Location"
             value={addForm.location_id}
@@ -664,6 +693,7 @@ export default function StockPage() {
               <option key={item.id} value={item.id}>{item.name}</option>
             ))}
           </Select>
+          {renderSelectedItemPrice(transferForm.item_id)}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               label="From Location"

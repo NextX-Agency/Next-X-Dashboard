@@ -4,18 +4,12 @@ import { createContext, useContext, useState, useEffect, ReactNode, useMemo, use
 import { supabase } from '@/lib/supabase'
 import { type Currency } from '@/lib/currency'
 
-interface ExchangeRate {
-  id: string
-  usd_to_srd: number
-  is_active: boolean
-  set_at: string
-}
-
 interface CurrencyContextType {
   displayCurrency: Currency
   setDisplayCurrency: (currency: Currency) => void
   exchangeRate: number
   isLoading: boolean
+  refreshExchangeRate: () => Promise<void>
   convertToDisplay: (amount: number, fromCurrency: Currency) => number
   convertToUSD: (amount: number, fromCurrency: Currency) => number
   convertToSRD: (amount: number, fromCurrency: Currency) => number
@@ -28,33 +22,48 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [exchangeRate, setExchangeRate] = useState<number>(40) // Default rate
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const loadExchangeRate = async () => {
-      try {
-        const { data } = await supabase
-          .from('exchange_rates')
-          .select('*')
-          .eq('is_active', true)
-          .single()
-        
-        if (data) {
-          setExchangeRate(data.usd_to_srd)
-        }
-      } catch (error) {
-        console.error('Error loading exchange rate:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const refreshExchangeRate = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('exchange_rates')
+        .select('*')
+        .eq('is_active', true)
+        .single()
 
-    loadExchangeRate()
+      if (data) {
+        setExchangeRate(data.usd_to_srd)
+      }
+    } catch (error) {
+      console.error('Error loading exchange rate:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshExchangeRate()
 
     // Load saved preference from localStorage
     const saved = localStorage.getItem('displayCurrency')
     if (saved === 'SRD' || saved === 'USD') {
       setDisplayCurrency(saved)
     }
-  }, [])
+  }, [refreshExchangeRate])
+
+  useEffect(() => {
+    const handleExchangeRateUpdated = (event: Event) => {
+      const nextRate = (event as CustomEvent<{ usdToSrd?: number }>).detail?.usdToSrd
+      if (typeof nextRate === 'number' && Number.isFinite(nextRate) && nextRate > 0) {
+        setExchangeRate(nextRate)
+        return
+      }
+
+      refreshExchangeRate()
+    }
+
+    window.addEventListener('exchange-rate-updated', handleExchangeRateUpdated)
+    return () => window.removeEventListener('exchange-rate-updated', handleExchangeRateUpdated)
+  }, [refreshExchangeRate])
 
   // Save preference to localStorage
   useEffect(() => {
@@ -103,10 +112,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     setDisplayCurrency,
     exchangeRate,
     isLoading,
+    refreshExchangeRate,
     convertToDisplay,
     convertToUSD,
     convertToSRD,
-  }), [displayCurrency, exchangeRate, isLoading, convertToDisplay, convertToUSD, convertToSRD])
+  }), [displayCurrency, exchangeRate, isLoading, refreshExchangeRate, convertToDisplay, convertToUSD, convertToSRD])
 
   return (
     <CurrencyContext.Provider value={contextValue}>

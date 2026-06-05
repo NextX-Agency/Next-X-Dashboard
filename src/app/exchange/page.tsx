@@ -5,12 +5,14 @@ import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { DollarSign, TrendingUp, ArrowRightLeft, History, RefreshCw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner, Badge } from '@/components/UI'
-import { formatCurrency } from '@/lib/currency'
+import { useCurrency } from '@/lib/CurrencyContext'
+import { convertSellingPrice } from '@/lib/pricing'
 import { logActivity } from '@/lib/activityLog'
 
 type ExchangeRate = Database['public']['Tables']['exchange_rates']['Row']
 
 export default function ExchangeRatePage() {
+  const { refreshExchangeRate } = useCurrency()
   const [rates, setRates] = useState<ExchangeRate[]>([])
   const [currentRate, setCurrentRate] = useState<ExchangeRate | null>(null)
   const [newRate, setNewRate] = useState('')
@@ -18,6 +20,8 @@ export default function ExchangeRatePage() {
   const [srdAmount, setSrdAmount] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [syncSummary, setSyncSummary] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
   const loadRates = async () => {
     setLoading(true)
@@ -41,8 +45,16 @@ export default function ExchangeRatePage() {
   const handleSetRate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
+    const parsedRate = parseFloat(newRate)
+
+    if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+      setErrorMessage('Enter a valid exchange rate greater than 0.')
+      return
+    }
     
     setSubmitting(true)
+    setErrorMessage('')
+    setSyncSummary('')
     try {
       await supabase
         .from('exchange_rates')
@@ -50,9 +62,32 @@ export default function ExchangeRatePage() {
         .eq('is_active', true)
 
       const { data: newRateData } = await supabase.from('exchange_rates').insert({
-        usd_to_srd: parseFloat(newRate),
+        usd_to_srd: parsedRate,
         is_active: true
       }).select().single()
+
+      const { data: pricedItems, error: pricedItemsError } = await supabase
+        .from('items')
+        .select('id, selling_price_srd')
+        .is('deleted_at', null)
+        .not('selling_price_srd', 'is', null)
+
+      if (pricedItemsError) throw pricedItemsError
+
+      const updates = (pricedItems || [])
+        .filter((item) => item.selling_price_srd != null && Number(item.selling_price_srd) > 0)
+        .map((item) => (
+          supabase
+            .from('items')
+            .update({
+              selling_price_usd: convertSellingPrice(Number(item.selling_price_srd), 'SRD', parsedRate),
+            })
+            .eq('id', item.id)
+        ))
+
+      const updateResults = await Promise.all(updates)
+      const updateError = updateResults.find((result) => result.error)?.error
+      if (updateError) throw updateError
 
       // Log the rate change
       if (newRateData) {
@@ -62,12 +97,23 @@ export default function ExchangeRatePage() {
           entityType: 'exchange_rate',
           entityId: newRateData.id,
           entityName: `Exchange Rate: 1 USD = ${newRate} SRD`,
-          details: JSON.stringify({ old_rate: currentRate?.usd_to_srd || null, new_rate: parseFloat(newRate), changed_from: oldRateText })
+          details: JSON.stringify({
+            old_rate: currentRate?.usd_to_srd || null,
+            new_rate: parsedRate,
+            changed_from: oldRateText,
+            repriced_items: updates.length,
+          })
         })
       }
 
+      window.dispatchEvent(new CustomEvent('exchange-rate-updated', { detail: { usdToSrd: parsedRate } }))
+      await refreshExchangeRate()
       setNewRate('')
-      loadRates()
+      setSyncSummary(`Updated exchange rate and refreshed ${updates.length} item USD price${updates.length === 1 ? '' : 's'} from SRD.`)
+      await loadRates()
+    } catch (error) {
+      console.error('Error updating exchange rate:', error)
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to update exchange rate right now.')
     } finally {
       setSubmitting(false)
     }
@@ -162,6 +208,16 @@ export default function ExchangeRatePage() {
               </div>
             </div>
             <form onSubmit={handleSetRate} className="space-y-4">
+              {errorMessage && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {errorMessage}
+                </div>
+              )}
+              {syncSummary && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">
+                  {syncSummary}
+                </div>
+              )}
               <Input
                 label="Exchange Rate (1 USD equals)"
                 type="number"

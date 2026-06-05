@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
           is_combo: true,
           deletedAt: true,
           catalogType: true,
+          sellingPriceSrd: true,
+          sellingPriceUsd: true,
         },
         orderBy: { name: 'asc' },
       }),
@@ -65,6 +67,8 @@ export async function GET(request: NextRequest) {
               is_combo: true,
               deletedAt: true,
               catalogType: true,
+              sellingPriceSrd: true,
+              sellingPriceUsd: true,
             },
           },
           location: {
@@ -87,6 +91,8 @@ export async function GET(request: NextRequest) {
         is_combo: item.is_combo,
         deleted_at: item.deletedAt ? toIsoString(item.deletedAt) : null,
         catalog_type: item.catalogType,
+        selling_price_srd: item.sellingPriceSrd === null ? null : Number(item.sellingPriceSrd),
+        selling_price_usd: item.sellingPriceUsd === null ? null : Number(item.sellingPriceUsd),
       })),
       locations: locations.map<StockPageLocation>((location) => ({
         id: location.id,
@@ -108,6 +114,8 @@ export async function GET(request: NextRequest) {
             is_combo: stock.item.is_combo,
             deleted_at: stock.item.deletedAt ? toIsoString(stock.item.deletedAt) : null,
             catalog_type: stock.item.catalogType,
+            selling_price_srd: stock.item.sellingPriceSrd === null ? null : Number(stock.item.sellingPriceSrd),
+            selling_price_usd: stock.item.sellingPriceUsd === null ? null : Number(stock.item.sellingPriceUsd),
           }
           : null,
         locations: stock.location

@@ -528,7 +528,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   // Price calculation
   const getPrice = (item: Item): number => {
     if (currency === 'USD') {
-      return item.selling_price_usd || (item.selling_price_srd ? item.selling_price_srd / exchangeRate : 0)
+      return item.selling_price_srd ? item.selling_price_srd / exchangeRate : (item.selling_price_usd || 0)
     }
     return item.selling_price_srd || (item.selling_price_usd ? item.selling_price_usd * exchangeRate : 0)
   }
@@ -1014,9 +1014,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                   const comboPrice = getPrice(item)
                   const originalPrice = isCombo && item.combo_items ? item.combo_items.reduce((sum, ci) => {
                     if (ci.child_item) {
-                      const itemPrice = currency === 'USD' 
-                        ? (ci.child_item.selling_price_usd || 0) 
-                        : (ci.child_item.selling_price_srd || 0)
+                      const itemPrice = getPrice(ci.child_item)
                       return sum + (itemPrice * ci.quantity)
                     }
                     return sum

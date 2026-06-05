@@ -25,16 +25,14 @@ export function convertSellingPrice(amount: number, fromCurrency: Currency, exch
 }
 
 export function getSellingPrice(item: ItemSellingPrices, currency: Currency, exchangeRate: number): number {
-  const directPrice = currency === 'SRD' ? item.selling_price_srd : item.selling_price_usd
+  const srdPrice = item.selling_price_srd == null ? 0 : Number(item.selling_price_srd)
+  const usdPrice = item.selling_price_usd == null ? 0 : Number(item.selling_price_usd)
 
-  if (directPrice != null && Number(directPrice) > 0) {
-    return Number(directPrice)
+  if (currency === 'SRD') {
+    if (srdPrice > 0) return srdPrice
+    return usdPrice > 0 ? convertSellingPrice(usdPrice, 'USD', exchangeRate) : 0
   }
 
-  const fallbackPrice = currency === 'SRD' ? item.selling_price_usd : item.selling_price_srd
-  if (fallbackPrice == null || Number(fallbackPrice) <= 0) {
-    return 0
-  }
-
-  return convertSellingPrice(Number(fallbackPrice), currency === 'SRD' ? 'USD' : 'SRD', exchangeRate)
+  if (srdPrice > 0) return convertSellingPrice(srdPrice, 'SRD', exchangeRate)
+  return usdPrice > 0 ? usdPrice : 0
 }

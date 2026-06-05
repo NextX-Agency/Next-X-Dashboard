@@ -184,6 +184,8 @@ interface StockCardProps {
   brand?: string | null
   locationName?: string
   quantity: number
+  sellingPriceSrd?: number | null
+  sellingPriceUsd?: number | null
   imageUrl?: string | null
   locations?: Array<{
     id: string
@@ -200,6 +202,8 @@ function StockCardComponent({
   brand,
   locationName,
   quantity,
+  sellingPriceSrd,
+  sellingPriceUsd,
   imageUrl,
   locations,
   onRemove,
@@ -233,6 +237,16 @@ function StockCardComponent({
           <p className="text-sm text-muted-foreground truncate">
             {locationName || (locationCount === 1 ? '1 location' : `${locationCount} locations`)}
           </p>
+          {(sellingPriceSrd != null || sellingPriceUsd != null) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+              {sellingPriceSrd != null && (
+                <span className="font-semibold text-primary">{formatCurrency(sellingPriceSrd, 'SRD')}</span>
+              )}
+              {sellingPriceUsd != null && (
+                <span className="text-muted-foreground">approx. {formatCurrency(sellingPriceUsd, 'USD')}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className={`px-3 py-1.5 rounded-lg font-bold text-lg ${
