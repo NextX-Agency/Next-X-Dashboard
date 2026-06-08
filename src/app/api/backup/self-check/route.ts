@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to run backup self-check.' },
+      { error: error instanceof Error ? error.message : 'Failed to run backup self-check.' },
       { status: 500 },
     )
   }

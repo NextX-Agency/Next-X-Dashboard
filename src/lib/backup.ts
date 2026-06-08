@@ -46,6 +46,51 @@ export const TABLE_ORDER = [
   'activityLogs',
 ] as const
 
+export type BackupTableName = typeof TABLE_ORDER[number]
+
+export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
+  users: 'users',
+  categories: 'categories',
+  expenseCategories: 'expense_categories',
+  budgetCategories: 'budget_categories',
+  blogCategories: 'blog_categories',
+  blogTags: 'blog_tags',
+  locations: 'locations',
+  exchangeRates: 'exchange_rates',
+  storeSettings: 'store_settings',
+  sellers: 'sellers',
+  sellerCategoryRates: 'seller_category_rates',
+  clients: 'clients',
+  items: 'items',
+  comboItems: 'combo_items',
+  itemImages: 'item_images',
+  itemFeatures: 'item_features',
+  stock: 'stock',
+  stockTransfers: 'stock_transfers',
+  wallets: 'wallets',
+  goals: 'goals',
+  purchaseOrders: 'purchase_orders',
+  purchaseOrderItems: 'purchase_order_items',
+  reservations: 'reservations',
+  sales: 'sales',
+  saleItems: 'sale_items',
+  commissions: 'commissions',
+  expenses: 'expenses',
+  walletTransactions: 'wallet_transactions',
+  budgets: 'budgets',
+  blogPosts: 'blog_posts',
+  blogPostTags: 'blog_post_tags',
+  banners: 'banners',
+  pages: 'pages',
+  collections: 'collections',
+  collectionItems: 'collection_items',
+  reviews: 'reviews',
+  faqs: 'faqs',
+  testimonials: 'testimonials',
+  subscribers: 'subscribers',
+  activityLogs: 'activity_logs',
+}
+
 export const DELETE_ORDER = [
   'activityLogs',
   'subscribers',
@@ -91,6 +136,20 @@ export const DELETE_ORDER = [
 
 export const INSERT_ORDER = [...TABLE_ORDER] as const
 
+export async function getExistingBackupTables(): Promise<Set<BackupTableName>> {
+  const rows = await prisma.$queryRaw<Array<{ table_name: string }>>`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+  `
+  const existingDbTables = new Set(rows.map((row) => row.table_name))
+
+  return new Set(
+    TABLE_ORDER.filter((table) => existingDbTables.has(TABLE_DB_NAMES[table]))
+  )
+}
+
 function buildRowCounts(tables: Record<string, unknown[]>): Record<string, number> {
   const rowCounts: Record<string, number> = {}
 
@@ -111,47 +170,52 @@ export function computeBackupChecksum(backup: Omit<BackupPayload, 'checksum'>): 
 
 export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   const data: Record<string, unknown[]> = {}
+  const existingTables = await getExistingBackupTables()
 
-  data.users = await prisma.user.findMany()
-  data.categories = await prisma.category.findMany()
-  data.expenseCategories = await prisma.expenseCategory.findMany()
-  data.budgetCategories = await prisma.budgetCategory.findMany()
-  data.blogCategories = await prisma.blogCategory.findMany()
-  data.blogTags = await prisma.blogTag.findMany()
-  data.locations = await prisma.location.findMany()
-  data.exchangeRates = await prisma.exchangeRate.findMany()
-  data.storeSettings = await prisma.storeSetting.findMany()
-  data.sellers = await prisma.seller.findMany()
-  data.sellerCategoryRates = await prisma.seller_category_rates.findMany()
-  data.clients = await prisma.client.findMany()
-  data.items = await prisma.item.findMany()
-  data.comboItems = await prisma.combo_items.findMany()
-  data.itemImages = await prisma.itemImage.findMany()
-  data.itemFeatures = await prisma.itemFeature.findMany()
-  data.stock = await prisma.stock.findMany()
-  data.stockTransfers = await prisma.stockTransfer.findMany()
-  data.wallets = await prisma.wallet.findMany()
-  data.goals = await prisma.goal.findMany()
-  data.purchaseOrders = await prisma.purchaseOrder.findMany()
-  data.purchaseOrderItems = await prisma.purchaseOrderItem.findMany()
-  data.reservations = await prisma.reservation.findMany()
-  data.sales = await prisma.sale.findMany()
-  data.saleItems = await prisma.saleItem.findMany()
-  data.commissions = await prisma.commission.findMany()
-  data.expenses = await prisma.expense.findMany()
-  data.walletTransactions = await prisma.wallet_transactions.findMany()
-  data.budgets = await prisma.budget.findMany()
-  data.blogPosts = await prisma.blogPost.findMany()
-  data.blogPostTags = await prisma.blogPostTag.findMany()
-  data.banners = await prisma.banner.findMany()
-  data.pages = await prisma.page.findMany()
-  data.collections = await prisma.collection.findMany()
-  data.collectionItems = await prisma.collectionItem.findMany()
-  data.reviews = await prisma.review.findMany()
-  data.faqs = await prisma.fAQ.findMany()
-  data.testimonials = await prisma.testimonial.findMany()
-  data.subscribers = await prisma.subscriber.findMany()
-  data.activityLogs = await prisma.activityLog.findMany()
+  const fetchTable = async (table: BackupTableName, fetcher: () => Promise<unknown[]>) => {
+    data[table] = existingTables.has(table) ? await fetcher() : []
+  }
+
+  await fetchTable('users', () => prisma.user.findMany())
+  await fetchTable('categories', () => prisma.category.findMany())
+  await fetchTable('expenseCategories', () => prisma.expenseCategory.findMany())
+  await fetchTable('budgetCategories', () => prisma.budgetCategory.findMany())
+  await fetchTable('blogCategories', () => prisma.blogCategory.findMany())
+  await fetchTable('blogTags', () => prisma.blogTag.findMany())
+  await fetchTable('locations', () => prisma.location.findMany())
+  await fetchTable('exchangeRates', () => prisma.exchangeRate.findMany())
+  await fetchTable('storeSettings', () => prisma.storeSetting.findMany())
+  await fetchTable('sellers', () => prisma.seller.findMany())
+  await fetchTable('sellerCategoryRates', () => prisma.seller_category_rates.findMany())
+  await fetchTable('clients', () => prisma.client.findMany())
+  await fetchTable('items', () => prisma.item.findMany())
+  await fetchTable('comboItems', () => prisma.combo_items.findMany())
+  await fetchTable('itemImages', () => prisma.itemImage.findMany())
+  await fetchTable('itemFeatures', () => prisma.itemFeature.findMany())
+  await fetchTable('stock', () => prisma.stock.findMany())
+  await fetchTable('stockTransfers', () => prisma.stockTransfer.findMany())
+  await fetchTable('wallets', () => prisma.wallet.findMany())
+  await fetchTable('goals', () => prisma.goal.findMany())
+  await fetchTable('purchaseOrders', () => prisma.purchaseOrder.findMany())
+  await fetchTable('purchaseOrderItems', () => prisma.purchaseOrderItem.findMany())
+  await fetchTable('reservations', () => prisma.reservation.findMany())
+  await fetchTable('sales', () => prisma.sale.findMany())
+  await fetchTable('saleItems', () => prisma.saleItem.findMany())
+  await fetchTable('commissions', () => prisma.commission.findMany())
+  await fetchTable('expenses', () => prisma.expense.findMany())
+  await fetchTable('walletTransactions', () => prisma.wallet_transactions.findMany())
+  await fetchTable('budgets', () => prisma.budget.findMany())
+  await fetchTable('blogPosts', () => prisma.blogPost.findMany())
+  await fetchTable('blogPostTags', () => prisma.blogPostTag.findMany())
+  await fetchTable('banners', () => prisma.banner.findMany())
+  await fetchTable('pages', () => prisma.page.findMany())
+  await fetchTable('collections', () => prisma.collection.findMany())
+  await fetchTable('collectionItems', () => prisma.collectionItem.findMany())
+  await fetchTable('reviews', () => prisma.review.findMany())
+  await fetchTable('faqs', () => prisma.fAQ.findMany())
+  await fetchTable('testimonials', () => prisma.testimonial.findMany())
+  await fetchTable('subscribers', () => prisma.subscriber.findMany())
+  await fetchTable('activityLogs', () => prisma.activityLog.findMany())
 
   return data
 }

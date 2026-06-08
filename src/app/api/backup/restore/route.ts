@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/lib/activityLog'
-import { createBackupPayload, DELETE_ORDER, fetchBackupFromUrl, INSERT_ORDER, saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
+import {
+  createBackupPayload,
+  DELETE_ORDER,
+  fetchBackupFromUrl,
+  getExistingBackupTables,
+  INSERT_ORDER,
+  saveBackupToBlob,
+  TABLE_DB_NAMES,
+  validateBackupPayload,
+  type BackupTableName,
+} from '@/lib/backup'
 import { WIPE_RESTORE_CONFIRMATION } from '@/types/backup'
 
 // Helper: convert date strings back to Date objects for Prisma
@@ -24,49 +34,16 @@ function parseDates(record: Record<string, unknown>): Record<string, unknown> {
   return result
 }
 
-// Wipe all tables in FK-safe order
-async function wipeAllTables() {
-  // Use raw SQL for reliable cascade-free deletion in correct order
-  await prisma.$executeRawUnsafe('DELETE FROM activity_logs')
-  await prisma.$executeRawUnsafe('DELETE FROM subscribers')
-  await prisma.$executeRawUnsafe('DELETE FROM testimonials')
-  await prisma.$executeRawUnsafe('DELETE FROM faqs')
-  await prisma.$executeRawUnsafe('DELETE FROM reviews')
-  await prisma.$executeRawUnsafe('DELETE FROM collection_items')
-  await prisma.$executeRawUnsafe('DELETE FROM collections')
-  await prisma.$executeRawUnsafe('DELETE FROM pages')
-  await prisma.$executeRawUnsafe('DELETE FROM banners')
-  await prisma.$executeRawUnsafe('DELETE FROM blog_post_tags')
-  await prisma.$executeRawUnsafe('DELETE FROM blog_posts')
-  await prisma.$executeRawUnsafe('DELETE FROM budgets')
-  await prisma.$executeRawUnsafe('DELETE FROM wallet_transactions')
-  await prisma.$executeRawUnsafe('DELETE FROM expenses')
-  await prisma.$executeRawUnsafe('DELETE FROM commissions')
-  await prisma.$executeRawUnsafe('DELETE FROM sale_items')
-  await prisma.$executeRawUnsafe('DELETE FROM sales')
-  await prisma.$executeRawUnsafe('DELETE FROM reservations')
-  await prisma.$executeRawUnsafe('DELETE FROM purchase_order_items')
-  await prisma.$executeRawUnsafe('DELETE FROM purchase_orders')
-  await prisma.$executeRawUnsafe('DELETE FROM goals')
-  await prisma.$executeRawUnsafe('DELETE FROM wallets')
-  await prisma.$executeRawUnsafe('DELETE FROM stock_transfers')
-  await prisma.$executeRawUnsafe('DELETE FROM stock')
-  await prisma.$executeRawUnsafe('DELETE FROM item_features')
-  await prisma.$executeRawUnsafe('DELETE FROM item_images')
-  await prisma.$executeRawUnsafe('DELETE FROM combo_items')
-  await prisma.$executeRawUnsafe('DELETE FROM items')
-  await prisma.$executeRawUnsafe('DELETE FROM clients')
-  await prisma.$executeRawUnsafe('DELETE FROM seller_category_rates')
-  await prisma.$executeRawUnsafe('DELETE FROM sellers')
-  await prisma.$executeRawUnsafe('DELETE FROM store_settings')
-  await prisma.$executeRawUnsafe('DELETE FROM exchange_rates')
-  await prisma.$executeRawUnsafe('DELETE FROM locations')
-  await prisma.$executeRawUnsafe('DELETE FROM blog_tags')
-  await prisma.$executeRawUnsafe('DELETE FROM blog_categories')
-  await prisma.$executeRawUnsafe('DELETE FROM budget_categories')
-  await prisma.$executeRawUnsafe('DELETE FROM expense_categories')
-  await prisma.$executeRawUnsafe('DELETE FROM categories')
-  await prisma.$executeRawUnsafe('DELETE FROM users')
+function quoteIdentifier(identifier: string) {
+  return `"${identifier.replace(/"/g, '""')}"`
+}
+
+// Wipe all present tables in FK-safe order.
+async function wipeAllTables(existingTables: ReadonlySet<BackupTableName>) {
+  for (const table of DELETE_ORDER) {
+    if (!existingTables.has(table)) continue
+    await prisma.$executeRawUnsafe(`DELETE FROM ${quoteIdentifier(TABLE_DB_NAMES[table])}`)
+  }
 }
 
 // Insert records for a given table using createMany
@@ -408,11 +385,12 @@ export async function POST(request: NextRequest) {
 
     const results: Record<string, number> = {}
     const errors: string[] = []
+    const existingTables = await getExistingBackupTables()
 
     if (mode === 'wipe') {
       // Step 1: Delete all data in reverse FK order
       try {
-        await wipeAllTables()
+        await wipeAllTables(existingTables)
       } catch (err) {
         console.error('Wipe error:', err)
         return NextResponse.json(
@@ -427,6 +405,15 @@ export async function POST(request: NextRequest) {
           const records = Array.isArray(validation.backup.tables[table])
             ? validation.backup.tables[table] as Record<string, unknown>[]
             : []
+
+          if (!existingTables.has(table)) {
+            results[table] = 0
+            if (records.length > 0) {
+              errors.push(`${table}: table "${TABLE_DB_NAMES[table]}" does not exist in this database. Apply the matching migration before restoring these rows.`)
+            }
+            continue
+          }
+
           const count = await insertTable(table, records || [])
           results[table] = count
         } catch (err) {
@@ -442,6 +429,15 @@ export async function POST(request: NextRequest) {
           const records = Array.isArray(validation.backup.tables[table])
             ? validation.backup.tables[table] as Record<string, unknown>[]
             : []
+
+          if (!existingTables.has(table)) {
+            results[table] = 0
+            if (records.length > 0) {
+              errors.push(`${table}: table "${TABLE_DB_NAMES[table]}" does not exist in this database. Apply the matching migration before restoring these rows.`)
+            }
+            continue
+          }
+
           const count = await upsertTable(table, records || [])
           results[table] = count
         } catch (err) {
