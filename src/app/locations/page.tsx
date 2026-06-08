@@ -12,11 +12,18 @@ import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { fetchWalletPurposeMap, updateWalletPurpose } from '@/lib/walletPurposeClient'
 import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
+import {
+  LOCATION_CATALOG_LABELS,
+  LOCATION_CATALOG_OPTIONS,
+  normalizeLocationCatalogType,
+  type LocationCatalogType,
+} from '@/lib/locationCatalog'
 
 type Location = Database['public']['Tables']['locations']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
 type WalletType = Database['public']['Tables']['wallets']['Row']
 type LocationWallet = WalletType & { purpose: WalletPurpose }
+type CatalogFilter = 'any' | LocationCatalogType
 
 interface LocationWithWallets extends Location {
   wallets?: LocationWallet[]
@@ -34,6 +41,7 @@ export default function LocationsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [filterCatalog, setFilterCatalog] = useState<CatalogFilter>('any')
   const [filterWalletCoverage, setFilterWalletCoverage] = useState<'all' | 'with-wallets' | 'without-wallets'>('all')
   const [filterSellerCoverage, setFilterSellerCoverage] = useState<'all' | 'with-seller' | 'without-seller'>('all')
   const [formData, setFormData] = useState({
@@ -41,7 +49,8 @@ export default function LocationsPage() {
     address: '',
     seller_name: '',
     seller_phone: '',
-    is_active: true
+    is_active: true,
+    catalog_type: 'all' as LocationCatalogType,
   })
   const [walletForm, setWalletForm] = useState({
     type: 'cash' as 'cash' | 'bank',
@@ -122,6 +131,8 @@ export default function LocationsPage() {
     const matchesStatus = filterStatus === 'all'
       || (filterStatus === 'active' && location.is_active)
       || (filterStatus === 'inactive' && !location.is_active)
+    const locationCatalogType = normalizeLocationCatalogType(location.catalog_type)
+    const matchesCatalog = filterCatalog === 'any' || locationCatalogType === filterCatalog
     const matchesWalletCoverage = filterWalletCoverage === 'all'
       || (filterWalletCoverage === 'with-wallets' && walletCount > 0)
       || (filterWalletCoverage === 'without-wallets' && walletCount === 0)
@@ -129,12 +140,13 @@ export default function LocationsPage() {
       || (filterSellerCoverage === 'with-seller' && hasSeller)
       || (filterSellerCoverage === 'without-seller' && !hasSeller)
 
-    return matchesSearch && matchesStatus && matchesWalletCoverage && matchesSellerCoverage
+    return matchesSearch && matchesStatus && matchesCatalog && matchesWalletCoverage && matchesSellerCoverage
   })
 
   const hasActiveFilters = Boolean(
     searchQuery
     || filterStatus !== 'all'
+    || filterCatalog !== 'any'
     || filterWalletCoverage !== 'all'
     || filterSellerCoverage !== 'all'
   )
@@ -142,6 +154,7 @@ export default function LocationsPage() {
   const clearFilters = () => {
     setSearchQuery('')
     setFilterStatus('all')
+    setFilterCatalog('any')
     setFilterWalletCoverage('all')
     setFilterSellerCoverage('all')
   }
@@ -152,7 +165,8 @@ export default function LocationsPage() {
       address: '',
       seller_name: '',
       seller_phone: '',
-      is_active: true
+      is_active: true,
+      catalog_type: 'all'
     })
     setEditingLocation(null)
     setShowForm(false)
@@ -167,7 +181,8 @@ export default function LocationsPage() {
         address: formData.address || null,
         seller_name: formData.seller_name || null,
         seller_phone: formData.seller_phone || null,
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        catalog_type: formData.catalog_type
       }
 
       if (editingLocation) {
@@ -208,7 +223,8 @@ export default function LocationsPage() {
       address: location.address || '',
       seller_name: location.seller_name || '',
       seller_phone: location.seller_phone || '',
-      is_active: location.is_active ?? true
+      is_active: location.is_active ?? true,
+      catalog_type: normalizeLocationCatalogType(location.catalog_type),
     })
     setShowForm(true)
   }
@@ -324,7 +340,7 @@ export default function LocationsPage() {
               </Button>
             )}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <Input
               label="Search"
               value={searchQuery}
@@ -335,6 +351,12 @@ export default function LocationsPage() {
               <option value="all">All statuses</option>
               <option value="active">Active only</option>
               <option value="inactive">Inactive only</option>
+            </Select>
+            <Select label="Catalog" value={filterCatalog} onChange={(event) => setFilterCatalog(event.target.value as CatalogFilter)}>
+              <option value="any">Any catalog</option>
+              {LOCATION_CATALOG_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </Select>
             <Select label="Wallets" value={filterWalletCoverage} onChange={(event) => setFilterWalletCoverage(event.target.value as 'all' | 'with-wallets' | 'without-wallets')}>
               <option value="all">Any wallet state</option>
@@ -368,6 +390,7 @@ export default function LocationsPage() {
               const totalStock = getTotalStock(location.id)
               const srdTotal = getLocationWalletTotal(location, 'SRD')
               const usdTotal = getLocationWalletTotal(location, 'USD')
+              const catalogType = normalizeLocationCatalogType(location.catalog_type)
               
               return (
                 <div 
@@ -388,6 +411,9 @@ export default function LocationsPage() {
                             <h3 className="font-bold text-lg text-foreground">{location.name}</h3>
                             <Badge variant={location.is_active ? 'success' : 'default'}>
                               {location.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <Badge variant={catalogType === 'watches' ? 'info' : catalogType === 'audio' ? 'orange' : 'warning'}>
+                              {LOCATION_CATALOG_LABELS[catalogType]}
                             </Badge>
                           </div>
                           {location.address && (
@@ -544,6 +570,17 @@ export default function LocationsPage() {
               rows={2}
             />
           </div>
+
+          <Select
+            label="Public Catalog"
+            value={formData.catalog_type}
+            onChange={(e) => setFormData({ ...formData, catalog_type: e.target.value as LocationCatalogType })}
+            required
+          >
+            {LOCATION_CATALOG_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
           
           <div className="border-t border-border pt-4">
             <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">

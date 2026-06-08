@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getLocationCatalogFilter, type PublicCatalogType } from '@/lib/locationCatalog'
 
 // In-memory stale cache — serves last-good data during transient DB outages (P1001)
 let staleCache: { data: Record<string, unknown>; timestamp: number } | null = null
@@ -23,7 +24,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'all'
-    const catalogType = searchParams.get('catalogType') || 'audio'
+    const catalogType: PublicCatalogType = searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+    const locationCatalogFilter = getLocationCatalogFilter(catalogType)
 
     const result: Record<string, unknown> = {}
 
@@ -53,7 +55,10 @@ export async function GET(request: NextRequest) {
             combo_items_combo_items_combo_idToitems: true,
           },
         }),
-        prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
+        prisma.location.findMany({
+          where: { is_active: true, catalogType: { in: locationCatalogFilter } },
+          orderBy: { name: 'asc' },
+        }),
         prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
         prisma.banner.findMany({ where: { isActive: true, catalogType }, orderBy: { position: 'asc' } }),
         // Fetch collections with their CollectionItems
@@ -63,7 +68,18 @@ export async function GET(request: NextRequest) {
           include: { items: true },
         }),
         prisma.storeSetting.findMany(),
-        prisma.stock.findMany(),
+        prisma.stock.findMany({
+          where: {
+            item: {
+              catalogType,
+              deletedAt: null,
+            },
+            location: {
+              is_active: true,
+              catalogType: { in: locationCatalogFilter },
+            },
+          },
+        }),
       ])
 
       // Fetch child items for combos in one query
@@ -167,7 +183,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'locations') {
-      result.locations = await prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } })
+      result.locations = await prisma.location.findMany({
+        where: { is_active: true, catalogType: { in: locationCatalogFilter } },
+        orderBy: { name: 'asc' },
+      })
     }
 
     if (type === 'exchangeRate') {
@@ -209,7 +228,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'stock') {
-      result.stock = await prisma.stock.findMany()
+      result.stock = await prisma.stock.findMany({
+        where: {
+          item: {
+            catalogType,
+            deletedAt: null,
+          },
+          location: {
+            is_active: true,
+            catalogType: { in: locationCatalogFilter },
+          },
+        },
+      })
     }
 
     return NextResponse.json(result)

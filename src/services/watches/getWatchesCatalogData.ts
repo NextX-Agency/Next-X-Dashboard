@@ -2,6 +2,10 @@ import 'server-only'
 
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
+import { getLocationCatalogFilter } from '@/lib/locationCatalog'
+
+const CATALOG_TYPE = 'watches'
+const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 
 async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   const [
@@ -15,21 +19,24 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
     stock,
   ] = await Promise.all([
     prisma.category.findMany({
-      where: { catalogType: 'watches' },
+      where: { catalogType: CATALOG_TYPE },
       orderBy: { name: 'asc' },
     }),
     prisma.item.findMany({
-      where: { isPublic: true, is_combo: false, deletedAt: null, catalogType: 'watches' },
+      where: { isPublic: true, is_combo: false, deletedAt: null, catalogType: CATALOG_TYPE },
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
+    prisma.location.findMany({
+      where: { is_active: true, catalogType: { in: LOCATION_CATALOG_FILTER } },
+      orderBy: { name: 'asc' },
+    }),
     prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
     prisma.banner.findMany({
-      where: { isActive: true, catalogType: 'watches' },
+      where: { isActive: true, catalogType: CATALOG_TYPE },
       orderBy: { position: 'asc' },
     }),
     prisma.collection.findMany({
-      where: { isActive: true, isFeatured: true, catalogType: 'watches' },
+      where: { isActive: true, isFeatured: true, catalogType: CATALOG_TYPE },
       orderBy: { createdAt: 'desc' },
       include: { items: true },
     }),
@@ -37,10 +44,14 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
     prisma.stock.findMany({
       where: {
         item: {
-          catalogType: 'watches',
+          catalogType: CATALOG_TYPE,
           isPublic: true,
           is_combo: false,
           deletedAt: null,
+        },
+        location: {
+          is_active: true,
+          catalogType: { in: LOCATION_CATALOG_FILTER },
         },
       },
     }),
@@ -53,7 +64,7 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
     ? await prisma.item.findMany({
       where: {
         id: { in: [...new Set(collectionItemIds)] },
-        catalogType: 'watches',
+        catalogType: CATALOG_TYPE,
         isPublic: true,
         is_combo: false,
         deletedAt: null,

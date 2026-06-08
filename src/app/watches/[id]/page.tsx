@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { prisma } from '@/lib/prisma'
+import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 import WatchDetailClient from './WatchDetailClient'
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
+
+const CATALOG_TYPE = 'watches'
+const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
@@ -13,7 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const item = await prisma.item.findFirst({
       where: {
         id,
-        catalogType: 'watches',
+        catalogType: CATALOG_TYPE,
         isPublic: true,
         is_combo: false,
         deletedAt: null,
@@ -47,12 +51,22 @@ export default async function WatchDetailPage({ params }: PageProps) {
       prisma.item.findFirst({
         where: {
           id,
-          catalogType: 'watches',
+          catalogType: CATALOG_TYPE,
           isPublic: true,
           is_combo: false,
           deletedAt: null,
         },
-        include: { category: true, stock: true },
+        include: {
+          category: true,
+          stock: {
+            where: {
+              location: {
+                is_active: true,
+                catalogType: { in: LOCATION_CATALOG_FILTER },
+              },
+            },
+          },
+        },
       }),
       prisma.storeSetting.findUnique({ where: { key: 'whatsapp_number' } }),
       prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
@@ -65,7 +79,7 @@ export default async function WatchDetailPage({ params }: PageProps) {
     if (!item) notFound()
 
     const relatedBaseWhere = {
-      catalogType: 'watches',
+      catalogType: CATALOG_TYPE,
       isPublic: true,
       is_combo: false,
       deletedAt: null,
@@ -79,7 +93,17 @@ export default async function WatchDetailPage({ params }: PageProps) {
       },
       take: 4,
       orderBy: { createdAt: 'desc' },
-      include: { category: true, stock: true },
+      include: {
+        category: true,
+        stock: {
+          where: {
+            location: {
+              is_active: true,
+              catalogType: { in: LOCATION_CATALOG_FILTER },
+            },
+          },
+        },
+      },
     })
 
     if (related.length < 4) {
@@ -91,7 +115,17 @@ export default async function WatchDetailPage({ params }: PageProps) {
         },
         take: 4 - related.length,
         orderBy: { createdAt: 'desc' },
-        include: { category: true, stock: true },
+        include: {
+          category: true,
+          stock: {
+            where: {
+              location: {
+                is_active: true,
+                catalogType: { in: LOCATION_CATALOG_FILTER },
+              },
+            },
+          },
+        },
       })
 
       related = [...related, ...fallbackRelated]

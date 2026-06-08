@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import type { StockPageDataPayload, StockPageItem, StockPageLocation, StockPageRow } from '@/types/stock'
+import { getLocationCatalogFilter, type PublicCatalogType } from '@/lib/locationCatalog'
 
 function toIsoString(value: Date | null | undefined): string {
   return value?.toISOString() ?? new Date(0).toISOString()
@@ -12,7 +13,8 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+    const catalogType: PublicCatalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+    const locationCatalogFilter = getLocationCatalogFilter(catalogType)
 
     const [items, locations, stocks] = await Promise.all([
       prisma.item.findMany({
@@ -35,9 +37,13 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       }),
       prisma.location.findMany({
+        where: {
+          catalogType: { in: locationCatalogFilter },
+        },
         select: {
           id: true,
           name: true,
+          catalogType: true,
         },
         orderBy: { name: 'asc' },
       }),
@@ -48,6 +54,11 @@ export async function GET(request: NextRequest) {
               deletedAt: null,
               is_combo: false,
               catalogType,
+            },
+          },
+          location: {
+            is: {
+              catalogType: { in: locationCatalogFilter },
             },
           },
         },
@@ -75,6 +86,7 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              catalogType: true,
             },
           },
         },
@@ -97,6 +109,7 @@ export async function GET(request: NextRequest) {
       locations: locations.map<StockPageLocation>((location) => ({
         id: location.id,
         name: location.name,
+        catalog_type: location.catalogType,
       })),
       stocks: stocks.map<StockPageRow>((stock) => ({
         id: stock.id,
@@ -122,6 +135,7 @@ export async function GET(request: NextRequest) {
           ? {
             id: stock.location.id,
             name: stock.location.name,
+            catalog_type: stock.location.catalogType,
           }
           : null,
       })),

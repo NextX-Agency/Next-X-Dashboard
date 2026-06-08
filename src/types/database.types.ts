@@ -132,6 +132,7 @@ export interface Database {
           seller_phone: string | null
           commission_rate: number
           is_active: boolean
+          catalog_type: string
           created_at: string
           updated_at: string
         }
@@ -143,6 +144,7 @@ export interface Database {
           seller_phone?: string | null
           commission_rate?: number
           is_active?: boolean
+          catalog_type?: string
           created_at?: string
           updated_at?: string
         }
@@ -154,6 +156,7 @@ export interface Database {
           seller_phone?: string | null
           commission_rate?: number
           is_active?: boolean
+          catalog_type?: string
           created_at?: string
           updated_at?: string
         }

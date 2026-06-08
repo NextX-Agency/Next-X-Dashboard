@@ -105,6 +105,7 @@ function mapLocation(location: {
   seller_phone: string | null
   commission_rate: unknown
   is_active: boolean | null
+  catalogType?: string | null
 }): ReservationsPageLocation {
   return {
     id: location.id,
@@ -116,6 +117,7 @@ function mapLocation(location: {
     seller_phone: location.seller_phone,
     commission_rate: toNumber(location.commission_rate),
     is_active: location.is_active,
+    catalog_type: location.catalogType ?? 'all',
   }
 }
 
@@ -330,6 +332,7 @@ export async function GET(request: NextRequest) {
           seller_phone: true,
           commission_rate: true,
           is_active: true,
+          catalogType: true,
         },
         orderBy: { name: 'asc' },
       }),

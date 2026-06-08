@@ -101,6 +101,7 @@ model Location {
   seller_phone    String?
   commission_rate Decimal?        @default(0) @db.Decimal(5, 2)
   is_active       Boolean?        @default(true)
+  catalogType     String          @default("all") @map("catalog_type")
   clients         Client[]
   commissions     Commission[]
   expenses        Expense[]
@@ -114,6 +115,7 @@ model Location {
   wallets         Wallet[]
 
   @@map("locations")
+  @@index([catalogType], map: "idx_locations_catalog_type")
 }
 
 model Stock {

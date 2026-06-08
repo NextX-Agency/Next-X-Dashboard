@@ -9,7 +9,7 @@ export type StockPageItem = Pick<
   'id' | 'name' | 'brand' | 'image_url' | 'is_combo' | 'deleted_at' | 'catalog_type' | 'selling_price_srd' | 'selling_price_usd'
 >
 
-export type StockPageLocation = Pick<LocationRow, 'id' | 'name'>
+export type StockPageLocation = Pick<LocationRow, 'id' | 'name' | 'catalog_type'>
 
 export interface StockPageRow extends Pick<
   StockRow,

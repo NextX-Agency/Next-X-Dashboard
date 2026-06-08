@@ -10,6 +10,7 @@ import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
+import { LOCATION_CATALOG_LABELS, normalizeLocationCatalogType } from '@/lib/locationCatalog'
 import type { StockPageDataResponse, StockPageItem as Item, StockPageLocation as Location, StockPageRow as StockWithDetails } from '@/types/stock'
 
 type SortField = 'item' | 'location' | 'quantity'
@@ -112,6 +113,7 @@ export default function StockPage() {
   useEffect(() => {
     setAddForm((current) => ({ ...current, item_id: '' }))
     setTransferForm((current) => ({ ...current, item_id: '' }))
+    setSelectedLocation('')
   }, [catalogFilter])
 
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
@@ -570,7 +572,9 @@ export default function StockPage() {
             >
               <option value="">All Locations</option>
               {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                <option key={loc.id} value={loc.id}>
+                  {loc.name} - {LOCATION_CATALOG_LABELS[normalizeLocationCatalogType(loc.catalog_type)]}
+                </option>
               ))}
             </Select>
             <Select
@@ -669,7 +673,9 @@ export default function StockPage() {
           >
             <option value="">Select Location</option>
             {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
+              <option key={loc.id} value={loc.id}>
+                {loc.name} - {LOCATION_CATALOG_LABELS[normalizeLocationCatalogType(loc.catalog_type)]}
+              </option>
             ))}
           </Select>
           <Input
@@ -712,7 +718,9 @@ export default function StockPage() {
             >
               <option value="">Select</option>
               {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                <option key={loc.id} value={loc.id}>
+                  {loc.name} - {LOCATION_CATALOG_LABELS[normalizeLocationCatalogType(loc.catalog_type)]}
+                </option>
               ))}
             </Select>
             <Select
@@ -723,7 +731,9 @@ export default function StockPage() {
             >
               <option value="">Select</option>
               {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
+                <option key={loc.id} value={loc.id}>
+                  {loc.name} - {LOCATION_CATALOG_LABELS[normalizeLocationCatalogType(loc.catalog_type)]}
+                </option>
               ))}
             </Select>
           </div>

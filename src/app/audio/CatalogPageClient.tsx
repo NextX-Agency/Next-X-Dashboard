@@ -8,6 +8,7 @@ import type { NormalizedCatalogData } from '@/lib/catalogData'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
+import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 import { 
   getItemStockStatus, 
   getItemStockLevel, 
@@ -135,6 +136,9 @@ const DEFAULT_SETTINGS: StoreSettings = {
   hero_title: 'Welkom',
   hero_subtitle: ''
 }
+
+const CATALOG_TYPE = 'audio'
+const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 
 function createStockMap(stockData: unknown[]): Map<string, number> {
   const map = new Map<string, number>()
@@ -363,12 +367,12 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         // Fallback to Supabase (in case API fails)
         console.log('Falling back to Supabase')
         const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
-          supabase.from('categories').select('*').order('name'),
-          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).order('created_at', { ascending: false }),
+          supabase.from('categories').select('*').eq('catalog_type', CATALOG_TYPE).order('name'),
+          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).eq('catalog_type', CATALOG_TYPE).order('created_at', { ascending: false }),
           supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
           supabase.from('store_settings').select('*'),
-          supabase.from('locations').select('*').eq('is_active', true).order('name'),
-          supabase.from('banners').select('*').eq('is_active', true).order('position'),
+          supabase.from('locations').select('*').eq('is_active', true).in('catalog_type', LOCATION_CATALOG_FILTER).order('name'),
+          supabase.from('banners').select('*').eq('is_active', true).eq('catalog_type', CATALOG_TYPE).order('position'),
           supabase.from('collections')
             .select(`
               *,
@@ -382,6 +386,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
             `)
             .eq('is_active', true)
             .eq('is_featured', true)
+            .eq('catalog_type', CATALOG_TYPE)
             .order('created_at', { ascending: false })
         ])
         
@@ -399,6 +404,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
           .select('*')
           .eq('is_public', true)
           .eq('is_combo', true)
+          .eq('catalog_type', CATALOG_TYPE)
         
         if (combosRes.data && combosRes.data.length > 0) {
           const comboItemsRes = await supabase
@@ -457,11 +463,16 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
 
         const { data: stockData } = await supabase
           .from('stock')
-          .select('item_id, quantity')
+          .select('item_id, location_id, quantity')
         
         if (stockData) {
+          const visibleLocationIds = new Set((locationsRes.data || []).map((location: { id: string }) => location.id))
           const map = new Map<string, number>()
-          stockData.forEach((stock: { item_id: string; quantity: number }) => {
+          stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
+            if (!visibleLocationIds.has(stock.location_id)) {
+              return
+            }
+
             const current = map.get(stock.item_id) || 0
             map.set(stock.item_id, current + stock.quantity)
           })
@@ -504,11 +515,16 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       // Fallback to Supabase
       const { data: stockData } = await supabase
         .from('stock')
-        .select('item_id, quantity')
+        .select('item_id, location_id, quantity')
       
       if (stockData) {
+        const visibleLocationIds = new Set(locations.map((location) => location.id))
         const map = new Map<string, number>()
-        stockData.forEach((stock: { item_id: string; quantity: number }) => {
+        stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
+          if (!visibleLocationIds.has(stock.location_id)) {
+            return
+          }
+
           const current = map.get(stock.item_id) || 0
           map.set(stock.item_id, current + stock.quantity)
         })
@@ -518,7 +534,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     } catch (err) {
       console.error('Error refreshing stock:', err)
     }
-  }, [])
+  }, [locations])
 
   // Periodic stock refresh for real-time accuracy (60s instead of 30s to reduce load)
   useEffect(() => {

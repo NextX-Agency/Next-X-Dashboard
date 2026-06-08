@@ -41,6 +41,7 @@ function mapLocation(location: {
   seller_phone: string | null
   commission_rate: unknown
   is_active: boolean | null
+  catalogType?: string | null
 }): InvoicesPageLocation {
   return {
     id: location.id,
@@ -50,6 +51,7 @@ function mapLocation(location: {
     seller_phone: location.seller_phone,
     commission_rate: toNumber(location.commission_rate),
     is_active: location.is_active ?? true,
+    catalog_type: location.catalogType ?? 'all',
     created_at: toIsoString(location.createdAt),
     updated_at: toIsoString(location.updatedAt),
   }

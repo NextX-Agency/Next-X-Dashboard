@@ -3,8 +3,10 @@ import 'server-only'
 import { unstable_cache } from 'next/cache'
 
 import { prisma } from '@/lib/prisma'
+import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 
 const CATALOG_TYPE = 'audio'
+const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 
 async function loadCatalogPageData(): Promise<Record<string, unknown>> {
   const [
@@ -33,7 +35,10 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
         combo_items_combo_items_combo_idToitems: true,
       },
     }),
-    prisma.location.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
+    prisma.location.findMany({
+      where: { is_active: true, catalogType: { in: LOCATION_CATALOG_FILTER } },
+      orderBy: { name: 'asc' },
+    }),
     prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
     prisma.banner.findMany({ where: { isActive: true, catalogType: CATALOG_TYPE }, orderBy: { position: 'asc' } }),
     prisma.collection.findMany({
@@ -42,7 +47,18 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
       include: { items: true },
     }),
     prisma.storeSetting.findMany(),
-    prisma.stock.findMany(),
+    prisma.stock.findMany({
+      where: {
+        item: {
+          catalogType: CATALOG_TYPE,
+          deletedAt: null,
+        },
+        location: {
+          is_active: true,
+          catalogType: { in: LOCATION_CATALOG_FILTER },
+        },
+      },
+    }),
   ])
 
   const allChildItemIds = combosRaw.flatMap(

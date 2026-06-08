@@ -71,6 +71,7 @@ function mapLocation(location: {
   seller_phone: string | null
   commission_rate: unknown
   is_active: boolean | null
+  catalogType?: string | null
 }): SalesPageLocation {
   return {
     id: location.id,
@@ -82,6 +83,7 @@ function mapLocation(location: {
     seller_phone: location.seller_phone,
     commission_rate: toNumber(location.commission_rate),
     is_active: location.is_active,
+    catalog_type: location.catalogType ?? 'all',
   }
 }
 
@@ -165,6 +167,7 @@ function mapRecentSale(sale: {
     seller_phone: string | null
     commission_rate: unknown
     is_active: boolean | null
+    catalogType?: string | null
   }
   saleItems: Array<{
     id: string

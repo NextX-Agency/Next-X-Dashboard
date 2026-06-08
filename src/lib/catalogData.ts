@@ -53,6 +53,7 @@ export interface CatalogApiData {
     name: string
     address: string | null
     isActive: boolean
+    catalogType: string
   }>
   exchangeRate: {
     id: string
