@@ -150,6 +150,21 @@ export async function getExistingBackupTables(): Promise<Set<BackupTableName>> {
   )
 }
 
+export async function getUntrackedPublicTables(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<Array<{ table_name: string }>>`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+      AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `
+  const trackedDbTables = new Set(Object.values(TABLE_DB_NAMES))
+
+  return rows
+    .map((row) => row.table_name)
+    .filter((tableName) => !trackedDbTables.has(tableName))
+}
+
 function buildRowCounts(tables: Record<string, unknown[]>): Record<string, number> {
   const rowCounts: Record<string, number> = {}
 
@@ -170,6 +185,11 @@ export function computeBackupChecksum(backup: Omit<BackupPayload, 'checksum'>): 
 
 export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   const data: Record<string, unknown[]> = {}
+  const untrackedTables = await getUntrackedPublicTables()
+  if (untrackedTables.length > 0) {
+    throw new Error(`Backup coverage is incomplete. Add these public table(s) to the backup manifest before creating a backup: ${untrackedTables.join(', ')}`)
+  }
+
   const existingTables = await getExistingBackupTables()
 
   const fetchTable = async (table: BackupTableName, fetcher: () => Promise<unknown[]>) => {
