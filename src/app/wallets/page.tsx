@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { 
   Wallet, Plus, DollarSign, Edit, Trash2, ArrowUpRight, ArrowDownLeft, 
   TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft,
@@ -12,8 +11,6 @@ import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity } from '@/lib/activityLog'
-import { updateWalletPurpose } from '@/lib/walletPurposeClient'
 import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
 import type {
   WalletsPageDataResponse,
@@ -34,6 +31,28 @@ interface LocationWithWallets extends Location {
 
 interface TransactionWithDetails extends WalletTransaction {
   wallets?: WalletType & { locations?: Location | null } | null
+}
+
+interface ApiResponse<T> {
+  data?: T
+  error?: string
+}
+
+async function apiRequest<T>(url: string, init: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  })
+  const payload = await response.json().catch(() => ({})) as ApiResponse<T>
+
+  if (!response.ok) {
+    throw new Error(payload.error || 'Request failed.')
+  }
+
+  return payload.data as T
 }
 
 type ViewMode = 'locations' | 'all' | 'savings'
@@ -161,7 +180,6 @@ export default function WalletsPage() {
     setSubmitting(true)
     
     try {
-      const location = locations.find(l => l.id === walletForm.location_id)
       const purposeLabel = WALLET_PURPOSE_LABELS[walletForm.purpose]
       const existing = wallets.find(w =>
         w.id !== editingWallet?.id &&
@@ -177,9 +195,9 @@ export default function WalletsPage() {
         return
       }
 
-      const data = {
+      const payload = {
+        id: editingWallet?.id,
         location_id: walletForm.location_id,
-        person_name: location?.name || 'Unknown', // Keep for backwards compatibility
         type: walletForm.type,
         currency: walletForm.currency,
         balance: parseFloat(walletForm.balance) || 0,
@@ -187,27 +205,14 @@ export default function WalletsPage() {
       }
 
       if (editingWallet) {
-        const { error } = await supabase.from('wallets').update(data).eq('id', editingWallet.id)
-        if (error) throw error
-        await updateWalletPurpose(editingWallet.id, walletForm.purpose)
-        await logActivity({
-          action: 'update',
-          entityType: 'wallet',
-          entityId: editingWallet.id,
-          entityName: `${location?.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
-          details: `Updated ${purposeLabel} wallet for location ${location?.name}`
+        await apiRequest<WalletWithLocation>('/api/wallets', {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
         })
       } else {
-        const { data: newWallet, error } = await supabase.from('wallets').insert(data).select().single()
-        if (error) throw error
-        if (!newWallet) throw new Error('Wallet creation did not return a wallet id.')
-        await updateWalletPurpose(newWallet.id, walletForm.purpose)
-        await logActivity({
-          action: 'create',
-          entityType: 'wallet',
-          entityId: newWallet?.id,
-          entityName: `${location?.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
-          details: `Created ${purposeLabel} ${walletForm.type} ${walletForm.currency} wallet for ${location?.name} with balance ${formatCurrency(parseFloat(walletForm.balance) || 0, walletForm.currency)}`
+        await apiRequest<WalletWithLocation>('/api/wallets', {
+          method: 'POST',
+          body: JSON.stringify(payload),
         })
       }
       resetForm()
@@ -237,7 +242,7 @@ export default function WalletsPage() {
     const walletName = `${locationName} - ${WALLET_PURPOSE_LABELS[wallet.purpose]} ${wallet.type} ${wallet.currency}`
     const ok = await confirm({
       title: 'Delete Wallet',
-      message: 'This will permanently delete the wallet and all its transaction history. This cannot be undone.',
+      message: 'Only empty wallets with no financial history can be deleted. Wallets with balance, transactions, sales, expenses, or orders are preserved for reports.',
       itemName: walletName,
       itemDetails: `Balance: ${formatCurrency(wallet.balance, wallet.currency as Currency)}`,
       variant: 'danger',
@@ -245,13 +250,8 @@ export default function WalletsPage() {
     })
     if (!ok) return
     
-    await supabase.from('wallets').delete().eq('id', wallet.id)
-    await logActivity({
-      action: 'delete',
-      entityType: 'wallet',
-      entityId: wallet.id,
-      entityName: walletName,
-      details: `Deleted ${WALLET_PURPOSE_LABELS[wallet.purpose]} wallet with balance ${formatCurrency(wallet.balance, wallet.currency as Currency)}`
+    await apiRequest<{ id: string }>(`/api/wallets?id=${encodeURIComponent(wallet.id)}`, {
+      method: 'DELETE',
     })
     await loadData()
   }
@@ -263,70 +263,28 @@ export default function WalletsPage() {
     setSubmitting(true)
     try {
       const amount = parseFloat(transactionForm.amount)
-      if (isNaN(amount) || amount < 0) {
+      if (isNaN(amount) || amount < 0 || (transactionForm.type !== 'correct' && amount === 0)) {
         alert('Enter a valid amount')
         setSubmitting(false)
         return
       }
-      
-      const previousBalance = selectedWallet.balance
-      let newBalance: number
-      let transactionType: 'credit' | 'debit' | 'adjustment'
-      let description: string
-      
-      if (transactionForm.type === 'correct') {
-        // Correct balance - set to exact amount
-        newBalance = amount
-        transactionType = 'adjustment'
-        description = transactionForm.description || `Balance correction to ${formatCurrency(amount, selectedWallet.currency as Currency)}`
-      } else {
-        // Add or remove
-        newBalance = transactionForm.type === 'add'
-          ? previousBalance + amount
-          : previousBalance - amount
-        transactionType = transactionForm.type === 'add' ? 'credit' : 'debit'
-        description = transactionForm.description || `Manual ${transactionForm.type === 'add' ? 'deposit' : 'withdrawal'}`
-      }
 
-      if (newBalance < 0 && transactionForm.type !== 'correct') {
-        alert('Insufficient balance')
-        setSubmitting(false)
-        return
-      }
-
-      // Update wallet balance
-      await supabase
-        .from('wallets')
-        .update({ balance: newBalance })
-        .eq('id', selectedWallet.id)
-
-      // Create transaction record
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: selectedWallet.id,
-        type: transactionType,
-        amount: transactionForm.type === 'correct' ? Math.abs(newBalance - previousBalance) : amount,
-        balance_before: previousBalance,
-        balance_after: newBalance,
-        description: description,
-        reference_type: transactionForm.type === 'correct' ? 'correction' : 'adjustment',
-        currency: selectedWallet.currency
-      })
-
-      const locationName = selectedWallet.locations?.name || 'Unknown'
-      await logActivity({
-        action: 'update',
-        entityType: 'wallet',
-        entityId: selectedWallet.id,
-        entityName: `${locationName} - ${selectedWallet.type} ${selectedWallet.currency}`,
-        details: transactionForm.type === 'correct' 
-          ? `Corrected balance from ${formatCurrency(previousBalance, selectedWallet.currency as Currency)} to ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
-          : `${transactionForm.type === 'add' ? 'Added' : 'Removed'} ${formatCurrency(amount, selectedWallet.currency as Currency)} - Balance: ${formatCurrency(newBalance, selectedWallet.currency as Currency)}`
+      await apiRequest('/api/wallets/transactions', {
+        method: 'POST',
+        body: JSON.stringify({
+          walletId: selectedWallet.id,
+          type: transactionForm.type,
+          amount,
+          description: transactionForm.description,
+        }),
       })
 
       setTransactionForm({ type: 'add', amount: '', description: '' })
       setShowTransactionForm(false)
       setSelectedWallet(null)
       await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update wallet balance.')
     } finally {
       setSubmitting(false)
     }
@@ -366,61 +324,21 @@ export default function WalletsPage() {
         return
       }
 
-      const fromNewBalance = fromWallet.balance - amount
-      const toNewBalance = toWallet.balance + amount
-
-      // Update source wallet balance
-      await supabase
-        .from('wallets')
-        .update({ balance: fromNewBalance })
-        .eq('id', fromWallet.id)
-
-      // Update destination wallet balance
-      await supabase
-        .from('wallets')
-        .update({ balance: toNewBalance })
-        .eq('id', toWallet.id)
-
-      // Create debit transaction for source wallet
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: fromWallet.id,
-        type: 'debit',
-        amount: amount,
-        balance_before: fromWallet.balance,
-        balance_after: fromNewBalance,
-        description: transferForm.description || `Transfer to ${toWallet.locations?.name || 'Unknown'} - ${toWallet.type} ${toWallet.currency}`,
-        reference_type: 'transfer',
-        reference_id: toWallet.id,
-        currency: fromWallet.currency
-      })
-
-      // Create credit transaction for destination wallet
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: toWallet.id,
-        type: 'credit',
-        amount: amount,
-        balance_before: toWallet.balance,
-        balance_after: toNewBalance,
-        description: transferForm.description || `Transfer from ${fromWallet.locations?.name || 'Unknown'} - ${fromWallet.type} ${fromWallet.currency}`,
-        reference_type: 'transfer',
-        reference_id: fromWallet.id,
-        currency: toWallet.currency
-      })
-
-      const fromLocationName = fromWallet.locations?.name || 'Unknown'
-      const toLocationName = toWallet.locations?.name || 'Unknown'
-      
-      await logActivity({
-        action: 'transfer',
-        entityType: 'wallet',
-        entityId: fromWallet.id,
-        entityName: `${fromLocationName} → ${toLocationName}`,
-        details: `Transferred ${formatCurrency(amount, fromWallet.currency as Currency)} from ${fromLocationName} (${fromWallet.type}) to ${toLocationName} (${toWallet.type})`
+      await apiRequest('/api/wallets/transfers', {
+        method: 'POST',
+        body: JSON.stringify({
+          fromWalletId: fromWallet.id,
+          toWalletId: toWallet.id,
+          amount,
+          description: transferForm.description,
+        }),
       })
 
       setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
       setShowTransferForm(false)
       await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to transfer money between wallets.')
     } finally {
       setSubmitting(false)
     }

@@ -44,12 +44,46 @@ ALTER TABLE wallets
 ALTER TABLE wallets
   DROP CONSTRAINT IF EXISTS wallets_person_name_type_currency_key;
 
+DROP INDEX IF EXISTS wallets_person_name_type_currency_key;
+
 ALTER TABLE wallets
   DROP CONSTRAINT IF EXISTS wallets_person_name_type_currency_purpose_key;
 
+DROP INDEX IF EXISTS wallets_person_name_type_currency_purpose_key;
+
 ALTER TABLE wallets
-  ADD CONSTRAINT wallets_person_name_type_currency_purpose_key
-  UNIQUE (person_name, type, currency, purpose);
+  DROP CONSTRAINT IF EXISTS wallets_location_type_currency_purpose_key;
+
+ALTER TABLE wallets
+  ADD CONSTRAINT wallets_location_type_currency_purpose_key
+  UNIQUE (location_id, type, currency, purpose);
 
 CREATE INDEX IF NOT EXISTS idx_wallets_location_type_currency_purpose
   ON wallets(location_id, type, currency, purpose);
+
+INSERT INTO wallet_transactions (
+  wallet_id,
+  type,
+  amount,
+  balance_before,
+  balance_after,
+  description,
+  reference_type,
+  currency
+)
+SELECT
+  wallets.id,
+  'adjustment',
+  ABS(wallets.balance),
+  0,
+  wallets.balance,
+  'Opening balance backfill',
+  'opening_balance_backfill',
+  wallets.currency
+FROM wallets
+WHERE wallets.balance <> 0
+  AND NOT EXISTS (
+    SELECT 1
+    FROM wallet_transactions
+    WHERE wallet_transactions.wallet_id = wallets.id
+  );

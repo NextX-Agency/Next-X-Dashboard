@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { fetchWalletPurposeMap, updateWalletPurpose } from '@/lib/walletPurposeClient'
+import { fetchWalletPurposeMap } from '@/lib/walletPurposeClient'
 import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, isWalletPurpose, type WalletPurpose } from '@/types/walletPurpose'
 import {
   LOCATION_CATALOG_LABELS,
@@ -24,6 +24,28 @@ type Stock = Database['public']['Tables']['stock']['Row']
 type WalletType = Database['public']['Tables']['wallets']['Row']
 type LocationWallet = WalletType & { purpose: WalletPurpose }
 type CatalogFilter = 'any' | LocationCatalogType
+
+interface ApiResponse<T> {
+  data?: T
+  error?: string
+}
+
+async function apiRequest<T>(url: string, init: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  })
+  const payload = await response.json().catch(() => ({})) as ApiResponse<T>
+
+  if (!response.ok) {
+    throw new Error(payload.error || 'Request failed.')
+  }
+
+  return payload.data as T
+}
 
 interface LocationWithWallets extends Location {
   wallets?: LocationWallet[]
@@ -274,7 +296,6 @@ export default function LocationsPage() {
       }
 
       const walletData = {
-        person_name: selectedLocation.name,
         type: walletForm.type,
         currency: walletForm.currency,
         balance: parseFloat(walletForm.balance) || 0,
@@ -282,19 +303,10 @@ export default function LocationsPage() {
         purpose: walletForm.purpose,
       }
       
-      const { data: newWallet, error } = await supabase.from('wallets').insert(walletData).select().single()
-      if (error) throw error
-      
-      if (newWallet) {
-        await updateWalletPurpose(newWallet.id, walletForm.purpose)
-        await logActivity({
-          action: 'create',
-          entityType: 'wallet',
-          entityId: newWallet.id,
-          entityName: `${selectedLocation.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
-          details: `Created ${purposeLabel} ${walletForm.type} wallet in ${walletForm.currency} for location ${selectedLocation.name}`
-        })
-      }
+      await apiRequest<LocationWallet>('/api/wallets', {
+        method: 'POST',
+        body: JSON.stringify(walletData),
+      })
       
       setWalletForm({ type: 'cash', currency: 'SRD', balance: '', purpose: DEFAULT_WALLET_PURPOSE })
       setShowWalletForm(false)

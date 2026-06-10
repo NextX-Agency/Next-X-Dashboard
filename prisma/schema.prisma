@@ -247,7 +247,7 @@ model Wallet {
   wallet_transactions wallet_transactions[]
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
 
-  @@unique([personName, type, currency, purpose], map: "wallets_person_name_type_currency_purpose_key")
+  @@unique([location_id, type, currency, purpose], map: "wallets_location_type_currency_purpose_key")
   @@index([location_id], map: "idx_wallets_location")
   @@index([location_id, type, currency, purpose], map: "idx_wallets_location_type_currency_purpose")
   @@map("wallets")
