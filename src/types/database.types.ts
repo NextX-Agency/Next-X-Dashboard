@@ -649,6 +649,59 @@ export interface Database {
           updated_at?: string
         }
       }
+      finance_obligations: {
+        Row: {
+          id: string
+          type: string
+          counterparty_name: string
+          location_id: string | null
+          currency: string
+          original_amount: number
+          paid_amount: number
+          status: string
+          due_date: string | null
+          issued_at: string
+          notes: string | null
+          source_type: string | null
+          source_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          type: string
+          counterparty_name: string
+          location_id?: string | null
+          currency?: string
+          original_amount: number
+          paid_amount?: number
+          status?: string
+          due_date?: string | null
+          issued_at?: string
+          notes?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          type?: string
+          counterparty_name?: string
+          location_id?: string | null
+          currency?: string
+          original_amount?: number
+          paid_amount?: number
+          status?: string
+          due_date?: string | null
+          issued_at?: string
+          notes?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       activity_logs: {
         Row: {
           id: string

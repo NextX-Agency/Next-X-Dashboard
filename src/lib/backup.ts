@@ -24,6 +24,7 @@ export const TABLE_ORDER = [
   'stockTransfers',
   'wallets',
   'goals',
+  'financeObligations',
   'purchaseOrders',
   'purchaseOrderItems',
   'reservations',
@@ -69,6 +70,7 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   stockTransfers: 'stock_transfers',
   wallets: 'wallets',
   goals: 'goals',
+  financeObligations: 'finance_obligations',
   purchaseOrders: 'purchase_orders',
   purchaseOrderItems: 'purchase_order_items',
   reservations: 'reservations',
@@ -112,6 +114,7 @@ export const DELETE_ORDER = [
   'reservations',
   'purchaseOrderItems',
   'purchaseOrders',
+  'financeObligations',
   'goals',
   'wallets',
   'stockTransfers',
@@ -216,6 +219,7 @@ export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   await fetchTable('stockTransfers', () => prisma.stockTransfer.findMany())
   await fetchTable('wallets', () => prisma.wallet.findMany())
   await fetchTable('goals', () => prisma.goal.findMany())
+  await fetchTable('financeObligations', () => prisma.financeObligation.findMany())
   await fetchTable('purchaseOrders', () => prisma.purchaseOrder.findMany())
   await fetchTable('purchaseOrderItems', () => prisma.purchaseOrderItem.findMany())
   await fetchTable('reservations', () => prisma.reservation.findMany())

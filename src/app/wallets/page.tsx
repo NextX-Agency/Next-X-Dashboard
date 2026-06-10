@@ -1,17 +1,63 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { 
-  Wallet, Plus, DollarSign, Edit, Trash2, ArrowUpRight, ArrowDownLeft, 
-  TrendingUp, History, Building2, Banknote, CreditCard, ArrowRightLeft,
-  ChevronDown, ChevronUp, MapPin, AlertTriangle, RefreshCcw, PiggyBank, Search, X
+import { useCallback, useEffect, useState } from 'react'
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Banknote,
+  Building2,
+  CalendarClock,
+  CheckCircle2,
+  CreditCard,
+  DollarSign,
+  Edit,
+  FileText,
+  History,
+  Landmark,
+  MapPin,
+  PiggyBank,
+  Plus,
+  ReceiptText,
+  RefreshCcw,
+  Search,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  X,
+  type LucideIcon,
 } from 'lucide-react'
-import { PageHeader, PageContainer, Button, EmptyState, LoadingSpinner, StatBox, Badge, Input, Select } from '@/components/UI'
-import { Modal } from '@/components/PageCards'
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  LoadingSpinner,
+  Modal,
+  PageContainer,
+  PageHeader,
+  Select,
+  Textarea,
+} from '@/components/UI'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
+import {
+  DEFAULT_WALLET_PURPOSE,
+  WALLET_PURPOSE_LABELS,
+  type WalletPurpose,
+} from '@/types/walletPurpose'
+import type {
+  FinanceMoneyTotals,
+  FinanceObligationRecord,
+  FinanceObligationStatus,
+  FinanceObligationType,
+  FinanceObligationsResponse,
+  FinanceSummaryPayload,
+  FinanceSummaryResponse,
+} from '@/types/finance'
 import type {
   WalletsPageDataResponse,
   WalletsPageLocation as Location,
@@ -24,13 +70,13 @@ interface WalletWithLocation extends WalletType {
 }
 
 interface LocationWithWallets extends Location {
-  wallets: WalletType[]
+  wallets: WalletWithLocation[]
   totalSRD: number
   totalUSD: number
 }
 
 interface TransactionWithDetails extends WalletTransaction {
-  wallets?: WalletType & { locations?: Location | null } | null
+  wallets?: WalletWithLocation | null
 }
 
 interface ApiResponse<T> {
@@ -38,7 +84,14 @@ interface ApiResponse<T> {
   error?: string
 }
 
-async function apiRequest<T>(url: string, init: RequestInit): Promise<T> {
+type FinanceTab = 'overview' | 'wallets' | 'receivables' | 'payables' | 'forecast'
+type WalletView = 'locations' | 'all' | 'savings'
+type BalanceFilter = 'all' | 'positive' | 'zero' | 'negative'
+type HistoryFilter = 'all' | 'credit' | 'debit' | 'adjustment'
+
+const ZERO_MONEY: FinanceMoneyTotals = { srd: 0, usd: 0, totalSrd: 0, totalUsd: 0 }
+
+async function apiRequest<T>(url: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(url, {
     ...init,
     headers: {
@@ -55,10 +108,18 @@ async function apiRequest<T>(url: string, init: RequestInit): Promise<T> {
   return payload.data as T
 }
 
-type ViewMode = 'locations' | 'all' | 'savings'
-type BalanceFilter = 'all' | 'positive' | 'zero' | 'negative'
-type WalletSort = 'location' | 'highest' | 'lowest' | 'recent'
-type HistoryFilter = 'all' | 'credit' | 'debit' | 'adjustment'
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function combineMoney(left: FinanceMoneyTotals, right: FinanceMoneyTotals): FinanceMoneyTotals {
+  return {
+    srd: roundMoney(left.srd + right.srd),
+    usd: roundMoney(left.usd + right.usd),
+    totalSrd: roundMoney(left.totalSrd + right.totalSrd),
+    totalUsd: roundMoney(left.totalUsd + right.totalUsd),
+  }
+}
 
 function getPurposeBadgeVariant(purpose: WalletPurpose): 'default' | 'warning' | 'info' {
   if (purpose === 'savings') return 'warning'
@@ -66,45 +127,77 @@ function getPurposeBadgeVariant(purpose: WalletPurpose): 'default' | 'warning' |
   return 'default'
 }
 
-// Approximate USD to SRD exchange rate (can be made dynamic)
-const USD_TO_SRD_RATE = 35.6
+function formatMoneySummary(total: FinanceMoneyTotals | null | undefined, primaryCurrency: Currency = 'SRD') {
+  const money = total ?? ZERO_MONEY
+  return primaryCurrency === 'USD'
+    ? formatCurrency(money.totalUsd, 'USD')
+    : formatCurrency(money.totalSrd, 'SRD')
+}
+
+function formatSecondaryMoney(total: FinanceMoneyTotals | null | undefined, primaryCurrency: Currency = 'SRD') {
+  const money = total ?? ZERO_MONEY
+  return primaryCurrency === 'USD'
+    ? `${formatCurrency(money.totalSrd, 'SRD')} total`
+    : `${formatCurrency(money.totalUsd, 'USD')} total`
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function obligationTypeLabel(type: FinanceObligationType) {
+  return type === 'receivable' ? 'Debiteur' : 'Crediteur'
+}
+
+function statusVariant(status: FinanceObligationStatus): 'default' | 'success' | 'warning' | 'danger' | 'info' {
+  if (status === 'paid') return 'success'
+  if (status === 'partial') return 'warning'
+  if (status === 'cancelled') return 'danger'
+  return 'info'
+}
 
 export default function WalletsPage() {
   const { dialogProps, confirm } = useConfirmDialog()
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([])
-  const [showForm, setShowForm] = useState(false)
-  const [showTransactionForm, setShowTransactionForm] = useState(false)
-  const [showTransactionHistory, setShowTransactionHistory] = useState(false)
-  const [showTransferForm, setShowTransferForm] = useState(false)
-  const [selectedWallet, setSelectedWallet] = useState<WalletWithLocation | null>(null)
-  const [editingWallet, setEditingWallet] = useState<WalletWithLocation | null>(null)
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummaryPayload | null>(null)
+  const [obligations, setObligations] = useState<FinanceObligationRecord[]>([])
+
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  
-  // View mode: 'locations' (grouped by location), 'all' (flat list) or 'savings'
-  const [viewMode, setViewMode] = useState<ViewMode>('locations')
 
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterLocation, setFilterLocation] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'cash' | 'bank'>('all')
-  const [filterPurpose, setFilterPurpose] = useState<'all' | WalletPurpose>('all')
-  const [filterCurrency, setFilterCurrency] = useState<'all' | Currency>('all')
-  const [filterBalance, setFilterBalance] = useState<BalanceFilter>('all')
-  const [sortBy, setSortBy] = useState<WalletSort>('location')
+  const [financeTab, setFinanceTab] = useState<FinanceTab>('overview')
+  const [walletView, setWalletView] = useState<WalletView>('locations')
+  const [walletSearch, setWalletSearch] = useState('')
+  const [walletLocationFilter, setWalletLocationFilter] = useState('')
+  const [walletPurposeFilter, setWalletPurposeFilter] = useState<'all' | WalletPurpose>('all')
+  const [walletCurrencyFilter, setWalletCurrencyFilter] = useState<'all' | Currency>('all')
+  const [walletBalanceFilter, setWalletBalanceFilter] = useState<BalanceFilter>('all')
+
+  const [obligationSearch, setObligationSearch] = useState('')
+  const [obligationStatusFilter, setObligationStatusFilter] = useState<'all' | FinanceObligationStatus>('all')
+
+  const [showWalletForm, setShowWalletForm] = useState(false)
+  const [showTransactionForm, setShowTransactionForm] = useState(false)
+  const [showTransferForm, setShowTransferForm] = useState(false)
+  const [showTransactionHistory, setShowTransactionHistory] = useState(false)
+  const [showObligationForm, setShowObligationForm] = useState(false)
+  const [editingWallet, setEditingWallet] = useState<WalletWithLocation | null>(null)
+  const [selectedWallet, setSelectedWallet] = useState<WalletWithLocation | null>(null)
+  const [editingObligation, setEditingObligation] = useState<FinanceObligationRecord | null>(null)
+
   const [historySearchQuery, setHistorySearchQuery] = useState('')
   const [historyTypeFilter, setHistoryTypeFilter] = useState<HistoryFilter>('all')
   const [historyWalletFilter, setHistoryWalletFilter] = useState('')
-  
-  // Expanded locations for accordion
-  const [expandedLocations, setExpandedLocations] = useState<Set<string>>(new Set())
-  
-  // Horizontal scroll for summary cards
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  
+
   const [walletForm, setWalletForm] = useState({
     location_id: '',
     type: 'cash' as 'cash' | 'bank',
@@ -112,21 +205,33 @@ export default function WalletsPage() {
     balance: '',
     purpose: DEFAULT_WALLET_PURPOSE as WalletPurpose,
   })
-  
+
   const [transactionForm, setTransactionForm] = useState({
     type: 'add' as 'add' | 'remove' | 'correct',
     amount: '',
-    description: ''
+    description: '',
   })
 
   const [transferForm, setTransferForm] = useState({
     fromWalletId: '',
     toWalletId: '',
     amount: '',
-    description: ''
+    description: '',
   })
 
-  const loadData = useCallback(async (showLoadingState: boolean = false) => {
+  const [obligationForm, setObligationForm] = useState({
+    type: 'receivable' as FinanceObligationType,
+    counterparty_name: '',
+    location_id: '',
+    currency: 'SRD' as Currency,
+    original_amount: '',
+    paid_amount: '',
+    status: 'open' as FinanceObligationStatus,
+    due_date: '',
+    notes: '',
+  })
+
+  const loadData = useCallback(async (showLoadingState = false) => {
     if (showLoadingState) {
       setLoading(true)
     } else {
@@ -135,29 +240,31 @@ export default function WalletsPage() {
     setLoadError(null)
 
     try {
-      const response = await fetch('/api/wallets', {
-        cache: 'no-store',
-      })
+      const [walletResponse, summaryResponse, obligationsResponse] = await Promise.all([
+        fetch('/api/wallets', { cache: 'no-store' }),
+        fetch('/api/finance/summary', { cache: 'no-store' }),
+        fetch('/api/finance/obligations', { cache: 'no-store' }),
+      ])
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Your session has expired. Please sign in again.')
+      for (const response of [walletResponse, summaryResponse, obligationsResponse]) {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({})) as { error?: string }
+          throw new Error(payload.error || 'Unable to load finance data right now.')
         }
-
-        if (response.status === 403) {
-          throw new Error('You no longer have access to wallet data.')
-        }
-
-        throw new Error('Unable to load wallet data right now.')
       }
 
-      const payload = await response.json() as WalletsPageDataResponse
-      setWallets(payload.data.wallets as WalletWithLocation[])
-      setLocations(payload.data.locations)
-      setTransactions(payload.data.transactions as TransactionWithDetails[])
+      const walletPayload = await walletResponse.json() as WalletsPageDataResponse
+      const summaryPayload = await summaryResponse.json() as FinanceSummaryResponse
+      const obligationsPayload = await obligationsResponse.json() as FinanceObligationsResponse
+
+      setWallets(walletPayload.data.wallets as WalletWithLocation[])
+      setLocations(walletPayload.data.locations)
+      setTransactions(walletPayload.data.transactions as TransactionWithDetails[])
+      setFinanceSummary(summaryPayload.data)
+      setObligations(obligationsPayload.data.obligations)
     } catch (error) {
-      console.error('Error loading wallet data:', error)
-      setLoadError(error instanceof Error ? error.message : 'Unable to load wallet data right now.')
+      console.error('Error loading finance data:', error)
+      setLoadError(error instanceof Error ? error.message : 'Unable to load finance data right now.')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -168,30 +275,82 @@ export default function WalletsPage() {
     void loadData(true)
   }, [loadData])
 
-  const resetForm = () => {
-    setWalletForm({ location_id: '', type: 'cash', currency: 'SRD', balance: '', purpose: DEFAULT_WALLET_PURPOSE })
+  const resetWalletForm = () => {
+    setWalletForm({
+      location_id: '',
+      type: 'cash',
+      currency: 'SRD',
+      balance: '',
+      purpose: DEFAULT_WALLET_PURPOSE,
+    })
     setEditingWallet(null)
-    setShowForm(false)
+    setShowWalletForm(false)
   }
 
-  const handleSubmitWallet = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const resetObligationForm = () => {
+    setObligationForm({
+      type: 'receivable',
+      counterparty_name: '',
+      location_id: '',
+      currency: 'SRD',
+      original_amount: '',
+      paid_amount: '',
+      status: 'open',
+      due_date: '',
+      notes: '',
+    })
+    setEditingObligation(null)
+    setShowObligationForm(false)
+  }
+
+  const openObligationForm = (type: FinanceObligationType, obligation?: FinanceObligationRecord) => {
+    if (obligation) {
+      setEditingObligation(obligation)
+      setObligationForm({
+        type: obligation.type,
+        counterparty_name: obligation.counterparty_name,
+        location_id: obligation.location_id || '',
+        currency: obligation.currency,
+        original_amount: String(obligation.original_amount),
+        paid_amount: String(obligation.paid_amount),
+        status: obligation.status,
+        due_date: obligation.due_date ? obligation.due_date.slice(0, 10) : '',
+        notes: obligation.notes || '',
+      })
+    } else {
+      setEditingObligation(null)
+      setObligationForm((current) => ({
+        ...current,
+        type,
+        counterparty_name: '',
+        location_id: '',
+        currency: 'SRD',
+        original_amount: '',
+        paid_amount: '',
+        status: 'open',
+        due_date: '',
+        notes: '',
+      }))
+    }
+    setShowObligationForm(true)
+  }
+
+  const handleSubmitWallet = async (event: React.FormEvent) => {
+    event.preventDefault()
     if (submitting || !walletForm.location_id) return
     setSubmitting(true)
-    
+
     try {
-      const purposeLabel = WALLET_PURPOSE_LABELS[walletForm.purpose]
-      const existing = wallets.find(w =>
-        w.id !== editingWallet?.id &&
-        w.location_id === walletForm.location_id &&
-        w.type === walletForm.type &&
-        w.currency === walletForm.currency &&
-        w.purpose === walletForm.purpose
+      const existing = wallets.find((wallet) =>
+        wallet.id !== editingWallet?.id &&
+        wallet.location_id === walletForm.location_id &&
+        wallet.type === walletForm.type &&
+        wallet.currency === walletForm.currency &&
+        wallet.purpose === walletForm.purpose
       )
 
       if (existing) {
-        alert(`A ${purposeLabel} ${walletForm.type} ${walletForm.currency} wallet already exists for this location`)
-        setSubmitting(false)
+        alert(`A ${WALLET_PURPOSE_LABELS[walletForm.purpose]} ${walletForm.type} ${walletForm.currency} wallet already exists for this location.`)
         return
       }
 
@@ -200,25 +359,17 @@ export default function WalletsPage() {
         location_id: walletForm.location_id,
         type: walletForm.type,
         currency: walletForm.currency,
-        balance: parseFloat(walletForm.balance) || 0,
+        balance: Number.parseFloat(walletForm.balance) || 0,
         purpose: walletForm.purpose,
       }
 
-      if (editingWallet) {
-        await apiRequest<WalletWithLocation>('/api/wallets', {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        })
-      } else {
-        await apiRequest<WalletWithLocation>('/api/wallets', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        })
-      }
-      resetForm()
+      await apiRequest('/api/wallets', {
+        method: editingWallet ? 'PATCH' : 'POST',
+        body: JSON.stringify(payload),
+      })
+      resetWalletForm()
       await loadData()
     } catch (error) {
-      console.error('Error saving wallet:', error)
       alert(error instanceof Error ? error.message : 'Failed to save wallet.')
     } finally {
       setSubmitting(false)
@@ -231,41 +382,40 @@ export default function WalletsPage() {
       location_id: wallet.location_id || '',
       type: wallet.type as 'cash' | 'bank',
       currency: wallet.currency as Currency,
-      balance: wallet.balance.toString(),
+      balance: String(wallet.balance),
       purpose: wallet.purpose,
     })
-    setShowForm(true)
+    setShowWalletForm(true)
   }
 
   const handleDeleteWallet = async (wallet: WalletWithLocation) => {
-    const locationName = wallet.locations?.name || 'Unknown'
-    const walletName = `${locationName} - ${WALLET_PURPOSE_LABELS[wallet.purpose]} ${wallet.type} ${wallet.currency}`
     const ok = await confirm({
       title: 'Delete Wallet',
       message: 'Only empty wallets with no financial history can be deleted. Wallets with balance, transactions, sales, expenses, or orders are preserved for reports.',
-      itemName: walletName,
+      itemName: getWalletDisplayName(wallet),
       itemDetails: `Balance: ${formatCurrency(wallet.balance, wallet.currency as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete Wallet',
     })
     if (!ok) return
-    
-    await apiRequest<{ id: string }>(`/api/wallets?id=${encodeURIComponent(wallet.id)}`, {
-      method: 'DELETE',
-    })
-    await loadData()
+
+    try {
+      await apiRequest<{ id: string }>(`/api/wallets?id=${encodeURIComponent(wallet.id)}`, { method: 'DELETE' })
+      await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete wallet.')
+    }
   }
 
-  const handleTransaction = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleTransaction = async (event: React.FormEvent) => {
+    event.preventDefault()
     if (!selectedWallet || submitting) return
-    
     setSubmitting(true)
+
     try {
-      const amount = parseFloat(transactionForm.amount)
-      if (isNaN(amount) || amount < 0 || (transactionForm.type !== 'correct' && amount === 0)) {
-        alert('Enter a valid amount')
-        setSubmitting(false)
+      const amount = Number.parseFloat(transactionForm.amount)
+      if (!Number.isFinite(amount) || amount < 0 || (transactionForm.type !== 'correct' && amount === 0)) {
+        alert('Enter a valid amount.')
         return
       }
 
@@ -290,39 +440,20 @@ export default function WalletsPage() {
     }
   }
 
-  const handleTransfer = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleTransfer = async (event: React.FormEvent) => {
+    event.preventDefault()
     if (submitting || !transferForm.fromWalletId || !transferForm.toWalletId) return
-    
     setSubmitting(true)
+
     try {
-      const amount = parseFloat(transferForm.amount)
-      if (isNaN(amount) || amount <= 0) {
-        alert('Enter a valid amount')
-        setSubmitting(false)
-        return
-      }
+      const amount = Number.parseFloat(transferForm.amount)
+      const fromWallet = wallets.find((wallet) => wallet.id === transferForm.fromWalletId)
+      const toWallet = wallets.find((wallet) => wallet.id === transferForm.toWalletId)
 
-      const fromWallet = wallets.find(w => w.id === transferForm.fromWalletId)
-      const toWallet = wallets.find(w => w.id === transferForm.toWalletId)
-      
-      if (!fromWallet || !toWallet) {
-        alert('Invalid wallet selection')
-        setSubmitting(false)
-        return
-      }
-
-      if (fromWallet.balance < amount) {
-        alert('Insufficient balance in source wallet')
-        setSubmitting(false)
-        return
-      }
-
-      if (fromWallet.currency !== toWallet.currency) {
-        alert('Cannot transfer between wallets with different currencies')
-        setSubmitting(false)
-        return
-      }
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a valid amount.')
+      if (!fromWallet || !toWallet) throw new Error('Invalid wallet selection.')
+      if (fromWallet.currency !== toWallet.currency) throw new Error('Transfers must use the same currency.')
+      if (fromWallet.balance < amount) throw new Error('Insufficient balance in source wallet.')
 
       await apiRequest('/api/wallets/transfers', {
         method: 'POST',
@@ -344,263 +475,254 @@ export default function WalletsPage() {
     }
   }
 
+  const handleSubmitObligation = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
+
+    try {
+      const payload = {
+        id: editingObligation?.id,
+        type: obligationForm.type,
+        counterparty_name: obligationForm.counterparty_name,
+        location_id: obligationForm.location_id || null,
+        currency: obligationForm.currency,
+        original_amount: Number.parseFloat(obligationForm.original_amount) || 0,
+        paid_amount: Number.parseFloat(obligationForm.paid_amount) || 0,
+        status: obligationForm.status,
+        due_date: obligationForm.due_date || null,
+        notes: obligationForm.notes || null,
+      }
+
+      await apiRequest('/api/finance/obligations', {
+        method: editingObligation ? 'PATCH' : 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      resetObligationForm()
+      await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to save finance record.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const updateObligationStatus = async (obligation: FinanceObligationRecord, status: FinanceObligationStatus) => {
+    try {
+      await apiRequest('/api/finance/obligations', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: obligation.id, status }),
+      })
+      await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to update finance record.')
+    }
+  }
+
+  const deleteObligation = async (obligation: FinanceObligationRecord) => {
+    const ok = await confirm({
+      title: `Delete ${obligationTypeLabel(obligation.type)}`,
+      message: 'This removes this manual open item from the finance overview.',
+      itemName: obligation.counterparty_name,
+      itemDetails: formatCurrency(obligation.outstanding_amount, obligation.currency),
+      variant: 'danger',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
+
+    try {
+      await apiRequest<{ id: string }>(`/api/finance/obligations?id=${encodeURIComponent(obligation.id)}`, {
+        method: 'DELETE',
+      })
+      await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to delete finance record.')
+    }
+  }
+
   const getWalletLocationName = (wallet: WalletWithLocation) => wallet.locations?.name || 'No location'
   const getWalletDisplayName = (wallet: WalletWithLocation) =>
     `${getWalletLocationName(wallet)} - ${WALLET_PURPOSE_LABELS[wallet.purpose]} ${wallet.type} ${wallet.currency}`
 
-  const matchesBalanceFilter = (wallet: WalletWithLocation) => {
-    switch (filterBalance) {
-      case 'positive':
-        return wallet.balance > 0
-      case 'zero':
-        return wallet.balance === 0
-      case 'negative':
-        return wallet.balance < 0
-      default:
-        return true
-    }
-  }
-
-  // Group wallets by location
-  const getLocationWallets = (sourceWallets: WalletWithLocation[] = wallets): LocationWithWallets[] => {
+  const getLocationWallets = (sourceWallets: WalletWithLocation[]): LocationWithWallets[] => {
     const locationMap = new Map<string, LocationWithWallets>()
-    
-    locations.forEach(loc => {
-      locationMap.set(loc.id, {
-        ...loc,
+
+    locations.forEach((location) => {
+      locationMap.set(location.id, {
+        ...location,
         wallets: [],
         totalSRD: 0,
-        totalUSD: 0
+        totalUSD: 0,
       })
     })
-    
-    sourceWallets.forEach(wallet => {
-      if (wallet.location_id && locationMap.has(wallet.location_id)) {
-        const loc = locationMap.get(wallet.location_id)!
-        loc.wallets.push(wallet)
-        if (wallet.currency === 'SRD') {
-          loc.totalSRD += wallet.balance
-        } else {
-          loc.totalUSD += wallet.balance
-        }
-      }
+
+    sourceWallets.forEach((wallet) => {
+      if (!wallet.location_id || !locationMap.has(wallet.location_id)) return
+      const location = locationMap.get(wallet.location_id)!
+      location.wallets.push(wallet)
+      if (wallet.currency === 'USD') location.totalUSD += wallet.balance
+      else location.totalSRD += wallet.balance
     })
-    
-    return Array.from(locationMap.values()).filter(l => l.wallets.length > 0)
+
+    return Array.from(locationMap.values()).filter((location) => location.wallets.length > 0)
   }
 
-  const filteredWallets = [...wallets]
-    .filter((wallet) => {
-      const searchValue = searchQuery.trim().toLowerCase()
-      const matchesSearch = !searchValue
-        || getWalletLocationName(wallet).toLowerCase().includes(searchValue)
-        || wallet.type.toLowerCase().includes(searchValue)
-        || wallet.currency.toLowerCase().includes(searchValue)
-        || wallet.person_name.toLowerCase().includes(searchValue)
+  const filteredWallets = wallets.filter((wallet) => {
+    const search = walletSearch.trim().toLowerCase()
+    const matchesSearch = !search ||
+      getWalletLocationName(wallet).toLowerCase().includes(search) ||
+      wallet.type.toLowerCase().includes(search) ||
+      wallet.currency.toLowerCase().includes(search) ||
+      WALLET_PURPOSE_LABELS[wallet.purpose].toLowerCase().includes(search)
+    const matchesLocation = !walletLocationFilter || wallet.location_id === walletLocationFilter
+    const matchesPurpose = walletView === 'savings'
+      ? wallet.purpose === 'savings'
+      : walletPurposeFilter === 'all' || wallet.purpose === walletPurposeFilter
+    const matchesCurrency = walletCurrencyFilter === 'all' || wallet.currency === walletCurrencyFilter
+    const matchesBalance =
+      walletBalanceFilter === 'all' ||
+      (walletBalanceFilter === 'positive' && wallet.balance > 0) ||
+      (walletBalanceFilter === 'zero' && wallet.balance === 0) ||
+      (walletBalanceFilter === 'negative' && wallet.balance < 0)
 
-      const matchesLocation = !filterLocation || wallet.location_id === filterLocation
-      const matchesCurrency = filterCurrency === 'all' || wallet.currency === filterCurrency
-      const matchesType = filterType === 'all' || wallet.type === filterType
-      const matchesPurpose = viewMode === 'savings'
-        ? wallet.purpose === 'savings'
-        : filterPurpose === 'all' || wallet.purpose === filterPurpose
-
-      return matchesSearch && matchesLocation && matchesCurrency && matchesType && matchesPurpose && matchesBalanceFilter(wallet)
-    })
-    .sort((left, right) => {
-      if (sortBy === 'highest') return right.balance - left.balance
-      if (sortBy === 'lowest') return left.balance - right.balance
-      if (sortBy === 'recent') return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
-
-      return getWalletLocationName(left).localeCompare(getWalletLocationName(right))
-        || left.type.localeCompare(right.type)
-        || left.currency.localeCompare(right.currency)
-    })
+    return matchesSearch && matchesLocation && matchesPurpose && matchesCurrency && matchesBalance
+  })
 
   const filteredLocationWallets = getLocationWallets(filteredWallets)
+
   const filteredTransactions = transactions.filter((transaction) => {
-    const searchValue = historySearchQuery.trim().toLowerCase()
-    const walletName = transaction.wallets?.locations?.name || ''
-    const walletType = transaction.wallets?.type || ''
-    const walletCurrency = transaction.wallets?.currency || transaction.currency || ''
-    const description = transaction.description || transaction.reference_type || ''
-    const matchesSearch = !searchValue
-      || walletName.toLowerCase().includes(searchValue)
-      || walletType.toLowerCase().includes(searchValue)
-      || walletCurrency.toLowerCase().includes(searchValue)
-      || description.toLowerCase().includes(searchValue)
+    const search = historySearchQuery.trim().toLowerCase()
+    const walletName = transaction.wallets ? getWalletDisplayName(transaction.wallets).toLowerCase() : ''
+    const description = (transaction.description || transaction.reference_type || '').toLowerCase()
+    const matchesSearch = !search || walletName.includes(search) || description.includes(search)
     const matchesType = historyTypeFilter === 'all' || transaction.type === historyTypeFilter
     const matchesWallet = !historyWalletFilter || transaction.wallet_id === historyWalletFilter
-
     return matchesSearch && matchesType && matchesWallet
   })
 
-  const hasActiveWalletFilters = Boolean(
-    searchQuery
-    || filterLocation
-    || filterType !== 'all'
-    || filterPurpose !== 'all'
-    || filterCurrency !== 'all'
-    || filterBalance !== 'all'
-    || sortBy !== 'location'
+  const filterObligations = (type: FinanceObligationType) => obligations.filter((obligation) => {
+    if (obligation.type !== type) return false
+    const search = obligationSearch.trim().toLowerCase()
+    const matchesSearch = !search ||
+      obligation.counterparty_name.toLowerCase().includes(search) ||
+      (obligation.location_name || '').toLowerCase().includes(search) ||
+      (obligation.notes || '').toLowerCase().includes(search)
+    const matchesStatus = obligationStatusFilter === 'all' || obligation.status === obligationStatusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  const receivables = filterObligations('receivable')
+  const payables = filterObligations('payable')
+  const openPayablesTotal = combineMoney(
+    financeSummary?.obligations.payables ?? ZERO_MONEY,
+    financeSummary?.obligations.systemPayables ?? ZERO_MONEY,
   )
+  const hasLoadedData = wallets.length > 0 || obligations.length > 0 || Boolean(financeSummary)
 
-  const hasActiveHistoryFilters = Boolean(historySearchQuery || historyTypeFilter !== 'all' || historyWalletFilter)
+  const topMetrics: Array<{
+    label: string
+    value: string
+    subValue: string
+    icon: LucideIcon
+    tone: string
+  }> = [
+    {
+      label: 'Inkomsten deze maand',
+      value: formatMoneySummary(financeSummary?.month.revenue),
+      subValue: `${financeSummary?.month.saleCount ?? 0} sales`,
+      icon: TrendingUp,
+      tone: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    },
+    {
+      label: 'Uitgaven deze maand',
+      value: formatMoneySummary(combineMoney(financeSummary?.month.expenses ?? ZERO_MONEY, financeSummary?.month.commissions ?? ZERO_MONEY)),
+      subValue: `${financeSummary?.month.expenseCount ?? 0} expenses + commissions`,
+      icon: TrendingDown,
+      tone: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+    },
+    {
+      label: 'Netto winst',
+      value: formatMoneySummary(financeSummary?.month.netProfit),
+      subValue: formatSecondaryMoney(financeSummary?.month.netProfit),
+      icon: DollarSign,
+      tone: 'text-primary bg-primary/10 border-primary/20',
+    },
+    {
+      label: 'Spaarvermogen',
+      value: formatMoneySummary(financeSummary?.wallets.savings),
+      subValue: formatSecondaryMoney(financeSummary?.wallets.savings),
+      icon: PiggyBank,
+      tone: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    },
+    {
+      label: 'Debiteuren open',
+      value: formatMoneySummary(financeSummary?.obligations.receivables),
+      subValue: `${financeSummary?.obligations.openReceivables.length ?? 0} open posten`,
+      icon: ReceiptText,
+      tone: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
+    },
+    {
+      label: 'Crediteuren open',
+      value: formatMoneySummary(openPayablesTotal),
+      subValue: `${financeSummary?.obligations.openPayables.length ?? 0} manual + ${financeSummary?.obligations.unpaidCommissions.length ?? 0} commissions`,
+      icon: FileText,
+      tone: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
+    },
+  ]
 
-  const clearWalletFilters = () => {
-    setSearchQuery('')
-    setFilterLocation('')
-    setFilterType('all')
-    setFilterPurpose('all')
-    setFilterCurrency('all')
-    setFilterBalance('all')
-    setSortBy('location')
-  }
+  const financeTabs: Array<{ tab: FinanceTab; label: string; icon: LucideIcon }> = [
+    { tab: 'overview', label: 'Overzicht', icon: Landmark },
+    { tab: 'wallets', label: 'Wallets', icon: Wallet },
+    { tab: 'receivables', label: 'Debiteuren', icon: ReceiptText },
+    { tab: 'payables', label: 'Crediteuren', icon: FileText },
+    { tab: 'forecast', label: 'Prognose', icon: CalendarClock },
+  ]
 
-  const clearHistoryFilters = () => {
-    setHistorySearchQuery('')
-    setHistoryTypeFilter('all')
-    setHistoryWalletFilter('')
-  }
+  const walletViews: Array<{ view: WalletView; label: string; icon: LucideIcon }> = [
+    { view: 'locations', label: 'By location', icon: MapPin },
+    { view: 'all', label: 'All wallets', icon: Wallet },
+    { view: 'savings', label: 'Savings', icon: PiggyBank },
+  ]
 
-  const savingsWallets = wallets.filter((wallet) => wallet.purpose === 'savings')
-  const savingsTotalSRD = savingsWallets.filter((wallet) => wallet.currency === 'SRD').reduce((sum, wallet) => sum + wallet.balance, 0)
-  const savingsTotalUSD = savingsWallets.filter((wallet) => wallet.currency === 'USD').reduce((sum, wallet) => sum + wallet.balance, 0)
-  const filteredSavingsLocationCount = new Set(filteredWallets.map((wallet) => wallet.location_id).filter(Boolean)).size
-  const summaryWallets = viewMode === 'savings' ? savingsWallets : wallets
+  const monthBreakdown: Array<{ label: string; value: FinanceMoneyTotals | undefined; icon: LucideIcon }> = [
+    { label: 'Omzet', value: financeSummary?.month.revenue, icon: TrendingUp },
+    { label: 'Kostprijs', value: financeSummary?.month.cogs, icon: ReceiptText },
+    { label: 'Bruto winst', value: financeSummary?.month.grossProfit, icon: DollarSign },
+    { label: 'Expenses', value: financeSummary?.month.expenses, icon: TrendingDown },
+    { label: 'Commissies', value: financeSummary?.month.commissions, icon: FileText },
+    { label: 'Netto winst', value: financeSummary?.month.netProfit, icon: Landmark },
+  ]
 
-  // Calculate totals
-  const getTotalByTypeAndCurrency = (type: 'cash' | 'bank', currency: Currency, sourceWallets: WalletWithLocation[] = summaryWallets) => {
-    return sourceWallets
-      .filter(w => w.type === type && w.currency === currency)
-      .reduce((sum, w) => sum + w.balance, 0)
-  }
+  const forecastCards: Array<{ label: string; value: FinanceMoneyTotals | undefined; icon: LucideIcon }> = [
+    { label: 'Jaaromzet', value: financeSummary?.forecast.projectedRevenue, icon: TrendingUp },
+    { label: 'Jaaruitgaven', value: financeSummary?.forecast.projectedExpenses, icon: TrendingDown },
+    { label: 'Jaarwinst', value: financeSummary?.forecast.projectedNetProfit, icon: DollarSign },
+    { label: 'Spaarcapaciteit', value: financeSummary?.forecast.projectedSavingsCapacity, icon: PiggyBank },
+  ]
 
-  const grandTotalSRD = summaryWallets.filter(w => w.currency === 'SRD').reduce((sum, w) => sum + w.balance, 0)
-  const grandTotalUSD = summaryWallets.filter(w => w.currency === 'USD').reduce((sum, w) => sum + w.balance, 0)
-  
-  // Total in SRD equivalent
-  const grandTotalInSRD = grandTotalSRD + (grandTotalUSD * USD_TO_SRD_RATE)
-  const grandTotalInUSD = grandTotalUSD + (grandTotalSRD / USD_TO_SRD_RATE)
-  const hasLoadedData = wallets.length > 0 || locations.length > 0 || transactions.length > 0
-  const locationsWithoutWallets = !hasActiveWalletFilters && viewMode !== 'savings'
-    ? locations.filter(location => !wallets.some(wallet => wallet.location_id === location.id))
-    : []
-
-  const walletFilterPanel = (
-    <div className="mb-6 rounded-2xl border border-border bg-card p-4 sm:p-5 space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Wallet filters</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {viewMode === 'savings'
-              ? `Showing ${filteredWallets.length} savings wallet${filteredWallets.length === 1 ? '' : 's'} across ${filteredSavingsLocationCount} location${filteredSavingsLocationCount === 1 ? '' : 's'}.`
-              : `Showing ${filteredWallets.length} of ${wallets.length} wallet${wallets.length === 1 ? '' : 's'}.`}
-          </p>
-        </div>
-        {hasActiveWalletFilters && (
-          <Button type="button" onClick={clearWalletFilters} variant="ghost" size="sm">
-            <X size={16} />
-            Clear filters
-          </Button>
-        )}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <Input
-          label="Search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Location, wallet type, currency..."
-        />
-        <Select label="Location" value={filterLocation} onChange={(event) => setFilterLocation(event.target.value)}>
-          <option value="">All locations</option>
-          {locations.map((location) => (
-            <option key={location.id} value={location.id}>{location.name}</option>
-          ))}
-        </Select>
-        <Select label="Wallet type" value={filterType} onChange={(event) => setFilterType(event.target.value as 'all' | 'cash' | 'bank')}>
-          <option value="all">All types</option>
-          <option value="cash">Cash</option>
-          <option value="bank">Bank</option>
-        </Select>
-        <Select label="Purpose" value={filterPurpose} onChange={(event) => setFilterPurpose(event.target.value as 'all' | WalletPurpose)}>
-          <option value="all">All purposes</option>
-          <option value="operational">Operational</option>
-          <option value="savings">Savings</option>
-          <option value="reserve">Reserve</option>
-        </Select>
-        <Select label="Currency" value={filterCurrency} onChange={(event) => setFilterCurrency(event.target.value as 'all' | Currency)}>
-          <option value="all">All currencies</option>
-          <option value="SRD">SRD</option>
-          <option value="USD">USD</option>
-        </Select>
-        <Select label="Balance" value={filterBalance} onChange={(event) => setFilterBalance(event.target.value as BalanceFilter)}>
-          <option value="all">Any balance</option>
-          <option value="positive">Positive</option>
-          <option value="zero">Zero</option>
-          <option value="negative">Negative</option>
-        </Select>
-        <Select label="Sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as WalletSort)}>
-          <option value="location">Location</option>
-          <option value="highest">Highest balance</option>
-          <option value="lowest">Lowest balance</option>
-          <option value="recent">Recently updated</option>
-        </Select>
-      </div>
-
-      {viewMode === 'savings' && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-          Savings view only shows wallets explicitly marked as <span className="font-semibold text-foreground">Savings</span>. Reclassify a wallet from the edit form when needed.
-        </div>
-      )}
-    </div>
-  )
-
-  const toggleLocation = (locationId: string) => {
-    setExpandedLocations(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(locationId)) {
-        newSet.delete(locationId)
-      } else {
-        newSet.add(locationId)
-      }
-      return newSet
-    })
-  }
+  const transactionTypes: Array<{ type: 'add' | 'remove' | 'correct'; label: string; icon: LucideIcon }> = [
+    { type: 'add', label: 'Add', icon: ArrowDownLeft },
+    { type: 'remove', label: 'Remove', icon: ArrowUpRight },
+    { type: 'correct', label: 'Correct', icon: Edit },
+  ]
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        {/* Desktop Loading */}
-        <div className="hidden lg:block">
-          <PageHeader title="Wallets" subtitle="Manage location wallets and finances" />
-          <LoadingSpinner />
-        </div>
-        {/* Mobile Loading */}
-        <div className="lg:hidden px-4 pt-4 pb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Wallet size={20} className="text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Financial Overview</h1>
-              <p className="text-xs text-muted-foreground">Real-time wallet analytics</p>
-            </div>
-          </div>
-          <LoadingSpinner />
-        </div>
+        <PageHeader title="Finance" subtitle="Loading finance cockpit" icon={<Landmark size={24} />} />
+        <LoadingSpinner />
       </div>
     )
   }
 
   if (!hasLoadedData && loadError) {
     return (
-      <div className="min-h-screen bg-background pb-24 lg:pb-0">
+      <div className="min-h-screen bg-background">
         <PageHeader
-          title="Wallets"
-          subtitle="Wallet data is temporarily unavailable"
-          icon={<Wallet size={24} />}
+          title="Finance"
+          subtitle="Finance data is temporarily unavailable"
+          icon={<AlertTriangle size={24} />}
           action={
             <Button onClick={() => void loadData(true)} variant="secondary">
               <RefreshCcw size={18} />
@@ -611,14 +733,8 @@ export default function WalletsPage() {
         <PageContainer>
           <EmptyState
             icon={AlertTriangle}
-            title="Could not load wallets"
+            title="Could not load finance data"
             description={loadError}
-            action={
-              <Button onClick={() => void loadData(true)} variant="primary">
-                <RefreshCcw size={18} />
-                Retry
-              </Button>
-            }
           />
         </PageContainer>
       </div>
@@ -626,991 +742,447 @@ export default function WalletsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 lg:pb-0">
-      {/* ==================== DESKTOP VIEW ==================== */}
-      <div className="hidden lg:block">
-        <PageHeader 
-          title="Wallets" 
-          subtitle="Manage location wallets and finances"
-          icon={<Wallet size={24} />}
-          action={
-            <div className="flex gap-2">
-              <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
-                <RefreshCcw size={18} />
-                <span className="hidden sm:inline">Refresh</span>
-              </Button>
-              <Button onClick={() => setShowTransferForm(true)} variant="secondary">
-                <ArrowRightLeft size={20} />
-                <span className="hidden sm:inline">Transfer</span>
-              </Button>
-              <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
-                <History size={20} />
-                <span className="hidden sm:inline">History</span>
-              </Button>
-              <Button onClick={() => setShowForm(true)} variant="primary">
-                <Plus size={20} />
-                <span className="hidden sm:inline">New Wallet</span>
-              </Button>
-            </div>
-          }
-        />
+    <div className="min-h-screen bg-background pb-8">
+      <PageHeader
+        title="Finance"
+        subtitle="Inkomsten, uitgaven, winst, sparen en open posten"
+        icon={<Landmark size={24} />}
+        action={
+          <>
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+              <RefreshCcw size={18} />
+              Refresh
+            </Button>
+            <Button onClick={() => setShowTransferForm(true)} variant="secondary">
+              <ArrowRightLeft size={18} />
+              Transfer
+            </Button>
+            <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
+              <History size={18} />
+              History
+            </Button>
+            <Button onClick={() => setShowWalletForm(true)} variant="primary">
+              <Plus size={18} />
+              Wallet
+            </Button>
+          </>
+        }
+      />
 
-        <PageContainer>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            <div className="col-span-2 lg:col-span-1 bg-linear-to-br from-primary/20 to-primary/5 rounded-2xl p-4 border border-primary/20">
-              <div className="flex items-center gap-2 text-primary mb-2">
-                {viewMode === 'savings' ? <PiggyBank size={20} /> : <TrendingUp size={20} />}
-                <span className="text-sm font-medium">{viewMode === 'savings' ? 'Savings Total' : 'Grand Total'}</span>
+      <PageContainer className="space-y-5">
+        {loadError && (
+          <div className="rounded-lg border border-warning/25 bg-warning/10 px-4 py-3 text-sm text-warning">
+            {loadError}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          {topMetrics.map((metric) => {
+            const Icon = metric.icon
+            return (
+              <div key={metric.label} className={`rounded-lg border bg-card p-4 ${metric.tone}`}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                  <Icon size={18} className={metric.tone.split(' ')[0]} />
+                </div>
+                <p className="text-xl font-bold text-foreground">{metric.value}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{metric.subValue}</p>
               </div>
-              <div className="text-xl font-bold text-foreground">{formatCurrency(grandTotalSRD, 'SRD')}</div>
-              <div className="text-lg text-muted-foreground">{formatCurrency(grandTotalUSD, 'USD')}</div>
-            </div>
-            {viewMode === 'savings' ? (
-              <>
-                <StatBox
-                  label="Savings SRD"
-                  value={formatCurrency(savingsTotalSRD, 'SRD')}
-                  icon={<PiggyBank size={20} />}
-                />
-                <StatBox
-                  label="Savings USD"
-                  value={formatCurrency(savingsTotalUSD, 'USD')}
-                  icon={<PiggyBank size={20} />}
-                />
-                <StatBox
-                  label="Savings Wallets"
-                  value={String(savingsWallets.length)}
-                  icon={<Wallet size={20} />}
-                />
-                <StatBox
-                  label="Locations Covered"
-                  value={String(new Set(savingsWallets.map((wallet) => wallet.location_id).filter(Boolean)).size)}
-                  icon={<MapPin size={20} />}
-                />
-              </>
-            ) : (
-              <>
-                <StatBox 
-                  label="Cash SRD" 
-                  value={formatCurrency(getTotalByTypeAndCurrency('cash', 'SRD'), 'SRD')} 
-                  icon={<Banknote size={20} />}
-                />
-                <StatBox 
-                  label="Cash USD" 
-                  value={formatCurrency(getTotalByTypeAndCurrency('cash', 'USD'), 'USD')} 
-                  icon={<Banknote size={20} />}
-                />
-                <StatBox 
-                  label="Bank SRD" 
-                  value={formatCurrency(getTotalByTypeAndCurrency('bank', 'SRD'), 'SRD')} 
-                  icon={<CreditCard size={20} />}
-                />
-                <StatBox 
-                  label="Bank USD" 
-                  value={formatCurrency(getTotalByTypeAndCurrency('bank', 'USD'), 'USD')} 
-                  icon={<CreditCard size={20} />}
-                />
-              </>
-            )}
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2 mb-6">
-            <span className="text-sm text-muted-foreground">View:</span>
-            <div className="flex rounded-lg border border-border overflow-hidden">
-              <button
-                onClick={() => setViewMode('locations')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'locations' 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-card text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <MapPin size={16} className="inline mr-1" />
-                By Location
-              </button>
-              <button
-                onClick={() => setViewMode('all')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'all' 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-card text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Wallet size={16} className="inline mr-1" />
-                All Wallets
-              </button>
-              <button
-                onClick={() => setViewMode('savings')}
-                className={`px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'savings'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-card text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <PiggyBank size={16} className="inline mr-1" />
-                Savings
-              </button>
-            </div>
-          </div>
-
-          {walletFilterPanel}
-
-          {/* Desktop Wallets Display */}
-          {wallets.length === 0 ? (
-            <EmptyState
-              icon={Wallet}
-              title="No wallets yet"
-              description="Create wallets for your locations to track sales and expenses"
-            />
-          ) : viewMode === 'locations' ? (
-            /* Desktop: Grouped by Location View */
-            filteredLocationWallets.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="No matching wallets"
-                description="Try changing your wallet filters or clear them to see all wallets again."
-              />
-            ) : (
-            <div className="space-y-6">
-              {filteredLocationWallets.map((location) => (
-                <div 
-                  key={location.id} 
-                  className="bg-card rounded-2xl border border-border overflow-hidden hover:border-primary/30 transition-all"
-                >
-                  {/* Location Header */}
-                  <div className="bg-linear-to-r from-primary/10 to-primary/5 px-5 py-4 border-b border-border">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                          <Building2 size={24} className="text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-lg text-foreground">{location.name}</h3>
-                          {location.seller_name && (
-                            <p className="text-sm text-muted-foreground">Seller: {location.seller_name}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-4 text-right">
-                        {location.totalUSD > 0 && (
-                          <div>
-                            <div className="text-xs text-muted-foreground">USD</div>
-                            <div className="font-bold text-lg text-primary">{formatCurrency(location.totalUSD, 'USD')}</div>
-                          </div>
-                        )}
-                        {location.totalSRD > 0 && (
-                          <div>
-                            <div className="text-xs text-muted-foreground">SRD</div>
-                            <div className="font-bold text-lg text-primary">{formatCurrency(location.totalSRD, 'SRD')}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Desktop Wallets Grid */}
-                  <div className="p-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {location.wallets.map((wallet) => (
-                        <div 
-                          key={wallet.id} 
-                          className={`p-4 rounded-xl border transition-all group active:scale-[0.98] ${
-                            wallet.type === 'cash' 
-                              ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                              : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                              wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                            }`}>
-                              {wallet.type === 'cash' ? <Banknote size={18} /> : <CreditCard size={18} />}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-sm capitalize">{wallet.type}</p>
-                              <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-                            </div>
-                          </div>
-                          
-                          <div className="text-2xl font-bold text-foreground mb-4">
-                            {formatCurrency(wallet.balance, wallet.currency as Currency)}
-                          </div>
-                          
-                          {/* Desktop: Hover effect buttons */}
-                          <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => {
-                                setSelectedWallet(wallet as WalletWithLocation)
-                                setShowTransactionForm(true)
-                              }}
-                              className="flex-1 py-1.5 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors touch-manipulation"
-                            >
-                              Add/Remove
-                            </button>
-                            <button
-                              onClick={() => handleEditWallet(wallet as WalletWithLocation)}
-                              className="p-1.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors touch-manipulation"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWallet(wallet as WalletWithLocation)}
-                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors touch-manipulation"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Add Wallet Button */}
-                      <button
-                        onClick={() => {
-                          setWalletForm(prev => ({ ...prev, location_id: location.id }))
-                          setShowForm(true)
-                        }}
-                        className="p-4 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-primary min-h-28"
-                      >
-                        <Plus size={24} />
-                        <span className="text-sm font-medium">Add Wallet</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {/* Locations without wallets */}
-              {locationsWithoutWallets.length > 0 && (
-                <div className="bg-muted/50 rounded-2xl border border-dashed border-border p-6">
-                  <h3 className="font-medium text-foreground mb-3">Locations without wallets:</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {locationsWithoutWallets.map(loc => (
-                      <button
-                        key={loc.id}
-                        onClick={() => {
-                          setWalletForm(prev => ({ ...prev, location_id: loc.id }))
-                          setShowForm(true)
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-card border border-border hover:border-primary text-sm font-medium transition-colors"
-                      >
-                        <Plus size={14} className="inline mr-1" />
-                        {loc.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
             )
-          ) : viewMode === 'savings' ? (
-            filteredWallets.length === 0 ? (
-              <EmptyState
-                icon={PiggyBank}
-                title="No savings wallets match these filters"
-                description="Savings currently shows positive bank wallets. Clear filters or fund a bank wallet to see it here."
-              />
-            ) : (
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-amber-500/20 bg-linear-to-br from-amber-500/10 to-primary/5 p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                      <PiggyBank size={24} className="text-amber-500" />
+          })}
+        </div>
+
+        <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-card p-1">
+          {financeTabs.map(({ tab, label, icon: Icon }) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setFinanceTab(tab)}
+              className={`inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors sm:flex-none ${
+                financeTab === tab
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {financeTab === 'overview' && (
+          <div className="grid gap-5 xl:grid-cols-[1.35fr_0.65fr]">
+            <section className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Maandelijkse resultaten</h2>
+                  <p className="text-sm text-muted-foreground">1 USD = {financeSummary?.exchangeRate ?? '-'} SRD</p>
+                </div>
+                <Badge variant={(financeSummary?.month.netProfit.totalSrd ?? 0) >= 0 ? 'success' : 'danger'}>
+                  {(financeSummary?.month.netProfit.totalSrd ?? 0) >= 0 ? 'Profit' : 'Loss'}
+                </Badge>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {monthBreakdown.map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="rounded-lg border border-border bg-background/40 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-muted-foreground">{label}</p>
+                      <Icon size={16} className="text-muted-foreground" />
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground">Savings Overview</h3>
-                      <p className="text-sm text-muted-foreground">Positive bank wallets grouped into one reserve view.</p>
-                    </div>
+                    <p className="text-xl font-bold text-foreground">{formatMoneySummary(value)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatSecondaryMoney(value)}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">SRD Savings</div>
-                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(savingsTotalSRD, 'SRD')}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">USD Savings</div>
-                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(savingsTotalUSD, 'USD')}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Approx. Total in USD</div>
-                      <div className="text-2xl font-bold text-foreground mt-1">{formatCurrency(grandTotalInUSD, 'USD')}</div>
-                    </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Open posten</h2>
+                  <p className="text-sm text-muted-foreground">Debiteuren en crediteuren</p>
+                </div>
+                <Button
+                  onClick={() => openObligationForm('receivable')}
+                  variant="secondary"
+                  size="sm"
+                >
+                  <Plus size={16} />
+                  Add
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="rounded-lg border border-sky-500/20 bg-sky-500/10 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-sky-300">Debiteuren</span>
+                    <span className="font-bold text-foreground">{formatMoneySummary(financeSummary?.obligations.receivables)}</span>
                   </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Overdue: {formatMoneySummary(financeSummary?.obligations.overdueReceivables)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-orange-500/20 bg-orange-500/10 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-orange-300">Crediteuren</span>
+                    <span className="font-bold text-foreground">{formatMoneySummary(openPayablesTotal)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Manual + unpaid commissions
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredWallets.map((wallet) => (
-                    <div key={wallet.id} className="rounded-2xl border border-amber-500/20 bg-card p-5">
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                            <PiggyBank size={22} className="text-amber-500" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-foreground">{getWalletLocationName(wallet)}</p>
-                            <p className="text-sm text-muted-foreground capitalize">{wallet.type} {wallet.currency}</p>
-                          </div>
+                {(financeSummary?.obligations.openReceivables.length ?? 0) === 0 && (financeSummary?.obligations.openPayables.length ?? 0) === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                    Geen handmatige open posten.
+                  </div>
+                ) : (
+                  [...(financeSummary?.obligations.openReceivables ?? []), ...(financeSummary?.obligations.openPayables ?? [])]
+                    .slice(0, 5)
+                    .map((obligation) => (
+                      <div key={obligation.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{obligation.counterparty_name}</p>
+                          <p className="text-xs text-muted-foreground">{obligationTypeLabel(obligation.type)} - due {formatDate(obligation.due_date)}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-                          <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-foreground">{formatCurrency(obligation.outstanding_amount, obligation.currency)}</p>
+                          <Badge variant={statusVariant(obligation.status)} className="text-[10px]">{obligation.status}</Badge>
                         </div>
                       </div>
-                      <div className="text-3xl font-bold text-foreground mb-1">{formatCurrency(wallet.balance, wallet.currency as Currency)}</div>
-                      <p className="text-xs text-muted-foreground mb-4">Updated {new Date(wallet.updated_at).toLocaleDateString()}</p>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => {
-                            setSelectedWallet(wallet)
-                            setShowTransactionForm(true)
-                          }}
-                          variant="secondary"
-                          size="sm"
-                          fullWidth
-                        >
-                          <DollarSign size={16} />
-                          Adjust
-                        </Button>
-                        <Button type="button" onClick={() => handleEditWallet(wallet)} variant="ghost" size="sm">
-                          <Edit size={16} />
-                        </Button>
+                    ))
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {financeTab === 'wallets' && (
+          <section className="space-y-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Wallets</h2>
+                  <p className="text-sm text-muted-foreground">{filteredWallets.length} of {wallets.length} wallets</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {walletViews.map(({ view, label, icon: Icon }) => (
+                    <button
+                      key={view}
+                      type="button"
+                      onClick={() => setWalletView(view)}
+                      className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors ${
+                        walletView === view
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Icon size={15} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <Input label="Search" value={walletSearch} onChange={(event) => setWalletSearch(event.target.value)} placeholder="Location, type, purpose" />
+                <Select label="Location" value={walletLocationFilter} onChange={(event) => setWalletLocationFilter(event.target.value)}>
+                  <option value="">All locations</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>{location.name}</option>
+                  ))}
+                </Select>
+                <Select label="Purpose" value={walletPurposeFilter} onChange={(event) => setWalletPurposeFilter(event.target.value as 'all' | WalletPurpose)}>
+                  <option value="all">All purposes</option>
+                  <option value="operational">Operational</option>
+                  <option value="savings">Savings</option>
+                  <option value="reserve">Reserve</option>
+                </Select>
+                <Select label="Currency" value={walletCurrencyFilter} onChange={(event) => setWalletCurrencyFilter(event.target.value as 'all' | Currency)}>
+                  <option value="all">All currencies</option>
+                  <option value="SRD">SRD</option>
+                  <option value="USD">USD</option>
+                </Select>
+                <Select label="Balance" value={walletBalanceFilter} onChange={(event) => setWalletBalanceFilter(event.target.value as BalanceFilter)}>
+                  <option value="all">Any balance</option>
+                  <option value="positive">Positive</option>
+                  <option value="zero">Zero</option>
+                  <option value="negative">Negative</option>
+                </Select>
+              </div>
+            </div>
+
+            {wallets.length === 0 ? (
+              <EmptyState icon={Wallet} title="No wallets yet" description="Create a wallet for each location, purpose, type, and currency." />
+            ) : walletView === 'locations' ? (
+              filteredLocationWallets.length === 0 ? (
+                <EmptyState icon={Search} title="No matching wallets" description="Change filters to see more wallets." />
+              ) : (
+                <div className="space-y-4">
+                  {filteredLocationWallets.map((location) => (
+                    <div key={location.id} className="rounded-lg border border-border bg-card">
+                      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <Building2 size={20} />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-foreground">{location.name}</h3>
+                            <p className="text-xs text-muted-foreground">{location.wallets.length} wallets</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-4 text-sm">
+                          <span className="font-semibold text-foreground">{formatCurrency(location.totalSRD, 'SRD')}</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(location.totalUSD, 'USD')}</span>
+                          <Button
+                            onClick={() => {
+                              setWalletForm((current) => ({ ...current, location_id: location.id }))
+                              setShowWalletForm(true)
+                            }}
+                            variant="ghost"
+                            size="sm"
+                          >
+                            <Plus size={15} />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+                        {location.wallets.map((wallet) => (
+                          <WalletTile
+                            key={wallet.id}
+                            wallet={wallet}
+                            onAdjust={() => {
+                              setSelectedWallet(wallet)
+                              setShowTransactionForm(true)
+                            }}
+                            onEdit={() => handleEditWallet(wallet)}
+                            onDelete={() => void handleDeleteWallet(wallet)}
+                          />
+                        ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )
-          ) : (
-            /* Desktop: Flat List View */
-            filteredWallets.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="No matching wallets"
-                description="Try changing your wallet filters or clear them to see all wallets again."
-              />
+              )
             ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredWallets.map((wallet) => (
-                <div 
-                  key={wallet.id} 
-                  className={`p-5 rounded-xl border transition-all group active:scale-[0.98] ${
-                    wallet.type === 'cash' 
-                      ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                      : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                      }`}>
-                        {wallet.type === 'cash' ? <Banknote size={20} /> : <CreditCard size={20} />}
-                      </div>
-                      <div>
-                        <p className="font-semibold capitalize">{wallet.type} {wallet.currency}</p>
-                        <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
-                      </div>
-                    </div>
-                    <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
-                    {/* Desktop: Hover action buttons */}
-                    <div className="flex gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleEditWallet(wallet)}
-                        className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors touch-manipulation"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteWallet(wallet)}
-                        className="p-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors touch-manipulation"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="text-3xl font-bold text-foreground mb-4">
-                    {formatCurrency(wallet.balance, wallet.currency as Currency)}
-                  </div>
-                  
-                  {/* Desktop: Original button */}
-                  <Button
-                    onClick={() => {
-                      setSelectedWallet(wallet)
-                      setShowTransactionForm(true)
-                    }}
-                    variant="secondary"
-                    size="sm"
-                    fullWidth
-                  >
-                    <DollarSign size={16} />
-                    Add / Remove Money
-                  </Button>
-                </div>
-              ))}
-            </div>
-            )
-          )}
-        </PageContainer>
-      </div>
-
-      {/* ==================== MOBILE VIEW ==================== */}
-      <div className="lg:hidden">
-        {/* Mobile Header */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-              <Wallet size={20} className="text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Financial Overview</h1>
-              <p className="text-xs text-muted-foreground">Real-time wallet analytics</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Grand Total Hero Card */}
-        <div className="px-4 py-3">
-          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-[hsl(218,36%,18%)] to-[hsl(218,36%,13%)] border border-border p-5">
-            {/* Background decoration */}
-            <div className="absolute right-0 top-0 w-32 h-32 opacity-10">
-              <Wallet size={128} className="text-primary" />
-            </div>
-            
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs font-medium text-primary uppercase tracking-wider">Grand Total Portfolio</span>
-              </div>
-              <div className="text-4xl font-bold text-foreground mb-1">
-                {viewMode === 'savings' ? 'Savings' : 'SRD'} {grandTotalSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                ≈ ${grandTotalInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary Cards - 2x2 Grid */}
-        <div className="px-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            {/* Cash SRD / Savings SRD */}
-            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                  {viewMode === 'savings' ? <PiggyBank size={16} className="text-emerald-500" /> : <Banknote size={16} className="text-emerald-500" />}
-                </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings SRD' : 'Cash SRD'}</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {(viewMode === 'savings' ? savingsTotalSRD : getTotalByTypeAndCurrency('cash', 'SRD')).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </div>
-            </div>
-
-            {/* Bank SRD / Savings USD */}
-            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  {viewMode === 'savings' ? <PiggyBank size={16} className="text-blue-500" /> : <Building2 size={16} className="text-blue-500" />}
-                </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings USD' : 'Bank SRD'}</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {(viewMode === 'savings' ? savingsTotalUSD : getTotalByTypeAndCurrency('bank', 'SRD')).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </div>
-            </div>
-
-            {/* Cash USD / Savings Wallets */}
-            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                  {viewMode === 'savings' ? <Wallet size={16} className="text-emerald-500" /> : <Banknote size={16} className="text-emerald-500" />}
-                </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings Wallets' : 'Cash USD'}</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {viewMode === 'savings'
-                  ? filteredWallets.length.toLocaleString('en-US')
-                  : `$${getTotalByTypeAndCurrency('cash', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-              </div>
-            </div>
-
-            {/* Bank USD / Savings Locations */}
-            <div className="bg-[hsl(218,36%,15%)] rounded-xl p-4 border border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  {viewMode === 'savings' ? <MapPin size={16} className="text-blue-500" /> : <Building2 size={16} className="text-blue-500" />}
-                </div>
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">{viewMode === 'savings' ? 'Savings Locations' : 'Bank USD'}</span>
-              </div>
-              <div className="text-xl font-bold text-foreground">
-                {viewMode === 'savings'
-                  ? filteredSavingsLocationCount.toLocaleString('en-US')
-                  : `$${getTotalByTypeAndCurrency('bank', 'USD').toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="px-4 py-3">
-          <div className="flex rounded-xl bg-[hsl(218,36%,13%)] p-1 border border-border">
-            <button
-              onClick={() => setViewMode('locations')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'locations' 
-                  ? 'bg-primary text-primary-foreground shadow-md' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              By Location
-            </button>
-            <button
-              onClick={() => setViewMode('all')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'all' 
-                  ? 'bg-primary text-primary-foreground shadow-md' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              All Wallets
-            </button>
-            <button
-              onClick={() => setViewMode('savings')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
-                viewMode === 'savings'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Savings
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4">{walletFilterPanel}</div>
-
-        {/* Mobile Wallets Content */}
-        <div className="px-4 py-2">
-          {wallets.length === 0 ? (
-            <EmptyState
-              icon={Wallet}
-              title="No wallets yet"
-              description="Create wallets for your locations to track sales and expenses"
-            />
-          ) : viewMode === 'locations' ? (
-            /* Mobile: Location-based Accordion View */
-            filteredLocationWallets.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="No matching wallets"
-                description="Try changing your wallet filters or clear them to see all wallets again."
-              />
-            ) : (
-            <div className="space-y-3">
-              {filteredLocationWallets.map((location) => {
-                const isExpanded = expandedLocations.has(location.id)
-                const totalInSRD = location.totalSRD + (location.totalUSD * USD_TO_SRD_RATE)
-                
-                return (
-                  <div 
-                    key={location.id} 
-                    className="bg-[hsl(218,36%,15%)] rounded-2xl border border-border overflow-hidden"
-                  >
-                    {/* Location Header - Clickable */}
-                    <button
-                      onClick={() => toggleLocation(location.id)}
-                      className="w-full px-4 py-4 flex items-center justify-between active:bg-[hsl(218,36%,18%)] transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                          <Building2 size={20} className="text-primary" />
-                        </div>
-                        <div className="text-left">
-                          <h3 className="font-semibold text-foreground">{location.name}</h3>
-                          {location.seller_name && (
-                            <p className="text-xs text-muted-foreground">Seller: {location.seller_name}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="text-xs text-muted-foreground uppercase">Total SRD</div>
-                          <div className="font-bold text-primary">
-                            {totalInSRD.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </div>
-                        </div>
-                        {isExpanded ? (
-                          <ChevronUp size={20} className="text-muted-foreground" />
-                        ) : (
-                          <ChevronDown size={20} className="text-muted-foreground" />
-                        )}
-                      </div>
-                    </button>
-
-                    {/* Expanded Wallet Cards */}
-                    {isExpanded && (
-                      <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                        <div className="grid grid-cols-2 gap-3 mt-3">
-                          {location.wallets.map((wallet) => (
-                            <div 
-                              key={wallet.id} 
-                              onClick={() => {
-                                setSelectedWallet(wallet as WalletWithLocation)
-                                setShowTransactionForm(true)
-                              }}
-                              className={`p-3 rounded-xl border transition-all active:scale-[0.98] cursor-pointer ${
-                                wallet.type === 'cash' 
-                                  ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                                  : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                  wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                                }`}>
-                                  {wallet.type === 'cash' ? <Banknote size={14} /> : <CreditCard size={14} />}
-                                </div>
-                                <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'} className="text-[10px] px-1.5 py-0.5">
-                                  {wallet.currency}
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-muted-foreground uppercase mb-1">
-                                {wallet.type} Wallet
-                              </div>
-                              <div className="text-xl font-bold text-foreground">
-                                {wallet.currency === 'USD' ? '$' : ''}{wallet.balance.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {/* Add New Wallet Button */}
-                          <button
-                            onClick={() => {
-                              setWalletForm(prev => ({ ...prev, location_id: location.id }))
-                              setShowForm(true)
-                            }}
-                            className="p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary min-h-24"
-                          >
-                            <Plus size={20} />
-                            <span className="text-xs font-medium">Add New</span>
-                          </button>
-                        </div>
-                        
-                        {/* Quick Actions for location */}
-                        <div className="mt-3 pt-3 border-t border-border/30">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (location.wallets.length > 0) {
-                                  handleEditWallet(location.wallets[0] as WalletWithLocation)
-                                }
-                              }}
-                              className="flex-1 py-2 px-3 rounded-lg bg-secondary/50 hover:bg-secondary text-xs font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1"
-                            >
-                              <Edit size={12} />
-                              Manage
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Collapsed state - show wallet count */}
-                    {!isExpanded && (
-                      <div className="px-4 pb-3 text-xs text-muted-foreground">
-                        {location.wallets.length} wallet{location.wallets.length !== 1 ? 's' : ''} active in this location
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              
-              {/* Locations without wallets */}
-              {locationsWithoutWallets.length > 0 && (
-                <div className="bg-muted/30 rounded-2xl border border-dashed border-border p-4">
-                  <h3 className="font-medium text-foreground text-sm mb-3">Locations without wallets:</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {locationsWithoutWallets.map(loc => (
-                      <button
-                        key={loc.id}
-                        onClick={() => {
-                          setWalletForm(prev => ({ ...prev, location_id: loc.id }))
-                          setShowForm(true)
-                        }}
-                        className="px-3 py-2 rounded-lg bg-card border border-border hover:border-primary text-sm font-medium transition-colors flex items-center gap-1"
-                      >
-                        <Plus size={14} />
-                        {loc.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            )
-          ) : viewMode === 'savings' ? (
-            filteredWallets.length === 0 ? (
-              <EmptyState
-                icon={PiggyBank}
-                title="No savings wallets match these filters"
-                description="Savings currently shows positive bank wallets. Clear filters or fund a bank wallet to see it here."
-              />
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                      <PiggyBank size={20} className="text-amber-500" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">Savings snapshot</p>
-                      <p className="text-xs text-muted-foreground">Positive bank wallets only</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <div className="text-xs text-muted-foreground uppercase">SRD</div>
-                      <div className="font-bold text-foreground">{formatCurrency(savingsTotalSRD, 'SRD')}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground uppercase">USD</div>
-                      <div className="font-bold text-foreground">{formatCurrency(savingsTotalUSD, 'USD')}</div>
-                    </div>
-                  </div>
-                </div>
-                {filteredWallets.map((wallet) => (
-                  <div key={wallet.id} className="p-4 rounded-2xl border border-amber-500/20 bg-card">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center">
-                          <PiggyBank size={22} className="text-amber-500" />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-foreground">{getWalletLocationName(wallet)}</div>
-                          <div className="text-sm text-muted-foreground capitalize">{wallet.type} {wallet.currency}</div>
-                        </div>
-                      </div>
-                      <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-                    </div>
-                    <div className="text-2xl font-bold text-foreground mt-4">{formatCurrency(wallet.balance, wallet.currency as Currency)}</div>
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
-                      <button
-                        onClick={() => {
-                          setSelectedWallet(wallet)
-                          setShowTransactionForm(true)
-                        }}
-                        className="flex-1 py-2.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
-                      >
-                        <DollarSign size={16} />
-                        Adjust
-                      </button>
-                      <button
-                        onClick={() => handleEditWallet(wallet)}
-                        className="py-2.5 px-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-                      >
-                        <Edit size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            /* Mobile: All Wallets Flat List */
-            filteredWallets.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="No matching wallets"
-                description="Try changing your wallet filters or clear them to see all wallets again."
-              />
-            ) : (
-            <div className="space-y-3">
-              {filteredWallets.map((wallet) => (
-                <div 
-                  key={wallet.id} 
-                  onClick={() => {
-                    setSelectedWallet(wallet)
-                    setShowTransactionForm(true)
-                  }}
-                  className={`p-4 rounded-2xl border transition-all active:scale-[0.99] cursor-pointer ${
-                    wallet.type === 'cash' 
-                      ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40' 
-                      : 'bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        wallet.type === 'cash' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-blue-500/20 text-blue-500'
-                      }`}>
-                        {wallet.type === 'cash' ? <Banknote size={24} /> : <CreditCard size={24} />}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground capitalize">{wallet.type}</span>
-                          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{wallet.locations?.name || 'No location'}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-foreground">
-                        {formatCurrency(wallet.balance, wallet.currency as Currency)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Quick action buttons */}
-                  <div className="flex gap-2 mt-3 pt-3 border-t border-border/30">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
+              filteredWallets.length === 0 ? (
+                <EmptyState icon={Search} title="No matching wallets" description="Change filters to see more wallets." />
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {filteredWallets.map((wallet) => (
+                    <WalletTile
+                      key={wallet.id}
+                      wallet={wallet}
+                      onAdjust={() => {
                         setSelectedWallet(wallet)
                         setShowTransactionForm(true)
                       }}
-                      className="flex-1 py-2.5 text-sm font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
-                    >
-                      <DollarSign size={16} />
-                      Add/Remove
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEditWallet(wallet)
-                      }}
-                      className="py-2.5 px-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteWallet(wallet)
-                      }}
-                      className="py-2.5 px-4 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                      onEdit={() => handleEditWallet(wallet)}
+                      onDelete={() => void handleDeleteWallet(wallet)}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-            )
-          )}
-        </div>
+              )
+            )}
+          </section>
+        )}
 
-        {/* Sticky Bottom Action Bar - Mobile Only */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-60">
-          <div className="bg-linear-to-t from-[hsl(218,36%,8%)] via-[hsl(218,36%,10%)]/98 to-transparent pt-4 pb-5 px-4">
-            <div className="flex items-center justify-center gap-4 max-w-sm mx-auto">
-              <button
-                onClick={() => setShowTransferForm(true)}
-                className="w-14 h-12 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
-              >
-                <ArrowRightLeft size={18} />
-                <span className="text-[9px] font-medium">Transfer</span>
-              </button>
-              <button
-                onClick={() => setShowTransactionHistory(true)}
-                className="w-14 h-12 rounded-xl bg-[hsl(218,36%,16%)] border border-border/50 text-muted-foreground hover:text-foreground hover:bg-[hsl(218,36%,20%)] transition-all flex flex-col items-center justify-center gap-1 shadow-sm"
-              >
-                <History size={18} />
-                <span className="text-[9px] font-medium">History</span>
-              </button>
-              <button
-                onClick={() => setShowForm(true)}
-                className="h-12 px-5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md shadow-primary/20"
-              >
-                <Plus size={18} />
-                <span className="text-sm font-semibold">New</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        {financeTab === 'receivables' && (
+          <ObligationSection
+            title="Debiteuren"
+            subtitle="Open facturen, leningen en bedragen die naar het bedrijf moeten komen"
+            type="receivable"
+            obligations={receivables}
+            search={obligationSearch}
+            status={obligationStatusFilter}
+            onSearch={setObligationSearch}
+            onStatus={setObligationStatusFilter}
+            onCreate={() => openObligationForm('receivable')}
+            onEdit={(obligation) => openObligationForm('receivable', obligation)}
+            onMarkPaid={(obligation) => void updateObligationStatus(obligation, 'paid')}
+            onCancel={(obligation) => void updateObligationStatus(obligation, 'cancelled')}
+            onDelete={(obligation) => void deleteObligation(obligation)}
+          />
+        )}
 
-      {/* Create/Edit Wallet Modal */}
-      <Modal isOpen={showForm} onClose={resetForm} title={editingWallet ? 'Edit Wallet' : 'New Wallet'}>
-        <form onSubmit={handleSubmitWallet}>
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4">
-            <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground text-sm">Each location can have wallets by purpose:</strong><br />
-              Operational, Savings, and Reserve each support Cash/Bank wallets in SRD or USD.
-            </p>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Location</label>
-            <select
-              value={walletForm.location_id}
-              onChange={(e) => setWalletForm({ ...walletForm, location_id: e.target.value })}
-              required
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="">Select location...</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Type</label>
-              <select
-                value={walletForm.type}
-                onChange={(e) => setWalletForm({ ...walletForm, type: e.target.value as 'cash' | 'bank' })}
-                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="cash">💵 Cash</option>
-                <option value="bank">🏦 Bank</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
-              <select
-                value={walletForm.currency}
-                onChange={(e) => setWalletForm({ ...walletForm, currency: e.target.value as Currency })}
-                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="SRD">SRD</option>
-                <option value="USD">USD</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Purpose</label>
-            <select
-              value={walletForm.purpose}
-              onChange={(e) => setWalletForm({ ...walletForm, purpose: e.target.value as WalletPurpose })}
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="operational">Operational</option>
-              <option value="savings">Savings</option>
-              <option value="reserve">Reserve</option>
-            </select>
-          </div>
-          
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-foreground mb-2">Initial Balance</label>
-            <input
-              type="number"
-              step="0.01"
-              value={walletForm.balance}
-              onChange={(e) => setWalletForm({ ...walletForm, balance: e.target.value })}
-              placeholder="0.00"
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        {financeTab === 'payables' && (
+          <div className="space-y-4">
+            <ObligationSection
+              title="Crediteuren"
+              subtitle="Open betalingen en geplande uitbetalingen"
+              type="payable"
+              obligations={payables}
+              search={obligationSearch}
+              status={obligationStatusFilter}
+              onSearch={setObligationSearch}
+              onStatus={setObligationStatusFilter}
+              onCreate={() => openObligationForm('payable')}
+              onEdit={(obligation) => openObligationForm('payable', obligation)}
+              onMarkPaid={(obligation) => void updateObligationStatus(obligation, 'paid')}
+              onCancel={(obligation) => void updateObligationStatus(obligation, 'cancelled')}
+              onDelete={(obligation) => void deleteObligation(obligation)}
             />
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Onbetaalde commissies</h2>
+                  <p className="text-sm text-muted-foreground">{formatMoneySummary(financeSummary?.obligations.systemPayables)}</p>
+                </div>
+                <Badge variant="warning">{financeSummary?.obligations.unpaidCommissions.length ?? 0}</Badge>
+              </div>
+
+              {(financeSummary?.obligations.unpaidCommissions.length ?? 0) === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                  Geen onbetaalde commissies.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {financeSummary?.obligations.unpaidCommissions.map((commission) => (
+                    <div key={commission.id} className="rounded-lg border border-border bg-background/40 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-foreground">{commission.counterparty_name}</p>
+                          <p className="text-xs text-muted-foreground">{commission.location_name || 'No location'} - {formatDate(commission.created_at)}</p>
+                        </div>
+                        <Badge variant="warning">Commission</Badge>
+                      </div>
+                      <p className="mt-4 text-xl font-bold text-foreground">{formatCurrency(commission.amount, commission.currency)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
-          
+        )}
+
+        {financeTab === 'forecast' && (
+          <section className="space-y-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Jaarlijkse prognose</h2>
+                  <p className="text-sm text-muted-foreground">Gebaseerd op {financeSummary?.forecast.monthsElapsed ?? '-'} maand(en) year-to-date</p>
+                </div>
+                <Badge variant="info">{new Date().getFullYear()}</Badge>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {forecastCards.map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="rounded-lg border border-border bg-background/40 p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-muted-foreground">{label}</p>
+                      <Icon size={16} className="text-muted-foreground" />
+                    </div>
+                    <p className="text-xl font-bold text-foreground">{formatMoneySummary(value)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatSecondaryMoney(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="mb-4 text-lg font-bold text-foreground">Year-to-date overzicht</h2>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  ['YTD omzet', financeSummary?.yearToDate.revenue],
+                  ['YTD bruto winst', financeSummary?.yearToDate.grossProfit],
+                  ['YTD netto winst', financeSummary?.yearToDate.netProfit],
+                  ['YTD expenses', financeSummary?.yearToDate.expenses],
+                  ['YTD commissies', financeSummary?.yearToDate.commissions],
+                  ['Huidige savings', financeSummary?.wallets.savings],
+                ].map(([label, value]) => (
+                  <div key={label as string} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background/40 p-3">
+                    <span className="text-sm font-semibold text-muted-foreground">{label as string}</span>
+                    <span className="text-sm font-bold text-foreground">{formatMoneySummary(value as FinanceMoneyTotals | undefined)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+      </PageContainer>
+
+      <Modal isOpen={showWalletForm} onClose={resetWalletForm} title={editingWallet ? 'Edit Wallet' : 'New Wallet'} size="md">
+        <form onSubmit={handleSubmitWallet} className="space-y-4">
+          <Select label="Location" value={walletForm.location_id} onChange={(event) => setWalletForm({ ...walletForm, location_id: event.target.value })} required>
+            <option value="">Select location...</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>{location.name}</option>
+            ))}
+          </Select>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select label="Type" value={walletForm.type} onChange={(event) => setWalletForm({ ...walletForm, type: event.target.value as 'cash' | 'bank' })}>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+            </Select>
+            <Select label="Currency" value={walletForm.currency} onChange={(event) => setWalletForm({ ...walletForm, currency: event.target.value as Currency })}>
+              <option value="SRD">SRD</option>
+              <option value="USD">USD</option>
+            </Select>
+          </div>
+
+          <Select label="Purpose" value={walletForm.purpose} onChange={(event) => setWalletForm({ ...walletForm, purpose: event.target.value as WalletPurpose })}>
+            <option value="operational">Operational</option>
+            <option value="savings">Savings</option>
+            <option value="reserve">Reserve</option>
+          </Select>
+
+          <Input
+            label={editingWallet ? 'Balance' : 'Initial Balance'}
+            type="number"
+            step="0.01"
+            min="0"
+            value={walletForm.balance}
+            onChange={(event) => setWalletForm({ ...walletForm, balance: event.target.value })}
+            placeholder="0.00"
+          />
+
           <div className="flex gap-3">
-            <Button type="button" onClick={resetForm} variant="secondary" fullWidth>
+            <Button type="button" onClick={resetWalletForm} variant="secondary" fullWidth>
               Cancel
             </Button>
             <Button type="submit" variant="primary" fullWidth loading={submitting}>
@@ -1620,133 +1192,213 @@ export default function WalletsPage() {
         </form>
       </Modal>
 
-      {/* Transaction Modal */}
-      <Modal 
-        isOpen={showTransactionForm} 
+      <Modal
+        isOpen={showObligationForm}
+        onClose={resetObligationForm}
+        title={editingObligation ? `Edit ${obligationTypeLabel(obligationForm.type)}` : `New ${obligationTypeLabel(obligationForm.type)}`}
+        size="md"
+      >
+        <form onSubmit={handleSubmitObligation} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select label="Type" value={obligationForm.type} onChange={(event) => setObligationForm({ ...obligationForm, type: event.target.value as FinanceObligationType })}>
+              <option value="receivable">Debiteur</option>
+              <option value="payable">Crediteur</option>
+            </Select>
+            <Select label="Status" value={obligationForm.status} onChange={(event) => setObligationForm({ ...obligationForm, status: event.target.value as FinanceObligationStatus })}>
+              <option value="open">Open</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
+          </div>
+
+          <Input
+            label="Name"
+            value={obligationForm.counterparty_name}
+            onChange={(event) => setObligationForm({ ...obligationForm, counterparty_name: event.target.value })}
+            placeholder="Customer, supplier, seller..."
+            required
+          />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select label="Location" value={obligationForm.location_id} onChange={(event) => setObligationForm({ ...obligationForm, location_id: event.target.value })}>
+              <option value="">No location</option>
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>{location.name}</option>
+              ))}
+            </Select>
+            <Select label="Currency" value={obligationForm.currency} onChange={(event) => setObligationForm({ ...obligationForm, currency: event.target.value as Currency })}>
+              <option value="SRD">SRD</option>
+              <option value="USD">USD</option>
+            </Select>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Original amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={obligationForm.original_amount}
+              onChange={(event) => setObligationForm({ ...obligationForm, original_amount: event.target.value })}
+              required
+            />
+            <Input
+              label="Paid / received"
+              type="number"
+              step="0.01"
+              min="0"
+              value={obligationForm.paid_amount}
+              onChange={(event) => setObligationForm({ ...obligationForm, paid_amount: event.target.value })}
+            />
+          </div>
+
+          <Input
+            label="Due date"
+            type="date"
+            value={obligationForm.due_date}
+            onChange={(event) => setObligationForm({ ...obligationForm, due_date: event.target.value })}
+          />
+
+          <Textarea
+            label="Notes"
+            value={obligationForm.notes}
+            onChange={(event) => setObligationForm({ ...obligationForm, notes: event.target.value })}
+            placeholder="Reference, invoice number, payment terms..."
+          />
+
+          <div className="flex gap-3">
+            <Button type="button" onClick={resetObligationForm} variant="secondary" fullWidth>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" fullWidth loading={submitting}>
+              Save
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showTransactionForm}
         onClose={() => {
           setShowTransactionForm(false)
           setSelectedWallet(null)
           setTransactionForm({ type: 'add', amount: '', description: '' })
-        }} 
+        }}
         title="Wallet Transaction"
+        size="md"
       >
         {selectedWallet && (
-          <form onSubmit={handleTransaction}>
-            {/* Current Balance Display */}
-            <div className="bg-muted rounded-xl p-4 text-center border border-border mb-4">
-              <p className="text-xs text-muted-foreground mb-1">
-                {getWalletDisplayName(selectedWallet)}
-              </p>
-              <p className="text-xs text-muted-foreground">Current Balance</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                {formatCurrency(selectedWallet.balance, selectedWallet.currency as Currency)}
-              </p>
-            </div>
-            
-            {/* Transaction Type Buttons */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setTransactionForm({ ...transactionForm, type: 'add' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
-                  transactionForm.type === 'add'
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
-                    : 'border-border hover:border-emerald-500/50 text-muted-foreground'
-                }`}
-              >
-                <ArrowDownLeft size={20} />
-                <span className="text-xs font-semibold">Add</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTransactionForm({ ...transactionForm, type: 'remove' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
-                  transactionForm.type === 'remove'
-                    ? 'border-destructive bg-destructive/10 text-destructive'
-                    : 'border-border hover:border-destructive/50 text-muted-foreground'
-                }`}
-              >
-                <ArrowUpRight size={20} />
-                <span className="text-xs font-semibold">Remove</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setTransactionForm({ ...transactionForm, type: 'correct' })}
-                className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
-                  transactionForm.type === 'correct'
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-500'
-                    : 'border-border hover:border-blue-500/50 text-muted-foreground'
-                }`}
-              >
-                <Edit size={20} />
-                <span className="text-xs font-semibold">Correct</span>
-              </button>
+          <form onSubmit={handleTransaction} className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
+              <p className="text-sm text-muted-foreground">{getWalletDisplayName(selectedWallet)}</p>
+              <p className="mt-1 text-2xl font-bold text-foreground">{formatCurrency(selectedWallet.balance, selectedWallet.currency as Currency)}</p>
             </div>
 
-            {transactionForm.type === 'correct' && (
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 mb-4">
-                <p className="text-xs text-blue-600 dark:text-blue-400">
-                  💡 Enter the exact amount the wallet should have.
-                </p>
-              </div>
-            )}
-            
-            {/* Amount Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                {transactionForm.type === 'correct' ? 'New Balance' : 'Amount'}
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={transactionForm.amount}
-                onChange={(e) => setTransactionForm({ ...transactionForm, amount: e.target.value })}
-                placeholder={transactionForm.type === 'correct' ? 'Enter correct balance' : '0.00'}
-                required
-                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
+            <div className="grid grid-cols-3 gap-2">
+              {transactionTypes.map(({ type, label, icon: Icon }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setTransactionForm({ ...transactionForm, type })}
+                  className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border text-sm font-semibold transition-colors ${
+                    transactionForm.type === type
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {label}
+                </button>
+              ))}
             </div>
-            
-            {/* Description Input */}
-            <div className="mb-5">
-              <label className="block text-sm font-medium text-foreground mb-2">Description (optional)</label>
-              <input
-                type="text"
-                value={transactionForm.description}
-                onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
-                placeholder="e.g. Cash from drawer"
-                className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            
-            {/* Submit Button */}
-            <Button 
-              type="submit" 
-              variant={transactionForm.type === 'remove' ? 'danger' : 'primary'} 
-              fullWidth 
-              loading={submitting}
-            >
-              {transactionForm.type === 'add' ? 'Add' : transactionForm.type === 'remove' ? 'Remove' : 'Correct'} {transactionForm.amount ? formatCurrency(parseFloat(transactionForm.amount), selectedWallet.currency as Currency) : 'Money'}
+
+            <Input
+              label={transactionForm.type === 'correct' ? 'New balance' : 'Amount'}
+              type="number"
+              min="0"
+              step="0.01"
+              value={transactionForm.amount}
+              onChange={(event) => setTransactionForm({ ...transactionForm, amount: event.target.value })}
+              required
+            />
+
+            <Input
+              label="Description"
+              value={transactionForm.description}
+              onChange={(event) => setTransactionForm({ ...transactionForm, description: event.target.value })}
+              placeholder="Reference or reason"
+            />
+
+            <Button type="submit" variant={transactionForm.type === 'remove' ? 'danger' : 'primary'} fullWidth loading={submitting}>
+              Save Transaction
             </Button>
           </form>
         )}
       </Modal>
 
-      {/* Transaction History Modal */}
-      <Modal 
-        isOpen={showTransactionHistory} 
-        onClose={() => setShowTransactionHistory(false)} 
-        title="Transaction History"
+      <Modal
+        isOpen={showTransferForm}
+        onClose={() => {
+          setShowTransferForm(false)
+          setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
+        }}
+        title="Transfer Between Wallets"
+        size="md"
       >
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input
-              label="Search"
-              value={historySearchQuery}
-              onChange={(event) => setHistorySearchQuery(event.target.value)}
-              placeholder="Wallet, description..."
-            />
+        <form onSubmit={handleTransfer} className="space-y-4">
+          <Select value={transferForm.fromWalletId} label="From wallet" onChange={(event) => setTransferForm({ ...transferForm, fromWalletId: event.target.value, toWalletId: '' })} required>
+            <option value="">Select source...</option>
+            {wallets.map((wallet) => (
+              <option key={wallet.id} value={wallet.id}>
+                {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+              </option>
+            ))}
+          </Select>
+
+          <Select value={transferForm.toWalletId} label="To wallet" onChange={(event) => setTransferForm({ ...transferForm, toWalletId: event.target.value })} required>
+            <option value="">Select destination...</option>
+            {wallets
+              .filter((wallet) => {
+                if (!transferForm.fromWalletId) return true
+                const fromWallet = wallets.find((candidate) => candidate.id === transferForm.fromWalletId)
+                return wallet.id !== transferForm.fromWalletId && wallet.currency === fromWallet?.currency
+              })
+              .map((wallet) => (
+                <option key={wallet.id} value={wallet.id}>
+                  {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                </option>
+              ))}
+          </Select>
+
+          <Input
+            label="Amount"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={transferForm.amount}
+            onChange={(event) => setTransferForm({ ...transferForm, amount: event.target.value })}
+            required
+          />
+
+          <Input
+            label="Description"
+            value={transferForm.description}
+            onChange={(event) => setTransferForm({ ...transferForm, description: event.target.value })}
+            placeholder="Reference or reason"
+          />
+
+          <Button type="submit" variant="primary" fullWidth loading={submitting}>
+            <ArrowRightLeft size={18} />
+            Transfer
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal isOpen={showTransactionHistory} onClose={() => setShowTransactionHistory(false)} title="Transaction History" size="xl">
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input label="Search" value={historySearchQuery} onChange={(event) => setHistorySearchQuery(event.target.value)} placeholder="Wallet or description" />
             <Select label="Type" value={historyTypeFilter} onChange={(event) => setHistoryTypeFilter(event.target.value as HistoryFilter)}>
               <option value="all">All types</option>
               <option value="credit">Credit</option>
@@ -1761,169 +1413,40 @@ export default function WalletsPage() {
             </Select>
           </div>
 
-          {hasActiveHistoryFilters && (
-            <div className="flex justify-end">
-              <Button type="button" onClick={clearHistoryFilters} variant="ghost" size="sm">
-                <X size={16} />
-                Clear history filters
-              </Button>
-            </div>
-          )}
-
           {filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {transactions.length === 0 ? 'No transactions yet' : 'No transactions match the current filters'}
+            <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
+              No transactions found.
             </div>
           ) : (
-            filteredTransactions.map((tx) => (
-              <div 
-                key={tx.id} 
-                className={`p-3 rounded-lg border ${
-                  tx.type === 'credit' 
-                    ? 'bg-emerald-500/5 border-emerald-500/20' 
-                    : 'bg-red-500/5 border-red-500/20'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    {tx.type === 'credit' ? (
-                      <ArrowDownLeft size={16} className="text-emerald-500" />
-                    ) : (
-                      <ArrowUpRight size={16} className="text-red-500" />
-                    )}
-                    <span className="font-medium text-sm">
-                      {tx.wallets?.locations?.name} - {tx.wallets?.type} {tx.wallets?.currency}
-                    </span>
+            <div className="space-y-2">
+              {filteredTransactions.map((transaction) => (
+                <div key={transaction.id} className="flex flex-col gap-2 rounded-lg border border-border bg-background/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {transaction.type === 'credit' ? (
+                        <ArrowDownLeft size={16} className="text-emerald-400" />
+                      ) : transaction.type === 'debit' ? (
+                        <ArrowUpRight size={16} className="text-rose-400" />
+                      ) : (
+                        <Edit size={16} className="text-sky-400" />
+                      )}
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {transaction.wallets ? getWalletDisplayName(transaction.wallets) : 'Wallet'}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {transaction.description || transaction.reference_type || 'Transaction'} - {transaction.created_at ? new Date(transaction.created_at).toLocaleString() : '-'}
+                    </p>
                   </div>
-                  <span className={`font-bold ${tx.type === 'credit' ? 'text-emerald-500' : 'text-red-500'}`}>
-                    {tx.type === 'credit' ? '+' : '-'}{formatCurrency(tx.amount, (tx.wallets?.currency || 'SRD') as Currency)}
-                  </span>
+                  <p className={`font-bold ${transaction.type === 'credit' ? 'text-emerald-400' : transaction.type === 'debit' ? 'text-rose-400' : 'text-sky-400'}`}>
+                    {transaction.type === 'credit' ? '+' : transaction.type === 'debit' ? '-' : ''}
+                    {formatCurrency(transaction.amount, (transaction.currency || transaction.wallets?.currency || 'SRD') as Currency)}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{tx.description || tx.reference_type}</span>
-                  <span>{new Date(tx.created_at).toLocaleString()}</span>
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
-      </Modal>
-
-      {/* Transfer Modal */}
-      <Modal 
-        isOpen={showTransferForm} 
-        onClose={() => {
-          setShowTransferForm(false)
-          setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
-        }} 
-        title="Transfer Between Wallets"
-      >
-        <form onSubmit={handleTransfer}>
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4">
-            <div className="flex items-center gap-2 text-primary mb-1">
-              <ArrowRightLeft size={16} />
-              <span className="font-semibold text-sm">Wallet Transfer</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Transfer money between wallets of the same currency.
-            </p>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">From Wallet</label>
-            <select
-              value={transferForm.fromWalletId}
-              onChange={(e) => setTransferForm({ ...transferForm, fromWalletId: e.target.value, toWalletId: '' })}
-              required
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="">Select source wallet...</option>
-              {wallets.map(wallet => (
-                <option key={wallet.id} value={wallet.id}>
-                  {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="flex justify-center py-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <ArrowDownLeft size={16} className="text-primary" />
-            </div>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">To Wallet</label>
-            <select
-              value={transferForm.toWalletId}
-              onChange={(e) => setTransferForm({ ...transferForm, toWalletId: e.target.value })}
-              required
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              <option value="">Select destination wallet...</option>
-              {wallets
-                .filter(w => {
-                  if (!transferForm.fromWalletId) return true
-                  const fromWallet = wallets.find(fw => fw.id === transferForm.fromWalletId)
-                  return w.id !== transferForm.fromWalletId && w.currency === fromWallet?.currency
-                })
-                .map(wallet => (
-                  <option key={wallet.id} value={wallet.id}>
-                    {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
-                  </option>
-                ))}
-            </select>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={transferForm.amount}
-              onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
-              placeholder="0.00"
-              required
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-          
-          {transferForm.fromWalletId && transferForm.amount && (
-            <div className="bg-muted rounded-lg p-3 text-xs mb-4">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Current balance:</span>
-                <span>{formatCurrency(wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
-              </div>
-              <div className="flex justify-between font-medium text-foreground mt-1">
-                <span>After transfer:</span>
-                <span>{formatCurrency((wallets.find(w => w.id === transferForm.fromWalletId)?.balance || 0) - (parseFloat(transferForm.amount) || 0), (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency)}</span>
-              </div>
-            </div>
-          )}
-          
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-foreground mb-2">Description (optional)</label>
-            <input
-              type="text"
-              value={transferForm.description}
-              onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-              placeholder="e.g. Moving to bank account"
-              className="w-full h-12 px-3 rounded-xl border border-border bg-input text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            variant="primary" 
-            fullWidth 
-            loading={submitting}
-            disabled={!transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount}
-          >
-            <ArrowRightLeft size={18} />
-            Transfer {transferForm.amount ? formatCurrency(parseFloat(transferForm.amount) || 0, (wallets.find(w => w.id === transferForm.fromWalletId)?.currency || 'SRD') as Currency) : 'Money'}
-          </Button>
-        </form>
       </Modal>
 
       <ConfirmDialog {...dialogProps} />
@@ -1931,3 +1454,174 @@ export default function WalletsPage() {
   )
 }
 
+function WalletTile({
+  wallet,
+  onAdjust,
+  onEdit,
+  onDelete,
+}: {
+  wallet: WalletWithLocation
+  onAdjust: () => void
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const isCash = wallet.type === 'cash'
+
+  return (
+    <div className={`rounded-lg border bg-background/40 p-4 ${isCash ? 'border-emerald-500/20' : 'border-sky-500/20'}`}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isCash ? 'bg-emerald-500/10 text-emerald-400' : 'bg-sky-500/10 text-sky-400'}`}>
+            {isCash ? <Banknote size={19} /> : <CreditCard size={19} />}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold capitalize text-foreground">{wallet.type}</p>
+            <p className="truncate text-xs text-muted-foreground">{wallet.locations?.name || wallet.person_name}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+          <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
+        </div>
+      </div>
+
+      <p className="text-2xl font-bold text-foreground">{formatCurrency(wallet.balance, wallet.currency as Currency)}</p>
+
+      <div className="mt-4 flex gap-2">
+        <Button onClick={onAdjust} variant="secondary" size="sm" fullWidth>
+          <DollarSign size={15} />
+          Adjust
+        </Button>
+        <Button onClick={onEdit} variant="ghost" size="sm">
+          <Edit size={15} />
+        </Button>
+        <Button onClick={onDelete} variant="ghost" size="sm">
+          <Trash2 size={15} />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ObligationSection({
+  title,
+  subtitle,
+  type,
+  obligations,
+  search,
+  status,
+  onSearch,
+  onStatus,
+  onCreate,
+  onEdit,
+  onMarkPaid,
+  onCancel,
+  onDelete,
+}: {
+  title: string
+  subtitle: string
+  type: FinanceObligationType
+  obligations: FinanceObligationRecord[]
+  search: string
+  status: 'all' | FinanceObligationStatus
+  onSearch: (value: string) => void
+  onStatus: (value: 'all' | FinanceObligationStatus) => void
+  onCreate: () => void
+  onEdit: (obligation: FinanceObligationRecord) => void
+  onMarkPaid: (obligation: FinanceObligationRecord) => void
+  onCancel: (obligation: FinanceObligationRecord) => void
+  onDelete: (obligation: FinanceObligationRecord) => void
+}) {
+  const total = obligations.reduce((sum, obligation) => sum + obligation.outstanding_amount, 0)
+  const currency = obligations.find((obligation) => obligation.currency === 'USD') ? 'USD' : 'SRD'
+  const Icon = type === 'receivable' ? ReceiptText : FileText
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <Icon size={18} className={type === 'receivable' ? 'text-sky-400' : 'text-orange-400'} />
+            <h2 className="text-lg font-bold text-foreground">{title}</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant={type === 'receivable' ? 'info' : 'warning'}>{formatCurrency(total, currency)}</Badge>
+          <Button onClick={onCreate} variant="primary" size="sm">
+            <Plus size={16} />
+            New
+          </Button>
+        </div>
+      </div>
+
+      <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px]">
+        <Input label="Search" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Name, location, note" />
+        <Select label="Status" value={status} onChange={(event) => onStatus(event.target.value as 'all' | FinanceObligationStatus)}>
+          <option value="all">All statuses</option>
+          <option value="open">Open</option>
+          <option value="partial">Partial</option>
+          <option value="paid">Paid</option>
+          <option value="cancelled">Cancelled</option>
+        </Select>
+      </div>
+
+      {obligations.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={`No ${title.toLowerCase()} found`}
+          description="Create a new record or change the filters."
+        />
+      ) : (
+        <div className="space-y-2">
+          {obligations.map((obligation) => (
+            <div key={obligation.id} className="rounded-lg border border-border bg-background/40 p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-bold text-foreground">{obligation.counterparty_name}</p>
+                    <Badge variant={statusVariant(obligation.status)}>{obligation.status}</Badge>
+                    {obligation.location_name && <Badge variant="default">{obligation.location_name}</Badge>}
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Due {formatDate(obligation.due_date)} - created {formatDate(obligation.created_at)}
+                  </p>
+                  {obligation.notes && <p className="mt-1 text-sm text-muted-foreground">{obligation.notes}</p>}
+                </div>
+
+                <div className="flex flex-col gap-3 lg:items-end">
+                  <div className="text-left lg:text-right">
+                    <p className="text-lg font-bold text-foreground">{formatCurrency(obligation.outstanding_amount, obligation.currency)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      paid {formatCurrency(obligation.paid_amount, obligation.currency)} / {formatCurrency(obligation.original_amount, obligation.currency)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {obligation.status !== 'paid' && obligation.status !== 'cancelled' && (
+                      <Button onClick={() => onMarkPaid(obligation)} variant="success" size="sm">
+                        <CheckCircle2 size={15} />
+                        Paid
+                      </Button>
+                    )}
+                    {obligation.status !== 'cancelled' && (
+                      <Button onClick={() => onCancel(obligation)} variant="secondary" size="sm">
+                        <X size={15} />
+                        Cancel
+                      </Button>
+                    )}
+                    <Button onClick={() => onEdit(obligation)} variant="ghost" size="sm">
+                      <Edit size={15} />
+                    </Button>
+                    <Button onClick={() => onDelete(obligation)} variant="ghost" size="sm">
+                      <Trash2 size={15} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}

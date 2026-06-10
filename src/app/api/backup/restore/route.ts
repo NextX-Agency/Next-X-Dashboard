@@ -22,6 +22,7 @@ function parseDates(record: Record<string, unknown>): Record<string, unknown> {
     'lastLoginAt', 'last_login_at', 'setAt', 'set_at',
     'startDate', 'start_date', 'endDate', 'end_date',
     'deadline', 'publishedAt', 'published_at',
+    'dueDate', 'due_date', 'issuedAt', 'issued_at',
     'subscribedAt', 'subscribed_at',
     'expected_arrival',
   ]
@@ -112,6 +113,9 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
       break
     case 'goals':
       await prisma.goal.createMany({ data: parsed as any })
+      break
+    case 'financeObligations':
+      await prisma.financeObligation.createMany({ data: parsed as any })
       break
     case 'purchaseOrders':
       await prisma.purchaseOrder.createMany({ data: parsed as any })
@@ -250,6 +254,9 @@ async function upsertTable(tableName: string, records: Record<string, unknown>[]
           break
         case 'goals':
           await prisma.goal.upsert({ where: { id }, create: record as any, update: record as any })
+          break
+        case 'financeObligations':
+          await prisma.financeObligation.upsert({ where: { id }, create: record as any, update: record as any })
           break
         case 'purchaseOrders':
           await prisma.purchaseOrder.upsert({ where: { id }, create: record as any, update: record as any })

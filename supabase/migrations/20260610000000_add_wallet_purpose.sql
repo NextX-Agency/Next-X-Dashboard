@@ -2,7 +2,7 @@
 -- operational, savings, and reserve balances for the same type/currency.
 
 ALTER TABLE wallets
-  ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'operational';
+  ADD COLUMN IF NOT EXISTS purpose TEXT;
 
 DO $$
 DECLARE
@@ -34,13 +34,56 @@ ALTER TABLE wallets
 ALTER TABLE wallets
   ALTER COLUMN purpose SET NOT NULL;
 
-ALTER TABLE wallets
-  DROP CONSTRAINT IF EXISTS wallets_purpose_check;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'wallets_purpose_check'
+      AND conrelid = 'wallets'::regclass
+  ) THEN
+    ALTER TABLE wallets
+      ADD CONSTRAINT wallets_purpose_check
+      CHECK (purpose IN ('operational', 'savings', 'reserve'));
+  END IF;
+END $$;
 
-ALTER TABLE wallets
-  ADD CONSTRAINT wallets_purpose_check
-  CHECK (purpose IN ('operational', 'savings', 'reserve'));
+DO $$
+DECLARE
+  duplicate_count INTEGER;
+BEGIN
+  SELECT COUNT(*)
+  INTO duplicate_count
+  FROM (
+    SELECT location_id, type, currency, purpose
+    FROM wallets
+    GROUP BY location_id, type, currency, purpose
+    HAVING COUNT(*) > 1
+  ) duplicate_wallets;
 
+  IF duplicate_count > 0 THEN
+    RAISE EXCEPTION
+      'Cannot switch wallet uniqueness safely: duplicate location/type/currency/purpose wallets exist.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'wallets_location_type_currency_purpose_key'
+      AND conrelid = 'wallets'::regclass
+  ) THEN
+    ALTER TABLE wallets
+      ADD CONSTRAINT wallets_location_type_currency_purpose_key
+      UNIQUE (location_id, type, currency, purpose);
+  END IF;
+END $$;
+
+-- Data-safe schema cleanup: these remove only obsolete uniqueness rules that
+-- blocked multiple purposes for the same location/type/currency. No wallet
+-- rows, balances, transactions, sales, expenses, or orders are deleted.
 ALTER TABLE wallets
   DROP CONSTRAINT IF EXISTS wallets_person_name_type_currency_key;
 
@@ -50,13 +93,6 @@ ALTER TABLE wallets
   DROP CONSTRAINT IF EXISTS wallets_person_name_type_currency_purpose_key;
 
 DROP INDEX IF EXISTS wallets_person_name_type_currency_purpose_key;
-
-ALTER TABLE wallets
-  DROP CONSTRAINT IF EXISTS wallets_location_type_currency_purpose_key;
-
-ALTER TABLE wallets
-  ADD CONSTRAINT wallets_location_type_currency_purpose_key
-  UNIQUE (location_id, type, currency, purpose);
 
 CREATE INDEX IF NOT EXISTS idx_wallets_location_type_currency_purpose
   ON wallets(location_id, type, currency, purpose);

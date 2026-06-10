@@ -92,30 +92,31 @@ model Item {
 }
 
 model Location {
-  id              String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name            String
-  address         String?
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  seller_name     String?
-  seller_phone    String?
-  commission_rate Decimal?        @default(0) @db.Decimal(5, 2)
-  is_active       Boolean?        @default(true)
-  catalogType     String          @default("all") @map("catalog_type")
-  clients         Client[]
-  commissions     Commission[]
-  expenses        Expense[]
-  purchaseOrders  PurchaseOrder[]
-  reservations    Reservation[]
-  sales           Sale[]
-  sellers         Seller[]
-  stock           Stock[]
-  transfersFrom   StockTransfer[] @relation("FromLocation")
-  transfersTo     StockTransfer[] @relation("ToLocation")
-  wallets         Wallet[]
+  id                 String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name               String
+  address            String?
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  seller_name        String?
+  seller_phone       String?
+  commission_rate    Decimal?            @default(0) @db.Decimal(5, 2)
+  is_active          Boolean?            @default(true)
+  catalogType        String              @default("all") @map("catalog_type")
+  clients            Client[]
+  commissions        Commission[]
+  expenses           Expense[]
+  purchaseOrders     PurchaseOrder[]
+  reservations       Reservation[]
+  sales              Sale[]
+  sellers            Seller[]
+  stock              Stock[]
+  transfersFrom      StockTransfer[]     @relation("FromLocation")
+  transfersTo        StockTransfer[]     @relation("ToLocation")
+  wallets            Wallet[]
+  financeObligations FinanceObligation[]
 
-  @@map("locations")
   @@index([catalogType], map: "idx_locations_catalog_type")
+  @@map("locations")
 }
 
 model Stock {
@@ -317,12 +318,12 @@ model Commission {
 }
 
 model BudgetCategory {
-  id                       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                     String
-  type                     String
+  id                        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                      String
+  type                      String
   linked_expense_categories String?  @map("linked_expense_categories")
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  budgets                  Budget[]
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  budgets                   Budget[]
 
   @@map("budget_categories")
 }
@@ -355,6 +356,31 @@ model Goal {
   updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("goals")
+}
+
+model FinanceObligation {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  type             String    @db.VarChar(20)
+  counterpartyName String    @map("counterparty_name")
+  locationId       String?   @map("location_id") @db.Uuid
+  currency         String    @default("SRD") @db.VarChar(10)
+  originalAmount   Decimal   @map("original_amount") @db.Decimal(10, 2)
+  paidAmount       Decimal   @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  status           String    @default("open") @db.VarChar(30)
+  dueDate          DateTime? @map("due_date") @db.Date
+  issuedAt         DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  notes            String?
+  sourceType       String?   @map("source_type") @db.VarChar(50)
+  sourceId         String?   @map("source_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location         Location? @relation(fields: [locationId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([type, status], map: "idx_finance_obligations_type_status")
+  @@index([locationId], map: "idx_finance_obligations_location")
+  @@index([dueDate], map: "idx_finance_obligations_due_date")
+  @@index([createdAt(sort: Desc)], map: "idx_finance_obligations_created_at")
+  @@map("finance_obligations")
 }
 
 model PurchaseOrder {
