@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import {
   AlertTriangle,
@@ -843,14 +844,16 @@ export default function WalletsPage() {
                   <h2 className="text-lg font-bold text-foreground">Open posten</h2>
                   <p className="text-sm text-muted-foreground">Debiteuren en crediteuren</p>
                 </div>
-                <Button
-                  onClick={() => openObligationForm('receivable')}
-                  variant="secondary"
-                  size="sm"
-                >
-                  <Plus size={16} />
-                  Add
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={() => openObligationForm('receivable')} variant="secondary" size="sm">
+                    <Plus size={16} />
+                    Debiteur
+                  </Button>
+                  <Button onClick={() => openObligationForm('payable')} variant="secondary" size="sm">
+                    <Plus size={16} />
+                    Crediteur
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -1106,7 +1109,16 @@ export default function WalletsPage() {
                   <h2 className="text-lg font-bold text-foreground">Jaarlijkse prognose</h2>
                   <p className="text-sm text-muted-foreground">Gebaseerd op {financeSummary?.forecast.monthsElapsed ?? '-'} maand(en) year-to-date</p>
                 </div>
-                <Badge variant="info">{new Date().getFullYear()}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="info">{new Date().getFullYear()}</Badge>
+                  <Link
+                    href="/reports"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <ArrowUpRight size={13} />
+                    Reports
+                  </Link>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1532,8 +1544,8 @@ function ObligationSection({
   onCancel: (obligation: FinanceObligationRecord) => void
   onDelete: (obligation: FinanceObligationRecord) => void
 }) {
-  const total = obligations.reduce((sum, obligation) => sum + obligation.outstanding_amount, 0)
-  const currency = obligations.find((obligation) => obligation.currency === 'USD') ? 'USD' : 'SRD'
+  const srdTotal = obligations.filter((o) => o.currency === 'SRD').reduce((sum, o) => sum + o.outstanding_amount, 0)
+  const usdTotal = obligations.filter((o) => o.currency === 'USD').reduce((sum, o) => sum + o.outstanding_amount, 0)
   const Icon = type === 'receivable' ? ReceiptText : FileText
 
   return (
@@ -1547,7 +1559,8 @@ function ObligationSection({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={type === 'receivable' ? 'info' : 'warning'}>{formatCurrency(total, currency)}</Badge>
+          {usdTotal > 0 && <Badge variant={type === 'receivable' ? 'info' : 'warning'}>{formatCurrency(usdTotal, 'USD')}</Badge>}
+          {(srdTotal > 0 || usdTotal === 0) && <Badge variant={type === 'receivable' ? 'info' : 'warning'}>{formatCurrency(srdTotal, 'SRD')}</Badge>}
           <Button onClick={onCreate} variant="primary" size="sm">
             <Plus size={16} />
             New
@@ -1568,9 +1581,15 @@ function ObligationSection({
 
       {obligations.length === 0 ? (
         <EmptyState
-          icon={Search}
+          icon={Icon}
           title={`No ${title.toLowerCase()} found`}
           description="Create a new record or change the filters."
+          action={
+            <Button onClick={onCreate} variant="primary" size="sm">
+              <Plus size={15} />
+              New
+            </Button>
+          }
         />
       ) : (
         <div className="space-y-2">
