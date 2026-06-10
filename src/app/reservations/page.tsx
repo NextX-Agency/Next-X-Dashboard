@@ -757,9 +757,10 @@ export default function ReservationsPage() {
         .from('wallets')
         .select('*')
         .eq('location_id', group.location_id)
+        .eq('purpose', 'operational')
       
       const matchingWallet = wallets?.find(
-        w => w.currency === 'SRD' && w.type === 'cash'
+        w => w.currency === 'SRD' && w.type === 'cash' && w.purpose === 'operational'
       )
       
       // Use the group's total_amount which already includes combo pricing

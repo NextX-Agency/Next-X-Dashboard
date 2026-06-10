@@ -11,7 +11,7 @@ import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { fetchWalletPurposeMap, updateWalletPurpose } from '@/lib/walletPurposeClient'
-import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, type WalletPurpose } from '@/types/walletPurpose'
+import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, isWalletPurpose, type WalletPurpose } from '@/types/walletPurpose'
 import {
   LOCATION_CATALOG_LABELS,
   LOCATION_CATALOG_OPTIONS,
@@ -81,7 +81,9 @@ export default function LocationsPage() {
               ...location,
               wallets: (wallets || []).map((wallet) => ({
                 ...wallet,
-                purpose: purposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE,
+                purpose: isWalletPurpose(wallet.purpose)
+                  ? wallet.purpose
+                  : purposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE,
               })),
             }
           })
@@ -258,15 +260,30 @@ export default function LocationsPage() {
     
     setSubmitting(true)
     try {
+      const purposeLabel = WALLET_PURPOSE_LABELS[walletForm.purpose]
+      const existing = selectedLocation.wallets?.find(wallet =>
+        wallet.type === walletForm.type &&
+        wallet.currency === walletForm.currency &&
+        wallet.purpose === walletForm.purpose
+      )
+
+      if (existing) {
+        alert(`A ${purposeLabel} ${walletForm.type} ${walletForm.currency} wallet already exists for this location`)
+        setSubmitting(false)
+        return
+      }
+
       const walletData = {
         person_name: selectedLocation.name,
         type: walletForm.type,
         currency: walletForm.currency,
         balance: parseFloat(walletForm.balance) || 0,
-        location_id: selectedLocation.id
+        location_id: selectedLocation.id,
+        purpose: walletForm.purpose,
       }
       
-      const { data: newWallet } = await supabase.from('wallets').insert(walletData).select().single()
+      const { data: newWallet, error } = await supabase.from('wallets').insert(walletData).select().single()
+      if (error) throw error
       
       if (newWallet) {
         await updateWalletPurpose(newWallet.id, walletForm.purpose)
@@ -274,8 +291,8 @@ export default function LocationsPage() {
           action: 'create',
           entityType: 'wallet',
           entityId: newWallet.id,
-          entityName: `${selectedLocation.name} - ${walletForm.type} ${walletForm.currency}`,
-          details: `Created ${walletForm.type} wallet in ${walletForm.currency} for location ${selectedLocation.name}`
+          entityName: `${selectedLocation.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
+          details: `Created ${purposeLabel} ${walletForm.type} wallet in ${walletForm.currency} for location ${selectedLocation.name}`
         })
       }
       
@@ -285,6 +302,7 @@ export default function LocationsPage() {
       loadLocations()
     } catch (error) {
       console.error('Error creating wallet:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create wallet.')
     } finally {
       setSubmitting(false)
     }
@@ -645,7 +663,7 @@ export default function LocationsPage() {
           <div className="bg-muted/50 p-4 rounded-xl border border-border">
             <p className="text-sm text-muted-foreground">
               This wallet will be linked to <span className="font-semibold text-foreground">{selectedLocation?.name}</span>. 
-              Sales at this location will automatically credit to the selected wallet.
+              Operational wallets are used for automatic sales credits; Savings and Reserve can be funded with transfers.
             </p>
           </div>
           

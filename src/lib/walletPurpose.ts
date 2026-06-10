@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { DEFAULT_WALLET_PURPOSE, isWalletPurpose, WALLET_PURPOSE_SETTING_KEY, type WalletPurpose } from '@/types/walletPurpose'
+import { DEFAULT_WALLET_PURPOSE, isWalletPurpose, type WalletPurpose } from '@/types/walletPurpose'
 
 export function parseWalletPurposeMap(value: string | null | undefined): Record<string, WalletPurpose> {
   if (!value) return {}
@@ -15,26 +15,26 @@ export function parseWalletPurposeMap(value: string | null | undefined): Record<
 }
 
 export async function getWalletPurposeMap(): Promise<Record<string, WalletPurpose>> {
-  const setting = await prisma.storeSetting.findUnique({
-    where: { key: WALLET_PURPOSE_SETTING_KEY },
-    select: { value: true },
-  })
-
-  return parseWalletPurposeMap(setting?.value)
-}
-
-export async function setWalletPurpose(walletId: string, purpose: WalletPurpose): Promise<Record<string, WalletPurpose>> {
-  const purposeMap = await getWalletPurposeMap()
-  purposeMap[walletId] = purpose || DEFAULT_WALLET_PURPOSE
-
-  await prisma.storeSetting.upsert({
-    where: { key: WALLET_PURPOSE_SETTING_KEY },
-    update: { value: JSON.stringify(purposeMap) },
-    create: {
-      key: WALLET_PURPOSE_SETTING_KEY,
-      value: JSON.stringify(purposeMap),
+  const wallets = await prisma.wallet.findMany({
+    select: {
+      id: true,
+      purpose: true,
     },
   })
 
-  return purposeMap
+  return Object.fromEntries(
+    wallets.map((wallet) => [
+      wallet.id,
+      isWalletPurpose(wallet.purpose) ? wallet.purpose : DEFAULT_WALLET_PURPOSE,
+    ]),
+  )
+}
+
+export async function setWalletPurpose(walletId: string, purpose: WalletPurpose): Promise<Record<string, WalletPurpose>> {
+  await prisma.wallet.update({
+    where: { id: walletId },
+    data: { purpose: purpose || DEFAULT_WALLET_PURPOSE },
+  })
+
+  return getWalletPurposeMap()
 }

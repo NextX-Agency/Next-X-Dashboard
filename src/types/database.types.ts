@@ -395,6 +395,7 @@ export interface Database {
           type: string
           currency: string
           balance: number
+          purpose: string
           location_id: string | null
           created_at: string
           updated_at: string
@@ -405,6 +406,7 @@ export interface Database {
           type: string
           currency: string
           balance?: number
+          purpose?: string
           location_id?: string | null
           created_at?: string
           updated_at?: string
@@ -415,6 +417,7 @@ export interface Database {
           type?: string
           currency?: string
           balance?: number
+          purpose?: string
           location_id?: string | null
           created_at?: string
           updated_at?: string

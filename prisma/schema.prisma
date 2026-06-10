@@ -237,6 +237,7 @@ model Wallet {
   type                String
   currency            String
   balance             Decimal               @default(0) @db.Decimal(10, 2)
+  purpose             String                @default("operational")
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   location_id         String?               @db.Uuid
@@ -246,8 +247,9 @@ model Wallet {
   wallet_transactions wallet_transactions[]
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
 
-  @@unique([personName, type, currency])
+  @@unique([personName, type, currency, purpose], map: "wallets_person_name_type_currency_purpose_key")
   @@index([location_id], map: "idx_wallets_location")
+  @@index([location_id, type, currency, purpose], map: "idx_wallets_location_type_currency_purpose")
   @@map("wallets")
 }
 

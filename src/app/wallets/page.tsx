@@ -162,12 +162,28 @@ export default function WalletsPage() {
     
     try {
       const location = locations.find(l => l.id === walletForm.location_id)
+      const purposeLabel = WALLET_PURPOSE_LABELS[walletForm.purpose]
+      const existing = wallets.find(w =>
+        w.id !== editingWallet?.id &&
+        w.location_id === walletForm.location_id &&
+        w.type === walletForm.type &&
+        w.currency === walletForm.currency &&
+        w.purpose === walletForm.purpose
+      )
+
+      if (existing) {
+        alert(`A ${purposeLabel} ${walletForm.type} ${walletForm.currency} wallet already exists for this location`)
+        setSubmitting(false)
+        return
+      }
+
       const data = {
         location_id: walletForm.location_id,
         person_name: location?.name || 'Unknown', // Keep for backwards compatibility
         type: walletForm.type,
         currency: walletForm.currency,
-        balance: parseFloat(walletForm.balance) || 0
+        balance: parseFloat(walletForm.balance) || 0,
+        purpose: walletForm.purpose,
       }
 
       if (editingWallet) {
@@ -178,23 +194,10 @@ export default function WalletsPage() {
           action: 'update',
           entityType: 'wallet',
           entityId: editingWallet.id,
-          entityName: `${location?.name} - ${walletForm.type} ${walletForm.currency}`,
-          details: `Updated wallet for location ${location?.name}`
+          entityName: `${location?.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
+          details: `Updated ${purposeLabel} wallet for location ${location?.name}`
         })
       } else {
-        // Check if wallet already exists for this location/type/currency
-        const existing = wallets.find(w => 
-          w.location_id === walletForm.location_id && 
-          w.type === walletForm.type && 
-          w.currency === walletForm.currency
-        )
-        
-        if (existing) {
-          alert(`A ${walletForm.type} ${walletForm.currency} wallet already exists for this location`)
-          setSubmitting(false)
-          return
-        }
-        
         const { data: newWallet, error } = await supabase.from('wallets').insert(data).select().single()
         if (error) throw error
         if (!newWallet) throw new Error('Wallet creation did not return a wallet id.')
@@ -203,8 +206,8 @@ export default function WalletsPage() {
           action: 'create',
           entityType: 'wallet',
           entityId: newWallet?.id,
-          entityName: `${location?.name} - ${walletForm.type} ${walletForm.currency}`,
-          details: `Created ${walletForm.type} ${walletForm.currency} wallet for ${location?.name} with balance ${formatCurrency(parseFloat(walletForm.balance) || 0, walletForm.currency)}`
+          entityName: `${location?.name} - ${purposeLabel} ${walletForm.type} ${walletForm.currency}`,
+          details: `Created ${purposeLabel} ${walletForm.type} ${walletForm.currency} wallet for ${location?.name} with balance ${formatCurrency(parseFloat(walletForm.balance) || 0, walletForm.currency)}`
         })
       }
       resetForm()
@@ -231,10 +234,11 @@ export default function WalletsPage() {
 
   const handleDeleteWallet = async (wallet: WalletWithLocation) => {
     const locationName = wallet.locations?.name || 'Unknown'
+    const walletName = `${locationName} - ${WALLET_PURPOSE_LABELS[wallet.purpose]} ${wallet.type} ${wallet.currency}`
     const ok = await confirm({
       title: 'Delete Wallet',
       message: 'This will permanently delete the wallet and all its transaction history. This cannot be undone.',
-      itemName: `${locationName} — ${wallet.type} ${wallet.currency}`,
+      itemName: walletName,
       itemDetails: `Balance: ${formatCurrency(wallet.balance, wallet.currency as Currency)}`,
       variant: 'danger',
       confirmLabel: 'Delete Wallet',
@@ -246,8 +250,8 @@ export default function WalletsPage() {
       action: 'delete',
       entityType: 'wallet',
       entityId: wallet.id,
-      entityName: `${locationName} - ${wallet.type} ${wallet.currency}`,
-      details: `Deleted wallet with balance ${formatCurrency(wallet.balance, wallet.currency as Currency)}`
+      entityName: walletName,
+      details: `Deleted ${WALLET_PURPOSE_LABELS[wallet.purpose]} wallet with balance ${formatCurrency(wallet.balance, wallet.currency as Currency)}`
     })
     await loadData()
   }
@@ -423,6 +427,8 @@ export default function WalletsPage() {
   }
 
   const getWalletLocationName = (wallet: WalletWithLocation) => wallet.locations?.name || 'No location'
+  const getWalletDisplayName = (wallet: WalletWithLocation) =>
+    `${getWalletLocationName(wallet)} - ${WALLET_PURPOSE_LABELS[wallet.purpose]} ${wallet.type} ${wallet.currency}`
 
   const matchesBalanceFilter = (wallet: WalletWithLocation) => {
     switch (filterBalance) {
@@ -1614,8 +1620,8 @@ export default function WalletsPage() {
         <form onSubmit={handleSubmitWallet}>
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground text-sm">Each location can have 4 wallets:</strong><br />
-              Cash SRD, Cash USD, Bank SRD, Bank USD. Sales auto-credit and expenses auto-debit these wallets.
+              <strong className="text-foreground text-sm">Each location can have wallets by purpose:</strong><br />
+              Operational, Savings, and Reserve each support Cash/Bank wallets in SRD or USD.
             </p>
           </div>
           
@@ -1711,7 +1717,7 @@ export default function WalletsPage() {
             {/* Current Balance Display */}
             <div className="bg-muted rounded-xl p-4 text-center border border-border mb-4">
               <p className="text-xs text-muted-foreground mb-1">
-                {selectedWallet.locations?.name} - {selectedWallet.type} {selectedWallet.currency}
+                {getWalletDisplayName(selectedWallet)}
               </p>
               <p className="text-xs text-muted-foreground">Current Balance</p>
               <p className="text-2xl font-bold text-foreground mt-1">
@@ -1832,7 +1838,7 @@ export default function WalletsPage() {
             <Select label="Wallet" value={historyWalletFilter} onChange={(event) => setHistoryWalletFilter(event.target.value)}>
               <option value="">All wallets</option>
               {wallets.map((wallet) => (
-                <option key={wallet.id} value={wallet.id}>{getWalletLocationName(wallet)} - {wallet.type} {wallet.currency}</option>
+                <option key={wallet.id} value={wallet.id}>{getWalletDisplayName(wallet)}</option>
               ))}
             </Select>
           </div>
@@ -1916,7 +1922,7 @@ export default function WalletsPage() {
               <option value="">Select source wallet...</option>
               {wallets.map(wallet => (
                 <option key={wallet.id} value={wallet.id}>
-                  {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                  {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
                 </option>
               ))}
             </select>
@@ -1945,7 +1951,7 @@ export default function WalletsPage() {
                 })
                 .map(wallet => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.locations?.name || 'Unknown'} - {wallet.type} {wallet.currency} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
+                    {getWalletDisplayName(wallet)} ({formatCurrency(wallet.balance, wallet.currency as Currency)})
                   </option>
                 ))}
             </select>

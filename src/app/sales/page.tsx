@@ -175,6 +175,7 @@ export default function SalesPage() {
       .from('wallets')
       .select('*')
       .eq('location_id', locationId)
+      .eq('purpose', 'operational')
     
     if (data) setLocationWallets(data)
   }
@@ -376,7 +377,7 @@ export default function SalesPage() {
     try {
       // Find or select the appropriate wallet for this location, currency, and payment method
       const matchingWallet = locationWallets.find(
-        w => w.currency === currency && w.type === paymentMethod
+        w => w.currency === currency && w.type === paymentMethod && w.purpose === 'operational'
       )
       
       const { data: sale, error: saleError } = await supabase
