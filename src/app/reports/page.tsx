@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   BarChart3, TrendingUp, Package, DollarSign, Calendar,
@@ -2130,6 +2131,13 @@ export default function ReportsPage() {
               </div>
               <div className="text-lg sm:text-xl font-bold tracking-tight mt-1">{formatCurrency(scopedFinalMetricValue, displayCurrency)}</div>
               <div className="text-xs text-muted-foreground mt-1">{scopedFinalMetricSubtitle}</div>
+              <Link
+                href="/wallets"
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-cyan-500 hover:text-cyan-400 transition-colors"
+              >
+                <ArrowUpRight size={12} />
+                Manage wallets
+              </Link>
             </div>
           </div>
         </div>
@@ -2298,6 +2306,13 @@ export default function ReportsPage() {
                       ? 'Built from profitability, liquidity cover, reconciliation quality, and inventory discipline.'
                       : 'Built from profitability, period-end wallet liquidity, and wallet reconciliation. Historical stock pressure is excluded until stock snapshots are stored.'}
                   </div>
+                  <Link
+                    href="/wallets"
+                    className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowUpRight size={12} />
+                    Finance & Wallets
+                  </Link>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">

@@ -1481,19 +1481,19 @@ function WalletTile({
 
   return (
     <div className={`rounded-lg border bg-background/40 p-4 ${isCash ? 'border-emerald-500/20' : 'border-sky-500/20'}`}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isCash ? 'bg-emerald-500/10 text-emerald-400' : 'bg-sky-500/10 text-sky-400'}`}>
-            {isCash ? <Banknote size={19} /> : <CreditCard size={19} />}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold capitalize text-foreground">{wallet.type}</p>
-            <p className="truncate text-xs text-muted-foreground">{wallet.locations?.name || wallet.person_name}</p>
-          </div>
+      <div className="mb-4 flex items-center gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isCash ? 'bg-emerald-500/10 text-emerald-400' : 'bg-sky-500/10 text-sky-400'}`}>
+          {isCash ? <Banknote size={19} /> : <CreditCard size={19} />}
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
-          <Badge variant={getPurposeBadgeVariant(wallet.purpose)}>{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold capitalize text-foreground">{wallet.type}</p>
+            <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
+          </div>
+          <div className="mt-0.5 flex items-center gap-2">
+            <p className="truncate text-xs text-muted-foreground">{wallet.locations?.name || wallet.person_name}</p>
+            <Badge variant={getPurposeBadgeVariant(wallet.purpose)} className="shrink-0">{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
+          </div>
         </div>
       </div>
 
