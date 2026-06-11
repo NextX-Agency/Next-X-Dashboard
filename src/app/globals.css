@@ -1743,17 +1743,7 @@ button {
   border-color: #C9A84C;
 }
 
-/* Center divider — subtle single line */
-.portal-divider {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  z-index: 15;
-  pointer-events: none;
-}
+/* portal-divider removed */
 
 /* Center logo badge */
 .portal-center {

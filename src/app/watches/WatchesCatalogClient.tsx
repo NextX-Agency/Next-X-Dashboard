@@ -483,10 +483,10 @@ export default function WatchesCatalogClient({
 
         <section id="collections" className="px-5 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
           <div
-            className="mx-auto max-w-screen-2xl border-y py-5 sm:py-6"
+            className="mx-auto max-w-screen-2xl border-y py-6 sm:py-8"
             style={{ borderColor: 'var(--w-border)' }}
           >
-            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mb-6 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
                   Live Vault
@@ -498,16 +498,26 @@ export default function WatchesCatalogClient({
                   Explore the current watch edit
                 </h2>
               </div>
-              <p className="text-sm font-light lg:text-right" style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-                {items.length} {items.length === 1 ? 'watch' : 'watches'} across {brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
-              </p>
+              <div
+                className="flex items-baseline gap-2.5"
+                style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+              >
+                <span className="text-xl font-light tabular-nums" style={{ color: 'var(--w-cream)' }}>
+                  {items.length.toString().padStart(2, '0')}
+                </span>
+                <span className="text-[10px] font-light uppercase tracking-[0.2em]" style={{ color: 'var(--w-muted)' }}>
+                  {items.length === 1 ? 'watch' : 'watches'} &mdash; {brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
+                </span>
+              </div>
             </div>
 
+            <div className="mb-5 h-px" style={{ background: 'var(--w-border)' }} />
+
             <div
-              className="grid gap-3 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.35fr)] lg:items-center"
+              className="grid gap-3 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.35fr)] lg:items-start"
               style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
             >
-              <div className="space-y-2">
+              <div className="relative">
                 <label
                   className="relative block w-full border px-4"
                   style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.58)' }}
@@ -518,7 +528,7 @@ export default function WatchesCatalogClient({
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search model, brand, or reference"
-                    className="h-12 w-full border-0 bg-transparent pl-7 pr-3 text-sm outline-none"
+                    className="h-12 w-full border-0 bg-transparent pl-7 pr-10 text-sm outline-none"
                     style={{ color: 'var(--w-cream)' }}
                   />
                 </label>
@@ -526,11 +536,11 @@ export default function WatchesCatalogClient({
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="inline-flex items-center gap-2 text-[10px] font-light uppercase tracking-[0.22em] transition-opacity hover:opacity-100"
-                    style={{ color: 'var(--w-cream-2)', opacity: 0.76 }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center transition-opacity hover:opacity-100"
+                    style={{ color: 'var(--w-muted)', opacity: 0.65 }}
+                    aria-label="Clear all filters"
                   >
-                    <X size={13} strokeWidth={1.5} />
-                    Clear selection
+                    <X size={14} strokeWidth={1.5} />
                   </button>
                 )}
               </div>

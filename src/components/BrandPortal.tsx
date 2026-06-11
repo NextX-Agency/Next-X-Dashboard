@@ -11,9 +11,6 @@ export default function BrandPortal() {
 
   return (
     <div className="brand-portal">
-      {/* Thin vertical divider */}
-      <div className="portal-divider" aria-hidden="true" />
-
       {/* — Audio — */}
       <Link
         href="/audio"
