@@ -32,10 +32,10 @@ function WatchesBrandNavComponent({
 
   return (
     <div
-      className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none]"
+      className="flex overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none]"
       aria-label="Browse watches by brand"
     >
-      <div className="flex min-w-max snap-x snap-mandatory gap-2">
+      <div className="flex min-w-max gap-1.5">
         <BrandButton
           label="All Watches"
           count={resolvedTotal}
@@ -75,26 +75,34 @@ function BrandButton({
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex min-h-11 snap-start items-center gap-3 whitespace-nowrap border px-4 py-2 text-left transition-colors"
+      className="group flex flex-col items-start justify-center whitespace-nowrap px-5 py-3 text-left transition-all duration-250"
       style={{
-        borderColor: isActive ? 'rgba(201,168,76,0.45)' : 'var(--w-border)',
-        background: isActive ? 'rgba(201,168,76,0.08)' : 'rgba(17,17,19,0.58)',
-        color: isActive ? 'var(--w-cream)' : 'var(--w-cream-2)',
+        minWidth: '110px',
         fontFamily: 'var(--font-jost, system-ui, sans-serif)',
+        background: isActive ? 'rgba(201,168,76,0.07)' : 'rgba(14,14,16,0.55)',
+        borderTop: `1px solid ${isActive ? 'rgba(201,168,76,0.35)' : 'rgba(42,42,46,0.9)'}`,
+        borderBottom: `1px solid ${isActive ? 'rgba(201,168,76,0.35)' : 'rgba(42,42,46,0.9)'}`,
+        borderLeft: `2px solid ${isActive ? 'rgba(201,168,76,0.65)' : 'rgba(42,42,46,0.9)'}`,
+        borderRight: `1px solid ${isActive ? 'rgba(201,168,76,0.35)' : 'rgba(42,42,46,0.9)'}`,
       }}
     >
+      <div className="flex items-baseline gap-2.5">
+        <span
+          className="text-[10px] font-normal uppercase tracking-[0.22em]"
+          style={{ color: isActive ? 'var(--w-cream)' : '#7A7A80' }}
+        >
+          {label}
+        </span>
+        <span
+          className="text-sm font-light tabular-nums leading-none"
+          style={{ color: isActive ? 'var(--w-gold)' : '#4A4A50' }}
+        >
+          {count.toString().padStart(2, '0')}
+        </span>
+      </div>
       <span
-        className="text-[10px] font-light uppercase tracking-[0.18em]"
-        style={{ color: isActive ? 'var(--w-gold)' : 'var(--w-muted)' }}
-      >
-        {label}
-      </span>
-      <span className="text-xs font-light" style={{ color: isActive ? 'var(--w-cream)' : 'var(--w-muted)' }}>
-        {count.toString().padStart(2, '0')}
-      </span>
-      <span
-        className="hidden text-[10px] font-light uppercase tracking-[0.14em] lg:inline"
-        style={{ color: isActive ? 'var(--w-cream-2)' : 'var(--w-muted)' }}
+        className="mt-1.5 text-[9px] uppercase tracking-[0.16em]"
+        style={{ color: isActive ? 'rgba(201,168,76,0.55)' : '#3A3A3E' }}
       >
         {meta}
       </span>
