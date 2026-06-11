@@ -456,7 +456,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
         {inStock && (
           <div className="fixed bottom-0 left-0 right-0 z-50 border-t px-4 pb-4 pt-3 lg:hidden" style={{ background: 'rgba(9,9,11,0.96)', borderColor: 'var(--w-border)', backdropFilter: 'blur(14px)' }}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--w-border)', background: 'var(--w-surface)' }}>
+              <div className="flex items-center rounded border overflow-hidden" style={{ borderColor: 'var(--w-border)', background: 'var(--w-surface)' }}>
                 <button
                   onClick={decrementQuantity}
                   className="h-10 w-10 text-base"

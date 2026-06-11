@@ -337,10 +337,10 @@ export async function buildReportExportData(
           gte: bounds.start,
           lte: bounds.end,
         },
-        ...(locationId ? { locationId } : {}),
       },
       select: {
         id: true,
+        locationId: true,
         totalAmount: true,
         currency: true,
         exchange_rate: true,
@@ -350,6 +350,13 @@ export async function buildReportExportData(
             quantity: true,
             unit_cost: true,
             subtotal: true,
+            allocations: {
+              select: {
+                locationId: true,
+                quantity: true,
+                quantity_received: true,
+              },
+            },
             item: {
               select: {
                 catalogType: true,
@@ -361,13 +368,13 @@ export async function buildReportExportData(
     }),
     prisma.purchaseOrder.findMany({
       where: {
-        ...(locationId ? { locationId } : {}),
         status: {
           not: 'cancelled',
         },
       },
       select: {
         id: true,
+        locationId: true,
         status: true,
         currency: true,
         exchange_rate: true,
@@ -376,6 +383,13 @@ export async function buildReportExportData(
             quantity: true,
             quantity_received: true,
             unit_cost: true,
+            allocations: {
+              select: {
+                locationId: true,
+                quantity: true,
+                quantity_received: true,
+              },
+            },
             item: {
               select: {
                 catalogType: true,
@@ -420,47 +434,93 @@ export async function buildReportExportData(
   const stocks = rawStocks.filter((stock) => !isCatalogScoped || stock.item?.catalogType === catalogType)
 
   const mixedPurchaseOrderIds = new Set<string>()
+  const scopePurchaseOrderItems = (order: {
+    locationId: string
+    purchase_order_items: Array<{
+      quantity: number
+      quantity_received?: number
+      unit_cost: unknown
+      subtotal?: unknown
+      allocations?: Array<{ locationId: string; quantity: number; quantity_received: number }>
+      item?: { catalogType: string } | null
+    }>
+  }) => {
+    let wasScoped = false
+
+    const scopedItems = order.purchase_order_items.reduce<typeof order.purchase_order_items>((accumulator, item) => {
+      if (isCatalogScoped && item.item?.catalogType !== catalogType) {
+        wasScoped = true
+        return accumulator
+      }
+
+      const allocations = item.allocations || []
+
+      if (locationId && allocations.length > 0) {
+        const matchingAllocations = allocations.filter((allocation) => allocation.locationId === locationId)
+        if (matchingAllocations.length === 0) {
+          wasScoped = true
+          return accumulator
+        }
+
+        const allocatedQuantity = matchingAllocations.reduce((sum, allocation) => sum + allocation.quantity, 0)
+        const receivedQuantity = matchingAllocations.reduce((sum, allocation) => sum + (allocation.quantity_received || 0), 0)
+        if (allocatedQuantity !== item.quantity) {
+          wasScoped = true
+        }
+
+        accumulator.push({
+          ...item,
+          quantity: allocatedQuantity,
+          quantity_received: receivedQuantity,
+          subtotal: toNumber(item.unit_cost) * allocatedQuantity,
+          allocations: matchingAllocations,
+        })
+        return accumulator
+      }
+
+      if (locationId && order.locationId !== locationId) {
+        wasScoped = true
+        return accumulator
+      }
+
+      accumulator.push(item)
+      return accumulator
+    }, [])
+
+    return { scopedItems, wasScoped }
+  }
+
   const periodPurchaseOrders = rawPeriodPurchaseOrders.reduce<Array<(typeof rawPeriodPurchaseOrders)[number]>>((accumulator, order) => {
-    if (!isCatalogScoped) {
-      accumulator.push(order)
+    const { scopedItems, wasScoped } = scopePurchaseOrderItems(order)
+    if (scopedItems.length === 0) {
       return accumulator
     }
 
-    const matchingItems = order.purchase_order_items.filter((item) => item.item?.catalogType === catalogType)
-    if (matchingItems.length === 0) {
-      return accumulator
-    }
-
-    if (matchingItems.length !== order.purchase_order_items.length) {
+    if (wasScoped) {
       mixedPurchaseOrderIds.add(order.id)
     }
 
     accumulator.push({
       ...order,
-      purchase_order_items: matchingItems,
+      purchase_order_items: scopedItems as typeof order.purchase_order_items,
     })
 
     return accumulator
   }, [])
 
   const openPurchaseOrders = rawOpenPurchaseOrders.reduce<Array<(typeof rawOpenPurchaseOrders)[number]>>((accumulator, order) => {
-    if (!isCatalogScoped) {
-      accumulator.push(order)
+    const { scopedItems, wasScoped } = scopePurchaseOrderItems(order)
+    if (scopedItems.length === 0) {
       return accumulator
     }
 
-    const matchingItems = order.purchase_order_items.filter((item) => item.item?.catalogType === catalogType)
-    if (matchingItems.length === 0) {
-      return accumulator
-    }
-
-    if (matchingItems.length !== order.purchase_order_items.length) {
+    if (wasScoped) {
       mixedPurchaseOrderIds.add(order.id)
     }
 
     accumulator.push({
       ...order,
-      purchase_order_items: matchingItems,
+      purchase_order_items: scopedItems as typeof order.purchase_order_items,
     })
 
     return accumulator

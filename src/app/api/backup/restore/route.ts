@@ -123,6 +123,9 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
     case 'purchaseOrderItems':
       await prisma.purchaseOrderItem.createMany({ data: parsed as any })
       break
+    case 'purchaseOrderAllocations':
+      await prisma.purchaseOrderAllocation.createMany({ data: parsed as any })
+      break
     case 'reservations':
       await prisma.reservation.createMany({ data: parsed as any })
       break
@@ -263,6 +266,9 @@ async function upsertTable(tableName: string, records: Record<string, unknown>[]
           break
         case 'purchaseOrderItems':
           await prisma.purchaseOrderItem.upsert({ where: { id }, create: record as any, update: record as any })
+          break
+        case 'purchaseOrderAllocations':
+          await prisma.purchaseOrderAllocation.upsert({ where: { id }, create: record as any, update: record as any })
           break
         case 'reservations':
           await prisma.reservation.upsert({ where: { id }, create: record as any, update: record as any })

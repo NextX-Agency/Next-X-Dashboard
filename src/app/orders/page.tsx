@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
@@ -30,21 +30,22 @@ interface OrderItemForm {
   quantity: string
   unit_cost: string
   original_cost?: string
+  allocations: Array<{
+    location_id: string
+    quantity: string
+  }>
 }
 
 interface ReceiveItemForm {
   id: string
+  order_item_id: string
+  location_id: string
+  location_name: string
   item_name: string
   ordered: number
   already_received: number
   remaining: number
   receiving: string
-}
-
-interface DeleteWalletAdjustmentPreview {
-  canAdjustWallet: boolean
-  amount: number
-  reason: string
 }
 
 interface DeleteStockReversalPreview {
@@ -53,6 +54,8 @@ interface DeleteStockReversalPreview {
   receivedItems: Array<{
     itemId: string
     itemName: string
+    locationId: string
+    locationName: string
     quantity: number
   }>
   reason: string
@@ -81,7 +84,6 @@ export default function OrdersPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
-  const [deleteAdjustWallet, setDeleteAdjustWallet] = useState(false)
   const [deleteReverseStock, setDeleteReverseStock] = useState(false)
 
   const [orderForm, setOrderForm] = useState({
@@ -92,7 +94,7 @@ export default function OrdersPage() {
     notes: '',
     expected_arrival: ''
   })
-  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ item_id: '', quantity: '1', unit_cost: '' }])
+  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
   
   // Filter and sort states
   const [searchQuery, setSearchQuery] = useState('')
@@ -150,7 +152,7 @@ export default function OrdersPage() {
 
   const resetOrderForm = () => {
     setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
-    setOrderItems([{ item_id: '', quantity: '1', unit_cost: '' }])
+    setOrderItems([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
     setEditingOrder(null)
     setPriceChanges({})
     setShowOrderForm(false)
@@ -167,7 +169,10 @@ export default function OrdersPage() {
         order.purchase_order_items?.some(item => item.items?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
       
       const matchesStatus = !filterStatus || order.status === filterStatus
-      const matchesLocation = !filterLocation || order.location_id === filterLocation
+      const matchesLocation = !filterLocation || order.location_id === filterLocation ||
+        order.purchase_order_items?.some(item =>
+          item.purchase_order_allocations?.some(allocation => allocation.location_id === filterLocation)
+        )
       const matchesWallet = !filterWallet || order.wallet_id === filterWallet
 
       let matchesDate = true
@@ -229,8 +234,12 @@ export default function OrdersPage() {
     }, 0)
   }
 
+  const buildDefaultAllocations = (quantity: string, locationId = orderForm.location_id) => (
+    locationId ? [{ location_id: locationId, quantity }] : []
+  )
+
   const addOrderItem = () => {
-    setOrderItems([...orderItems, { item_id: '', quantity: '1', unit_cost: '' }])
+    setOrderItems([...orderItems, { item_id: '', quantity: '1', unit_cost: '', allocations: buildDefaultAllocations('1') }])
   }
 
   const removeOrderItem = (index: number) => {
@@ -239,7 +248,7 @@ export default function OrdersPage() {
     }
   }
 
-  const updateOrderItem = (index: number, field: keyof OrderItemForm, value: string) => {
+  const updateOrderItem = (index: number, field: 'item_id' | 'quantity' | 'unit_cost', value: string) => {
     const newItems = [...orderItems]
     if (field === 'item_id') {
       newItems[index][field] = value
@@ -258,41 +267,122 @@ export default function OrdersPage() {
       }
     } else {
       newItems[index][field] = value
+      if (field === 'quantity' && newItems[index].allocations.length <= 1) {
+        newItems[index].allocations = buildDefaultAllocations(value, newItems[index].allocations[0]?.location_id || orderForm.location_id)
+      }
     }
     setOrderItems(newItems)
+  }
+
+  const updateDefaultDestination = (locationId: string) => {
+    setOrderForm({ ...orderForm, location_id: locationId })
+    setOrderItems(current => current.map(item => {
+      if (item.allocations.length > 1) return item
+      return {
+        ...item,
+        allocations: buildDefaultAllocations(item.quantity, locationId),
+      }
+    }))
+  }
+
+  const addAllocation = (itemIndex: number) => {
+    setOrderItems(current => current.map((item, index) => {
+      if (index !== itemIndex) return item
+      return {
+        ...item,
+        allocations: [
+          ...item.allocations,
+          { location_id: '', quantity: '0' },
+        ],
+      }
+    }))
+  }
+
+  const updateAllocation = (itemIndex: number, allocationIndex: number, field: 'location_id' | 'quantity', value: string) => {
+    setOrderItems(current => current.map((item, index) => {
+      if (index !== itemIndex) return item
+      return {
+        ...item,
+        allocations: item.allocations.map((allocation, innerIndex) => (
+          innerIndex === allocationIndex ? { ...allocation, [field]: value } : allocation
+        )),
+      }
+    }))
+  }
+
+  const normalizeOrderItemsForSubmit = () => {
+    return orderItems
+      .filter(item => item.item_id && parseInt(item.quantity, 10) > 0)
+      .map(item => {
+        const quantity = parseInt(item.quantity, 10)
+        const unitCost = parseFloat(item.unit_cost) || 0
+        const allocationMap = new Map<string, number>()
+        const sourceAllocations = item.allocations.length > 0
+          ? item.allocations
+          : buildDefaultAllocations(item.quantity)
+
+        sourceAllocations.forEach((allocation) => {
+          const locationId = allocation.location_id || orderForm.location_id
+          const allocationQuantity = parseInt(allocation.quantity, 10) || 0
+          if (!locationId || allocationQuantity <= 0) return
+          allocationMap.set(locationId, (allocationMap.get(locationId) || 0) + allocationQuantity)
+        })
+
+        const allocations = Array.from(allocationMap.entries()).map(([location_id, allocationQuantity]) => ({
+          location_id,
+          quantity: allocationQuantity,
+        }))
+        const allocatedQuantity = allocations.reduce((sum, allocation) => sum + allocation.quantity, 0)
+
+        if (allocatedQuantity !== quantity) {
+          const itemName = items.find(candidate => candidate.id === item.item_id)?.name || 'Selected item'
+          throw new Error(`${itemName} has ${quantity} unit(s), but distribution totals ${allocatedQuantity}.`)
+        }
+
+        return {
+          id: crypto.randomUUID(),
+          item_id: item.item_id,
+          quantity,
+          unit_cost: unitCost,
+          subtotal: quantity * unitCost,
+          allocations,
+        }
+      })
+  }
+
+  const removeAllocation = (itemIndex: number, allocationIndex: number) => {
+    setOrderItems(current => current.map((item, index) => {
+      if (index !== itemIndex) return item
+      const nextAllocations = item.allocations.filter((_, innerIndex) => innerIndex !== allocationIndex)
+      return {
+        ...item,
+        allocations: nextAllocations.length > 0 ? nextAllocations : buildDefaultAllocations(item.quantity),
+      }
+    }))
   }
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault()
     if (submitting) return
+
+    if (!orderForm.location_id) {
+      alert('Select a default destination')
+      return
+    }
     
-    const totalAmount = calculateTotal()
-    const wallet = wallets.find(w => w.id === orderForm.wallet_id)
-    
-    if (!wallet) {
-      alert('Select a wallet')
+    let validItems: ReturnType<typeof normalizeOrderItemsForSubmit>
+    try {
+      validItems = normalizeOrderItemsForSubmit()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Check the order distribution.')
       return
     }
 
-    // Validate items
-    const validItems = orderItems.filter(item => item.item_id && parseFloat(item.quantity) > 0)
+    const totalAmount = validItems.reduce((sum, item) => sum + item.subtotal, 0)
+    const wallet = orderForm.wallet_id ? wallets.find(w => w.id === orderForm.wallet_id) : null
+
     if (validItems.length === 0) {
       alert('Add at least one item to the order')
-      return
-    }
-
-    // Check wallet balance (convert if needed)
-    let amountInWalletCurrency = totalAmount
-    if (wallet.currency !== orderForm.currency) {
-      if (orderForm.currency === 'USD' && wallet.currency === 'SRD') {
-        amountInWalletCurrency = totalAmount * exchangeRate
-      } else if (orderForm.currency === 'SRD' && wallet.currency === 'USD') {
-        amountInWalletCurrency = totalAmount / exchangeRate
-      }
-    }
-
-    if (!editingOrder && Number(wallet.balance) < amountInWalletCurrency) {
-      alert(`Insufficient balance. Order total: ${formatCurrency(amountInWalletCurrency, wallet.currency as Currency)}, Wallet balance: ${formatCurrency(Number(wallet.balance), wallet.currency as Currency)}`)
       return
     }
 
@@ -310,7 +400,7 @@ export default function OrdersPage() {
       if (editingOrder) {
         // Update order
         await supabase.from('purchase_orders').update({
-          wallet_id: orderForm.wallet_id,
+          wallet_id: orderForm.wallet_id || null,
           location_id: orderForm.location_id,
           supplier_id: orderForm.supplier_id || null,
           total_amount: totalAmount,
@@ -320,28 +410,39 @@ export default function OrdersPage() {
           expected_arrival: orderForm.expected_arrival || null
         }).eq('id', editingOrder.id)
 
-        // Delete old items and insert new ones
+        // Delete old items and insert new ones. Allocation rows cascade from the line items.
         await supabase.from('purchase_order_items').delete().eq('order_id', editingOrder.id)
         
-        await supabase.from('purchase_order_items').insert(
-          validItems.map(item => {
-            const qty = parseFloat(item.quantity) || 0
-            const cost = parseFloat(item.unit_cost) || 0
-            return {
-              order_id: editingOrder.id,
-              item_id: item.item_id,
-              quantity: qty,
-              unit_cost: cost,
-              subtotal: qty * cost
-            }
-          })
+        const { error: itemInsertError } = await supabase.from('purchase_order_items').insert(
+          validItems.map(item => ({
+            id: item.id,
+            order_id: editingOrder.id,
+            item_id: item.item_id,
+            quantity: item.quantity,
+            unit_cost: item.unit_cost,
+            subtotal: item.subtotal,
+          }))
         )
+
+        if (itemInsertError) throw itemInsertError
+
+        const allocationRows = validItems.flatMap(item => item.allocations.map(allocation => ({
+          order_item_id: item.id,
+          location_id: allocation.location_id,
+          quantity: allocation.quantity,
+        })))
+
+        if (allocationRows.length > 0) {
+          const { error: allocationInsertError } = await supabase
+            .from('purchase_order_allocations')
+            .insert(allocationRows)
+          if (allocationInsertError) throw allocationInsertError
+        }
 
         // Also update item purchase prices to latest values
         for (const oi of validItems) {
-          const cost = parseFloat(oi.unit_cost) || 0
-          if (cost > 0) {
-            await supabase.from('items').update({ purchase_price_usd: cost }).eq('id', oi.item_id)
+          if (oi.unit_cost > 0) {
+            await supabase.from('items').update({ purchase_price_usd: oi.unit_cost }).eq('id', oi.item_id)
           }
         }
 
@@ -355,14 +456,15 @@ export default function OrdersPage() {
             Total: formatCurrency(totalAmount, orderForm.currency),
             Location: locationName,
             Supplier: supplierName,
-            Wallet: `${wallet.person_name} ${wallet.type}`
+            Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
+            Wallet: 'Unchanged'
           }),
           userId: user?.id
         })
       } else {
         // Create new order
         const { data: newOrder, error: orderError } = await supabase.from('purchase_orders').insert({
-          wallet_id: orderForm.wallet_id,
+          wallet_id: orderForm.wallet_id || null,
           location_id: orderForm.location_id,
           supplier_id: orderForm.supplier_id || null,
           total_amount: totalAmount,
@@ -376,33 +478,38 @@ export default function OrdersPage() {
         if (orderError) throw orderError
 
         // Insert order items
-        await supabase.from('purchase_order_items').insert(
-          validItems.map(item => {
-            const qty = parseFloat(item.quantity) || 0
-            const cost = parseFloat(item.unit_cost) || 0
-            return {
-              order_id: newOrder.id,
-              item_id: item.item_id,
-              quantity: qty,
-              unit_cost: cost,
-              subtotal: qty * cost
-            }
-          })
+        const { error: itemInsertError } = await supabase.from('purchase_order_items').insert(
+          validItems.map(item => ({
+            id: item.id,
+            order_id: newOrder.id,
+            item_id: item.item_id,
+            quantity: item.quantity,
+            unit_cost: item.unit_cost,
+            subtotal: item.subtotal,
+          }))
         )
+
+        if (itemInsertError) throw itemInsertError
+
+        const allocationRows = validItems.flatMap(item => item.allocations.map(allocation => ({
+          order_item_id: item.id,
+          location_id: allocation.location_id,
+          quantity: allocation.quantity,
+        })))
+
+        if (allocationRows.length > 0) {
+          const { error: allocationInsertError } = await supabase
+            .from('purchase_order_allocations')
+            .insert(allocationRows)
+          if (allocationInsertError) throw allocationInsertError
+        }
 
         // Update item purchase prices to latest values
         for (const oi of validItems) {
-          const cost = parseFloat(oi.unit_cost) || 0
-          if (cost > 0) {
-            await supabase.from('items').update({ purchase_price_usd: cost }).eq('id', oi.item_id)
+          if (oi.unit_cost > 0) {
+            await supabase.from('items').update({ purchase_price_usd: oi.unit_cost }).eq('id', oi.item_id)
           }
         }
-
-        // Deduct from wallet balance
-        await supabase
-          .from('wallets')
-          .update({ balance: Number(wallet.balance) - amountInWalletCurrency })
-          .eq('id', wallet.id)
 
         await logActivity({
           action: 'create',
@@ -412,7 +519,8 @@ export default function OrdersPage() {
           details: buildActivityDetails({
             Items: itemsSummary,
             Total: formatCurrency(totalAmount, orderForm.currency),
-            Wallet: `${wallet.person_name} ${wallet.type} (${formatCurrency(amountInWalletCurrency, wallet.currency as Currency)} deducted)`,
+            Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
+            Wallet: 'Unchanged',
             Location: locationName,
             Supplier: supplierName
           }),
@@ -438,56 +546,29 @@ export default function OrdersPage() {
     }
 
     if (newStatus === 'cancelled') {
-      // Cancel with refund for unreceived items
+      // Cancel only affects the incoming-stock pipeline. Wallet balances are managed separately.
       const ok = await confirm({
         title: 'Cancel Order',
-        message: order.status === 'pending'
-          ? 'This will cancel the order and refund the full amount to the wallet.'
-          : 'This will cancel the order. Only the unreceived portion will be refunded.',
+        message: 'This will remove the remaining incoming stock from planning. Wallet balances will stay unchanged.',
         itemName: `Order #${order.id.slice(0, 8)}`,
         variant: 'danger',
         confirmLabel: 'Cancel Order',
       })
       if (!ok) return
 
-      const wallet = order.wallets
-      if (wallet && order.status !== 'received') {
-        // Calculate refund: proportion for unreceived items
-        const totalOrdered = order.purchase_order_items?.reduce((s, i) => s + i.quantity, 0) || 1
-        const totalReceived = order.purchase_order_items?.reduce((s, i) => s + (i.quantity_received || 0), 0) || 0
-        const unreceivedFraction = totalOrdered > 0 ? (totalOrdered - totalReceived) / totalOrdered : 1
-        let refundBase = order.total_amount * unreceivedFraction
-
-        let refundAmount = refundBase
-        if (wallet.currency !== order.currency) {
-          if (order.currency === 'USD' && wallet.currency === 'SRD') {
-            refundAmount = refundBase * (order.exchange_rate || exchangeRate)
-          } else if (order.currency === 'SRD' && wallet.currency === 'USD') {
-            refundAmount = refundBase / (order.exchange_rate || exchangeRate)
-          }
-        }
-        if (refundAmount > 0) {
-          await supabase
-            .from('wallets')
-            .update({ balance: Number(wallet.balance) + refundAmount })
-            .eq('id', wallet.id)
-        }
-
-        await logActivity({
-          action: 'cancel',
-          entityType: 'purchase_order',
-          entityId: order.id,
-          entityName: `Order #${order.id.slice(0, 8)}`,
-          details: buildActivityDetails({
-            Refund: `${formatCurrency(refundAmount, wallet.currency as Currency)} to ${wallet.person_name}`,
-            Location: order.locations?.name || '',
-            Items: order.purchase_order_items?.map(i => `${i.items?.name}`).join(', ') || ''
-          }),
-          userId: user?.id
-        })
-      }
-
       await supabase.from('purchase_orders').update({ status: 'cancelled' }).eq('id', order.id)
+      await logActivity({
+        action: 'cancel',
+        entityType: 'purchase_order',
+        entityId: order.id,
+        entityName: `Order #${order.id.slice(0, 8)}`,
+        details: buildActivityDetails({
+          Location: order.locations?.name || '',
+          Items: order.purchase_order_items?.map(i => `${i.items?.name}`).join(', ') || '',
+          Wallet: 'Unchanged'
+        }),
+        userId: user?.id
+      })
       await loadData()
       return
     }
@@ -514,19 +595,41 @@ export default function OrdersPage() {
   // Open receive modal with editable quantities
   const openReceiveModal = (order: OrderWithDetails) => {
     setReceivingOrder(order)
-    setReceiveItems(
-      (order.purchase_order_items || []).map(oi => {
+    const itemsToReceive = (order.purchase_order_items || []).flatMap(oi => {
+      const allocations = oi.purchase_order_allocations || []
+
+      if (allocations.length === 0) {
         const remaining = oi.quantity - (oi.quantity_received || 0)
-        return {
+        return [{
           id: oi.id,
+          order_item_id: oi.id,
+          location_id: order.location_id,
+          location_name: order.locations?.name || 'Default destination',
           item_name: oi.items?.name || 'Unknown',
           ordered: oi.quantity,
           already_received: oi.quantity_received || 0,
           remaining,
-          receiving: remaining.toString()
+          receiving: remaining.toString(),
+        }]
+      }
+
+      return allocations.map(allocation => {
+        const remaining = allocation.quantity - (allocation.quantity_received || 0)
+        return {
+          id: allocation.id,
+          order_item_id: oi.id,
+          location_id: allocation.location_id,
+          location_name: allocation.locations?.name || 'Unknown location',
+          item_name: oi.items?.name || 'Unknown',
+          ordered: allocation.quantity,
+          already_received: allocation.quantity_received || 0,
+          remaining,
+          receiving: remaining.toString(),
         }
       })
-    )
+    })
+
+    setReceiveItems(itemsToReceive.filter(item => item.remaining > 0))
     setShowReceiveModal(true)
   }
 
@@ -536,12 +639,16 @@ export default function OrdersPage() {
 
     try {
       const receivedSummary: string[] = []
+      const receivedByOrderItem = new Map<string, number>()
 
       for (const ri of receiveItems) {
         const qty = parseInt(ri.receiving) || 0
         if (qty <= 0) continue
+        if (qty > ri.remaining) {
+          throw new Error(`Cannot receive more than the remaining ${ri.remaining} unit(s) for ${ri.item_name} at ${ri.location_name}.`)
+        }
 
-        const orderItem = receivingOrder.purchase_order_items?.find(oi => oi.id === ri.id)
+        const orderItem = receivingOrder.purchase_order_items?.find(oi => oi.id === ri.order_item_id)
         if (!orderItem) continue
 
         // Update stock
@@ -549,7 +656,7 @@ export default function OrdersPage() {
           .from('stock')
           .select('*')
           .eq('item_id', orderItem.item_id)
-          .eq('location_id', receivingOrder.location_id)
+          .eq('location_id', ri.location_id)
           .single()
 
         if (existingStock) {
@@ -562,30 +669,43 @@ export default function OrdersPage() {
             .from('stock')
             .insert({
               item_id: orderItem.item_id,
-              location_id: receivingOrder.location_id,
+              location_id: ri.location_id,
               quantity: qty
             })
         }
 
-        // Update quantity_received
-        const newReceived = (orderItem.quantity_received || 0) + qty
+        // Update destination allocation and aggregate line receipt.
+        const allocation = orderItem.purchase_order_allocations?.find(entry => entry.id === ri.id)
+        if (allocation) {
+          await supabase
+            .from('purchase_order_allocations')
+            .update({ quantity_received: (allocation.quantity_received || 0) + qty })
+            .eq('id', allocation.id)
+        }
+
+        receivedByOrderItem.set(orderItem.id, (receivedByOrderItem.get(orderItem.id) || 0) + qty)
+        receivedSummary.push(`${qty}x ${ri.item_name} to ${ri.location_name}`)
+      }
+
+      for (const [orderItemId, receivedQuantity] of receivedByOrderItem) {
+        const orderItem = receivingOrder.purchase_order_items?.find(oi => oi.id === orderItemId)
+        if (!orderItem) continue
+
         await supabase
           .from('purchase_order_items')
-          .update({ quantity_received: newReceived })
-          .eq('id', orderItem.id)
-
-        receivedSummary.push(`${qty}x ${ri.item_name}`)
+          .update({ quantity_received: (orderItem.quantity_received || 0) + receivedQuantity })
+          .eq('id', orderItemId)
       }
 
       // Determine new status
       const allItems = receivingOrder.purchase_order_items || []
       const allFullyReceived = allItems.every(oi => {
-        const ri = receiveItems.find(r => r.id === oi.id)
-        const totalReceived = (oi.quantity_received || 0) + (parseInt(ri?.receiving || '0') || 0)
+        const receivingForItem = receivedByOrderItem.get(oi.id) || 0
+        const totalReceived = (oi.quantity_received || 0) + receivingForItem
         return totalReceived >= oi.quantity
       })
 
-      const anyReceived = receiveItems.some(ri => (parseInt(ri.receiving) || 0) > 0)
+      const anyReceived = receivedByOrderItem.size > 0
       const newStatus: OrderStatus = allFullyReceived ? 'received' : (anyReceived ? 'partially_received' : receivingOrder.status as OrderStatus)
 
       await supabase.from('purchase_orders').update({ status: newStatus }).eq('id', receivingOrder.id)
@@ -621,13 +741,30 @@ export default function OrdersPage() {
   }
 
   const getDeleteStockReversalPreview = useCallback((order: OrderWithDetails): DeleteStockReversalPreview => {
-    const receivedItems = (order.purchase_order_items || [])
-      .filter((item) => (item.quantity_received || 0) > 0)
-      .map((item) => ({
-        itemId: item.item_id,
-        itemName: item.items?.name || 'Unknown item',
-        quantity: item.quantity_received || 0,
-      }))
+    const receivedItems = (order.purchase_order_items || []).flatMap((item) => {
+      const allocations = item.purchase_order_allocations || []
+
+      if (allocations.length === 0) {
+        if ((item.quantity_received || 0) <= 0) return []
+        return [{
+          itemId: item.item_id,
+          itemName: item.items?.name || 'Unknown item',
+          locationId: order.location_id,
+          locationName: order.locations?.name || 'Default destination',
+          quantity: item.quantity_received || 0,
+        }]
+      }
+
+      return allocations
+        .filter((allocation) => (allocation.quantity_received || 0) > 0)
+        .map((allocation) => ({
+          itemId: item.item_id,
+          itemName: item.items?.name || 'Unknown item',
+          locationId: allocation.location_id,
+          locationName: allocation.locations?.name || 'Unknown location',
+          quantity: allocation.quantity_received || 0,
+        }))
+    })
 
     const totalUnits = receivedItems.reduce((sum, item) => sum + item.quantity, 0)
 
@@ -645,101 +782,13 @@ export default function OrdersPage() {
       totalUnits,
       receivedItems,
       reason: order.status === 'received'
-        ? 'This will remove all received units from stock at the destination location.'
+        ? 'This will remove all received units from their actual destination locations.'
         : 'This will remove the units already received into stock while leaving never-received units untouched.',
     }
   }, [])
 
-  const getDeleteWalletAdjustmentPreview = useCallback((order: OrderWithDetails, includeReceivedStock: boolean): DeleteWalletAdjustmentPreview => {
-    if (!order.wallets) {
-      return {
-        canAdjustWallet: false,
-        amount: 0,
-        reason: 'No wallet is linked to this order.',
-      }
-    }
-
-    if (order.status === 'cancelled') {
-      return {
-        canAdjustWallet: false,
-        amount: 0,
-        reason: 'Cancelled orders are usually already refunded when they were cancelled.',
-      }
-    }
-
-    const totalOrdered = order.purchase_order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
-    const totalReceived = order.purchase_order_items?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0
-
-    let refundableBase = order.total_amount
-
-    if (order.status === 'partially_received') {
-      const unreceivedFraction = totalOrdered > 0 ? Math.max(0, totalOrdered - totalReceived) / totalOrdered : 0
-      refundableBase = order.total_amount * (includeReceivedStock ? 1 : unreceivedFraction)
-    }
-
-    if (order.status === 'received') {
-      refundableBase = includeReceivedStock ? order.total_amount : 0
-    }
-
-    let refundAmount = refundableBase
-    const wallet = order.wallets
-
-    if (refundAmount > 0 && wallet.currency !== order.currency) {
-      if (order.currency === 'USD' && wallet.currency === 'SRD') {
-        refundAmount = order.total_amount === refundableBase
-          ? refundableBase * (order.exchange_rate || exchangeRate)
-          : refundableBase * (order.exchange_rate || exchangeRate)
-      } else if (order.currency === 'SRD' && wallet.currency === 'USD') {
-        refundAmount = refundAmount / (order.exchange_rate || exchangeRate)
-      }
-    }
-
-    if (refundAmount <= 0) {
-      return {
-        canAdjustWallet: false,
-        amount: 0,
-        reason: order.status === 'received' && !includeReceivedStock
-          ? 'Enable stock reversal to restore the wallet for a fully received invalid order.'
-          : order.status === 'received'
-            ? 'No wallet amount remains to restore for this order.'
-          : 'No refundable wallet amount remains for this order.',
-      }
-    }
-
-    if (order.status === 'partially_received' && includeReceivedStock) {
-      return {
-        canAdjustWallet: true,
-        amount: refundAmount,
-        reason: 'Because received stock will also be reversed, the full order amount can be restored to the wallet.',
-      }
-    }
-
-    if (order.status === 'partially_received') {
-      return {
-        canAdjustWallet: true,
-        amount: refundAmount,
-        reason: 'Only the not-yet-received portion can be restored to the wallet. Received stock is left unchanged.',
-      }
-    }
-
-    if (order.status === 'received' && includeReceivedStock) {
-      return {
-        canAdjustWallet: true,
-        amount: refundAmount,
-        reason: 'Received stock will be removed and the full order amount can be restored to the wallet.',
-      }
-    }
-
-    return {
-      canAdjustWallet: true,
-      amount: refundAmount,
-      reason: 'This will restore the order amount to the linked wallet while deleting the order record.',
-    }
-  }, [exchangeRate])
-
   const openDeleteOrderModal = (order: OrderWithDetails) => {
     setDeletingOrder(order)
-    setDeleteAdjustWallet(false)
     setDeleteReverseStock(false)
     setShowDeleteOrderModal(true)
   }
@@ -748,7 +797,6 @@ export default function OrdersPage() {
     if (submitting && !force) return
     setShowDeleteOrderModal(false)
     setDeletingOrder(null)
-    setDeleteAdjustWallet(false)
     setDeleteReverseStock(false)
   }
 
@@ -759,7 +807,7 @@ export default function OrdersPage() {
     }
     setEditingOrder(order)
     setOrderForm({
-      wallet_id: order.wallet_id,
+      wallet_id: order.wallet_id || '',
       location_id: order.location_id,
       supplier_id: order.supplier_id || '',
       currency: order.currency as Currency,
@@ -782,9 +830,15 @@ export default function OrdersPage() {
         item_id: oItem.item_id,
         quantity: oItem.quantity.toString(),
         unit_cost: currentPrice.toString(), // auto-sync to latest price
-        original_cost: orderPrice.toString()
+        original_cost: orderPrice.toString(),
+        allocations: oItem.purchase_order_allocations && oItem.purchase_order_allocations.length > 0
+          ? oItem.purchase_order_allocations.map(allocation => ({
+            location_id: allocation.location_id,
+            quantity: allocation.quantity.toString(),
+          }))
+          : [{ location_id: order.location_id, quantity: oItem.quantity.toString() }],
       }
-    }) || [{ item_id: '', quantity: '1', unit_cost: '' }]
+    }) || [{ item_id: '', quantity: '1', unit_cost: '', allocations: buildDefaultAllocations('1', order.location_id) }]
 
     setPriceChanges(changes)
     setOrderItems(newOrderItems)
@@ -796,7 +850,6 @@ export default function OrdersPage() {
 
     const order = deletingOrder
     const stockReversalPreview = getDeleteStockReversalPreview(order)
-    const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(order, deleteReverseStock)
 
     setSubmitting(true)
     try {
@@ -808,25 +861,25 @@ export default function OrdersPage() {
             .from('stock')
             .select('id, quantity')
             .eq('item_id', receivedItem.itemId)
-            .eq('location_id', order.location_id)
+            .eq('location_id', receivedItem.locationId)
             .single()
 
           if (!existingStock) {
-            throw new Error(`Cannot reverse stock for ${receivedItem.itemName} because no stock record was found at the destination location.`)
+            throw new Error(`Cannot reverse stock for ${receivedItem.itemName} because no stock record was found at ${receivedItem.locationName}.`)
           }
 
           if (existingStock.quantity < receivedItem.quantity) {
-            throw new Error(`Cannot reverse ${receivedItem.quantity} unit(s) of ${receivedItem.itemName} because only ${existingStock.quantity} remain in stock.`)
+            throw new Error(`Cannot reverse ${receivedItem.quantity} unit(s) of ${receivedItem.itemName} at ${receivedItem.locationName} because only ${existingStock.quantity} remain in stock.`)
           }
 
-          stockRows.set(receivedItem.itemId, {
+          stockRows.set(`${receivedItem.itemId}:${receivedItem.locationId}`, {
             id: existingStock.id,
             quantity: existingStock.quantity,
           })
         }
 
         for (const receivedItem of stockReversalPreview.receivedItems) {
-          const currentStock = stockRows.get(receivedItem.itemId)
+          const currentStock = stockRows.get(`${receivedItem.itemId}:${receivedItem.locationId}`)
           if (!currentStock) continue
 
           const nextQuantity = currentStock.quantity - receivedItem.quantity
@@ -844,13 +897,6 @@ export default function OrdersPage() {
         }
       }
 
-      if (deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets) {
-        await supabase
-          .from('wallets')
-          .update({ balance: Number(order.wallets.balance) + walletAdjustmentPreview.amount })
-          .eq('id', order.wallets.id)
-      }
-
       await supabase.from('purchase_order_items').delete().eq('order_id', order.id)
       await supabase.from('purchase_orders').delete().eq('id', order.id)
 
@@ -866,10 +912,7 @@ export default function OrdersPage() {
           Status: order.status,
           StockReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? 'Yes' : 'No',
           StockUnitsReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? String(stockReversalPreview.totalUnits) : '',
-          WalletAdjusted: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet ? 'Yes' : 'No',
-          WalletChange: deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet && order.wallets
-            ? formatCurrency(walletAdjustmentPreview.amount, order.wallets.currency as Currency)
-            : '',
+          Wallet: 'Unchanged',
           StockNote: deleteReverseStock && stockReversalPreview.canReverseStock
             ? 'Received stock was removed from inventory'
             : order.status === 'partially_received' || order.status === 'received'
@@ -925,35 +968,132 @@ export default function OrdersPage() {
     return items.length > 3 ? `${summary} +${items.length - 3} more` : summary
   }
 
-  const getTotalOrdersInDisplayCurrency = () => {
-    const totalUSD = orders.filter(o => o.currency === 'USD' && o.status !== 'cancelled').reduce((sum, o) => sum + o.total_amount, 0)
-    const totalSRD = orders.filter(o => o.currency === 'SRD' && o.status !== 'cancelled').reduce((sum, o) => sum + o.total_amount, 0)
-    
-    if (displayCurrency === 'USD') {
-      return totalUSD + (totalSRD / exchangeRate)
+  const getAllocationRows = useCallback((order: OrderWithDetails, item: NonNullable<OrderWithDetails['purchase_order_items']>[number]) => {
+    const allocations = item.purchase_order_allocations || []
+    if (allocations.length > 0) return allocations
+
+    return [{
+      id: item.id,
+      order_item_id: item.id,
+      location_id: order.location_id,
+      quantity: item.quantity,
+      quantity_received: item.quantity_received || 0,
+      created_at: item.id,
+      updated_at: item.id,
+      locations: order.locations,
+    }]
+  }, [])
+
+  const amountInDisplayCurrency = useCallback((amount: number, currency: Currency, sourceRate?: number | null) => {
+    if (currency === displayCurrency) return amount
+    const rate = sourceRate || exchangeRate
+    return currency === 'USD' ? amount * rate : amount / rate
+  }, [displayCurrency, exchangeRate])
+
+  const getOrderProgress = useCallback((order: OrderWithDetails) => {
+    const ordered = order.purchase_order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+    const received = order.purchase_order_items?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0
+    return {
+      ordered,
+      received,
+      remaining: Math.max(0, ordered - received),
+      percent: ordered > 0 ? Math.min(100, (received / ordered) * 100) : 0,
     }
-    return totalSRD + (totalUSD * exchangeRate)
-  }
+  }, [])
 
-  const getPendingOrdersCount = () => orders.filter(o => o.status === 'pending' || o.status === 'ordered' || o.status === 'shipped').length
-
-  const getReceivedThisMonth = () => {
-    const now = new Date()
-    return orders.filter(o => {
-      if (o.status !== 'received') return false
-      const d = new Date(o.updated_at)
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    }).length
-  }
-
-  const getAvgOrderValue = () => {
-    const nonCancelled = orders.filter(o => o.status !== 'cancelled')
-    if (nonCancelled.length === 0) return 0
-    const totalUSD = nonCancelled.reduce((sum, o) => {
-      return sum + (o.currency === 'USD' ? o.total_amount : o.total_amount / exchangeRate)
+  const getOrderRemainingValue = useCallback((order: OrderWithDetails) => {
+    const remainingValue = (order.purchase_order_items || []).reduce((sum, item) => {
+      const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
+      return sum + remainingQuantity * item.unit_cost
     }, 0)
-    return displayCurrency === 'USD' ? totalUSD / nonCancelled.length : (totalUSD * exchangeRate) / nonCancelled.length
-  }
+
+    return amountInDisplayCurrency(remainingValue, order.currency as Currency, order.exchange_rate)
+  }, [amountInDisplayCurrency])
+
+  const orderPipeline = useMemo(() => {
+    const activeOrders = orders.filter(order => order.status !== 'cancelled' && order.status !== 'received')
+    const destinationMap = new Map<string, {
+      locationId: string
+      locationName: string
+      units: number
+      value: number
+      orders: Set<string>
+    }>()
+    const statusMap = new Map<string, { count: number; units: number; value: number }>()
+
+    let incomingUnits = 0
+    let incomingValue = 0
+    let orderedUnits = 0
+    let receivedUnits = 0
+
+    orders
+      .filter(order => order.status !== 'cancelled')
+      .forEach(order => {
+        const progress = getOrderProgress(order)
+        orderedUnits += progress.ordered
+        receivedUnits += progress.received
+      })
+
+    activeOrders.forEach(order => {
+      let orderRemainingUnits = 0
+      let orderRemainingValue = 0
+
+      ;(order.purchase_order_items || []).forEach(item => {
+        getAllocationRows(order, item).forEach(allocation => {
+          const remainingQuantity = Math.max(0, allocation.quantity - (allocation.quantity_received || 0))
+          if (remainingQuantity <= 0) return
+
+          const lineValue = amountInDisplayCurrency(remainingQuantity * item.unit_cost, order.currency as Currency, order.exchange_rate)
+          const locationId = allocation.location_id
+          const locationName = allocation.locations?.name || order.locations?.name || 'Unassigned'
+          const existing = destinationMap.get(locationId) || {
+            locationId,
+            locationName,
+            units: 0,
+            value: 0,
+            orders: new Set<string>(),
+          }
+
+          existing.units += remainingQuantity
+          existing.value += lineValue
+          existing.orders.add(order.id)
+          destinationMap.set(locationId, existing)
+
+          orderRemainingUnits += remainingQuantity
+          orderRemainingValue += lineValue
+        })
+      })
+
+      incomingUnits += orderRemainingUnits
+      incomingValue += orderRemainingValue
+
+      const status = order.status
+      const statusEntry = statusMap.get(status) || { count: 0, units: 0, value: 0 }
+      statusEntry.count += 1
+      statusEntry.units += orderRemainingUnits
+      statusEntry.value += orderRemainingValue
+      statusMap.set(status, statusEntry)
+    })
+
+    return {
+      activeOrderCount: activeOrders.length,
+      incomingUnits,
+      incomingValue,
+      orderedUnits,
+      receivedUnits,
+      receivedPercent: orderedUnits > 0 ? Math.min(100, (receivedUnits / orderedUnits) * 100) : 0,
+      destinations: Array.from(destinationMap.values())
+        .map(destination => ({
+          ...destination,
+          orderCount: destination.orders.size,
+        }))
+        .sort((left, right) => right.value - left.value),
+      statuses: Array.from(statusMap.entries()).map(([status, value]) => ({
+        status,
+        ...value,
+      })),
+    }
+  }, [amountInDisplayCurrency, getAllocationRows, getOrderProgress, orders])
 
   const hasLoadedData = orders.length > 0 || items.length > 0 || locations.length > 0 || wallets.length > 0 || clients.length > 0
 
@@ -1001,7 +1141,7 @@ export default function OrdersPage() {
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
         title="Orders" 
-        subtitle="Manage purchase orders and inventory"
+        subtitle="Plan incoming stock, destination distribution, and receipt progress"
         icon={<ClipboardList size={24} />}
         action={
           <div className="flex gap-2 flex-wrap justify-end">
@@ -1027,27 +1167,94 @@ export default function OrdersPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox 
-            label={`Total Orders (${displayCurrency})`}
-            value={formatCurrency(getTotalOrdersInDisplayCurrency(), displayCurrency)} 
+            label="Incoming Units"
+            value={orderPipeline.incomingUnits.toString()} 
             icon={<ClipboardList size={20} />}
+            variant="primary"
           />
           <StatBox 
-            label="Pending Orders"
-            value={getPendingOrdersCount().toString()} 
+            label={`Incoming Cost (${displayCurrency})`}
+            value={formatCurrency(orderPipeline.incomingValue, displayCurrency)} 
             icon={<Clock size={20} />}
             variant="warning"
           />
           <StatBox 
-            label="Received This Month"
-            value={getReceivedThisMonth().toString()} 
+            label="Receipt Progress"
+            value={`${orderPipeline.receivedPercent.toFixed(0)}%`} 
             icon={<PackageCheck size={20} />}
             variant="success"
           />
           <StatBox 
-            label="Avg Order Value"
-            value={formatCurrency(getAvgOrderValue(), displayCurrency)} 
+            label="Active Orders"
+            value={orderPipeline.activeOrderCount.toString()} 
             icon={<WalletIcon size={20} />}
           />
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Incoming Stock Flow</h2>
+                <p className="text-sm text-muted-foreground">Orders are stock indicators now. Wallet balances stay separate.</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {orderPipeline.receivedUnits}/{orderPipeline.orderedUnits} units received
+              </div>
+            </div>
+            <div className="h-2 overflow-hidden rounded bg-muted">
+              <div
+                className="h-full rounded bg-primary transition-all"
+                style={{ width: `${orderPipeline.receivedPercent}%` }}
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {orderPipeline.statuses.length === 0 ? (
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground sm:col-span-3">
+                  No active incoming orders.
+                </div>
+              ) : orderPipeline.statuses.map(status => (
+                <div key={status.status} className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                  <div className={`mb-2 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ${getStatusColor(status.status)}`}>
+                    {getStatusIcon(status.status)}
+                    {getStatusLabel(status.status)}
+                  </div>
+                  <div className="text-lg font-bold text-foreground">{status.units} units</div>
+                  <div className="text-xs text-muted-foreground">{formatCurrency(status.value, displayCurrency)} across {status.count} order(s)</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
+            <div className="mb-4">
+              <h2 className="text-base font-bold text-foreground">Distribution</h2>
+              <p className="text-sm text-muted-foreground">Remaining stock by destination.</p>
+            </div>
+            <div className="space-y-3">
+              {orderPipeline.destinations.length === 0 ? (
+                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+                  No allocated incoming stock.
+                </div>
+              ) : orderPipeline.destinations.slice(0, 5).map(destination => {
+                const pct = orderPipeline.incomingValue > 0 ? (destination.value / orderPipeline.incomingValue) * 100 : 0
+                return (
+                  <div key={destination.locationId} className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-foreground">{destination.locationName}</div>
+                        <div className="text-xs text-muted-foreground">{destination.units} units from {destination.orderCount} order(s)</div>
+                      </div>
+                      <div className="shrink-0 text-right text-sm font-bold text-primary">{formatCurrency(destination.value, displayCurrency)}</div>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded bg-background">
+                      <div className="h-full rounded bg-primary/80" style={{ width: `${Math.min(100, pct)}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {/* Filters Section */}
@@ -1160,6 +1367,21 @@ export default function OrdersPage() {
             <div className="divide-y divide-border">
               {filteredAndSortedOrders.map((order) => (
                 <div key={order.id} className="p-4 lg:p-5 hover:bg-muted/50 transition-colors">
+                  {(() => {
+                    const progress = getOrderProgress(order)
+                    const destinations = (order.purchase_order_items || [])
+                      .flatMap(item => getAllocationRows(order, item))
+                      .reduce((map, allocation) => {
+                        const existing = map.get(allocation.location_id) || {
+                          name: allocation.locations?.name || order.locations?.name || 'Unassigned',
+                          quantity: 0,
+                        }
+                        existing.quantity += Math.max(0, allocation.quantity - (allocation.quantity_received || 0))
+                        map.set(allocation.location_id, existing)
+                        return map
+                      }, new Map<string, { name: string; quantity: number }>())
+
+                    return (
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1.5">
@@ -1168,10 +1390,10 @@ export default function OrdersPage() {
                           {getStatusIcon(order.status)}
                           {getStatusLabel(order.status)}
                         </span>
-                        {(order as any).clients?.name && (
+                        {order.clients?.name && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Users size={12} />
-                            {(order as any).clients.name}
+                            {order.clients.name}
                           </span>
                         )}
                       </div>
@@ -1182,10 +1404,14 @@ export default function OrdersPage() {
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                         <span className="font-semibold">{formatCurrency(order.total_amount, order.currency as Currency)}</span>
                         <span className="text-muted-foreground">→ {order.locations?.name}</span>
-                        <span className="text-muted-foreground">
-                          <WalletIcon size={12} className="inline mr-1" />
-                          {order.wallets?.person_name}
-                        </span>
+                        {order.wallets ? (
+                          <span className="text-muted-foreground">
+                            <WalletIcon size={12} className="inline mr-1" />
+                            {order.wallets.person_name} reference
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">No wallet link</span>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
                         <span>{new Date(order.created_at).toLocaleDateString()}</span>
@@ -1196,11 +1422,25 @@ export default function OrdersPage() {
                           </span>
                         )}
                         <span>{order.purchase_order_items?.length || 0} items</span>
-                        {order.status === 'partially_received' && (
-                          <span className="text-amber-500 font-medium">
-                            {order.purchase_order_items?.reduce((s, i) => s + (i.quantity_received || 0), 0)}/
-                            {order.purchase_order_items?.reduce((s, i) => s + i.quantity, 0)} received
-                          </span>
+                        <span className="text-amber-500 font-medium">{progress.remaining} incoming</span>
+                        <span className="text-primary font-medium">{formatCurrency(getOrderRemainingValue(order), displayCurrency)} remaining</span>
+                      </div>
+                      <div className="mt-3 max-w-2xl">
+                        <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span>{progress.received}/{progress.ordered} units received</span>
+                          <span>{progress.percent.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded bg-muted">
+                          <div className="h-full rounded bg-primary" style={{ width: `${progress.percent}%` }} />
+                        </div>
+                        {destinations.size > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {Array.from(destinations.entries()).slice(0, 4).map(([locationId, destination]) => (
+                              <span key={locationId} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
+                                {destination.name}: <span className="font-semibold text-foreground">{destination.quantity}</span>
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1250,7 +1490,7 @@ export default function OrdersPage() {
                           Receive More
                         </Button>
                       )}
-                      {(order.status === 'pending' || order.status === 'ordered' || order.status === 'partially_received') && (
+                      {(order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped' || order.status === 'partially_received') && (
                         <Button 
                           onClick={() => handleUpdateStatus(order, 'cancelled')} 
                           variant="ghost" 
@@ -1275,6 +1515,8 @@ export default function OrdersPage() {
                       </Button>
                     </div>
                   </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -1291,26 +1533,26 @@ export default function OrdersPage() {
         <form onSubmit={handleSubmitOrder} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Wallet *</label>
+              <label className="block text-sm font-medium mb-1">Funding Wallet</label>
               <Select
                 value={orderForm.wallet_id}
                 onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
                 className="min-h-12"
-                required
               >
-                <option value="">Select wallet</option>
+                <option value="">No wallet link</option>
                 {wallets.map(wallet => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.person_name} - {wallet.type} ({formatCurrency(Number(wallet.balance), wallet.currency as Currency)})
+                    {wallet.person_name} - {wallet.type} ({wallet.currency})
                   </option>
                 ))}
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">Reference only. Orders do not change wallet balances.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Destination *</label>
+              <label className="block text-sm font-medium mb-1">Default Destination *</label>
               <Select
                 value={orderForm.location_id}
-                onChange={(e) => setOrderForm({ ...orderForm, location_id: e.target.value })}
+                onChange={(e) => updateDefaultDestination(e.target.value)}
                 className="min-h-12"
                 required
               >
@@ -1384,75 +1626,127 @@ export default function OrdersPage() {
             </div>
             <div className="space-y-4 sm:space-y-3">
               {orderItems.map((orderItem, index) => (
-                <div key={index} className="flex flex-col sm:flex-row gap-2 sm:items-start p-3 sm:p-0 bg-muted/50 sm:bg-transparent rounded-lg sm:rounded-none">
-                  <div className="flex-1">
-                    <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Item</label>
-                    <Select
-                      value={orderItem.item_id}
-                      onChange={(e) => updateOrderItem(index, 'item_id', e.target.value)}
-                      className="min-h-12"
-                      required
-                    >
-                      <option value="">Select item</option>
-                      {items.map(item => (
-                        <option key={item.id} value={item.id}>{item.name}</option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-3 sm:flex gap-2 sm:gap-2">
-                    <div className="sm:w-20">
-                      <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Qty</label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min="1"
-                        step="1"
-                        placeholder="Qty"
-                        value={orderItem.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
+                <div key={index} className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <div className="flex-1">
+                      <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Item</label>
+                      <Select
+                        value={orderItem.item_id}
+                        onChange={(e) => updateOrderItem(index, 'item_id', e.target.value)}
                         className="min-h-12"
                         required
-                      />
+                      >
+                        <option value="">Select item</option>
+                        {items.map(item => (
+                          <option key={item.id} value={item.id}>{item.name}</option>
+                        ))}
+                      </Select>
                     </div>
-                    <div className="sm:w-28">
-                      <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Cost</label>
-                      <div className="relative">
+                    <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
+                      <div className="sm:w-20">
+                        <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Qty</label>
                         <Input
                           type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min="0"
-                          placeholder="Unit cost"
-                          value={orderItem.unit_cost}
-                          onChange={(e) => updateOrderItem(index, 'unit_cost', e.target.value)}
-                          className={cn("min-h-12", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
+                          inputMode="numeric"
+                          min="1"
+                          step="1"
+                          placeholder="Qty"
+                          value={orderItem.quantity}
+                          onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
+                          className="min-h-12"
                           required
                         />
-                        {priceChanges[orderItem.item_id] !== undefined && (
-                          <span className="absolute -top-2 right-1 text-[10px] text-amber-500 bg-card px-1 rounded">
-                            was {formatCurrency(priceChanges[orderItem.item_id], orderForm.currency)}
-                          </span>
-                        )}
+                      </div>
+                      <div className="sm:w-28">
+                        <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Cost</label>
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="0.01"
+                            min="0"
+                            placeholder="Unit cost"
+                            value={orderItem.unit_cost}
+                            onChange={(e) => updateOrderItem(index, 'unit_cost', e.target.value)}
+                            className={cn("min-h-12", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
+                            required
+                          />
+                          {priceChanges[orderItem.item_id] !== undefined && (
+                            <span className="absolute -top-2 right-1 bg-card px-1 text-[10px] text-amber-500">
+                              was {formatCurrency(priceChanges[orderItem.item_id], orderForm.currency)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-end sm:w-24 sm:items-center">
+                        <span className="w-full pb-3 text-right text-sm font-medium sm:pb-0 sm:pt-2">
+                          {formatCurrency((parseFloat(orderItem.quantity) || 0) * (parseFloat(orderItem.unit_cost) || 0), orderForm.currency)}
+                        </span>
                       </div>
                     </div>
-                    <div className="sm:w-24 flex items-end sm:items-center">
-                      <span className="text-sm font-medium pb-3 sm:pb-0 sm:pt-2 w-full text-right">
-                        {formatCurrency((parseFloat(orderItem.quantity) || 0) * (parseFloat(orderItem.unit_cost) || 0), orderForm.currency)}
-                      </span>
+                    {orderItems.length > 1 && (
+                      <Button
+                        type="button"
+                        onClick={() => removeOrderItem(index)}
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-10 w-full text-destructive touch-manipulation sm:w-auto"
+                      >
+                        <X size={14} />
+                        <span className="sm:hidden ml-1">Remove</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="mt-3 border-t border-border/70 pt-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Distribution</div>
+                        <div className="text-xs text-muted-foreground">
+                          Total allocated: {orderItem.allocations.reduce((sum, allocation) => sum + (parseInt(allocation.quantity, 10) || 0), 0)} / {parseInt(orderItem.quantity, 10) || 0}
+                        </div>
+                      </div>
+                      <Button type="button" onClick={() => addAllocation(index)} variant="ghost" size="sm" className="min-h-9">
+                        <Plus size={13} />
+                        Split
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {(orderItem.allocations.length > 0 ? orderItem.allocations : buildDefaultAllocations(orderItem.quantity)).map((allocation, allocationIndex) => (
+                        <div key={allocationIndex} className="grid grid-cols-[1fr_88px_auto] gap-2">
+                          <Select
+                            value={allocation.location_id}
+                            onChange={(e) => updateAllocation(index, allocationIndex, 'location_id', e.target.value)}
+                            className="min-h-11"
+                            required
+                          >
+                            <option value="">Location</option>
+                            {locations.map(location => (
+                              <option key={location.id} value={location.id}>{location.name}</option>
+                            ))}
+                          </Select>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            step="1"
+                            value={allocation.quantity}
+                            onChange={(e) => updateAllocation(index, allocationIndex, 'quantity', e.target.value)}
+                            className="min-h-11"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => removeAllocation(index, allocationIndex)}
+                            variant="ghost"
+                            size="sm"
+                            className="min-h-11 min-w-11 text-destructive"
+                          >
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  {orderItems.length > 1 && (
-                    <Button
-                      type="button"
-                      onClick={() => removeOrderItem(index)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive min-h-10 w-full sm:w-auto touch-manipulation"
-                    >
-                      <X size={14} />
-                      <span className="sm:hidden ml-1">Remove</span>
-                    </Button>
-                  )}
                 </div>
               ))}
             </div>
@@ -1505,17 +1799,19 @@ export default function OrdersPage() {
                 <p className="font-bold text-lg">{formatCurrency(viewingOrder.total_amount, viewingOrder.currency as Currency)}</p>
               </div>
               <div>
-                <span className="text-sm text-muted-foreground">From Wallet</span>
-                <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.wallets?.person_name} - {viewingOrder.wallets?.type}</p>
+                <span className="text-sm text-muted-foreground">Funding Reference</span>
+                <p className="font-medium text-sm sm:text-base truncate">
+                  {viewingOrder.wallets ? `${viewingOrder.wallets.person_name} - ${viewingOrder.wallets.type}` : 'No wallet linked'}
+                </p>
               </div>
               <div>
                 <span className="text-sm text-muted-foreground">To Location</span>
                 <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.locations?.name}</p>
               </div>
-              {(viewingOrder as any).clients?.name && (
+              {viewingOrder.clients?.name && (
                 <div>
                   <span className="text-sm text-muted-foreground">Supplier</span>
-                  <p className="font-medium text-sm sm:text-base truncate">{(viewingOrder as any).clients.name}</p>
+                  <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.clients.name}</p>
                 </div>
               )}
               <div>
@@ -1571,6 +1867,16 @@ export default function OrdersPage() {
                           </span>
                         </div>
                       )}
+                      {(item.purchase_order_allocations || []).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {item.purchase_order_allocations?.map(allocation => (
+                            <span key={allocation.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
+                              {allocation.locations?.name || 'Unknown'}:
+                              <span className="font-semibold text-foreground">{allocation.quantity_received}/{allocation.quantity}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <span className="font-medium text-right">{formatCurrency(item.subtotal, viewingOrder.currency as Currency)}</span>
                   </div>
@@ -1596,7 +1902,7 @@ export default function OrdersPage() {
         {receivingOrder && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Enter the quantity received for each item. Leave at 0 for items not yet delivered.
+              Enter the quantity received for each destination. Leave at 0 for allocations not yet delivered.
             </p>
             <div className="border border-border rounded-lg overflow-hidden">
               <div className="bg-muted px-4 py-2 font-medium text-sm">Items to Receive</div>
@@ -1607,7 +1913,7 @@ export default function OrdersPage() {
                       <div>
                         <p className="font-medium">{ri.item_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          Ordered: {ri.ordered} · Previously received: {ri.already_received}
+                          {ri.location_name} · Ordered: {ri.ordered} · Previously received: {ri.already_received}
                           {ri.remaining > 0 && <span className="text-amber-500"> · Remaining: {ri.remaining}</span>}
                         </p>
                       </div>
@@ -1673,7 +1979,6 @@ export default function OrdersPage() {
       >
         {deletingOrder && (() => {
           const stockReversalPreview = getDeleteStockReversalPreview(deletingOrder)
-          const walletAdjustmentPreview = getDeleteWalletAdjustmentPreview(deletingOrder, deleteReverseStock)
           const hasReceivedStock = stockReversalPreview.canReverseStock
 
           return (
@@ -1727,13 +2032,7 @@ export default function OrdersPage() {
                 <input
                   type="checkbox"
                   checked={deleteReverseStock}
-                  onChange={(e) => {
-                    const nextValue = e.target.checked
-                    setDeleteReverseStock(nextValue)
-                    if (!nextValue) {
-                      setDeleteAdjustWallet(false)
-                    }
-                  }}
+                  onChange={(e) => setDeleteReverseStock(e.target.checked)}
                   disabled={!stockReversalPreview.canReverseStock || submitting}
                   className="mt-1 h-4 w-4 rounded border-border accent-orange-500"
                 />
@@ -1749,35 +2048,10 @@ export default function OrdersPage() {
                 </div>
               </label>
 
-              <label className={cn(
-                'flex items-start gap-3 rounded-xl border p-4 transition-colors',
-                walletAdjustmentPreview.canAdjustWallet
-                  ? 'border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/10'
-                  : 'border-border/60 bg-muted/20 opacity-80 cursor-not-allowed'
-              )}>
-                <input
-                  type="checkbox"
-                  checked={deleteAdjustWallet}
-                  onChange={(e) => setDeleteAdjustWallet(e.target.checked)}
-                  disabled={!walletAdjustmentPreview.canAdjustWallet || submitting}
-                  className="mt-1 h-4 w-4 rounded border-border accent-primary"
-                />
-                <div className="space-y-1 text-sm">
-                  <div className="font-semibold text-foreground">Also update wallet balance</div>
-                  <div className="text-muted-foreground">{walletAdjustmentPreview.reason}</div>
-                  <div className="text-xs font-medium text-foreground">
-                    Wallet change:{' '}
-                    {walletAdjustmentPreview.canAdjustWallet && deletingOrder.wallets
-                      ? formatCurrency(walletAdjustmentPreview.amount, deletingOrder.wallets.currency as Currency)
-                      : 'No wallet change'}
-                  </div>
-                </div>
-              </label>
-
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
                 <div>Delete only: removes the order record and keeps the current wallet balance as-is.</div>
                 <div>Delete + reverse stock: removes the order record and also removes the received units from inventory.</div>
-                <div>Delete + wallet update: removes the order record and restores the refundable amount to the linked wallet.</div>
+                <div>Wallet balances are never changed by order delete actions.</div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
@@ -1787,13 +2061,9 @@ export default function OrdersPage() {
                 <Button type="button" onClick={() => void handleDeleteOrder()} variant="primary" className="min-h-12 touch-manipulation order-1 sm:order-2" disabled={submitting}>
                   {submitting
                     ? 'Deleting...'
-                    : deleteReverseStock && deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
-                      ? 'Delete, Reverse Stock & Update Wallet'
-                      : deleteReverseStock && stockReversalPreview.canReverseStock
+                    : deleteReverseStock && stockReversalPreview.canReverseStock
                         ? 'Delete & Reverse Stock'
-                        : deleteAdjustWallet && walletAdjustmentPreview.canAdjustWallet
-                          ? 'Delete & Update Wallet'
-                          : 'Delete Order'}
+                        : 'Delete Order'}
                 </Button>
               </div>
             </div>

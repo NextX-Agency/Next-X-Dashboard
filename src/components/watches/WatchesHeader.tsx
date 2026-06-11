@@ -53,7 +53,7 @@ function WatchesCurrencyToggle({
 }) {
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-full border px-1 py-0.5"
+      className="inline-flex items-center gap-1 border px-1 py-0.5"
       style={{
         borderColor: 'rgba(240,235,225,0.12)',
         background: 'rgba(240,235,225,0.025)',
@@ -69,7 +69,7 @@ function WatchesCurrencyToggle({
             key={option}
             type="button"
             onClick={() => onChange(option)}
-            className="rounded-full px-2 py-1 text-[10px] font-light uppercase tracking-[0.16em] transition-colors sm:px-2.5"
+            className="px-2 py-1 text-[10px] font-light uppercase tracking-[0.16em] transition-colors sm:px-2.5"
             style={{
               background: isActive ? 'rgba(201,168,76,0.18)' : 'transparent',
               color: isActive ? 'var(--w-gold)' : 'var(--w-muted)',
@@ -192,7 +192,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
                 <ShoppingBag size={18} strokeWidth={1.5} />
                 {cartCount > 0 && (
                   <span
-                    className="absolute -top-0.5 -right-0.5 min-w-4 h-4 flex items-center justify-center text-[9px] font-medium rounded-full px-0.5"
+                    className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center px-0.5 text-[9px] font-medium"
                     style={{ background: 'var(--w-gold)', color: '#09090B' }}
                   >
                     {cartCount}

@@ -737,7 +737,7 @@ export interface Database {
       purchase_orders: {
         Row: {
           id: string
-          wallet_id: string
+          wallet_id: string | null
           location_id: string
           supplier_id: string | null
           total_amount: number
@@ -751,7 +751,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          wallet_id: string
+          wallet_id?: string | null
           location_id: string
           supplier_id?: string | null
           total_amount: number
@@ -765,7 +765,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          wallet_id?: string
+          wallet_id?: string | null
           location_id?: string
           supplier_id?: string | null
           total_amount?: number
@@ -774,6 +774,35 @@ export interface Database {
           status?: string
           notes?: string | null
           expected_arrival?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      purchase_order_allocations: {
+        Row: {
+          id: string
+          order_item_id: string
+          location_id: string
+          quantity: number
+          quantity_received: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          order_item_id: string
+          location_id: string
+          quantity: number
+          quantity_received?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          order_item_id?: string
+          location_id?: string
+          quantity?: number
+          quantity_received?: number
           created_at?: string
           updated_at?: string
         }

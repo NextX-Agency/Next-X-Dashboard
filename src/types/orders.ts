@@ -5,6 +5,7 @@ type LocationRow = Database['public']['Tables']['locations']['Row']
 type WalletRow = Database['public']['Tables']['wallets']['Row']
 type ClientRow = Database['public']['Tables']['clients']['Row']
 type PurchaseOrderRow = Database['public']['Tables']['purchase_orders']['Row']
+type PurchaseOrderAllocationRow = Database['public']['Tables']['purchase_order_allocations']['Row']
 type PurchaseOrderItemRow = Database['public']['Tables']['purchase_order_items']['Row']
 
 export type OrdersPageItem = Pick<ItemRow, 'id' | 'name' | 'purchase_price_usd'>
@@ -15,11 +16,19 @@ export type OrdersPageWallet = Pick<WalletRow, 'id' | 'person_name' | 'type' | '
 
 export type OrdersPageClient = Pick<ClientRow, 'id' | 'name'>
 
+export interface OrdersPageOrderAllocation extends Pick<
+  PurchaseOrderAllocationRow,
+  'id' | 'order_item_id' | 'location_id' | 'quantity' | 'quantity_received' | 'created_at' | 'updated_at'
+> {
+  locations?: OrdersPageLocation | null
+}
+
 export interface OrdersPageOrderItem extends Pick<
   PurchaseOrderItemRow,
   'id' | 'order_id' | 'item_id' | 'quantity' | 'unit_cost' | 'subtotal' | 'quantity_received'
 > {
   items?: OrdersPageItem | null
+  purchase_order_allocations?: OrdersPageOrderAllocation[]
 }
 
 export interface OrdersPageOrder extends Pick<

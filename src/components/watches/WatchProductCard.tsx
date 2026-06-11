@@ -107,7 +107,7 @@ function WatchProductCardComponent({
           />
 
           <div
-            className={`absolute rounded-full border uppercase tracking-[0.22em] ${compact ? 'left-2.5 top-2.5 px-2 py-0.5 text-[8px] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[9px]' : 'left-3 top-3 px-2.5 py-1 text-[9px]'}`}
+            className={`absolute border uppercase tracking-[0.22em] ${compact ? 'left-2.5 top-2.5 px-2 py-0.5 text-[8px] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[9px]' : 'left-3 top-3 px-2.5 py-1 text-[9px]'}`}
             style={{
               borderColor: inStock ? 'rgba(201,168,76,0.4)' : 'var(--w-border)',
               background: 'rgba(9,9,11,0.72)',
@@ -120,7 +120,7 @@ function WatchProductCardComponent({
 
         {cartQuantity > 0 && (
           <div
-            className={`absolute rounded-full border uppercase tracking-[0.16em] ${compact ? 'right-2.5 top-2.5 px-2 py-0.5 text-[8px] sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[9px]' : 'right-3 top-3 px-2.5 py-1 text-[9px]'}`}
+            className={`absolute border uppercase tracking-[0.16em] ${compact ? 'right-2.5 top-2.5 px-2 py-0.5 text-[8px] sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[9px]' : 'right-3 top-3 px-2.5 py-1 text-[9px]'}`}
             style={{
               borderColor: 'rgba(201,168,76,0.45)',
               background: 'rgba(9,9,11,0.82)',
@@ -137,7 +137,7 @@ function WatchProductCardComponent({
               event.preventDefault()
               onQuickView(id)
             }}
-            className={`absolute flex items-center justify-center rounded-full border transition-all hover:opacity-100 ${compact ? 'bottom-2.5 right-2.5 h-9 w-9 sm:bottom-3 sm:right-3 sm:h-10 sm:w-10' : 'bottom-3 right-3 h-10 w-10'}`}
+            className={`absolute flex items-center justify-center border transition-all hover:opacity-100 ${compact ? 'bottom-2.5 right-2.5 h-9 w-9 sm:bottom-3 sm:right-3 sm:h-10 sm:w-10' : 'bottom-3 right-3 h-10 w-10'}`}
             style={{
               borderColor: 'rgba(201,168,76,0.35)',
               background: 'rgba(9,9,11,0.82)',
@@ -209,7 +209,7 @@ function WatchProductCardComponent({
             {onAddToCart && inStock ? (
               <button
                 onClick={() => onAddToCart(id)}
-                className={`inline-flex items-center gap-2 rounded-full border font-medium uppercase tracking-[0.16em] transition-colors ${compact ? 'h-10 px-3 text-[10px] sm:h-11 sm:px-4 sm:text-[11px]' : 'h-11 px-4 text-[11px]'}`}
+                className={`inline-flex items-center gap-2 border font-medium uppercase tracking-[0.16em] transition-colors ${compact ? 'h-10 px-3 text-[10px] sm:h-11 sm:px-4 sm:text-[11px]' : 'h-11 px-4 text-[11px]'}`}
                 style={{
                   borderColor: 'rgba(201,168,76,0.45)',
                   background: 'rgba(201,168,76,0.08)',
@@ -224,7 +224,7 @@ function WatchProductCardComponent({
             ) : (
               <Link
                 href={productHref}
-                className={`inline-flex items-center rounded-full border font-medium uppercase tracking-[0.16em] transition-colors ${compact ? 'h-10 px-3 text-[10px] sm:h-11 sm:px-4 sm:text-[11px]' : 'h-11 px-4 text-[11px]'}`}
+                className={`inline-flex items-center border font-medium uppercase tracking-[0.16em] transition-colors ${compact ? 'h-10 px-3 text-[10px] sm:h-11 sm:px-4 sm:text-[11px]' : 'h-11 px-4 text-[11px]'}`}
                 style={{
                   borderColor: 'var(--w-border)',
                   color: 'var(--w-cream-2)',

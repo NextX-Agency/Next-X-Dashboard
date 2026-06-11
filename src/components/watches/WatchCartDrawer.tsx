@@ -97,7 +97,7 @@ function WatchCartDrawerComponent({
           style={{ borderBottom: '1px solid var(--w-border)' }}
         >
           <div className="flex items-center gap-3" style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--w-gold)' }}>
+            <div className="flex h-10 w-10 items-center justify-center border" style={{ background: 'rgba(201,168,76,0.1)', borderColor: 'rgba(201,168,76,0.18)', color: 'var(--w-gold)' }}>
               <ShoppingBag size={18} strokeWidth={1.7} />
             </div>
             <div>
@@ -149,7 +149,7 @@ function WatchCartDrawerComponent({
                   <li key={item.id} className="flex gap-4 p-4">
                     {/* Image */}
                     <div
-                      className="relative shrink-0 w-20 h-24 overflow-hidden rounded-2xl border"
+                      className="relative h-24 w-20 shrink-0 overflow-hidden border"
                       style={{ background: 'var(--w-bg)', borderColor: 'var(--w-border)' }}
                     >
                       {item.imageUrl ? (
@@ -230,7 +230,7 @@ function WatchCartDrawerComponent({
             style={{ borderTop: '1px solid var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
             <div className="space-y-4">
-              <div className="rounded-3xl border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.8)' }}>
+              <div className="border px-4 py-4" style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.8)' }}>
                 <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-gold)' }}>
                   Order Details
                 </p>
@@ -240,7 +240,7 @@ function WatchCartDrawerComponent({
                     value={customerName}
                     onChange={(event) => onCustomerNameChange(event.target.value)}
                     placeholder="Your name"
-                    className="h-11 rounded-2xl border px-4 text-sm outline-none"
+                    className="h-11 border px-4 text-sm outline-none"
                     style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
                   />
                   <input
@@ -248,7 +248,7 @@ function WatchCartDrawerComponent({
                     value={customerPhone}
                     onChange={(event) => onCustomerPhoneChange(event.target.value)}
                     placeholder="Phone number"
-                    className="h-11 rounded-2xl border px-4 text-sm outline-none"
+                    className="h-11 border px-4 text-sm outline-none"
                     style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
                   />
                   <textarea
@@ -256,7 +256,7 @@ function WatchCartDrawerComponent({
                     onChange={(event) => onCustomerNotesChange(event.target.value)}
                     placeholder="Notes or preferred contact details"
                     rows={3}
-                    className="rounded-2xl border px-4 py-3 text-sm outline-none resize-none"
+                    className="resize-none border px-4 py-3 text-sm outline-none"
                     style={{ borderColor: 'var(--w-border)', background: 'var(--w-bg)', color: 'var(--w-cream)' }}
                   />
                 </div>

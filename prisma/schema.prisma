@@ -92,28 +92,29 @@ model Item {
 }
 
 model Location {
-  id                 String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name               String
-  address            String?
-  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  seller_name        String?
-  seller_phone       String?
-  commission_rate    Decimal?            @default(0) @db.Decimal(5, 2)
-  is_active          Boolean?            @default(true)
-  catalogType        String              @default("all") @map("catalog_type")
-  clients            Client[]
-  commissions        Commission[]
-  expenses           Expense[]
-  purchaseOrders     PurchaseOrder[]
-  reservations       Reservation[]
-  sales              Sale[]
-  sellers            Seller[]
-  stock              Stock[]
-  transfersFrom      StockTransfer[]     @relation("FromLocation")
-  transfersTo        StockTransfer[]     @relation("ToLocation")
-  wallets            Wallet[]
-  financeObligations FinanceObligation[]
+  id                       String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                     String
+  address                  String?
+  createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  seller_name              String?
+  seller_phone             String?
+  commission_rate          Decimal?                  @default(0) @db.Decimal(5, 2)
+  is_active                Boolean?                  @default(true)
+  catalogType              String                    @default("all") @map("catalog_type")
+  clients                  Client[]
+  commissions              Commission[]
+  expenses                 Expense[]
+  purchaseOrderAllocations PurchaseOrderAllocation[]
+  purchaseOrders           PurchaseOrder[]
+  reservations             Reservation[]
+  sales                    Sale[]
+  sellers                  Seller[]
+  stock                    Stock[]
+  transfersFrom            StockTransfer[]           @relation("FromLocation")
+  transfersTo              StockTransfer[]           @relation("ToLocation")
+  wallets                  Wallet[]
+  financeObligations       FinanceObligation[]
 
   @@index([catalogType], map: "idx_locations_catalog_type")
   @@map("locations")
@@ -385,7 +386,7 @@ model FinanceObligation {
 
 model PurchaseOrder {
   id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  walletId             String              @map("wallet_id") @db.Uuid
+  walletId             String?             @map("wallet_id") @db.Uuid
   locationId           String              @map("location_id") @db.Uuid
   supplier_id          String?             @db.Uuid
   totalAmount          Decimal             @default(0) @map("total_amount") @db.Decimal(10, 2)
@@ -399,7 +400,7 @@ model PurchaseOrder {
   purchase_order_items PurchaseOrderItem[]
   location             Location            @relation(fields: [locationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   clients              Client?             @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
-  wallet               Wallet              @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wallet               Wallet?             @relation(fields: [walletId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([createdAt], map: "idx_purchase_orders_created_at")
   @@index([locationId], map: "idx_purchase_orders_location_id")
@@ -409,20 +410,38 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  order_id          String        @db.Uuid
-  itemId            String        @map("item_id") @db.Uuid
-  quantity          Int           @default(1)
-  unit_cost         Decimal       @default(0) @db.Decimal(10, 2)
-  subtotal          Decimal       @default(0) @db.Decimal(10, 2)
-  quantity_received Int           @default(0)
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  item              Item          @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  purchase_orders   PurchaseOrder @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  order_id          String                    @db.Uuid
+  itemId            String                    @map("item_id") @db.Uuid
+  quantity          Int                       @default(1)
+  unit_cost         Decimal                   @default(0) @db.Decimal(10, 2)
+  subtotal          Decimal                   @default(0) @db.Decimal(10, 2)
+  quantity_received Int                       @default(0)
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  allocations       PurchaseOrderAllocation[]
+  item              Item                      @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_orders   PurchaseOrder             @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([itemId], map: "idx_purchase_order_items_item_id")
   @@index([order_id], map: "idx_purchase_order_items_order_id")
   @@map("purchase_order_items")
+}
+
+model PurchaseOrderAllocation {
+  id                String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderItemId       String            @map("order_item_id") @db.Uuid
+  locationId        String            @map("location_id") @db.Uuid
+  quantity          Int               @default(0)
+  quantity_received Int               @default(0)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  orderItem         PurchaseOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  location          Location          @relation(fields: [locationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([orderItemId, locationId], map: "purchase_order_allocations_unique_location")
+  @@index([orderItemId], map: "idx_purchase_order_allocations_order_item")
+  @@index([locationId], map: "idx_purchase_order_allocations_location")
+  @@map("purchase_order_allocations")
 }
 
 model BlogPost {

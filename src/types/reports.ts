@@ -15,6 +15,7 @@ type ComboItemRow = Database['public']['Tables']['combo_items']['Row']
 type SellerRow = Database['public']['Tables']['sellers']['Row']
 type CategoryRow = Database['public']['Tables']['categories']['Row']
 type PurchaseOrderRow = Database['public']['Tables']['purchase_orders']['Row']
+type PurchaseOrderAllocationRow = Database['public']['Tables']['purchase_order_allocations']['Row']
 type PurchaseOrderItemRow = Database['public']['Tables']['purchase_order_items']['Row']
 
 export type ReportSaleItem = Pick<
@@ -86,7 +87,16 @@ export type ReportCategory = Pick<CategoryRow, 'id' | 'name' | 'created_at'>
 export type ReportPurchaseOrderItem = Pick<
   PurchaseOrderItemRow,
   'id' | 'order_id' | 'item_id' | 'quantity' | 'unit_cost' | 'subtotal' | 'quantity_received' | 'created_at'
->
+> & {
+  purchase_order_allocations?: ReportPurchaseOrderAllocation[]
+}
+
+export interface ReportPurchaseOrderAllocation extends Pick<
+  PurchaseOrderAllocationRow,
+  'id' | 'order_item_id' | 'location_id' | 'quantity' | 'quantity_received' | 'created_at' | 'updated_at'
+> {
+  locations?: ReportLocation | null
+}
 
 export interface ReportPurchaseOrder extends Pick<
   PurchaseOrderRow,

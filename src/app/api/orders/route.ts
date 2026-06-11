@@ -6,6 +6,7 @@ import type {
   OrdersPageDataPayload,
   OrdersPageItem,
   OrdersPageLocation,
+  OrdersPageOrderAllocation,
   OrdersPageOrder,
   OrdersPageOrderItem,
   OrdersPageWallet,
@@ -84,6 +85,24 @@ export async function GET(request: NextRequest) {
                   id: true,
                   name: true,
                   purchasePriceUsd: true,
+                },
+              },
+              allocations: {
+                orderBy: { createdAt: 'asc' },
+                select: {
+                  id: true,
+                  orderItemId: true,
+                  locationId: true,
+                  quantity: true,
+                  quantity_received: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  location: {
+                    select: {
+                      id: true,
+                      name: true,
+                    },
+                  },
                 },
               },
             },
@@ -175,6 +194,21 @@ export async function GET(request: NextRequest) {
               purchase_price_usd: toNumber(item.item.purchasePriceUsd),
             }
             : null,
+          purchase_order_allocations: item.allocations.map<OrdersPageOrderAllocation>((allocation) => ({
+            id: allocation.id,
+            order_item_id: allocation.orderItemId,
+            location_id: allocation.locationId,
+            quantity: allocation.quantity,
+            quantity_received: allocation.quantity_received,
+            created_at: toIsoString(allocation.createdAt),
+            updated_at: toIsoString(allocation.updatedAt),
+            locations: allocation.location
+              ? {
+                id: allocation.location.id,
+                name: allocation.location.name,
+              }
+              : null,
+          })),
         })),
       })),
       items: items.map<OrdersPageItem>((item) => ({

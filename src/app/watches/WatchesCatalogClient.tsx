@@ -748,13 +748,14 @@ function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; s
 
   return (
     <div className="flex flex-col items-center py-28 lg:py-40">
-      {/* Decorative ring */}
-      <div style={{ position: 'relative', width: 96, height: 96, marginBottom: '2.5rem' }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '1px solid rgba(201,168,76,0.2)' }} />
-        <div style={{ position: 'absolute', inset: 10, borderRadius: '50%', border: '1px solid rgba(201,168,76,0.1)' }} />
-        <div style={{ position: 'absolute', inset: 20, borderRadius: '50%', border: '1px solid rgba(201,168,76,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(201,168,76,0.3)' }} />
-        </div>
+      <div
+        className="mb-10 flex h-24 w-24 items-center justify-center border"
+        style={{ borderColor: 'rgba(201,168,76,0.24)', background: 'rgba(201,168,76,0.04)' }}
+        aria-hidden="true"
+      >
+        <div className="h-12 w-px" style={{ background: 'rgba(201,168,76,0.22)' }} />
+        <div className="mx-3 h-px w-10" style={{ background: 'rgba(201,168,76,0.22)' }} />
+        <div className="h-12 w-px" style={{ background: 'rgba(201,168,76,0.22)' }} />
       </div>
 
       <p

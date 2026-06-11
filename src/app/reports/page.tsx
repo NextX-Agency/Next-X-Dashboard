@@ -650,7 +650,12 @@ export default function ReportsPage() {
   }, [relevantWalletTransactions, prevBounds, isCurrentTab])
 
   const relevantPurchaseOrders = useMemo(() => catalogPurchaseOrdersScope.orders.filter(order => {
-    if (selectedLocation && order.location_id !== selectedLocation) return false
+    if (selectedLocation && order.location_id !== selectedLocation) {
+      const hasAllocatedStockForLocation = order.purchase_order_items?.some(item =>
+        item.purchase_order_allocations?.some(allocation => allocation.location_id === selectedLocation)
+      )
+      if (!hasAllocatedStockForLocation) return false
+    }
     return true
   }), [catalogPurchaseOrdersScope.orders, selectedLocation])
 
@@ -733,6 +738,22 @@ export default function ReportsPage() {
       return sum + amountInDisplay(remainingQuantity * toNum(item.unit_cost), order.currency, order.exchange_rate)
     }, 0)
   }, [amountInDisplay])
+
+  const getPurchaseOrderAllocations = useCallback((order: PurchaseOrder, item: NonNullable<PurchaseOrder['purchase_order_items']>[number]) => {
+    const allocations = item.purchase_order_allocations || []
+    if (allocations.length > 0) return allocations
+
+    return [{
+      id: item.id,
+      order_item_id: item.id,
+      location_id: order.location_id,
+      quantity: item.quantity,
+      quantity_received: item.quantity_received || 0,
+      created_at: item.created_at,
+      updated_at: item.created_at,
+      locations: locations.find(location => location.id === order.location_id) || null,
+    }]
+  }, [locations])
 
   const summarizeWalletActivity = useCallback((transactions: WalletTransaction[]): WalletActivitySummary => {
     const summary: WalletActivitySummary = {
@@ -1287,6 +1308,80 @@ export default function ReportsPage() {
     .filter(order => order.status !== 'cancelled')
     .reduce((sum, order) => sum + purchaseOrderRemainingInDisplay(order), 0),
   [relevantPurchaseOrders, purchaseOrderRemainingInDisplay])
+
+  const incomingStockSummary = useMemo(() => {
+    const destinationMap = new Map<string, {
+      locationId: string
+      locationName: string
+      units: number
+      value: number
+      orderIds: Set<string>
+    }>()
+    const statusMap = new Map<string, { count: number; units: number; value: number }>()
+    const activeOrders = relevantPurchaseOrders.filter(order => order.status !== 'cancelled' && order.status !== 'received')
+
+    let totalUnits = 0
+    let totalValue = 0
+
+    activeOrders.forEach(order => {
+      let orderUnits = 0
+      let orderValue = 0
+
+      ;(order.purchase_order_items || []).forEach(item => {
+        getPurchaseOrderAllocations(order, item).forEach(allocation => {
+          if (selectedLocation && allocation.location_id !== selectedLocation) return
+
+          const remainingQuantity = Math.max(0, allocation.quantity - (allocation.quantity_received || 0))
+          if (remainingQuantity <= 0) return
+
+          const value = amountInDisplay(remainingQuantity * toNum(item.unit_cost), order.currency, order.exchange_rate)
+          const locationId = allocation.location_id
+          const locationName = allocation.locations?.name || locations.find(location => location.id === locationId)?.name || 'Unassigned'
+          const destination = destinationMap.get(locationId) || {
+            locationId,
+            locationName,
+            units: 0,
+            value: 0,
+            orderIds: new Set<string>(),
+          }
+
+          destination.units += remainingQuantity
+          destination.value += value
+          destination.orderIds.add(order.id)
+          destinationMap.set(locationId, destination)
+
+          orderUnits += remainingQuantity
+          orderValue += value
+        })
+      })
+
+      if (orderUnits <= 0) return
+
+      totalUnits += orderUnits
+      totalValue += orderValue
+
+      const statusEntry = statusMap.get(order.status) || { count: 0, units: 0, value: 0 }
+      statusEntry.count += 1
+      statusEntry.units += orderUnits
+      statusEntry.value += orderValue
+      statusMap.set(order.status, statusEntry)
+    })
+
+    return {
+      totalUnits,
+      totalValue,
+      orderCount: activeOrders.length,
+      destinations: Array.from(destinationMap.values())
+        .map(destination => ({
+          ...destination,
+          orderCount: destination.orderIds.size,
+        }))
+        .sort((left, right) => right.value - left.value),
+      statuses: Array.from(statusMap.entries())
+        .map(([status, value]) => ({ status, ...value }))
+        .sort((left, right) => right.value - left.value),
+    }
+  }, [amountInDisplay, getPurchaseOrderAllocations, locations, relevantPurchaseOrders, selectedLocation])
 
   const financialHealthWalletBalance = periodEndWalletSummary.totalInDisplay
   const financialHealthStockValue = isCurrentTab ? inventoryAnalysis.stockValueDisplay : 0
@@ -2988,6 +3083,77 @@ export default function ReportsPage() {
                   <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-green-600 mb-2" />
                   <div className="text-xs text-muted-foreground mb-0.5">Potential Profit</div>
                   <div className="text-xl sm:text-2xl font-bold text-green-600">{formatCurrency(inventoryAnalysis.potentialProfit, displayCurrency)}</div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.18em] text-violet-500">Upcoming Stock</div>
+                    <div className="mt-1 text-lg font-bold text-foreground">Orders now forecast inventory, not wallet movement.</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      Remaining units and value are calculated from open purchase orders and their destination allocations.
+                    </div>
+                  </div>
+                  <Link href="/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-violet-500 transition-colors hover:text-violet-400">
+                    Manage orders
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="text-xs text-muted-foreground">Incoming Units</div>
+                    <div className="mt-1 text-2xl font-bold text-foreground">{incomingStockSummary.totalUnits.toLocaleString()}</div>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="text-xs text-muted-foreground">Incoming Value</div>
+                    <div className="mt-1 text-2xl font-bold text-violet-500">{formatCurrency(incomingStockSummary.totalValue, displayCurrency)}</div>
+                  </div>
+                  <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="text-xs text-muted-foreground">Stock + Incoming Cost</div>
+                    <div className="mt-1 text-2xl font-bold text-primary">{formatCurrency(inventoryAnalysis.stockValueDisplay + incomingStockSummary.totalValue, displayCurrency)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Destination Distribution</div>
+                    {incomingStockSummary.destinations.length === 0 ? (
+                      <div className="rounded-xl border border-border/60 bg-card/70 p-3 text-sm text-muted-foreground">No open incoming allocations.</div>
+                    ) : incomingStockSummary.destinations.slice(0, 6).map(destination => {
+                      const pct = incomingStockSummary.totalValue > 0 ? (destination.value / incomingStockSummary.totalValue) * 100 : 0
+                      return (
+                        <div key={destination.locationId} className="rounded-xl border border-border/60 bg-card/70 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-bold text-foreground">{destination.locationName}</div>
+                              <div className="text-xs text-muted-foreground">{destination.units} units from {destination.orderCount} order(s)</div>
+                            </div>
+                            <div className="text-right text-sm font-bold text-violet-500">{formatCurrency(destination.value, displayCurrency)}</div>
+                          </div>
+                          <div className="mt-2 h-1.5 overflow-hidden rounded bg-muted">
+                            <div className="h-full rounded bg-violet-500" style={{ width: `${Math.min(100, pct)}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pipeline Status</div>
+                    {incomingStockSummary.statuses.length === 0 ? (
+                      <div className="rounded-xl border border-border/60 bg-card/70 p-3 text-sm text-muted-foreground">No active order pipeline.</div>
+                    ) : incomingStockSummary.statuses.map(status => (
+                      <div key={status.status} className="rounded-xl border border-border/60 bg-card/70 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold capitalize text-foreground">{status.status.replace('_', ' ')}</span>
+                          <span className="text-xs text-muted-foreground">{status.count} order(s)</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">{status.units} units · {formatCurrency(status.value, displayCurrency)}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
