@@ -2009,8 +2009,17 @@ export default function OrdersPage() {
                   {pickerOpen && (
                     <div className="mt-3 rounded-lg border border-border bg-card/70 p-2">
                       {visiblePickerItems.length === 0 ? (
-                        <div className="flex min-h-28 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-sm text-muted-foreground">
-                          No {itemCatalogFilter === 'watches' ? 'watch' : 'audio'} items match this search.
+                        <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded border border-dashed border-border bg-muted/20 px-3 text-center text-sm text-muted-foreground">
+                          <span>No {itemCatalogFilter === 'watches' ? 'watch' : 'audio'} items match this search.</span>
+                          <a
+                            href="/products"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                          >
+                            <Plus size={12} />
+                            Add new item to catalog
+                          </a>
                         </div>
                       ) : (
                         <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
@@ -2063,6 +2072,17 @@ export default function OrdersPage() {
                           })}
                         </div>
                       )}
+                      <div className="mt-2 border-t border-border/50 pt-2 text-center">
+                        <a
+                          href="/products"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Plus size={11} />
+                          Item not listed? Add it to the catalog
+                        </a>
+                      </div>
                     </div>
                   )}
 
