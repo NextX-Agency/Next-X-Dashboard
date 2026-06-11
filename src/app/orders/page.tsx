@@ -50,6 +50,19 @@ interface ReceiveItemForm {
   receiving: string
 }
 
+interface EditReceiptItemForm {
+  id: string
+  order_item_id: string
+  item_id: string
+  location_id: string
+  location_name: string
+  item_name: string
+  total_quantity: number
+  quantity_received: number
+  new_quantity_received: string
+  is_allocation: boolean
+}
+
 interface DeleteStockReversalPreview {
   canReverseStock: boolean
   totalUnits: number
@@ -87,6 +100,10 @@ export default function OrdersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
   const [deleteReverseStock, setDeleteReverseStock] = useState(false)
+  const [shipmentNote, setShipmentNote] = useState('')
+  const [showEditReceiptsModal, setShowEditReceiptsModal] = useState(false)
+  const [editingReceiptOrder, setEditingReceiptOrder] = useState<OrderWithDetails | null>(null)
+  const [editReceiptItems, setEditReceiptItems] = useState<EditReceiptItemForm[]>([])
 
   const [orderForm, setOrderForm] = useState({
     wallet_id: '',
@@ -689,6 +706,7 @@ export default function OrdersPage() {
     })
 
     setReceiveItems(itemsToReceive.filter(item => item.remaining > 0))
+    setShipmentNote('')
     setShowReceiveModal(true)
   }
 
@@ -778,13 +796,15 @@ export default function OrdersPage() {
           Received: receivedSummary.join(', '),
           Status: newStatus === 'received' ? 'Fully received' : 'Partially received',
           Location: receivingOrder.locations?.name || '',
-          Stock: 'Updated'
+          Stock: 'Updated',
+          ...(shipmentNote ? { Note: shipmentNote } : {}),
         }),
         userId: user?.id
       })
 
       setShowReceiveModal(false)
       setReceivingOrder(null)
+      setShipmentNote('')
       await loadData()
     } catch (error) {
       console.error('Error receiving shipment:', error)
@@ -988,6 +1008,120 @@ export default function OrdersPage() {
     } catch (error) {
       console.error('Error deleting order:', error)
       alert(error instanceof Error ? error.message : 'Error deleting order')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const openEditReceiptsModal = (order: OrderWithDetails) => {
+    setEditingReceiptOrder(order)
+    const items: EditReceiptItemForm[] = (order.purchase_order_items || []).flatMap<EditReceiptItemForm>(oi => {
+      const allocations = oi.purchase_order_allocations || []
+      if (allocations.length === 0) {
+        if ((oi.quantity_received || 0) <= 0) return []
+        return [{
+          id: oi.id,
+          order_item_id: oi.id,
+          item_id: oi.item_id,
+          location_id: order.location_id,
+          location_name: order.locations?.name || 'Default',
+          item_name: oi.items?.name || 'Unknown',
+          total_quantity: oi.quantity,
+          quantity_received: oi.quantity_received || 0,
+          new_quantity_received: (oi.quantity_received || 0).toString(),
+          is_allocation: false,
+        }]
+      }
+      return allocations
+        .filter(alloc => (alloc.quantity_received || 0) > 0)
+        .map(alloc => ({
+          id: alloc.id,
+          order_item_id: oi.id,
+          item_id: oi.item_id,
+          location_id: alloc.location_id,
+          location_name: alloc.locations?.name || 'Unknown',
+          item_name: oi.items?.name || 'Unknown',
+          total_quantity: alloc.quantity,
+          quantity_received: alloc.quantity_received || 0,
+          new_quantity_received: (alloc.quantity_received || 0).toString(),
+          is_allocation: true,
+        }))
+    })
+    setEditReceiptItems(items)
+    setShowEditReceiptsModal(true)
+  }
+
+  const handleSaveEditReceipts = async () => {
+    if (!editingReceiptOrder || submitting) return
+    setSubmitting(true)
+    try {
+      for (const item of editReceiptItems) {
+        const newQty = parseInt(item.new_quantity_received) || 0
+        const diff = newQty - item.quantity_received
+        if (diff === 0) continue
+
+        const { data: existingStock } = await supabase
+          .from('stock')
+          .select('id, quantity')
+          .eq('item_id', item.item_id)
+          .eq('location_id', item.location_id)
+          .single()
+
+        if (diff > 0) {
+          if (existingStock) {
+            await supabase.from('stock').update({ quantity: existingStock.quantity + diff }).eq('id', existingStock.id)
+          } else {
+            await supabase.from('stock').insert({ item_id: item.item_id, location_id: item.location_id, quantity: diff })
+          }
+        } else {
+          if (!existingStock || existingStock.quantity < Math.abs(diff)) {
+            throw new Error(`Cannot reduce ${item.item_name} at ${item.location_name}: only ${existingStock?.quantity ?? 0} in stock.`)
+          }
+          const newStockQty = existingStock.quantity + diff
+          if (newStockQty > 0) {
+            await supabase.from('stock').update({ quantity: newStockQty }).eq('id', existingStock.id)
+          } else {
+            await supabase.from('stock').delete().eq('id', existingStock.id)
+          }
+        }
+
+        if (item.is_allocation) {
+          await supabase.from('purchase_order_allocations').update({ quantity_received: newQty }).eq('id', item.id)
+        }
+      }
+
+      // Recalculate order_item.quantity_received
+      const receivedByOrderItem = new Map<string, number>()
+      for (const item of editReceiptItems) {
+        const newQty = parseInt(item.new_quantity_received) || 0
+        receivedByOrderItem.set(item.order_item_id, (receivedByOrderItem.get(item.order_item_id) || 0) + newQty)
+      }
+      for (const [orderItemId, totalReceived] of receivedByOrderItem) {
+        await supabase.from('purchase_order_items').update({ quantity_received: totalReceived }).eq('id', orderItemId)
+      }
+
+      // Recalculate order status
+      const allItems = editingReceiptOrder.purchase_order_items || []
+      const allFullyReceived = allItems.every(oi => (receivedByOrderItem.get(oi.id) || 0) >= oi.quantity)
+      const anyReceived = Array.from(receivedByOrderItem.values()).some(v => v > 0)
+      const newStatus: OrderStatus = allFullyReceived ? 'received' : (anyReceived ? 'partially_received' : editingReceiptOrder.status as OrderStatus)
+      await supabase.from('purchase_orders').update({ status: newStatus }).eq('id', editingReceiptOrder.id)
+
+      await logActivity({
+        action: 'update',
+        entityType: 'purchase_order',
+        entityId: editingReceiptOrder.id,
+        entityName: `Order #${editingReceiptOrder.id.slice(0, 8)}`,
+        details: buildActivityDetails({ Action: 'Receipt quantities adjusted', Status: newStatus }),
+        userId: user?.id
+      })
+
+      setShowEditReceiptsModal(false)
+      setEditingReceiptOrder(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error adjusting receipts:', error)
+      alert(error instanceof Error ? error.message : 'Error adjusting receipts')
     } finally {
       setSubmitting(false)
     }
@@ -1541,14 +1675,25 @@ export default function OrdersPage() {
                         </Button>
                       )}
                       {order.status === 'partially_received' && (
-                        <Button 
-                          onClick={() => handleUpdateStatus(order, 'received')} 
-                          variant="primary" 
+                        <Button
+                          onClick={() => handleUpdateStatus(order, 'received')}
+                          variant="primary"
                           size="sm"
                           className="min-h-10 touch-manipulation"
                         >
                           <PackageCheck size={14} />
                           Receive More
+                        </Button>
+                      )}
+                      {(order.status === 'partially_received' || order.status === 'received') && (
+                        <Button
+                          onClick={() => openEditReceiptsModal(order)}
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-10 touch-manipulation"
+                        >
+                          <Edit size={14} />
+                          <span className="hidden xs:inline">Edit</span> Receipts
                         </Button>
                       )}
                       {(order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped' || order.status === 'partially_received') && (
@@ -2120,30 +2265,42 @@ export default function OrdersPage() {
       {/* Receive Shipment Modal */}
       <Modal
         isOpen={showReceiveModal}
-        onClose={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]) }}
+        onClose={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]); setShipmentNote('') }}
         title={`Receive Shipment — #${receivingOrder?.id.slice(0, 8)}`}
       >
         {receivingOrder && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Enter the quantity received for each destination. Leave at 0 for allocations not yet delivered.
-            </p>
+            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
+              Set how many units arrived in this batch. Leave at 0 for items not yet delivered — you can receive the rest later.
+            </div>
             <div className="border border-border rounded-lg overflow-hidden">
-              <div className="bg-muted px-4 py-2 font-medium text-sm">Items to Receive</div>
+              <div className="bg-muted px-4 py-2 font-medium text-sm flex items-center justify-between">
+                <span>Items to Receive</span>
+                <Button
+                  type="button"
+                  onClick={() => setReceiveItems(prev => prev.map(ri => ({ ...ri, receiving: ri.remaining.toString() })))}
+                  variant="secondary"
+                  size="sm"
+                  className="min-h-8 text-xs"
+                >
+                  <PackageCheck size={12} />
+                  Receive All
+                </Button>
+              </div>
               <div className="divide-y divide-border">
                 {receiveItems.map((ri, idx) => (
                   <div key={ri.id} className="px-4 py-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-medium">{ri.item_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {ri.location_name} · Ordered: {ri.ordered} · Previously received: {ri.already_received}
-                          {ri.remaining > 0 && <span className="text-amber-500"> · Remaining: {ri.remaining}</span>}
-                        </p>
+                    <div className="mb-2">
+                      <p className="font-semibold text-sm">{ri.item_name}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
+                        <span>{ri.location_name}</span>
+                        <span>Ordered: {ri.ordered}</span>
+                        {ri.already_received > 0 && <span className="text-primary font-medium">Prev. received: {ri.already_received}</span>}
+                        <span className="text-amber-500 font-medium">Remaining: {ri.remaining}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <label className="text-sm text-muted-foreground whitespace-nowrap">Receiving:</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm text-muted-foreground whitespace-nowrap">Now:</label>
                       <Input
                         type="number"
                         inputMode="numeric"
@@ -2154,28 +2311,44 @@ export default function OrdersPage() {
                           const val = Math.max(0, Math.min(ri.remaining, parseInt(e.target.value) || 0))
                           setReceiveItems(prev => prev.map((item, i) => i === idx ? { ...item, receiving: val.toString() } : item))
                         }}
-                        className="w-24 min-h-11"
+                        className="w-24 min-h-10"
                       />
-                      <span className="text-xs text-muted-foreground">/ {ri.remaining} remaining</span>
+                      <span className="text-xs text-muted-foreground shrink-0">/ {ri.remaining}</span>
+                      <Button
+                        type="button"
+                        onClick={() => setReceiveItems(prev => prev.map((item, i) => i === idx ? { ...item, receiving: item.remaining.toString() } : item))}
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto min-h-9 text-xs"
+                      >
+                        Fill
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total receiving:</span>
-                <span className="font-medium">{receiveItems.reduce((s, i) => s + (parseInt(i.receiving) || 0), 0)} items</span>
-              </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-muted-foreground">Will remain:</span>
-                <span className="font-medium">{receiveItems.reduce((s, i) => s + (i.remaining - (parseInt(i.receiving) || 0)), 0)} items</span>
-              </div>
+            <div className="bg-muted/50 rounded-lg p-3 text-sm grid grid-cols-2 gap-y-1">
+              <span className="text-muted-foreground">Receiving now:</span>
+              <span className="font-semibold text-right">{receiveItems.reduce((s, i) => s + (parseInt(i.receiving) || 0), 0)} units</span>
+              <span className="text-muted-foreground">Still remaining after:</span>
+              <span className="font-medium text-right">{receiveItems.reduce((s, i) => s + (i.remaining - (parseInt(i.receiving) || 0)), 0)} units</span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Batch Note <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <Input
+                value={shipmentNote}
+                onChange={(e) => setShipmentNote(e.target.value)}
+                placeholder="e.g. AliExpress partial shipment 1, arrived June 11..."
+                className="min-h-11"
+              />
             </div>
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
               <Button
                 type="button"
-                onClick={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]) }}
+                onClick={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]); setShipmentNote('') }}
                 variant="secondary"
                 className="min-h-12 touch-manipulation"
               >
@@ -2293,6 +2466,88 @@ export default function OrdersPage() {
             </div>
           )
         })()}
+      </Modal>
+
+      {/* Edit Receipts Modal */}
+      <Modal
+        isOpen={showEditReceiptsModal}
+        onClose={() => { setShowEditReceiptsModal(false); setEditingReceiptOrder(null) }}
+        title={`Adjust Receipts — #${editingReceiptOrder?.id.slice(0, 8)}`}
+      >
+        {editingReceiptOrder && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-sm">
+              <div className="flex items-start gap-2 text-amber-500">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-semibold">Changing received quantities will adjust stock levels.</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Reducing a qty removes units from that location's stock. Only previously received entries are shown.</div>
+                </div>
+              </div>
+            </div>
+            {editReceiptItems.length === 0 ? (
+              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-center text-muted-foreground">
+                No received items to adjust.
+              </div>
+            ) : (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="bg-muted px-4 py-2 font-medium text-sm">Received Items</div>
+                <div className="divide-y divide-border">
+                  {editReceiptItems.map((item, idx) => {
+                    const diff = (parseInt(item.new_quantity_received) || 0) - item.quantity_received
+                    return (
+                      <div key={item.id} className="px-4 py-3">
+                        <p className="font-semibold text-sm">{item.item_name}</p>
+                        <p className="text-xs text-muted-foreground mb-2">{item.location_name} · Total ordered: {item.total_quantity}</p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">Received:</span>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            max={item.total_quantity}
+                            value={item.new_quantity_received}
+                            onChange={(e) => {
+                              const val = Math.max(0, Math.min(item.total_quantity, parseInt(e.target.value) || 0))
+                              setEditReceiptItems(prev => prev.map((ri, i) => i === idx ? { ...ri, new_quantity_received: val.toString() } : ri))
+                            }}
+                            className="w-24 min-h-11"
+                          />
+                          <span className="text-xs text-muted-foreground">/ {item.total_quantity}</span>
+                          {diff !== 0 && (
+                            <span className={cn('text-xs font-semibold', diff > 0 ? 'text-green-500' : 'text-red-500')}>
+                              {diff > 0 ? '+' : ''}{diff} stock
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                onClick={() => { setShowEditReceiptsModal(false); setEditingReceiptOrder(null) }}
+                variant="secondary"
+                className="min-h-12 touch-manipulation"
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleSaveEditReceipts()}
+                variant="primary"
+                className="min-h-12 touch-manipulation"
+                disabled={submitting || editReceiptItems.length === 0}
+              >
+                {submitting ? 'Saving...' : 'Save Adjustments'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog {...dialogProps} />
