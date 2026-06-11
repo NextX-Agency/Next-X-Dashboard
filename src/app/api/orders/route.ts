@@ -84,7 +84,12 @@ export async function GET(request: NextRequest) {
                 select: {
                   id: true,
                   name: true,
+                  brand: true,
                   purchasePriceUsd: true,
+                  sellingPriceSrd: true,
+                  sellingPriceUsd: true,
+                  imageUrl: true,
+                  catalogType: true,
                 },
               },
               allocations: {
@@ -114,7 +119,12 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           name: true,
+          brand: true,
           purchasePriceUsd: true,
+          sellingPriceSrd: true,
+          sellingPriceUsd: true,
+          imageUrl: true,
+          catalogType: true,
         },
         orderBy: { name: 'asc' },
       }),
@@ -191,7 +201,12 @@ export async function GET(request: NextRequest) {
             ? {
               id: item.item.id,
               name: item.item.name,
+              brand: item.item.brand,
               purchase_price_usd: toNumber(item.item.purchasePriceUsd),
+              selling_price_srd: toNullableNumber(item.item.sellingPriceSrd),
+              selling_price_usd: toNullableNumber(item.item.sellingPriceUsd),
+              image_url: item.item.imageUrl,
+              catalog_type: item.item.catalogType,
             }
             : null,
           purchase_order_allocations: item.allocations.map<OrdersPageOrderAllocation>((allocation) => ({
@@ -214,7 +229,12 @@ export async function GET(request: NextRequest) {
       items: items.map<OrdersPageItem>((item) => ({
         id: item.id,
         name: item.name,
+        brand: item.brand,
         purchase_price_usd: toNumber(item.purchasePriceUsd),
+        selling_price_srd: toNullableNumber(item.sellingPriceSrd),
+        selling_price_usd: toNullableNumber(item.sellingPriceUsd),
+        image_url: item.imageUrl,
+        catalog_type: item.catalogType,
       })),
       locations: locations.map<OrdersPageLocation>((location) => ({
         id: location.id,

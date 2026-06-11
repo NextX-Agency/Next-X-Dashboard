@@ -226,6 +226,7 @@ function ButtonComponent({
   disabled = false,
   loading = false,
   fullWidth = false,
+  ariaLabel,
   className = ''
 }: { 
   children: React.ReactNode
@@ -236,6 +237,7 @@ function ButtonComponent({
   disabled?: boolean
   loading?: boolean
   fullWidth?: boolean
+  ariaLabel?: string
   className?: string
 }) {
   const variants = {
@@ -260,6 +262,7 @@ function ButtonComponent({
       type={type}
       onClick={onClick}
       disabled={isDisabled}
+      aria-label={ariaLabel}
       className={`
         inline-flex items-center justify-center
         ${variants[variant]}

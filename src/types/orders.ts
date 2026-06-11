@@ -8,7 +8,10 @@ type PurchaseOrderRow = Database['public']['Tables']['purchase_orders']['Row']
 type PurchaseOrderAllocationRow = Database['public']['Tables']['purchase_order_allocations']['Row']
 type PurchaseOrderItemRow = Database['public']['Tables']['purchase_order_items']['Row']
 
-export type OrdersPageItem = Pick<ItemRow, 'id' | 'name' | 'purchase_price_usd'>
+export type OrdersPageItem = Pick<
+  ItemRow,
+  'id' | 'name' | 'brand' | 'purchase_price_usd' | 'selling_price_srd' | 'selling_price_usd' | 'image_url' | 'catalog_type'
+>
 
 export type OrdersPageLocation = Pick<LocationRow, 'id' | 'name'>
 

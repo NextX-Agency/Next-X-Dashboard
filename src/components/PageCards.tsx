@@ -322,9 +322,10 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: React.ReactNode
+  panelClassName?: string
 }
 
-function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
+function ModalComponent({ isOpen, onClose, title, children, panelClassName = '' }: ModalProps) {
   useEffect(() => {
     if (!isOpen) return
 
@@ -344,7 +345,7 @@ function ModalComponent({ isOpen, onClose, title, children }: ModalProps) {
         className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
-      <div className="relative bg-card rounded-t-2xl shadow-2xl max-w-lg w-full max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem)] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col sm:rounded-xl sm:max-h-[88vh]">
+      <div className={`relative bg-card rounded-t-2xl shadow-2xl max-w-lg w-full max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.75rem)] overflow-hidden border border-border animate-in fade-in zoom-in-95 duration-200 flex flex-col sm:rounded-xl sm:max-h-[88vh] ${panelClassName}`}>
         <div className="flex justify-center pt-3 sm:hidden">
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
         </div>

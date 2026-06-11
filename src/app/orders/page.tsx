@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
-import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw } from 'lucide-react'
+import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw, Headphones, Watch, ImageIcon } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -24,6 +25,7 @@ import type {
 type OrderStatus = 'pending' | 'ordered' | 'shipped' | 'partially_received' | 'received' | 'cancelled'
 type SortField = 'date' | 'amount' | 'status'
 type SortOrder = 'asc' | 'desc'
+type ItemCatalogFilter = 'audio' | 'watches'
 
 interface OrderItemForm {
   item_id: string
@@ -95,6 +97,9 @@ export default function OrdersPage() {
     expected_arrival: ''
   })
   const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
+  const [itemCatalogFilter, setItemCatalogFilter] = useState<ItemCatalogFilter>('audio')
+  const [itemSearchQuery, setItemSearchQuery] = useState('')
+  const [activeItemPickerIndex, setActiveItemPickerIndex] = useState<number | null>(0)
   
   // Filter and sort states
   const [searchQuery, setSearchQuery] = useState('')
@@ -155,7 +160,19 @@ export default function OrdersPage() {
     setOrderItems([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
     setEditingOrder(null)
     setPriceChanges({})
+    setItemSearchQuery('')
+    setActiveItemPickerIndex(0)
     setShowOrderForm(false)
+  }
+
+  const openNewOrderForm = () => {
+    setEditingOrder(null)
+    setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
+    setOrderItems([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
+    setPriceChanges({})
+    setItemSearchQuery('')
+    setActiveItemPickerIndex(0)
+    setShowOrderForm(true)
   }
 
   // Filter and sort orders
@@ -226,6 +243,37 @@ export default function OrdersPage() {
 
   const hasActiveFilters = searchQuery || filterStatus || filterLocation || filterWallet || dateFrom || dateTo
 
+  const catalogTabs: Array<{ value: ItemCatalogFilter; label: string; icon: React.ReactNode; count: number }> = [
+    {
+      value: 'audio',
+      label: 'Audio',
+      icon: <Headphones size={14} />,
+      count: items.filter(item => item.catalog_type !== 'watches').length,
+    },
+    {
+      value: 'watches',
+      label: 'Watches',
+      icon: <Watch size={14} />,
+      count: items.filter(item => item.catalog_type === 'watches').length,
+    },
+  ]
+
+  const visiblePickerItems = items.filter(item => {
+    const matchesCatalog = itemCatalogFilter === 'watches'
+      ? item.catalog_type === 'watches'
+      : item.catalog_type !== 'watches'
+    const query = itemSearchQuery.trim().toLowerCase()
+    const matchesSearch = !query ||
+      item.name.toLowerCase().includes(query) ||
+      item.brand?.toLowerCase().includes(query)
+
+    return matchesCatalog && matchesSearch
+  })
+
+  const getSelectedItem = (itemId: string) => items.find(item => item.id === itemId)
+
+  const getCatalogLabel = (catalogType?: string | null) => catalogType === 'watches' ? 'Watches' : 'Audio'
+
   const calculateTotal = () => {
     return orderItems.reduce((sum, item) => {
       const qty = parseFloat(item.quantity) || 0
@@ -240,11 +288,17 @@ export default function OrdersPage() {
 
   const addOrderItem = () => {
     setOrderItems([...orderItems, { item_id: '', quantity: '1', unit_cost: '', allocations: buildDefaultAllocations('1') }])
+    setActiveItemPickerIndex(orderItems.length)
   }
 
   const removeOrderItem = (index: number) => {
     if (orderItems.length > 1) {
       setOrderItems(orderItems.filter((_, i) => i !== index))
+      setActiveItemPickerIndex(current => {
+        if (current === null) return null
+        if (current === index) return null
+        return current > index ? current - 1 : current
+      })
     }
   }
 
@@ -272,6 +326,11 @@ export default function OrdersPage() {
       }
     }
     setOrderItems(newItems)
+  }
+
+  const selectOrderItem = (index: number, item: Item) => {
+    updateOrderItem(index, 'item_id', item.id)
+    setActiveItemPickerIndex(null)
   }
 
   const updateDefaultDestination = (locationId: string) => {
@@ -393,7 +452,7 @@ export default function OrdersPage() {
     }).join(', ')
 
     const locationName = locations.find(l => l.id === orderForm.location_id)?.name || ''
-    const supplierName = clients.find(c => c.id === orderForm.supplier_id)?.name || ''
+    const sourceContactName = clients.find(c => c.id === orderForm.supplier_id)?.name || ''
 
     setSubmitting(true)
     try {
@@ -455,7 +514,7 @@ export default function OrdersPage() {
             Items: itemsSummary,
             Total: formatCurrency(totalAmount, orderForm.currency),
             Location: locationName,
-            Supplier: supplierName,
+            Source: sourceContactName,
             Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
             Wallet: 'Unchanged'
           }),
@@ -522,7 +581,7 @@ export default function OrdersPage() {
             Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
             Wallet: 'Unchanged',
             Location: locationName,
-            Supplier: supplierName
+            Source: sourceContactName
           }),
           userId: user?.id
         })
@@ -842,6 +901,8 @@ export default function OrdersPage() {
 
     setPriceChanges(changes)
     setOrderItems(newOrderItems)
+    setItemSearchQuery('')
+    setActiveItemPickerIndex(null)
     setShowOrderForm(true)
   }
 
@@ -1149,7 +1210,7 @@ export default function OrdersPage() {
               <RefreshCcw size={18} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button onClick={() => setShowOrderForm(true)} variant="primary">
+            <Button onClick={openNewOrderForm} variant="primary" ariaLabel="New Order">
               <Plus size={20} />
               <span className="hidden sm:inline">New Order</span>
             </Button>
@@ -1277,7 +1338,7 @@ export default function OrdersPage() {
               <input
                 type="search"
                 inputMode="search"
-                placeholder="Search orders, items, supplier..."
+          placeholder="Search orders, items, source/contact..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 min-h-12 bg-muted border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1529,25 +1590,24 @@ export default function OrdersPage() {
         isOpen={showOrderForm}
         onClose={resetOrderForm}
         title={editingOrder ? 'Edit Order' : 'New Purchase Order'}
+        panelClassName="sm:max-w-4xl"
       >
         <form onSubmit={handleSubmitOrder} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Funding Wallet</label>
-              <Select
-                value={orderForm.wallet_id}
-                onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
-                className="min-h-12"
-              >
-                <option value="">No wallet link</option>
-                {wallets.map(wallet => (
-                  <option key={wallet.id} value={wallet.id}>
-                    {wallet.person_name} - {wallet.type} ({wallet.currency})
-                  </option>
-                ))}
-              </Select>
-              <p className="mt-1 text-xs text-muted-foreground">Reference only. Orders do not change wallet balances.</p>
+          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
+                <PackageCheck size={17} />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">Stock order only</div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  Add Audio or Watches to incoming stock planning. Wallet balances stay unchanged.
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Default Destination *</label>
               <Select
@@ -1561,6 +1621,22 @@ export default function OrdersPage() {
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
               </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Funding Reference</label>
+              <Select
+                value={orderForm.wallet_id}
+                onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
+                className="min-h-12"
+              >
+                <option value="">No wallet reference</option>
+                {wallets.map(wallet => (
+                  <option key={wallet.id} value={wallet.id}>
+                    {wallet.person_name} - {wallet.type} ({wallet.currency})
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">Optional label only. No money is subtracted.</p>
             </div>
           </div>
 
@@ -1578,17 +1654,18 @@ export default function OrdersPage() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Supplier</label>
+              <label className="block text-sm font-medium mb-1">Source / Contact</label>
               <Select
                 value={orderForm.supplier_id}
                 onChange={(e) => setOrderForm({ ...orderForm, supplier_id: e.target.value })}
                 className="min-h-12"
               >
-                <option value="">No supplier</option>
+                <option value="">No source/contact</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">Optional reference from saved contacts.</p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Expected Arrival</label>
@@ -1617,34 +1694,118 @@ export default function OrdersPage() {
 
           {/* Order Items */}
           <div className="border border-border rounded-lg p-3 sm:p-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-medium">Order Items</h3>
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground">Stock Items</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Pick products by catalog. Images and purchase cost are shown before adding.</p>
+              </div>
               <Button type="button" onClick={addOrderItem} variant="secondary" size="sm" className="min-h-10 touch-manipulation">
                 <Plus size={14} />
                 Add Item
               </Button>
             </div>
+
+            <div className="mb-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="grid grid-cols-2 gap-2 sm:w-72">
+                  {catalogTabs.map(tab => (
+                    <button
+                      key={tab.value}
+                      type="button"
+                      onClick={() => setItemCatalogFilter(tab.value)}
+                      className={cn(
+                        'flex min-h-11 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold transition-colors',
+                        itemCatalogFilter === tab.value
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-card hover:border-primary/50'
+                      )}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                      <span className={cn(
+                        'rounded px-1.5 py-0.5 text-[10px]',
+                        itemCatalogFilter === tab.value ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'
+                      )}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Input
+                    value={itemSearchQuery}
+                    onChange={(event) => setItemSearchQuery(event.target.value)}
+                    placeholder={`Search ${itemCatalogFilter === 'watches' ? 'watches' : 'audio'} items...`}
+                    className="min-h-11 pl-9"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-4 sm:space-y-3">
-              {orderItems.map((orderItem, index) => (
+              {orderItems.map((orderItem, index) => {
+                const selectedItem = getSelectedItem(orderItem.item_id)
+                const pickerOpen = activeItemPickerIndex === index || !selectedItem
+                const lineTotal = (parseFloat(orderItem.quantity) || 0) * (parseFloat(orderItem.unit_cost) || 0)
+
+                return (
                 <div key={index} className="rounded-lg border border-border bg-muted/30 p-3">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                    <div className="flex-1">
-                      <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Item</label>
-                      <Select
-                        value={orderItem.item_id}
-                        onChange={(e) => updateOrderItem(index, 'item_id', e.target.value)}
-                        className="min-h-12"
-                        required
-                      >
-                        <option value="">Select item</option>
-                        {items.map(item => (
-                          <option key={item.id} value={item.id}>{item.name}</option>
-                        ))}
-                      </Select>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                      {selectedItem ? (
+                        <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card p-2.5">
+                          <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-muted">
+                            {selectedItem.image_url ? (
+                              <Image
+                                src={selectedItem.image_url}
+                                alt={selectedItem.name}
+                                fill
+                                className="object-cover"
+                                sizes="64px"
+                              />
+                            ) : (
+                              <ImageIcon size={22} className="text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {selectedItem.brand && (
+                              <div className="truncate text-[11px] font-semibold uppercase tracking-wide text-primary">{selectedItem.brand}</div>
+                            )}
+                            <div className="truncate text-sm font-bold text-foreground">{selectedItem.name}</div>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground">{getCatalogLabel(selectedItem.catalog_type)}</span>
+                              <span className="text-muted-foreground">Cost {formatCurrency(selectedItem.purchase_price_usd, 'USD')}</span>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={() => setActiveItemPickerIndex(pickerOpen ? null : index)}
+                            variant="ghost"
+                            size="sm"
+                            className="min-h-10"
+                          >
+                            {pickerOpen ? 'Close' : 'Change'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setActiveItemPickerIndex(index)}
+                          className="flex min-h-16 w-full items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-card/60 px-3 py-2 text-left transition-colors hover:border-primary/60"
+                        >
+                          <div>
+                            <div className="text-sm font-semibold text-foreground">Choose an item</div>
+                            <div className="mt-1 text-xs text-muted-foreground">{itemCatalogFilter === 'watches' ? 'Watches' : 'Audio'} catalog is active</div>
+                          </div>
+                          <Plus size={16} className="text-primary" />
+                        </button>
+                      )}
                     </div>
-                    <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
-                      <div className="sm:w-20">
-                        <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Qty</label>
+
+                    <div className="grid grid-cols-3 gap-2 lg:w-[360px]">
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Qty</label>
                         <Input
                           type="number"
                           inputMode="numeric"
@@ -1657,15 +1818,15 @@ export default function OrdersPage() {
                           required
                         />
                       </div>
-                      <div className="sm:w-28">
-                        <label className="text-xs text-muted-foreground mb-1 block sm:hidden">Cost</label>
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Unit Cost</label>
                         <div className="relative">
                           <Input
                             type="number"
                             inputMode="decimal"
                             step="0.01"
                             min="0"
-                            placeholder="Unit cost"
+                            placeholder="Cost"
                             value={orderItem.unit_cost}
                             onChange={(e) => updateOrderItem(index, 'unit_cost', e.target.value)}
                             className={cn("min-h-12", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
@@ -1678,25 +1839,87 @@ export default function OrdersPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-end sm:w-24 sm:items-center">
-                        <span className="w-full pb-3 text-right text-sm font-medium sm:pb-0 sm:pt-2">
-                          {formatCurrency((parseFloat(orderItem.quantity) || 0) * (parseFloat(orderItem.unit_cost) || 0), orderForm.currency)}
-                        </span>
+                      <div>
+                        <label className="mb-1 block text-xs text-muted-foreground">Line</label>
+                        <div className="flex min-h-12 items-center justify-end rounded border border-border bg-card px-3 text-sm font-bold">
+                          {formatCurrency(lineTotal, orderForm.currency)}
+                        </div>
                       </div>
                     </div>
+
                     {orderItems.length > 1 && (
                       <Button
                         type="button"
                         onClick={() => removeOrderItem(index)}
                         variant="ghost"
                         size="sm"
-                        className="min-h-10 w-full text-destructive touch-manipulation sm:w-auto"
+                        className="min-h-10 w-full text-destructive touch-manipulation lg:w-auto"
                       >
                         <X size={14} />
-                        <span className="sm:hidden ml-1">Remove</span>
+                        <span className="lg:hidden ml-1">Remove</span>
                       </Button>
                     )}
                   </div>
+
+                  {pickerOpen && (
+                    <div className="mt-3 rounded-lg border border-border bg-card/70 p-2">
+                      {visiblePickerItems.length === 0 ? (
+                        <div className="flex min-h-28 items-center justify-center rounded border border-dashed border-border bg-muted/20 px-3 text-center text-sm text-muted-foreground">
+                          No {itemCatalogFilter === 'watches' ? 'watch' : 'audio'} items match this search.
+                        </div>
+                      ) : (
+                        <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                          {visiblePickerItems.map(item => {
+                            const isSelected = item.id === orderItem.item_id
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => selectOrderItem(index, item)}
+                                className={cn(
+                                  'group flex gap-3 rounded border p-2 text-left transition-colors',
+                                  isSelected
+                                    ? 'border-primary bg-primary/10'
+                                    : 'border-border bg-background hover:border-primary/60'
+                                )}
+                              >
+                                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-border bg-muted">
+                                  {item.image_url ? (
+                                    <Image
+                                      src={item.image_url}
+                                      alt={item.name}
+                                      fill
+                                      className="object-cover transition-transform group-hover:scale-105"
+                                      sizes="64px"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center">
+                                      <ImageIcon size={20} className="text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      {item.brand && (
+                                        <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-primary">{item.brand}</div>
+                                      )}
+                                      <div className="line-clamp-2 text-sm font-semibold text-foreground">{item.name}</div>
+                                    </div>
+                                    {isSelected && <Check size={14} className="mt-0.5 shrink-0 text-primary" />}
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <span className="rounded border border-border bg-muted px-1.5 py-0.5">{getCatalogLabel(item.catalog_type)}</span>
+                                    <span>{formatCurrency(item.purchase_price_usd, 'USD')}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-3 border-t border-border/70 pt-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -1748,7 +1971,8 @@ export default function OrdersPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
             <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
               <span className="font-medium">Total:</span>
@@ -1810,7 +2034,7 @@ export default function OrdersPage() {
               </div>
               {viewingOrder.clients?.name && (
                 <div>
-                  <span className="text-sm text-muted-foreground">Supplier</span>
+                  <span className="text-sm text-muted-foreground">Source / Contact</span>
                   <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.clients.name}</p>
                 </div>
               )}
