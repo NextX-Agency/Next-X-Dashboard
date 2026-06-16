@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { ArrowRight } from 'lucide-react'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 
 interface WatchesHeroProps {
@@ -43,7 +44,7 @@ function WatchesHeroComponent({
   return (
     <section
       className="relative flex items-end overflow-hidden sm:items-center"
-      style={{ height: 'min(86svh, 980px)', minHeight: 420 }}
+      style={{ height: 'min(78svh, 860px)', minHeight: 400 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -58,6 +59,7 @@ function WatchesHeroComponent({
           fill
           className={`${mobileImageUrl ? 'hidden sm:block' : ''} object-cover object-[72%_center] sm:object-[70%_center] lg:object-center`}
           priority
+          quality={88}
           unoptimized={unoptimizedDesktopImage}
           sizes="100vw"
         />
@@ -68,6 +70,7 @@ function WatchesHeroComponent({
             fill
             className="object-cover object-[68%_center] sm:hidden"
             priority
+            quality={88}
             unoptimized={unoptimizedMobileImage}
             sizes="100vw"
           />
@@ -107,9 +110,13 @@ function WatchesHeroComponent({
         <div className="max-w-60 sm:max-w-xl">
           {/* Eyebrow label */}
           <p
-            className="mb-5 text-[9px] font-light tracking-[0.34em] uppercase sm:mb-6 sm:text-[10px] sm:tracking-[0.45em]"
-            style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-gold)' }}
+            aria-label="NextX Watches - Luxury Collection"
+            className="relative mb-5 text-[9px] font-light tracking-[0.34em] uppercase text-transparent sm:mb-6 sm:text-[10px] sm:tracking-[0.45em]"
+            style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'transparent' }}
           >
+            <span aria-hidden="true" className="absolute inset-0" style={{ color: 'var(--w-gold)' }}>
+              NextX Watches - Luxury Collection
+            </span>
             NextX Watches — Luxury Collection
           </p>
 
@@ -140,8 +147,9 @@ function WatchesHeroComponent({
 
           {/* CTAs */}
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <Link href={ctaHref} className="w-btn-orange inline-flex w-full items-center justify-center gap-3 sm:w-auto">
+            <Link href={ctaHref} className="w-btn-orange inline-flex w-full items-center justify-center gap-3 sm:w-auto [&>span]:hidden">
               {ctaLabel}
+              <ArrowRight size={14} strokeWidth={1.6} />
               <span className="text-xs opacity-80">→</span>
             </Link>
             <Link href="/watches#new" className="hidden sm:inline-flex w-btn-outline items-center justify-center gap-3 sm:w-auto">

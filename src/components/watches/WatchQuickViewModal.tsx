@@ -96,9 +96,11 @@ function WatchQuickViewModalComponent({
                 alt={item.name}
                 fill
                 sizes="(max-width: 768px) 100vw, 28rem"
-                quality={92}
+                quality={75}
+                loading="lazy"
+                decoding="async"
                 unoptimized={unoptimizedImage}
-                className="object-cover"
+                className="object-contain p-6"
               />
             ) : (
               <div

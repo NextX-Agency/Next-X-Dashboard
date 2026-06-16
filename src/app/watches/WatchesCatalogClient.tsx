@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect, useDeferredValue } from 'react'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, X } from 'lucide-react'
+import { ArrowRight, Search, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import { normalizeExchangeRate } from '@/lib/pricing'
@@ -23,12 +24,22 @@ import {
   WatchesHeader,
   WatchesHero,
   WatchProductCard,
-  WatchQuickViewModal,
-  WatchCartDrawer,
   WatchesFooter,
 } from '@/components/watches'
 import { WatchesBrandNav, type WatchBrandOption } from '@/components/watches/WatchesBrandNav'
-import { WatchesFeaturedSection } from '@/components/watches/WatchesFeaturedSection'
+
+const WatchesFeaturedSection = dynamic(
+  () => import('@/components/watches/WatchesFeaturedSection').then(mod => mod.WatchesFeaturedSection),
+  { ssr: false }
+)
+const WatchQuickViewModal = dynamic(
+  () => import('@/components/watches/WatchQuickViewModal').then(mod => mod.WatchQuickViewModal),
+  { ssr: false }
+)
+const WatchCartDrawer = dynamic(
+  () => import('@/components/watches/WatchCartDrawer').then(mod => mod.WatchCartDrawer),
+  { ssr: false }
+)
 
 interface Item {
   id: string
@@ -128,7 +139,7 @@ function getBalancedGridClass(count: number, options?: { singleMaxWidth?: string
     return `mx-auto ${tripleMaxWidth} grid-cols-1 md:grid-cols-2 xl:grid-cols-3`
   }
 
-  return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
+  return 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
 }
 
 function getBalancedImageSizes(count: number) {
@@ -144,7 +155,7 @@ function getBalancedImageSizes(count: number) {
     return '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'
   }
 
-  return '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, (max-width: 1680px) 33vw, 25vw'
+  return '(max-width: 640px) 48vw, (max-width: 1024px) 32vw, (max-width: 1536px) 24vw, 19vw'
 }
 
 export default function WatchesCatalogClient({
@@ -452,7 +463,9 @@ export default function WatchesCatalogClient({
                         alt={banner.title}
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                        quality={92}
+                        quality={75}
+                        loading="lazy"
+                        decoding="async"
                         unoptimized={shouldBypassNextImageOptimization(banner.imageUrl)}
                         className="object-cover"
                       />
@@ -506,7 +519,7 @@ export default function WatchesCatalogClient({
                   {items.length.toString().padStart(2, '0')}
                 </span>
                 <span className="text-[10px] font-light uppercase tracking-[0.2em]" style={{ color: 'var(--w-muted)' }}>
-                  {items.length === 1 ? 'watch' : 'watches'} &mdash; {brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
+                  {items.length === 1 ? 'watch' : 'watches'}{' - '}{brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
                 </span>
               </div>
             </div>
@@ -605,7 +618,9 @@ export default function WatchesCatalogClient({
                             alt={collection.name}
                             fill
                             sizes={collectionImageSizes}
-                            quality={92}
+                            quality={75}
+                            loading="lazy"
+                            decoding="async"
                             unoptimized={shouldBypassNextImageOptimization(collection.imageUrl || previewItem?.imageUrl)}
                             className="object-cover transition-transform duration-700 group-hover:scale-105"
                           />
@@ -664,8 +679,8 @@ export default function WatchesCatalogClient({
 
         {/* ══ Browse Collection ════════════════════════ */}
         <section>
-          <div id="new" className="px-5 pb-12 pt-6 sm:px-6 sm:pb-16 sm:pt-8 lg:px-12 lg:pt-12 lg:pb-20 max-w-screen-2xl mx-auto">
-            <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div id="new" className="px-4 pb-10 pt-4 sm:px-6 sm:pb-14 sm:pt-6 lg:px-12 lg:pb-16 lg:pt-8 max-w-screen-2xl mx-auto">
+            <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
                   {shouldShowFeaturedSection ? 'Live Catalog' : 'In The Vault'}
@@ -685,7 +700,7 @@ export default function WatchesCatalogClient({
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
             ) : (
-              <div className={cn('grid gap-x-4 gap-y-8 min-[560px]:gap-x-5 sm:gap-x-6 sm:gap-y-12', filteredItems.length > 1 && 'min-[560px]:grid-cols-2', catalogGridClassName)}>
+              <div className={cn('grid gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:gap-x-5 lg:gap-y-8', catalogGridClassName)}>
                 {filteredItems.map(item => (
                   <WatchProductCard
                     key={item.id}
@@ -718,38 +733,42 @@ export default function WatchesCatalogClient({
 
       <WatchesFooter whatsappNumber={whatsappNumber} />
 
-      <WatchQuickViewModal
-        item={quickViewItem ? {
-          id: quickViewItem.id,
-          name: quickViewItem.name,
-          brand: brandByItemId[quickViewItem.id] ?? quickViewItem.brand ?? undefined,
-          imageUrl: quickViewItem.imageUrl,
-          sellingPriceUsd: quickViewItem.sellingPriceUsd ? Number(quickViewItem.sellingPriceUsd) : null,
-          sellingPriceSrd: quickViewItem.sellingPriceSrd ? Number(quickViewItem.sellingPriceSrd) : null,
-          stockCount: stockMap[quickViewItem.id] ?? 0,
-        } : null}
-        displayCurrency={displayCurrency}
-        exchangeRate={activeExchangeRate}
-        onClose={() => setQuickViewItem(null)}
-        onAddToCart={handleAddToCart}
-      />
+      {quickViewItem && (
+        <WatchQuickViewModal
+          item={{
+            id: quickViewItem.id,
+            name: quickViewItem.name,
+            brand: brandByItemId[quickViewItem.id] ?? quickViewItem.brand ?? undefined,
+            imageUrl: quickViewItem.imageUrl,
+            sellingPriceUsd: quickViewItem.sellingPriceUsd ? Number(quickViewItem.sellingPriceUsd) : null,
+            sellingPriceSrd: quickViewItem.sellingPriceSrd ? Number(quickViewItem.sellingPriceSrd) : null,
+            stockCount: stockMap[quickViewItem.id] ?? 0,
+          }}
+          displayCurrency={displayCurrency}
+          exchangeRate={activeExchangeRate}
+          onClose={() => setQuickViewItem(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
 
-      <WatchCartDrawer
-        open={cartOpen}
-        items={cartItems}
-        displayCurrency={displayCurrency}
-        exchangeRate={activeExchangeRate}
-        onClose={() => setCartOpen(false)}
-        onUpdateQty={handleUpdateQty}
-        onRemove={handleRemove}
-        customerName={customerName}
-        onCustomerNameChange={setCustomerName}
-        customerPhone={customerPhone}
-        onCustomerPhoneChange={setCustomerPhone}
-        customerNotes={customerNotes}
-        onCustomerNotesChange={setCustomerNotes}
-        onSubmitOrder={handleSubmitOrder}
-      />
+      {cartOpen && (
+        <WatchCartDrawer
+          open={cartOpen}
+          items={cartItems}
+          displayCurrency={displayCurrency}
+          exchangeRate={activeExchangeRate}
+          onClose={() => setCartOpen(false)}
+          onUpdateQty={handleUpdateQty}
+          onRemove={handleRemove}
+          customerName={customerName}
+          onCustomerNameChange={setCustomerName}
+          customerPhone={customerPhone}
+          onCustomerPhoneChange={setCustomerPhone}
+          customerNotes={customerNotes}
+          onCustomerNotesChange={setCustomerNotes}
+          onSubmitOrder={handleSubmitOrder}
+        />
+      )}
     </>
   )
 }
@@ -803,9 +822,10 @@ function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; s
         href={`https://wa.me/${sanitizedNumber}?text=Hello NextX, I would like to know more about your watch collection.`}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-btn-gold inline-flex items-center gap-3"
+        className="w-btn-gold inline-flex items-center gap-3 [&>span]:hidden"
       >
         Get Notified
+        <ArrowRight size={14} strokeWidth={1.6} />
         <span className="text-xs opacity-70">→</span>
       </Link>
     </div>

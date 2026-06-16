@@ -245,9 +245,9 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
                     alt={item.name}
                     fill
                     sizes="(max-width: 1024px) 100vw, 56vw"
-                    quality={95}
+                    quality={88}
                     unoptimized={unoptimizedImage}
-                    className="object-cover"
+                    className="object-contain p-4 sm:p-8"
                     priority
                   />
                 ) : (
