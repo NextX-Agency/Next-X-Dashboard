@@ -8,12 +8,13 @@ import { Button } from './UI'
 interface ImageUploadProps {
   value?: string | null
   onChange: (url: string | null) => void
+  onUploadingChange?: (uploading: boolean) => void
   folder?: string
   label?: string
   className?: string
 }
 
-export function ImageUpload({ value, onChange, folder = 'items', label = 'Product Image', className = '' }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, onUploadingChange, folder = 'items', label = 'Product Image', className = '' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(value || null)
@@ -53,6 +54,7 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
 
     // Upload to Vercel Blob
     setUploading(true)
+    onUploadingChange?.(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -77,6 +79,7 @@ export function ImageUpload({ value, onChange, folder = 'items', label = 'Produc
       setPreview(null)
     } finally {
       setUploading(false)
+      onUploadingChange?.(false)
     }
   }
 

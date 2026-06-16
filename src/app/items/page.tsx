@@ -46,6 +46,7 @@ export default function ItemsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [imageUploading, setImageUploading] = useState(false)
   const [itemForm, setItemForm] = useState({
     name: '',
     brand: '',
@@ -241,6 +242,7 @@ export default function ItemsPage() {
     })
     setComboItems([])
     setEditingItem(null)
+    setImageUploading(false)
     setShowItemForm(false)
     setShowComboForm(false)
   }
@@ -983,6 +985,7 @@ export default function ItemsPage() {
           <ImageUpload
             value={itemForm.image_url}
             onChange={(url) => setItemForm({ ...itemForm, image_url: url || '' })}
+            onUploadingChange={setImageUploading}
             folder="items"
             label="Product Image"
           />
@@ -1037,8 +1040,8 @@ export default function ItemsPage() {
             </div>
           </div>
           
-          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting} className="min-h-12">
-            {editingItem ? 'Update Item' : 'Create Item'}
+          <Button type="submit" variant="primary" fullWidth size="lg" loading={submitting} disabled={imageUploading} className="min-h-12">
+            {imageUploading ? 'Uploading image...' : editingItem ? 'Update Item' : 'Create Item'}
           </Button>
         </form>
       </Modal>
@@ -1194,6 +1197,7 @@ export default function ItemsPage() {
           <ImageUpload
             value={itemForm.image_url}
             onChange={(url) => setItemForm({ ...itemForm, image_url: url || '' })}
+            onUploadingChange={setImageUploading}
             folder="items"
             label="Combo Image"
           />
@@ -1211,16 +1215,16 @@ export default function ItemsPage() {
             </label>
           </div>
           
-          <Button 
-            type="submit" 
-            variant="primary" 
-            fullWidth 
-            size="lg" 
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            size="lg"
             loading={submitting}
-            disabled={comboItems.length < 2}
+            disabled={comboItems.length < 2 || imageUploading}
             className="min-h-12"
           >
-            {editingItem ? 'Update Combo' : 'Create Combo Deal'}
+            {imageUploading ? 'Uploading image...' : editingItem ? 'Update Combo' : 'Create Combo Deal'}
           </Button>
           
           {comboItems.length < 2 && (
