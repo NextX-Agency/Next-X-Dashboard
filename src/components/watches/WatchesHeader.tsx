@@ -168,10 +168,12 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
             {/* Actions */}
             <div className="flex items-center gap-1.5 sm:gap-3.5">
-              <WatchesCurrencyToggle
-                currency={displayCurrency}
-                onChange={setDisplayCurrency}
-              />
+              <div className="hidden lg:block">
+                <WatchesCurrencyToggle
+                  currency={displayCurrency}
+                  onChange={setDisplayCurrency}
+                />
+              </div>
 
               <button
                 type="button"
