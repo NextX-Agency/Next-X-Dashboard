@@ -55,7 +55,6 @@ export function NewHeader({
   const [showSearch, setShowSearch] = useState(false)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
   const actionButtonClassName = 'relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-white text-[#141c2e] shadow-[0_10px_24px_rgba(20,28,46,0.06)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:border-[#f97015]/40 hover:bg-[#fff7f2] active:scale-[0.96]'
-  const utilityLinkClassName = 'inline-flex h-10 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3.5 text-sm font-medium text-[#141c2e] shadow-[0_10px_24px_rgba(20,28,46,0.06)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:border-[#f97015]/40 hover:bg-[#fff7f2] active:scale-[0.98]'
 
   return (
     <>
@@ -178,7 +177,7 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden items-center gap-2 rounded-lg border border-[#f97015]/50 bg-linear-to-r from-[#f97015]/90 to-[#f97015] px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:scale-[1.02] hover:from-[#f97015] hover:to-[#e5640d] hover:shadow-lg hover:shadow-[#f97015]/40 active:scale-95 xl:inline-flex"
+                className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[#141c2e]/60 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98] xl:inline-flex"
               >
                 NextX Agency
                 <ExternalLink size={14} />
@@ -271,10 +270,10 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-[#f97015]/50 bg-linear-to-r from-[#f97015]/90 to-[#f97015] px-4 py-3 text-sm font-bold text-white transition-all duration-200 hover:from-[#f97015] hover:to-[#e5640d] hover:shadow-lg hover:shadow-[#f97015]/30 active:scale-95"
+                className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-semibold text-[#141c2e] transition-colors hover:border-[#f97015]/40 hover:text-[#f97015] active:scale-[0.98]"
               >
-                <ExternalLink size={16} />
-                <span>Bekijk NextX Agency</span>
+                <ExternalLink size={16} className="text-[#f97015]" />
+                <span>Storefront door NextX Agency</span>
               </a>
               <a
                 href={`https://wa.me/${whatsappClean}`}

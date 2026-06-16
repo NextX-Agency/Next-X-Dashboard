@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Mail, Instagram, Facebook } from 'lucide-react'
+import { MapPin, Mail, Instagram, Facebook, ExternalLink } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
@@ -196,11 +196,11 @@ export function NewFooter({
 
       {/* Bottom bar */}
       <div className="border-t border-neutral-100">
-        <div className={`${catalogShellClassName} flex items-center justify-between py-5`}>
+        <div className={`${catalogShellClassName} flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between`}>
           <p className="text-xs text-neutral-400">
             © {currentYear} {storeName}. Alle rechten voorbehouden.
           </p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <a
               href="https://www.instagram.com/nextx_audio/"
               target="_blank"
@@ -216,6 +216,16 @@ export function NewFooter({
               className="text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
             >
               Facebook
+            </a>
+            <span className="hidden h-3 w-px bg-neutral-200 sm:block" />
+            <a
+              href="https://www.nextxagency.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
+            >
+              Storefront by NextX Agency
+              <ExternalLink size={11} strokeWidth={2} />
             </a>
           </div>
         </div>

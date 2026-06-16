@@ -26,7 +26,6 @@ import {
   NewProductGrid,
   ProductSectionHeader,
   NewProductCarousel,
-  NewValueSection,
   NewFooter,
   NewCartDrawer,
   NewQuickViewModal,
@@ -1173,11 +1172,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
             ))}
 
             {/* Section 5: Value Proposition & CTA */}
-            <NewValueSection_Lazy
-              storeAddress={settings.store_address}
-              whatsappNumber={settings.whatsapp_number}
-              storeDescription={settings.store_description}
-            />
+            <NewValueSection_Lazy />
 
           </>
         )}

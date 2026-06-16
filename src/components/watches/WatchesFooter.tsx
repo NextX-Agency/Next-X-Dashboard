@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Instagram, MessageCircle } from 'lucide-react'
+import { ExternalLink, Instagram, MessageCircle } from 'lucide-react'
 
 interface WatchesFooterProps {
   whatsappNumber?: string
@@ -167,13 +167,26 @@ function WatchesFooterComponent({
           <p className="text-[10px] font-light" style={{ color: 'var(--w-muted)' }}>
             © {year} NextX Watches. All rights reserved.
           </p>
-          <Link
-            href="/"
-            className="text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
-            style={{ color: 'var(--w-muted)' }}
-          >
-            Portal
-          </Link>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <Link
+              href="/"
+              className="text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
+              style={{ color: 'var(--w-muted)' }}
+            >
+              Portal
+            </Link>
+            <span className="hidden h-3 w-px sm:block" style={{ background: 'var(--w-border)' }} />
+            <a
+              href="https://www.nextxagency.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
+              style={{ color: 'var(--w-muted)' }}
+            >
+              Storefront by NextX Agency
+              <ExternalLink size={10} strokeWidth={1.6} />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

@@ -2,17 +2,30 @@
 
 import { useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { MessageCircle } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight, ExternalLink, Headphones, MessageCircle, MonitorSmartphone, Watch } from 'lucide-react'
+import { catalogShellClassName } from '@/components/catalog/shell'
 
-interface NewValueSectionProps {
-  storeAddress?: string
-  whatsappNumber?: string
-  storeDescription?: string
-}
+const storefronts = [
+  {
+    href: '/audio',
+    label: 'NextX Audio',
+    eyebrow: 'Audio catalogus',
+    description: 'IEMs, accessoires en combo deals met lokale afhaalflow.',
+    Icon: Headphones,
+  },
+  {
+    href: '/watches',
+    label: 'NextX Watches',
+    eyebrow: 'Watches catalogus',
+    description: 'Een curatie van horloges binnen hetzelfde NextX ecosysteem.',
+    Icon: Watch,
+  },
+] as const
 
-const services = ['Webdesign', 'E-Commerce', 'Branding', 'SEO'] as const
+const capabilities = ['Multi-catalogus', 'Voorraadflow', 'WhatsApp orders'] as const
 
-export function NewValueSection(_props: NewValueSectionProps) {
+export function NewValueSection() {
   const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -37,124 +50,109 @@ export function NewValueSection(_props: NewValueSectionProps) {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden py-20 lg:py-28"
-      style={{ backgroundColor: '#0f172a' }}
+      className="relative overflow-hidden border-y border-neutral-200 bg-[#f8fafc] py-12 sm:py-14 lg:py-16"
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-[#f97015]/40 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-[#f97015]/35 to-transparent" />
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-x-0 top-0 h-24"
         style={{
-          backgroundImage: 'radial-gradient(circle, #f97015 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-          opacity: 0.03,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute right-0 top-1/2 h-96 w-96 -translate-y-1/2"
-        style={{
-          background: 'radial-gradient(circle, rgba(249,112,21,0.08) 0%, transparent 70%)',
+          background: 'linear-gradient(180deg, rgba(249,112,21,0.06), transparent)',
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-6xl px-5 sm:px-6">
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-16">
+      <div className={`${catalogShellClassName} relative z-10`}>
+        <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-12">
           <div className="flex flex-col gap-6">
             <div className="catalog-reveal-left">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#f97015]/25 bg-[#f97015]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#f97015]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#f97015] animate-pulse" />
-                Gebouwd door NextX
+              <span className="inline-flex items-center gap-2 rounded-lg border border-[#f97015]/20 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-[#f97015] shadow-sm shadow-neutral-200/70">
+                <MonitorSmartphone size={14} strokeWidth={2.2} />
+                NextX ecosystem
               </span>
             </div>
 
             <div className="catalog-reveal catalog-reveal-d1">
-              <h2 className="text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl lg:text-5xl">
-                <span className="text-white">Uw volgende website?</span>
-                <br />
-                <span className="text-[#f97015]">Wij bouwen het.</span>
+              <h2 className="max-w-xl text-2xl font-black leading-tight tracking-tight text-[#141c2e] sm:text-3xl lg:text-4xl">
+                Een winkelervaring, meerdere NextX labels.
               </h2>
             </div>
 
-            <p className="catalog-reveal catalog-reveal-d2 max-w-md text-sm leading-relaxed text-slate-400 sm:text-base">
-              NextX Agency ontwerpt en bouwt moderne websites, webshops en visuele identiteiten voor bedrijven in Suriname, snel, betaalbaar en volledig op maat.
+            <p className="catalog-reveal catalog-reveal-d2 max-w-xl text-sm leading-relaxed text-neutral-600 sm:text-base">
+              Audio en Watches draaien nu op dezelfde digitale basis: snel bladeren, actuele voorraad en direct bestellen via WhatsApp. Dat is het soort commerce werk dat NextX Agency bouwt.
             </p>
 
             <div className="catalog-reveal catalog-reveal-d3 flex flex-wrap gap-2">
-              {services.map((tag) => (
+              {capabilities.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-lg border border-slate-700/80 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-300 transition-colors duration-200 hover:border-[#f97015]/40 hover:text-[#f97015]"
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-200/60"
                 >
                   {tag}
                 </span>
               ))}
             </div>
+          </div>
 
-            <div className="catalog-reveal catalog-reveal-d4 pt-2">
-              <a
-                href="https://www.nextxagency.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 rounded-full bg-[#f97015] px-7 py-3.5 text-sm font-bold tracking-wide text-white shadow-lg shadow-[#f97015]/25 transition-all duration-200 hover:scale-[1.02] hover:bg-[#e5640d] hover:shadow-[#f97015]/40"
+          <div className="catalog-reveal-right catalog-reveal-d1 grid gap-3 sm:grid-cols-2">
+            {storefronts.map(({ href, label, eyebrow, description, Icon }, index) => (
+              <Link
+                key={href}
+                href={href}
+                className="group flex min-h-44 flex-col justify-between rounded-lg border border-neutral-200 bg-white p-5 shadow-sm shadow-neutral-200/70 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#f97015]/35 hover:shadow-lg hover:shadow-[#141c2e]/10"
               >
-                Bekijk NextX Agency
-                <svg className="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          <div className="catalog-reveal-right catalog-reveal-d1">
-            <div className="overflow-hidden rounded-2xl border border-slate-700/60 bg-[#1e293b] shadow-2xl shadow-black/50">
-              <div className="flex items-center gap-1.5 border-b border-slate-700/50 bg-[#1a2744] px-3 py-2.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
-                <span className="h-2.5 w-2.5 rounded-full bg-yellow-400/70" />
-                <span className="h-2.5 w-2.5 rounded-full bg-green-400/70" />
-                <div className="ml-2 flex h-5 flex-1 items-center gap-1.5 rounded-md bg-slate-700/80 px-2.5">
-                  <svg className="h-2.5 w-2.5 shrink-0 text-emerald-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="truncate font-mono text-[9px] text-slate-400">www.nextxagency.com</span>
+                <div>
+                  <div className="mb-5 flex items-center justify-between gap-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-[#f97015]">
+                      <Icon size={19} strokeWidth={2} />
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-400">
+                      {index === 0 ? 'Live' : 'Nieuw'}
+                    </span>
+                  </div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f97015]">
+                    {eyebrow}
+                  </p>
+                  <h3 className="text-lg font-extrabold tracking-tight text-[#141c2e]">
+                    {label}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                    {description}
+                  </p>
                 </div>
-              </div>
 
-              <div className="relative overflow-hidden bg-[#0f172a]" style={{ height: '300px' }}>
-                <span className="pointer-events-none absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-emerald-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Live
+                <span className="mt-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-neutral-500 transition-colors group-hover:text-[#f97015]">
+                  Bekijk
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                 </span>
-
-                <iframe
-                  src="https://www.nextxagency.com"
-                  title="NextX Agency website"
-                  sandbox="allow-scripts allow-same-origin"
-                  referrerPolicy="no-referrer"
-                  style={{
-                    width: '200%',
-                    height: '600px',
-                    border: 'none',
-                    transform: 'scale(0.5)',
-                    transformOrigin: 'top left',
-                    pointerEvents: 'none',
-                  }}
-                />
-
-                <a
-                  href="https://www.nextxagency.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute inset-0 z-10"
-                  aria-label="Bekijk NextX Agency website"
-                />
-
-                <div className="pointer-events-none absolute bottom-0 inset-x-0 z-10 h-16 bg-linear-to-t from-[#1e293b] to-transparent" />
-              </div>
-            </div>
+              </Link>
+            ))}
           </div>
+        </div>
+
+        <div className="catalog-reveal catalog-reveal-d3 mt-8 flex flex-col gap-4 border-t border-neutral-200 pt-5 text-xs text-neutral-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Digitale storefront door{' '}
+            <a
+              href="https://www.nextxagency.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-[#141c2e] underline decoration-[#f97015]/35 underline-offset-4 transition-colors hover:text-[#f97015]"
+            >
+              NextX Agency
+            </a>
+          </p>
+          <a
+            href="https://www.nextxagency.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.16em] text-neutral-500 transition-colors hover:text-[#f97015]"
+          >
+            Bekijk het bureau
+            <ExternalLink size={12} strokeWidth={2} />
+          </a>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#f97015]/30 to-transparent" />
+      <div className="pointer-events-none absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#f97015]/25 to-transparent" />
     </section>
   )
 }
@@ -164,7 +162,7 @@ interface NewCtaSectionProps {
   storeName: string
 }
 
-export function NewCtaSection({ whatsappNumber, storeName }: NewCtaSectionProps) {
+export function NewCtaSection({ whatsappNumber }: NewCtaSectionProps) {
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
   const sectionRef = useRef<HTMLElement>(null)
 
