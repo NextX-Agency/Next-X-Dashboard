@@ -239,6 +239,7 @@ function FeaturedCard({
       displayCurrency={displayCurrency}
       exchangeRate={exchangeRate}
       stockCount={stockMap[item.id] ?? 0}
+      compact={!isHero}
       onAddToCart={onAddToCart}
       onQuickView={onQuickView}
     />
