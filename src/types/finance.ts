@@ -74,10 +74,31 @@ export interface FinanceObligationSummary {
 
 export interface FinanceForecastSummary {
   monthsElapsed: number
+  elapsedMonthEquivalent: number
+  remainingMonthEquivalent: number
+  dataMonths: number
+  confidence: 'low' | 'medium' | 'high'
+  confidenceScore: number
+  method: string
+  monthlyRevenueRunRate: FinanceMoneyTotals
+  monthlyExpensesRunRate: FinanceMoneyTotals
+  monthlyNetProfitRunRate: FinanceMoneyTotals
   projectedRevenue: FinanceMoneyTotals
   projectedExpenses: FinanceMoneyTotals
   projectedNetProfit: FinanceMoneyTotals
   projectedSavingsCapacity: FinanceMoneyTotals
+  history: FinanceForecastMonth[]
+}
+
+export interface FinanceForecastMonth {
+  month: string
+  label: string
+  isPartial: boolean
+  revenue: FinanceMoneyTotals
+  expenses: FinanceMoneyTotals
+  netProfit: FinanceMoneyTotals
+  saleCount: number
+  expenseCount: number
 }
 
 export interface FinanceSummaryPayload {

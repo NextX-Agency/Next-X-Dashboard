@@ -162,6 +162,18 @@ function statusVariant(status: FinanceObligationStatus): 'default' | 'success' |
   return 'info'
 }
 
+function confidenceVariant(confidence: FinanceSummaryPayload['forecast']['confidence'] | undefined): 'success' | 'warning' | 'danger' {
+  if (confidence === 'high') return 'success'
+  if (confidence === 'medium') return 'warning'
+  return 'danger'
+}
+
+function confidenceLabel(confidence: FinanceSummaryPayload['forecast']['confidence'] | undefined) {
+  if (confidence === 'high') return 'Sterke data'
+  if (confidence === 'medium') return 'Redelijke data'
+  return 'Weinig data'
+}
+
 export default function WalletsPage() {
   const { dialogProps, confirm } = useConfirmDialog()
   const [wallets, setWallets] = useState<WalletWithLocation[]>([])
@@ -681,9 +693,9 @@ export default function WalletsPage() {
   ]
 
   const walletViews: Array<{ view: WalletView; label: string; icon: LucideIcon }> = [
-    { view: 'locations', label: 'By location', icon: MapPin },
-    { view: 'all', label: 'All wallets', icon: Wallet },
-    { view: 'savings', label: 'Savings', icon: PiggyBank },
+    { view: 'locations', label: 'Per locatie', icon: MapPin },
+    { view: 'all', label: 'Alle wallets', icon: Wallet },
+    { view: 'savings', label: 'Sparen', icon: PiggyBank },
   ]
 
   const monthBreakdown: Array<{ label: string; value: FinanceMoneyTotals | undefined; icon: LucideIcon }> = [
@@ -701,6 +713,12 @@ export default function WalletsPage() {
     { label: 'Jaarwinst', value: financeSummary?.forecast.projectedNetProfit, icon: DollarSign },
     { label: 'Spaarcapaciteit', value: financeSummary?.forecast.projectedSavingsCapacity, icon: PiggyBank },
   ]
+  const forecastRunRates: Array<{ label: string; value: FinanceMoneyTotals | undefined }> = [
+    { label: 'Maandelijkse omzet-run-rate', value: financeSummary?.forecast.monthlyRevenueRunRate },
+    { label: 'Maandelijkse uitgaven-run-rate', value: financeSummary?.forecast.monthlyExpensesRunRate },
+    { label: 'Maandelijkse winst-run-rate', value: financeSummary?.forecast.monthlyNetProfitRunRate },
+  ]
+  const forecastHistory = financeSummary?.forecast.history ?? []
 
   const transactionTypes: Array<{ type: 'add' | 'remove' | 'correct'; label: string; icon: LucideIcon }> = [
     { type: 'add', label: 'Add', icon: ArrowDownLeft },
@@ -745,24 +763,24 @@ export default function WalletsPage() {
   return (
     <div className="min-h-screen bg-background pb-8">
       <PageHeader
-        title="Finance"
-        subtitle="Inkomsten, uitgaven, winst, sparen en open posten"
+        title="Wallets"
+        subtitle="Cashflow, open posten en prognose op basis van echte transacties"
         icon={<Landmark size={24} />}
         action={
           <>
-            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
+            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing} className="basis-[calc(50%-0.25rem)] sm:basis-auto">
               <RefreshCcw size={18} />
               Refresh
             </Button>
-            <Button onClick={() => setShowTransferForm(true)} variant="secondary">
+            <Button onClick={() => setShowTransferForm(true)} variant="secondary" className="basis-[calc(50%-0.25rem)] sm:basis-auto">
               <ArrowRightLeft size={18} />
               Transfer
             </Button>
-            <Button onClick={() => setShowTransactionHistory(true)} variant="secondary">
+            <Button onClick={() => setShowTransactionHistory(true)} variant="secondary" className="basis-[calc(50%-0.25rem)] sm:basis-auto">
               <History size={18} />
               History
             </Button>
-            <Button onClick={() => setShowWalletForm(true)} variant="primary">
+            <Button onClick={() => setShowWalletForm(true)} variant="primary" className="basis-[calc(50%-0.25rem)] sm:basis-auto">
               <Plus size={18} />
               Wallet
             </Button>
@@ -777,7 +795,7 @@ export default function WalletsPage() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           {topMetrics.map((metric) => {
             const Icon = metric.icon
             return (
@@ -786,20 +804,20 @@ export default function WalletsPage() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
                   <Icon size={18} className={metric.tone.split(' ')[0]} />
                 </div>
-                <p className="text-xl font-bold text-foreground">{metric.value}</p>
+                <p className="break-words text-xl font-bold text-foreground">{metric.value}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{metric.subValue}</p>
               </div>
             )
           })}
         </div>
 
-        <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-card p-1">
+        <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-card p-1 sm:grid-cols-3 xl:grid-cols-5">
           {financeTabs.map(({ tab, label, icon: Icon }) => (
             <button
               key={tab}
               type="button"
               onClick={() => setFinanceTab(tab)}
-              className={`inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors sm:flex-none ${
+              className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors ${
                 financeTab === tab
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -909,16 +927,16 @@ export default function WalletsPage() {
                   <h2 className="text-lg font-bold text-foreground">Wallets</h2>
                   <p className="text-sm text-muted-foreground">{filteredWallets.length} of {wallets.length} wallets</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-background/40 p-1 sm:min-w-[26rem]">
                   {walletViews.map(({ view, label, icon: Icon }) => (
                     <button
                       key={view}
                       type="button"
                       onClick={() => setWalletView(view)}
-                      className={`inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors ${
+                      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-2 text-xs font-semibold transition-colors sm:text-sm ${
                         walletView === view
                           ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       }`}
                     >
                       <Icon size={15} />
@@ -928,7 +946,7 @@ export default function WalletsPage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))]">
                 <Input label="Search" value={walletSearch} onChange={(event) => setWalletSearch(event.target.value)} placeholder="Location, type, purpose" />
                 <Select label="Location" value={walletLocationFilter} onChange={(event) => setWalletLocationFilter(event.target.value)}>
                   <option value="">All locations</option>
@@ -965,7 +983,7 @@ export default function WalletsPage() {
                 <div className="space-y-4">
                   {filteredLocationWallets.map((location) => (
                     <div key={location.id} className="rounded-lg border border-border bg-card">
-                      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-col gap-3 border-b border-border px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Building2 size={20} />
@@ -975,9 +993,9 @@ export default function WalletsPage() {
                             <p className="text-xs text-muted-foreground">{location.wallets.length} wallets</p>
                           </div>
                         </div>
-                        <div className="flex gap-4 text-sm">
-                          <span className="font-semibold text-foreground">{formatCurrency(location.totalSRD, 'SRD')}</span>
-                          <span className="font-semibold text-foreground">{formatCurrency(location.totalUSD, 'USD')}</span>
+                        <div className="grid gap-2 text-sm sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+                          <span className="rounded-md bg-background/50 px-3 py-2 font-semibold text-foreground">{formatCurrency(location.totalSRD, 'SRD')}</span>
+                          <span className="rounded-md bg-background/50 px-3 py-2 font-semibold text-foreground">{formatCurrency(location.totalUSD, 'USD')}</span>
                           <Button
                             onClick={() => {
                               setWalletForm((current) => ({ ...current, location_id: location.id }))
@@ -985,6 +1003,7 @@ export default function WalletsPage() {
                             }}
                             variant="ghost"
                             size="sm"
+                            className="w-full sm:w-auto"
                           >
                             <Plus size={15} />
                             Add
@@ -1103,17 +1122,25 @@ export default function WalletsPage() {
 
         {financeTab === 'forecast' && (
           <section className="space-y-4">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-foreground">Jaarlijkse prognose</h2>
-                  <p className="text-sm text-muted-foreground">Gebaseerd op {financeSummary?.forecast.monthsElapsed ?? '-'} maand(en) year-to-date</p>
+            <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
+              <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-bold text-foreground">Jaarprognose</h2>
+                    <Badge variant={confidenceVariant(financeSummary?.forecast.confidence)}>
+                      {confidenceLabel(financeSummary?.forecast.confidence)} - {financeSummary?.forecast.confidenceScore ?? 0}%
+                    </Badge>
+                  </div>
+                  <p className="max-w-3xl text-sm text-muted-foreground">
+                    Rekent met echte sales, kostprijs, expenses en commissies. Recente maanden tellen zwaarder en de lopende maand wordt omgerekend naar een volledige maand.
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Badge variant="info">{new Date().getFullYear()}</Badge>
+                  <Badge variant="default">{financeSummary?.forecast.dataMonths ?? 0} maanden data</Badge>
                   <Link
                     href="/reports"
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex min-h-8 items-center gap-1 rounded-md border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     <ArrowUpRight size={13} />
                     Reports
@@ -1121,18 +1148,90 @@ export default function WalletsPage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {forecastCards.map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="rounded-lg border border-border bg-background/40 p-4">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-muted-foreground">{label}</p>
-                      <Icon size={16} className="text-muted-foreground" />
+              <div className="grid gap-3 xl:grid-cols-[1.1fr_1.2fr]">
+                <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">Verwachte jaarwinst</p>
+                  <p className="mt-2 break-words text-[clamp(1.75rem,8vw,2.75rem)] font-bold leading-tight text-foreground">
+                    {formatMoneySummary(financeSummary?.forecast.projectedNetProfit)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {formatSecondaryMoney(financeSummary?.forecast.projectedNetProfit)}
+                  </p>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-md bg-background/50 p-3">
+                      <p className="text-xs text-muted-foreground">Nog te projecteren</p>
+                      <p className="font-bold text-foreground">{financeSummary?.forecast.remainingMonthEquivalent ?? 0} maand(en)</p>
                     </div>
-                    <p className="text-xl font-bold text-foreground">{formatMoneySummary(value)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatSecondaryMoney(value)}</p>
+                    <div className="rounded-md bg-background/50 p-3">
+                      <p className="text-xs text-muted-foreground">Spaarcapaciteit na open posten</p>
+                      <p className="font-bold text-foreground">{formatMoneySummary(financeSummary?.forecast.projectedSavingsCapacity)}</p>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {forecastCards
+                    .filter((card) => card.label !== 'Jaarwinst' && card.label !== 'Spaarcapaciteit')
+                    .map(({ label, value, icon: Icon }) => (
+                      <div key={label} className="rounded-lg border border-border bg-background/40 p-4">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-muted-foreground">{label}</p>
+                          <Icon size={16} className="text-muted-foreground" />
+                        </div>
+                        <p className="break-words text-xl font-bold text-foreground">{formatMoneySummary(value)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatSecondaryMoney(value)}</p>
+                      </div>
+                    ))}
+                  {forecastRunRates.map(({ label, value }) => (
+                    <div key={label} className="rounded-lg border border-border bg-background/40 p-4">
+                      <p className="text-sm font-semibold text-muted-foreground">{label}</p>
+                      <p className="mt-2 break-words text-lg font-bold text-foreground">{formatMoneySummary(value)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatSecondaryMoney(value)}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="mb-4">
+                <h2 className="text-lg font-bold text-foreground">Data achter de prognose</h2>
+                <p className="text-sm text-muted-foreground">{financeSummary?.forecast.method}</p>
+              </div>
+
+              {forecastHistory.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Nog niet genoeg verkoop- of expensehistorie voor een sterke prognose.
+                </div>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {forecastHistory.map((month) => (
+                    <div key={month.month} className="rounded-lg border border-border bg-background/40 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-foreground">{month.label}</p>
+                          <p className="text-xs text-muted-foreground">{month.saleCount} sales - {month.expenseCount} expenses</p>
+                        </div>
+                        {month.isPartial && <Badge variant="warning">Lopend</Badge>}
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Omzet</span>
+                          <span className="font-semibold text-foreground">{formatMoneySummary(month.revenue)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Uitgaven</span>
+                          <span className="font-semibold text-foreground">{formatMoneySummary(month.expenses)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">Winst</span>
+                          <span className="font-semibold text-foreground">{formatMoneySummary(month.netProfit)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="rounded-lg border border-border bg-card p-4">
@@ -1478,36 +1577,39 @@ function WalletTile({
   onDelete: () => void
 }) {
   const isCash = wallet.type === 'cash'
+  const walletTypeLabel = isCash ? 'Cash' : 'Bank'
 
   return (
     <div className={`rounded-lg border bg-background/40 p-4 ${isCash ? 'border-emerald-500/20' : 'border-sky-500/20'}`}>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${isCash ? 'bg-emerald-500/10 text-emerald-400' : 'bg-sky-500/10 text-sky-400'}`}>
           {isCash ? <Banknote size={19} /> : <CreditCard size={19} />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-bold capitalize text-foreground">{wallet.type}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-bold text-foreground">{walletTypeLabel}</p>
             <Badge variant={wallet.currency === 'USD' ? 'info' : 'success'}>{wallet.currency}</Badge>
           </div>
-          <div className="mt-0.5 flex items-center gap-2">
-            <p className="truncate text-xs text-muted-foreground">{wallet.locations?.name || wallet.person_name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="min-w-0 text-xs text-muted-foreground">{wallet.locations?.name || wallet.person_name}</p>
             <Badge variant={getPurposeBadgeVariant(wallet.purpose)} className="shrink-0">{WALLET_PURPOSE_LABELS[wallet.purpose]}</Badge>
           </div>
         </div>
       </div>
 
-      <p className="text-2xl font-bold text-foreground">{formatCurrency(wallet.balance, wallet.currency as Currency)}</p>
+      <p className="break-words text-[clamp(1.25rem,5vw,1.5rem)] font-bold leading-tight text-foreground">
+        {formatCurrency(wallet.balance, wallet.currency as Currency)}
+      </p>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2">
         <Button onClick={onAdjust} variant="secondary" size="sm" fullWidth>
           <DollarSign size={15} />
           Adjust
         </Button>
-        <Button onClick={onEdit} variant="ghost" size="sm">
+        <Button onClick={onEdit} variant="ghost" size="sm" ariaLabel={`Edit ${walletTypeLabel} wallet`}>
           <Edit size={15} />
         </Button>
-        <Button onClick={onDelete} variant="ghost" size="sm">
+        <Button onClick={onDelete} variant="ghost" size="sm" ariaLabel={`Delete ${walletTypeLabel} wallet`}>
           <Trash2 size={15} />
         </Button>
       </div>
