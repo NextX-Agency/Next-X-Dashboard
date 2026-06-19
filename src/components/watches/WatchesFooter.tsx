@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ExternalLink, Instagram, MessageCircle } from 'lucide-react'
+import { Instagram, MessageCircle } from 'lucide-react'
 
 interface WatchesFooterProps {
   whatsappNumber?: string
@@ -180,11 +180,10 @@ function WatchesFooterComponent({
               href="https://www.nextxagency.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
+              className="text-[10px] font-light tracking-[0.15em] uppercase transition-opacity hover:opacity-70"
               style={{ color: 'var(--w-muted)' }}
             >
               Storefront by NextX Agency
-              <ExternalLink size={10} strokeWidth={1.6} />
             </a>
           </div>
         </div>

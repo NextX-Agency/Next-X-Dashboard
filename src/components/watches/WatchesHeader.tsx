@@ -3,7 +3,7 @@
 import { memo, useCallback, useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingBag, Search, X, Menu, ExternalLink } from 'lucide-react'
+import { ShoppingBag, Search, X, Menu } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import type { Currency } from '@/lib/currency'
 import { formatCurrencyInputAmount } from '@/lib/pricing'
@@ -152,11 +152,10 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
                   href="https://www.nextxagency.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 transition-colors hover:opacity-100"
+                  className="transition-colors hover:opacity-100"
                   style={{ color: 'var(--w-cream-2)', opacity: 0.88 }}
                 >
                   Agency
-                  <ExternalLink size={10} strokeWidth={1.5} />
                 </a>
               </div>
             </div>
@@ -313,11 +312,10 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center gap-1.5 transition-opacity hover:opacity-100"
+                className="transition-opacity hover:opacity-100"
                 style={{ opacity: 0.88 }}
               >
                 Agency
-                <ExternalLink size={10} strokeWidth={1.5} />
               </a>
             </div>
           </div>

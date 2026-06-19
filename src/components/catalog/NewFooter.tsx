@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Mail, Instagram, Facebook, ExternalLink } from 'lucide-react'
+import { MapPin, Mail, Instagram, Facebook } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
@@ -222,10 +222,9 @@ export function NewFooter({
               href="https://www.nextxagency.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
+              className="text-xs text-neutral-400 transition-colors hover:text-[#f97015]"
             >
               Storefront by NextX Agency
-              <ExternalLink size={11} strokeWidth={2} />
             </a>
           </div>
         </div>

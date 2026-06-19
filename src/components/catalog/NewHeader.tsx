@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, ShoppingCart, Menu, X, ChevronDown, ExternalLink } from 'lucide-react'
+import { Search, ShoppingCart, Menu, X, ChevronDown } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
 
 interface Category {
@@ -177,10 +177,9 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-[#141c2e]/60 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98] xl:inline-flex"
+                className="hidden rounded-lg px-2.5 py-2 text-sm font-medium text-[#141c2e]/60 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98] xl:inline-flex"
               >
                 NextX Agency
-                <ExternalLink size={14} />
               </a>
             </nav>
 
@@ -270,10 +269,9 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-semibold text-[#141c2e] transition-colors hover:border-[#f97015]/40 hover:text-[#f97015] active:scale-[0.98]"
+                className="mb-3 block w-full rounded-xl px-4 py-3 text-sm font-medium text-[#141c2e]/70 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98]"
               >
-                <ExternalLink size={16} className="text-[#f97015]" />
-                <span>Storefront door NextX Agency</span>
+                NextX Agency
               </a>
               <a
                 href={`https://wa.me/${whatsappClean}`}

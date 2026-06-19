@@ -138,6 +138,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
 
 const CATALOG_TYPE = 'audio'
 const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
+const STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
 function createStockMap(stockData: unknown[]): Map<string, number> {
   const map = new Map<string, number>()
@@ -813,9 +814,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     )
   }
 
-  // Build store URL for structured data
-  const storeUrl = typeof window !== 'undefined' ? window.location.origin : 'https://nextx.sr'
-
   // Prepare products for structured data
   const productsForSchema = items.slice(0, 20).map(item => ({
     id: item.id,
@@ -851,19 +849,19 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         storeAddress={settings.store_address}
         whatsappNumber={settings.whatsapp_number}
         storeEmail={settings.store_email}
-        storeUrl={storeUrl}
+        storeUrl={STORE_URL}
         logoUrl={settings.store_logo_url}
       />
       <WebsiteSchema
         storeName={settings.store_name}
-        storeUrl={storeUrl}
+        storeUrl={STORE_URL}
         storeDescription={settings.store_description || SEO_CONTENT.defaultDescription}
       />
       {items.length > 0 && (
         <ProductListSchema
           products={productsForSchema}
           storeName={settings.store_name}
-          storeUrl={storeUrl}
+          storeUrl={STORE_URL}
         />
       )}
 
