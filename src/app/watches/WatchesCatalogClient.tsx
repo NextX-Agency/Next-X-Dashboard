@@ -25,6 +25,7 @@ import {
   WatchesHero,
   WatchProductCard,
   WatchesFooter,
+  WatchesAgencySection,
 } from '@/components/watches'
 import { WatchesBrandNav, type WatchBrandOption } from '@/components/watches/WatchesBrandNav'
 
@@ -727,6 +728,7 @@ export default function WatchesCatalogClient({
 
         {/* ── Atelier statement ────────────────────────── */}
         <AtelierSection />
+        <WatchesAgencySection />
 
         <div id="about" />
       </main>
