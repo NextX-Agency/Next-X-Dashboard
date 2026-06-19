@@ -38,7 +38,7 @@ function WatchesAgencySectionComponent() {
         borderBottom: '1px solid var(--w-border)',
       }}
     >
-      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(22rem,0.58fr)] lg:items-center lg:gap-16">
+      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,0.76fr)_minmax(28rem,0.72fr)] lg:items-center lg:gap-16">
         <div className="w-reveal">
           <p
             className="mb-4 text-[9px] font-light uppercase tracking-[0.32em]"
@@ -101,13 +101,13 @@ function WatchesAgencySectionComponent() {
               </span>
               <span className="h-px w-16" style={{ background: 'var(--w-border-gold)' }} aria-hidden="true" />
             </div>
-            <div className="relative aspect-[16/10] bg-[#0b0b0d]">
+            <div className="relative aspect-[16/10] overflow-hidden bg-[#0b0b0d]">
               <iframe
                 src="https://www.nextxagency.com"
                 title="NextX Agency website preview"
                 loading="lazy"
                 tabIndex={-1}
-                className="pointer-events-none absolute inset-0 h-full w-full border-0"
+                className="pointer-events-none absolute left-0 top-0 h-[900px] w-[1280px] origin-top-left scale-[0.28] border-0 sm:scale-[0.42] md:scale-[0.48] lg:scale-[0.36] xl:scale-[0.42]"
               />
             </div>
           </div>

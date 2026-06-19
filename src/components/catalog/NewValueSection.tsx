@@ -34,7 +34,7 @@ export function NewValueSection() {
       className="relative overflow-hidden border-y border-neutral-200 bg-white py-10 sm:py-12 lg:py-14"
     >
       <div className={`${catalogShellClassName} relative z-10`}>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(22rem,0.58fr)] lg:items-center lg:gap-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(28rem,0.72fr)] lg:items-center lg:gap-12">
           <div className="max-w-2xl">
             <p className="catalog-reveal-left mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97015]">
               NextX Agency
@@ -74,13 +74,13 @@ export function NewValueSection() {
                 </span>
                 <span className="h-1.5 w-16 rounded-full bg-white/10" aria-hidden="true" />
               </div>
-              <div className="relative aspect-[16/10] bg-white">
+              <div className="relative aspect-[16/10] overflow-hidden bg-white">
                 <iframe
                   src="https://www.nextxagency.com"
                   title="NextX Agency website preview"
                   loading="lazy"
                   tabIndex={-1}
-                  className="pointer-events-none absolute inset-0 h-full w-full border-0"
+                  className="pointer-events-none absolute left-0 top-0 h-[900px] w-[1280px] origin-top-left scale-[0.28] border-0 sm:scale-[0.42] md:scale-[0.48] lg:scale-[0.35] xl:scale-[0.40]"
                 />
               </div>
             </div>
