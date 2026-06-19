@@ -298,7 +298,7 @@ function WatchProductCardComponent({
         )}
 
         <div className={`mt-auto ${compact ? 'pt-2.5' : 'pt-4'}`} style={{ borderTop: '1px solid var(--w-border)' }}>
-          <div className="flex items-end justify-between gap-2.5">
+          <div className={compact ? 'flex flex-col items-stretch gap-2.5' : 'flex items-end justify-between gap-2.5'}>
             <div className="min-w-0">
               <p
                 className={`mb-0.5 uppercase tracking-[0.16em] ${compact ? 'text-[8px]' : 'text-[10px]'}`}
@@ -307,7 +307,7 @@ function WatchProductCardComponent({
                 Price
               </p>
               <p
-                className={`truncate font-light ${compact ? 'text-sm sm:text-base' : 'text-lg'}`}
+                className={`font-light ${compact ? 'whitespace-nowrap text-sm sm:text-base' : 'text-lg'}`}
                 style={{
                   color: price != null ? 'var(--w-cream)' : 'var(--w-muted)',
                   fontFamily: 'var(--font-jost, system-ui, sans-serif)',
@@ -320,7 +320,7 @@ function WatchProductCardComponent({
             {onAddToCart && inStock ? (
               <button
                 onClick={() => onAddToCart(id)}
-                className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-[4px] border font-medium uppercase tracking-[0.14em] transition-colors ${compact ? 'h-9 px-2.5 text-[9px] sm:px-3 sm:text-[10px]' : 'h-11 px-4 text-[11px]'}`}
+                className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-[4px] border font-medium uppercase tracking-[0.14em] transition-colors ${compact ? 'h-9 w-full px-2.5 text-[9px] sm:px-3 sm:text-[10px]' : 'h-11 px-4 text-[11px]'}`}
                 style={{
                   borderColor: 'rgba(201,168,76,0.45)',
                   background: 'rgba(201,168,76,0.08)',
@@ -335,7 +335,7 @@ function WatchProductCardComponent({
             ) : (
               <Link
                 href={productHref}
-                className={`inline-flex shrink-0 items-center rounded-[4px] border font-medium uppercase tracking-[0.14em] transition-colors ${compact ? 'h-9 px-2.5 text-[9px] sm:px-3 sm:text-[10px]' : 'h-11 px-4 text-[11px]'}`}
+                className={`inline-flex shrink-0 items-center justify-center rounded-[4px] border font-medium uppercase tracking-[0.14em] transition-colors ${compact ? 'h-9 w-full px-2.5 text-[9px] sm:px-3 sm:text-[10px]' : 'h-11 px-4 text-[11px]'}`}
                 style={{
                   borderColor: 'var(--w-border)',
                   color: 'var(--w-cream-2)',
