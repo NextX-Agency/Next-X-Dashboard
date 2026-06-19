@@ -34,17 +34,17 @@ export function NewValueSection() {
       className="relative overflow-hidden border-y border-neutral-200 bg-white py-10 sm:py-12 lg:py-14"
     >
       <div className={`${catalogShellClassName} relative z-10`}>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.42fr)] lg:gap-12">
-          <div>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.82fr)_minmax(22rem,0.58fr)] lg:items-center lg:gap-12">
+          <div className="max-w-2xl">
             <p className="catalog-reveal-left mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97015]">
               NextX Agency
             </p>
 
-            <h2 className="catalog-reveal catalog-reveal-d1 max-w-2xl text-2xl font-black leading-tight text-[#141c2e] sm:text-3xl lg:text-4xl">
+            <h2 className="catalog-reveal catalog-reveal-d1 text-2xl font-black leading-tight text-[#141c2e] sm:text-3xl lg:text-4xl">
               Webshop door NextX Agency.
             </h2>
 
-            <p className="catalog-reveal catalog-reveal-d2 mt-5 max-w-2xl text-sm leading-relaxed text-neutral-600 sm:text-base">
+            <p className="catalog-reveal catalog-reveal-d2 mt-5 text-sm leading-relaxed text-neutral-600 sm:text-base">
               NextX Audio is ingericht voor snel bladeren, duidelijke voorraad en bestellen via WhatsApp. Het ontwerp en de bouw komen van NextX Agency.
             </p>
 
@@ -66,32 +66,41 @@ export function NewValueSection() {
             </div>
           </div>
 
-          <aside className="catalog-reveal-right catalog-reveal-d1 border-t border-neutral-200 pt-6 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-400">
-              Meer van NextX
-            </p>
-            <div className="mt-4 flex flex-col gap-3 text-sm">
-              <Link
-                href="/watches"
-                className="font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]"
-              >
+          <aside className="catalog-reveal-right catalog-reveal-d1">
+            <div className="overflow-hidden rounded-lg border border-neutral-200 bg-[#141c2e] shadow-[0_18px_50px_rgba(20,28,46,0.12)]">
+              <div className="flex h-9 items-center justify-between border-b border-white/10 bg-[#101827] px-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">
+                  nextxagency.com
+                </span>
+                <span className="h-1.5 w-16 rounded-full bg-white/10" aria-hidden="true" />
+              </div>
+              <div className="relative aspect-[16/10] bg-white">
+                <iframe
+                  src="https://www.nextxagency.com"
+                  title="NextX Agency website preview"
+                  loading="lazy"
+                  tabIndex={-1}
+                  className="pointer-events-none absolute inset-0 h-full w-full border-0"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 sm:grid-cols-3 lg:grid-cols-1">
+              <Link href="/watches" className="text-sm font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]">
                 NextX Watches
               </Link>
-              <Link
-                href="/"
-                className="font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]"
-              >
+              <Link href="/" className="text-sm font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]">
                 NextX Portal
               </Link>
+              <a
+                href="https://www.nextxagency.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-bold uppercase tracking-[0.14em] text-neutral-500 transition-colors hover:text-[#f97015]"
+              >
+                Open agency site
+              </a>
             </div>
-            <a
-              href="https://www.nextxagency.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-6 inline-block text-xs font-bold uppercase tracking-[0.14em] text-neutral-500 transition-colors hover:text-[#f97015]"
-            >
-              NextX Agency
-            </a>
           </aside>
         </div>
       </div>

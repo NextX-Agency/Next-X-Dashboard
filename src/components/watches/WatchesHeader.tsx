@@ -53,9 +53,9 @@ function WatchesCurrencyToggle({
 }) {
   return (
     <div
-      className="inline-flex items-center gap-1 border px-1 py-0.5"
+      className="inline-grid grid-cols-2 overflow-hidden border p-1"
       style={{
-        borderColor: 'rgba(240,235,225,0.12)',
+        borderColor: 'var(--w-border-gold)',
         background: 'rgba(240,235,225,0.025)',
       }}
       role="group"
@@ -69,10 +69,10 @@ function WatchesCurrencyToggle({
             key={option}
             type="button"
             onClick={() => onChange(option)}
-            className="px-2 py-1 text-[10px] font-light uppercase tracking-[0.16em] transition-colors sm:px-2.5"
+            className="min-w-[3.25rem] px-3 py-2 text-[10px] font-light uppercase tracking-[0.2em] transition-colors sm:min-w-14"
             style={{
-              background: isActive ? 'rgba(201,168,76,0.18)' : 'transparent',
-              color: isActive ? 'var(--w-gold)' : 'var(--w-muted)',
+              background: isActive ? 'var(--w-gold)' : 'transparent',
+              color: isActive ? '#09090B' : 'var(--w-muted)',
             }}
             aria-pressed={isActive}
           >
@@ -80,6 +80,50 @@ function WatchesCurrencyToggle({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+function WatchesCurrencyPanel({
+  currency,
+  onChange,
+  exchangeRate,
+}: {
+  currency: Currency
+  onChange: (currency: Currency) => void
+  exchangeRate: number
+}) {
+  return (
+    <div
+      className="border px-4 py-4"
+      style={{
+        borderColor: 'var(--w-border)',
+        background: 'linear-gradient(180deg, rgba(201,168,76,0.06), rgba(240,235,225,0.018))',
+      }}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p
+            className="text-[9px] font-light uppercase tracking-[0.28em]"
+            style={{ color: 'var(--w-gold)' }}
+          >
+            Currency
+          </p>
+          <p className="mt-1 text-xs font-light" style={{ color: 'var(--w-muted)' }}>
+            Display prices in your preferred currency.
+          </p>
+        </div>
+        <WatchesCurrencyToggle currency={currency} onChange={onChange} />
+      </div>
+      <div className="mt-4 flex items-center gap-3 border-t pt-3" style={{ borderColor: 'var(--w-border)' }}>
+        <span className="h-px w-7" style={{ background: 'var(--w-border-gold)' }} />
+        <p
+          className="text-[10px] font-light uppercase tracking-[0.18em]"
+          style={{ color: 'var(--w-muted)' }}
+        >
+          1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
+        </p>
+      </div>
     </div>
   )
 }
@@ -270,22 +314,11 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
 
           <div className="mt-auto px-6 pb-12">
             <div className="mb-6">
-              <p
-                className="mb-3 text-[10px] font-light uppercase tracking-[0.28em]"
-                style={{ color: 'var(--w-muted)' }}
-              >
-                Currency
-              </p>
-              <WatchesCurrencyToggle
+              <WatchesCurrencyPanel
                 currency={displayCurrency}
                 onChange={setDisplayCurrency}
+                exchangeRate={exchangeRate}
               />
-              <p
-                className="mt-3 text-[10px] font-light uppercase tracking-[0.18em]"
-                style={{ color: 'var(--w-muted)' }}
-              >
-                1 USD = {formatCurrencyInputAmount(exchangeRate)} SRD
-              </p>
             </div>
             <div className="flex items-center gap-2.5 border-t pt-4 text-[11px] font-light uppercase tracking-[0.22em]" style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}>
               <span className="h-px w-5 shrink-0" style={{ background: 'var(--w-border-gold)' }} />

@@ -38,7 +38,7 @@ function WatchesAgencySectionComponent() {
         borderBottom: '1px solid var(--w-border)',
       }}
     >
-      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.36fr)] lg:items-start lg:gap-16">
+      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(22rem,0.58fr)] lg:items-center lg:gap-16">
         <div className="w-reveal">
           <p
             className="mb-4 text-[9px] font-light uppercase tracking-[0.32em]"
@@ -84,30 +84,51 @@ function WatchesAgencySectionComponent() {
         </div>
 
         <aside
-          className="w-reveal w-reveal-d1 border-t pt-7 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-1"
+          className="w-reveal w-reveal-d1"
           style={{ borderColor: 'var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
         >
-          <p className="text-[9px] font-light uppercase tracking-[0.28em]" style={{ color: 'var(--w-muted)' }}>
-            More from NextX
-          </p>
-          <div className="mt-5 flex flex-col gap-3 text-sm font-light">
+          <div
+            className="overflow-hidden border"
+            style={{
+              borderColor: 'var(--w-border-gold)',
+              background: 'var(--w-surface)',
+              boxShadow: '0 22px 70px rgba(0,0,0,0.28)',
+            }}
+          >
+            <div className="flex h-9 items-center justify-between border-b px-3" style={{ borderColor: 'var(--w-border)', background: 'rgba(201,168,76,0.045)' }}>
+              <span className="text-[9px] font-light uppercase tracking-[0.28em]" style={{ color: 'var(--w-gold)' }}>
+                nextxagency.com
+              </span>
+              <span className="h-px w-16" style={{ background: 'var(--w-border-gold)' }} aria-hidden="true" />
+            </div>
+            <div className="relative aspect-[16/10] bg-[#0b0b0d]">
+              <iframe
+                src="https://www.nextxagency.com"
+                title="NextX Agency website preview"
+                loading="lazy"
+                tabIndex={-1}
+                className="pointer-events-none absolute inset-0 h-full w-full border-0"
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 border-t pt-5 text-sm font-light sm:grid-cols-3 lg:grid-cols-1" style={{ borderColor: 'var(--w-border)' }}>
             <Link href="/audio" className="transition-opacity hover:opacity-100" style={{ color: 'var(--w-cream-2)' }}>
               NextX Audio
             </Link>
             <Link href="/" className="transition-opacity hover:opacity-100" style={{ color: 'var(--w-cream-2)' }}>
               NextX Portal
             </Link>
+            <a
+              href="https://www.nextxagency.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-light uppercase tracking-[0.22em] transition-opacity hover:opacity-100"
+              style={{ color: 'var(--w-gold)', opacity: 0.82 }}
+            >
+              Open agency site
+            </a>
           </div>
-
-          <a
-            href="https://www.nextxagency.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-7 inline-block text-[10px] font-light uppercase tracking-[0.22em] transition-opacity hover:opacity-100"
-            style={{ color: 'var(--w-gold)', opacity: 0.82 }}
-          >
-            NextX Agency
-          </a>
         </aside>
       </div>
     </section>
