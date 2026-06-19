@@ -79,6 +79,7 @@ export function NewValueSection() {
                   src="https://www.nextxagency.com"
                   title="NextX Agency website preview"
                   loading="lazy"
+                  scrolling="no"
                   tabIndex={-1}
                   className="pointer-events-none absolute left-0 top-0 h-[900px] w-[1280px] origin-top-left scale-[0.28] border-0 sm:scale-[0.42] md:scale-[0.48] lg:scale-[0.35] xl:scale-[0.40]"
                 />
