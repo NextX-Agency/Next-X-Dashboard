@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useDeferredValue } from 'react'
+import { useState, useMemo, useCallback, useEffect, useDeferredValue, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowRight, Search, X } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, Boxes, CircleDollarSign, PackageCheck, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
+import { formatCurrency, type Currency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
 import { normalizeExchangeRate } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
+import { getWatchSellingPrice } from '@/lib/watchPricing'
 import {
   buildWatchesCartWhatsAppMessage,
   clearWatchesCart,
@@ -47,6 +49,10 @@ interface Item {
   name: string
   brand?: string | null
   categoryId?: string | null
+  category?: {
+    id: string
+    name: string
+  } | null
   imageUrl?: string | null
   sellingPriceUsd?: number | null
   sellingPriceSrd?: number | null
@@ -94,6 +100,10 @@ interface WatchesCatalogClientProps {
   initialExchangeRate?: number | null
 }
 
+type AvailabilityFilter = 'all' | 'available' | 'low-stock' | 'sold-out'
+type PriceBand = 'all' | 'under-50' | '50-100' | '100-plus'
+type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'brand-asc' | 'stock-desc'
+
 const WATCH_BRAND_FALLBACKS = [
   'Rolex',
   'Omega',
@@ -110,6 +120,31 @@ const WATCH_BRAND_FALLBACKS = [
   'Michael Kors',
   'Fossil',
   'Casio',
+]
+
+const PRICE_BANDS: Array<{
+  value: Exclude<PriceBand, 'all'>
+  min?: number
+  max?: number
+}> = [
+  { value: 'under-50', max: 50 },
+  { value: '50-100', min: 50, max: 100 },
+  { value: '100-plus', min: 100 },
+]
+
+const AVAILABILITY_OPTIONS: Array<{ value: AvailabilityFilter; label: string }> = [
+  { value: 'all', label: 'All stock' },
+  { value: 'available', label: 'Available' },
+  { value: 'low-stock', label: 'Low stock' },
+  { value: 'sold-out', label: 'Sold out' },
+]
+
+const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'price-asc', label: 'Price: low to high' },
+  { value: 'price-desc', label: 'Price: high to low' },
+  { value: 'brand-asc', label: 'Brand A-Z' },
+  { value: 'stock-desc', label: 'Most available' },
 ]
 
 function resolveWatchBrand(item: Pick<Item, 'brand' | 'name'>) {
@@ -143,6 +178,44 @@ function getBalancedGridClass(count: number, options?: { singleMaxWidth?: string
   return 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
 }
 
+function getItemPrice(item: Item, currency: Currency, exchangeRate: number) {
+  return getWatchSellingPrice({
+    sellingPriceUsd: item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null,
+    sellingPriceSrd: item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null,
+  }, currency, exchangeRate)
+}
+
+function getPriceBandLabel(priceBand: PriceBand, currency: Currency, exchangeRate: number) {
+  const convertUsd = (amount: number) => currency === 'USD' ? amount : amount * exchangeRate
+
+  if (priceBand === 'under-50') {
+    return `Under ${formatCurrency(convertUsd(50), currency)}`
+  }
+
+  if (priceBand === '50-100') {
+    return `${formatCurrency(convertUsd(50), currency)} - ${formatCurrency(convertUsd(100), currency)}`
+  }
+
+  if (priceBand === '100-plus') {
+    return `${formatCurrency(convertUsd(100), currency)}+`
+  }
+
+  return 'All prices'
+}
+
+function matchesPriceBand(priceUsd: number | null, priceBand: PriceBand) {
+  if (priceBand === 'all') return true
+  if (priceUsd == null) return false
+
+  const band = PRICE_BANDS.find(option => option.value === priceBand)
+  if (!band) return true
+
+  const aboveMin = band.min == null || priceUsd >= band.min
+  const belowMax = band.max == null || priceUsd < band.max
+
+  return aboveMin && belowMax
+}
+
 function getBalancedImageSizes(count: number) {
   if (count <= 1) {
     return '(max-width: 768px) 100vw, 42rem'
@@ -174,6 +247,10 @@ export default function WatchesCatalogClient({
   } = useCurrency()
   const [activeBrand, setActiveBrand] = useState<string | null>(null)
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null)
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('all')
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('all')
+  const [priceBand, setPriceBand] = useState<PriceBand>('all')
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [searchQuery, setSearchQuery] = useState('')
   const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
@@ -236,6 +313,30 @@ export default function WatchesCatalogClient({
     return map
   }, [items])
 
+  const categoryOptions = useMemo(() => {
+    const categoryMap = new Map<string, { id: string; name: string; count: number; inStockCount: number }>()
+
+    items.forEach((item) => {
+      const categoryId = item.categoryId ?? item.category?.id
+      const categoryName = item.category?.name?.trim()
+      if (!categoryId || !categoryName) return
+
+      if (!categoryMap.has(categoryId)) {
+        categoryMap.set(categoryId, { id: categoryId, name: categoryName, count: 0, inStockCount: 0 })
+      }
+
+      const category = categoryMap.get(categoryId)
+      if (!category) return
+
+      category.count += 1
+      if ((stockMap[item.id] ?? 0) > 0) {
+        category.inStockCount += 1
+      }
+    })
+
+    return Array.from(categoryMap.values()).sort((left, right) => left.name.localeCompare(right.name))
+  }, [items, stockMap])
+
   const cartQuantityByItemId = useMemo(() => {
     const map: Record<string, number> = {}
     cartItems.forEach((item) => {
@@ -295,20 +396,78 @@ export default function WatchesCatalogClient({
   }, [brandByItemId, items, stockMap])
 
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    const matches = items.filter((item) => {
       const displayBrand = brandByItemId[item.id]
       const matchesBrand = !activeBrand || displayBrand?.toLowerCase() === activeBrand.toLowerCase()
       const matchesCollection = !activeCollection || activeCollection.itemIds.has(item.id)
-      const matchesSearch = !deferredSearchQuery || [item.name, displayBrand ?? item.brand ?? '']
+      const matchesCategory = activeCategoryId === 'all' || item.categoryId === activeCategoryId || item.category?.id === activeCategoryId
+      const stockCount = stockMap[item.id] ?? 0
+      const matchesAvailability = availabilityFilter === 'all'
+        || (availabilityFilter === 'available' && stockCount > 0)
+        || (availabilityFilter === 'low-stock' && stockCount > 0 && stockCount <= 3)
+        || (availabilityFilter === 'sold-out' && stockCount <= 0)
+      const priceUsd = getItemPrice(item, 'USD', activeExchangeRate)
+      const matchesPrice = matchesPriceBand(priceUsd, priceBand)
+      const matchesSearch = !deferredSearchQuery || [item.name, displayBrand ?? item.brand ?? '', item.category?.name ?? '']
         .join(' ')
         .toLowerCase()
         .includes(deferredSearchQuery)
 
-      return matchesBrand && matchesCollection && matchesSearch
+      return matchesBrand && matchesCollection && matchesCategory && matchesAvailability && matchesPrice && matchesSearch
     })
-  }, [items, activeBrand, activeCollection, brandByItemId, deferredSearchQuery])
 
-  const hasActiveFilters = Boolean(activeBrand || activeCollectionId || searchQuery.trim())
+    return matches.sort((left, right) => {
+      if (sortBy === 'newest') return 0
+
+      const leftStock = stockMap[left.id] ?? 0
+      const rightStock = stockMap[right.id] ?? 0
+
+      if (sortBy === 'stock-desc') {
+        return rightStock - leftStock || left.name.localeCompare(right.name)
+      }
+
+      if (sortBy === 'brand-asc') {
+        const leftBrand = brandByItemId[left.id] ?? left.brand ?? ''
+        const rightBrand = brandByItemId[right.id] ?? right.brand ?? ''
+        return leftBrand.localeCompare(rightBrand) || left.name.localeCompare(right.name)
+      }
+
+      const leftPrice = getItemPrice(left, displayCurrency, activeExchangeRate)
+      const rightPrice = getItemPrice(right, displayCurrency, activeExchangeRate)
+
+      if (leftPrice == null && rightPrice == null) return left.name.localeCompare(right.name)
+      if (leftPrice == null) return 1
+      if (rightPrice == null) return -1
+
+      return sortBy === 'price-asc'
+        ? leftPrice - rightPrice || left.name.localeCompare(right.name)
+        : rightPrice - leftPrice || left.name.localeCompare(right.name)
+    })
+  }, [
+    items,
+    activeBrand,
+    activeCategoryId,
+    activeCollection,
+    activeExchangeRate,
+    availabilityFilter,
+    brandByItemId,
+    deferredSearchQuery,
+    displayCurrency,
+    priceBand,
+    sortBy,
+    stockMap,
+  ])
+
+  const activeFilterCount = [
+    activeBrand,
+    activeCollectionId,
+    activeCategoryId !== 'all' ? activeCategoryId : null,
+    availabilityFilter !== 'all' ? availabilityFilter : null,
+    priceBand !== 'all' ? priceBand : null,
+    searchQuery.trim() ? 'search' : null,
+  ].filter(Boolean).length
+
+  const hasActiveFilters = activeFilterCount > 0
 
   const featuredItems = useMemo(() => {
     if (activeCollection) return activeCollection.resolvedItems.slice(0, 6)
@@ -341,6 +500,21 @@ export default function WatchesCatalogClient({
   const catalogImageSizes = useMemo(
     () => getBalancedImageSizes(filteredItems.length),
     [filteredItems.length]
+  )
+
+  const activeCategory = useMemo(
+    () => categoryOptions.find(category => category.id === activeCategoryId) ?? null,
+    [activeCategoryId, categoryOptions]
+  )
+
+  const activeAvailabilityLabel = useMemo(
+    () => AVAILABILITY_OPTIONS.find(option => option.value === availabilityFilter)?.label ?? 'All stock',
+    [availabilityFilter]
+  )
+
+  const activePriceBandLabel = useMemo(
+    () => getPriceBandLabel(priceBand, displayCurrency, activeExchangeRate),
+    [activeExchangeRate, displayCurrency, priceBand]
   )
 
   const primaryCtaHref = heroBanner?.linkUrl ?? (shouldShowFeaturedSection ? '/watches#featured' : '/watches#new')
@@ -408,6 +582,9 @@ export default function WatchesCatalogClient({
   const handleClearFilters = useCallback(() => {
     setActiveBrand(null)
     setActiveCollectionId(null)
+    setActiveCategoryId('all')
+    setAvailabilityFilter('all')
+    setPriceBand('all')
     setSearchQuery('')
   }, [])
 
@@ -517,10 +694,10 @@ export default function WatchesCatalogClient({
                 style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
               >
                 <span className="text-xl font-light tabular-nums" style={{ color: 'var(--w-cream)' }}>
-                  {items.length.toString().padStart(2, '0')}
+                  {filteredItems.length.toString().padStart(2, '0')}
                 </span>
                 <span className="text-[10px] font-light uppercase tracking-[0.2em]" style={{ color: 'var(--w-muted)' }}>
-                  {items.length === 1 ? 'watch' : 'watches'}{' - '}{brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
+                  of {items.length} {items.length === 1 ? 'watch' : 'watches'} - {brandOptions.length} {brandOptions.length === 1 ? 'brand' : 'brands'}
                 </span>
               </div>
             </div>
@@ -566,6 +743,108 @@ export default function WatchesCatalogClient({
                 onChange={setActiveBrand}
               />
             </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+              <FilterControl icon={<Boxes size={14} />} label="Category">
+                <select
+                  value={activeCategoryId}
+                  onChange={(event) => setActiveCategoryId(event.target.value)}
+                  className="h-11 w-full rounded-[4px] border bg-transparent px-3 text-xs uppercase tracking-[0.12em] outline-none"
+                  style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream)' }}
+                >
+                  <option value="all" style={{ background: '#101114', color: '#f0ebe1' }}>All categories</option>
+                  {categoryOptions.map(category => (
+                    <option key={category.id} value={category.id} style={{ background: '#101114', color: '#f0ebe1' }}>
+                      {category.name} ({category.count})
+                    </option>
+                  ))}
+                </select>
+              </FilterControl>
+
+              <FilterControl icon={<CircleDollarSign size={14} />} label="Price">
+                <select
+                  value={priceBand}
+                  onChange={(event) => setPriceBand(event.target.value as PriceBand)}
+                  className="h-11 w-full rounded-[4px] border bg-transparent px-3 text-xs uppercase tracking-[0.12em] outline-none"
+                  style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream)' }}
+                >
+                  <option value="all" style={{ background: '#101114', color: '#f0ebe1' }}>All prices</option>
+                  {PRICE_BANDS.map(option => (
+                    <option key={option.value} value={option.value} style={{ background: '#101114', color: '#f0ebe1' }}>
+                      {getPriceBandLabel(option.value, displayCurrency, activeExchangeRate)}
+                    </option>
+                  ))}
+                </select>
+              </FilterControl>
+
+              <FilterControl icon={<PackageCheck size={14} />} label="Availability">
+                <select
+                  value={availabilityFilter}
+                  onChange={(event) => setAvailabilityFilter(event.target.value as AvailabilityFilter)}
+                  className="h-11 w-full rounded-[4px] border bg-transparent px-3 text-xs uppercase tracking-[0.12em] outline-none"
+                  style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream)' }}
+                >
+                  {AVAILABILITY_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value} style={{ background: '#101114', color: '#f0ebe1' }}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </FilterControl>
+
+              <FilterControl icon={<ArrowDownUp size={14} />} label="Sort">
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value as SortOption)}
+                  className="h-11 w-full rounded-[4px] border bg-transparent px-3 text-xs uppercase tracking-[0.12em] outline-none"
+                  style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream)' }}
+                >
+                  {SORT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value} style={{ background: '#101114', color: '#f0ebe1' }}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </FilterControl>
+            </div>
+
+            {hasActiveFilters && (
+              <div
+                className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4"
+                style={{ borderColor: 'var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+              >
+                <span className="mr-1 inline-flex items-center gap-2 text-[9px] uppercase tracking-[0.22em]" style={{ color: 'var(--w-muted)' }}>
+                  <SlidersHorizontal size={13} />
+                  {activeFilterCount} active
+                </span>
+                {searchQuery.trim() && (
+                  <ActiveFilterChip label={`Search: ${searchQuery.trim()}`} onRemove={() => setSearchQuery('')} />
+                )}
+                {activeBrand && (
+                  <ActiveFilterChip label={activeBrand} onRemove={() => setActiveBrand(null)} />
+                )}
+                {activeCollection && (
+                  <ActiveFilterChip label={activeCollection.name} onRemove={() => setActiveCollectionId(null)} />
+                )}
+                {activeCategory && (
+                  <ActiveFilterChip label={activeCategory.name} onRemove={() => setActiveCategoryId('all')} />
+                )}
+                {priceBand !== 'all' && (
+                  <ActiveFilterChip label={activePriceBandLabel} onRemove={() => setPriceBand('all')} />
+                )}
+                {availabilityFilter !== 'all' && (
+                  <ActiveFilterChip label={activeAvailabilityLabel} onRemove={() => setAvailabilityFilter('all')} />
+                )}
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="ml-auto inline-flex h-9 items-center justify-center rounded-[4px] border px-3 text-[9px] uppercase tracking-[0.18em] transition-opacity hover:opacity-80"
+                  style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -708,6 +987,7 @@ export default function WatchesCatalogClient({
                     id={item.id}
                     name={item.name}
                     brand={brandByItemId[item.id] ?? item.brand ?? undefined}
+                    categoryName={item.category?.name ?? undefined}
                     imageUrl={item.imageUrl}
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
@@ -774,6 +1054,40 @@ export default function WatchesCatalogClient({
     </>
   )
 }
+
+function FilterControl({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <label
+      className="block rounded-[6px] border p-3"
+      style={{ borderColor: 'var(--w-border)', background: 'rgba(17,17,19,0.5)' }}
+    >
+      <span className="mb-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-muted)' }}>
+        {icon}
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function ActiveFilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex h-9 max-w-full items-center gap-2 rounded-[4px] border px-3 text-[10px] uppercase tracking-[0.14em]"
+      style={{
+        borderColor: 'rgba(201,168,76,0.36)',
+        background: 'rgba(201,168,76,0.08)',
+        color: 'var(--w-cream)',
+      }}
+    >
+      <span className="truncate">{label}</span>
+      <X size={12} strokeWidth={1.7} />
+    </button>
+  )
+}
+
 function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; searchQuery: string }) {
   const sanitizedNumber = whatsappNumber.replace(/[^0-9]/g, '')
 

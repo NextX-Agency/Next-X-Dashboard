@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 import type {
   SalesPageDataPayload,
   SalesPageExchangeRate,
@@ -267,6 +268,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+    const locationCatalogFilter = getLocationCatalogFilter(catalogType)
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
@@ -277,6 +279,7 @@ export async function GET(request: NextRequest) {
         orderBy: { name: 'asc' },
       }),
       prisma.location.findMany({
+        where: { is_active: true, catalogType: { in: locationCatalogFilter } },
         orderBy: { name: 'asc' },
       }),
       prisma.exchangeRate.findFirst({

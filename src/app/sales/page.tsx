@@ -21,6 +21,7 @@ type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
 type ExchangeRate = Database['public']['Tables']['exchange_rates']['Row']
 type Stock = Database['public']['Tables']['stock']['Row']
+type Seller = Database['public']['Tables']['sellers']['Row']
 type SaleWithDetails = SalesPageRecentSale
 
 interface CartItem {
@@ -71,6 +72,8 @@ export default function SalesPage() {
   const [items, setItems] = useState<Item[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<string>('')
+  const [locationSellers, setLocationSellers] = useState<Seller[]>([])
+  const [selectedSellerId, setSelectedSellerId] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [combos, setCombos] = useState<ComboSale[]>([])
   const [currency, setCurrency] = useState<Currency>('SRD')
@@ -180,6 +183,50 @@ export default function SalesPage() {
     if (data) setLocationWallets(data)
   }
 
+  const ensureSellersForLocation = useCallback(async (locationId: string): Promise<Seller[]> => {
+    const { data, error } = await supabase
+      .from('sellers')
+      .select('*')
+      .eq('location_id', locationId)
+      .order('name')
+
+    if (error) {
+      console.error('Error loading sellers:', error)
+      setLocationSellers([])
+      return []
+    }
+
+    let resolvedSellers = data ?? []
+    const location = locations.find(loc => loc.id === locationId)
+
+    if (resolvedSellers.length === 0 && location?.seller_name) {
+      const { data: createdSeller, error: createError } = await supabase
+        .from('sellers')
+        .insert({
+          name: location.seller_name,
+          location_id: location.id,
+          commission_rate: Number(location.commission_rate ?? 0),
+        })
+        .select('*')
+        .single()
+
+      if (createError) {
+        console.error('Error creating seller for location:', createError)
+      } else if (createdSeller) {
+        resolvedSellers = [createdSeller]
+      }
+    }
+
+    setLocationSellers(resolvedSellers)
+    setSelectedSellerId(current => (
+      current && resolvedSellers.some(seller => seller.id === current)
+        ? current
+        : resolvedSellers[0]?.id ?? ''
+    ))
+
+    return resolvedSellers
+  }, [locations])
+
   const loadReservations = async (locationId: string) => {
     const { data } = await supabase
       .from('reservations')
@@ -202,6 +249,9 @@ export default function SalesPage() {
   }, [loadData])
 
   useEffect(() => {
+    setSelectedLocation('')
+    setLocationSellers([])
+    setSelectedSellerId('')
     setCart([])
     setCombos([])
     setTempComboItems([])
@@ -217,8 +267,12 @@ export default function SalesPage() {
       loadStock(selectedLocation)
       loadReservations(selectedLocation)
       loadLocationWallets(selectedLocation)
+      void ensureSellersForLocation(selectedLocation)
+    } else {
+      setLocationSellers([])
+      setSelectedSellerId('')
     }
-  }, [selectedLocation])
+  }, [ensureSellersForLocation, selectedLocation])
 
   const getAvailableStock = (itemId: string) => {
     const totalStock = stockMap.get(itemId) || 0
@@ -379,11 +433,19 @@ export default function SalesPage() {
       const matchingWallet = locationWallets.find(
         w => w.currency === currency && w.type === paymentMethod && w.purpose === 'operational'
       )
+
+      const resolvedSellers = await ensureSellersForLocation(selectedLocation)
+      const selectedSeller = selectedSellerId
+        ? resolvedSellers.find(seller => seller.id === selectedSellerId)
+        : null
+      const commissionSellers = selectedSeller ? [selectedSeller] : resolvedSellers.slice(0, 1)
+      const saleSellerId = commissionSellers[0]?.id ?? null
       
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
           location_id: selectedLocation,
+          seller_id: saleSellerId,
           currency,
           exchange_rate: activeExchangeRate || null,
           total_amount: total,
@@ -498,14 +560,9 @@ export default function SalesPage() {
         }
       }
 
-      // Create commission per seller
-      const { data: sellers } = await supabase
-        .from('sellers')
-        .select('*')
-        .eq('location_id', selectedLocation)
-
-      if (sellers && sellers.length > 0) {
-        for (const seller of sellers) {
+      // Create commission for the seller linked to this sale
+      if (commissionSellers.length > 0) {
+        for (const seller of commissionSellers) {
           // Process regular cart items - group by category for category-specific rates
           if (cart.length > 0) {
             const itemsByCategory = new Map<string, typeof cart>()
@@ -521,7 +578,7 @@ export default function SalesPage() {
             // Create one commission entry per category for regular items
             for (const [categoryId, categoryItems] of itemsByCategory) {
               let categoryCommission = 0
-              let rateToUse = seller.commission_rate // Default rate
+              let rateToUse = Number(seller.commission_rate || location?.commission_rate || 0) // Default rate
 
               // Get category-specific rate if available
               if (categoryId !== 'uncategorized') {
@@ -533,7 +590,7 @@ export default function SalesPage() {
                   .single()
 
                 if (categoryRate) {
-                  rateToUse = categoryRate.commission_rate
+                  rateToUse = Number(categoryRate.commission_rate)
                 }
               }
 
@@ -582,7 +639,7 @@ export default function SalesPage() {
             // Determine the rate to use for this combo
             // Get the first item's category to determine the rate, or use seller's default
             const firstItem = combo.items[0]?.item
-            let comboRate = seller.commission_rate
+            let comboRate = Number(seller.commission_rate || location?.commission_rate || 0)
 
             if (firstItem?.category_id) {
               const { data: categoryRate } = await supabase
@@ -593,7 +650,7 @@ export default function SalesPage() {
                 .maybeSingle()
 
               if (categoryRate) {
-                comboRate = categoryRate.commission_rate
+                comboRate = Number(categoryRate.commission_rate)
               }
             }
 
@@ -1068,16 +1125,42 @@ export default function SalesPage() {
 
         {/* Location Selection */}
         <div className="mb-6">
-          <Select
-            label="Select Location"
-            value={selectedLocation}
-            onChange={(e) => setSelectedLocation(e.target.value)}
-          >
-            <option value="">Choose a location...</option>
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </Select>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Select
+              label="Select Location"
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+            >
+              <option value="">Choose a location...</option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </Select>
+
+            {selectedLocation && (
+              <Select
+                label="Sales Person"
+                value={selectedSellerId}
+                onChange={(e) => setSelectedSellerId(e.target.value)}
+              >
+                {locationSellers.length === 0 ? (
+                  <option value="">No seller configured</option>
+                ) : (
+                  locationSellers.map((seller) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name}
+                    </option>
+                  ))
+                )}
+              </Select>
+            )}
+          </div>
+
+          {selectedLocation && locationSellers.length === 0 && (
+            <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+              Add a seller or seller name for this location before completing commission-based sales.
+            </div>
+          )}
         </div>
 
         {!selectedLocation ? (

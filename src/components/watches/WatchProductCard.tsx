@@ -14,6 +14,7 @@ interface WatchProductCardProps {
   id: string
   name: string
   brand?: string
+  categoryName?: string
   imageUrl?: string | null
   imageSizes?: string
   cartQuantity?: number
@@ -70,6 +71,7 @@ function WatchProductCardComponent({
   id,
   name,
   brand,
+  categoryName,
   imageUrl,
   imageSizes,
   cartQuantity = 0,
@@ -101,6 +103,7 @@ function WatchProductCardComponent({
     : stockCount <= 3
       ? `${stockCount} left`
       : 'Available now'
+  const shouldShowCategory = Boolean(categoryName && categoryName.toLowerCase() !== brand?.toLowerCase())
 
   useEffect(() => {
     if (!imageUrl || shouldLoadImage) return
@@ -285,6 +288,15 @@ function WatchProductCardComponent({
                 {name}
               </h3>
             </Link>
+
+            {shouldShowCategory && (
+              <p
+                className={`mt-1 truncate uppercase tracking-[0.14em] ${compact ? 'text-[8px]' : 'text-[9px]'}`}
+                style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+              >
+                {categoryName}
+              </p>
+            )}
           </div>
         </div>
 

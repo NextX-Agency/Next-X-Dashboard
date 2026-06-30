@@ -7,12 +7,42 @@ import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 const CATALOG_TYPE = 'watches'
 const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 
+type RawWatchItem = {
+  id: string
+  name: string
+  brand: string | null
+  categoryId: string | null
+  category: {
+    id: string
+    name: string
+  } | null
+  imageUrl: string | null
+  sellingPriceUsd: unknown | null
+  sellingPriceSrd: unknown | null
+  catalogType: string
+  isPublic: boolean | null
+}
+
+function serializeWatchItem(item: RawWatchItem) {
+  return {
+    ...item,
+    sellingPriceUsd: item.sellingPriceUsd == null ? null : Number(item.sellingPriceUsd),
+    sellingPriceSrd: item.sellingPriceSrd == null ? null : Number(item.sellingPriceSrd),
+  }
+}
+
 async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   const watchItemSelect = {
     id: true,
     name: true,
     brand: true,
     categoryId: true,
+    category: {
+      select: {
+        id: true,
+        name: true,
+      },
+    },
     imageUrl: true,
     sellingPriceUsd: true,
     sellingPriceSrd: true,
@@ -108,7 +138,8 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
       select: watchItemSelect,
     })
     : []
-  const collectionItemMap = new Map(collectionItems.map(item => [item.id, item]))
+  const serializedItems = items.map(serializeWatchItem)
+  const collectionItemMap = new Map(collectionItems.map(item => [item.id, serializeWatchItem(item)]))
   const banners = bannersRaw.map(({ button_text, ...banner }) => ({
     ...banner,
     buttonText: button_text,
@@ -132,8 +163,8 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   })
 
   return {
-    items,
-    exchangeRate,
+    items: serializedItems,
+    exchangeRate: exchangeRate ? { ...exchangeRate, usdToSrd: Number(exchangeRate.usdToSrd) } : null,
     banners,
     collections,
     settings: settingsMap,
@@ -143,6 +174,6 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
 
 export const getWatchesCatalogData = unstable_cache(
   loadWatchesCatalogData,
-  ['watches-catalog-data'],
+  ['watches-catalog-data-v2'],
   { revalidate: 120, tags: ['watches-catalog'] }
 )
