@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useDeferredValue, type ReactNode } from 'react'
+import { useState, useMemo, useCallback, useEffect, useDeferredValue, useRef, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowDownUp, ArrowRight, Boxes, CircleDollarSign, PackageCheck, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, Boxes, ChevronLeft, ChevronRight, CircleDollarSign, PackageCheck, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
@@ -458,6 +458,28 @@ export default function WatchesCatalogClient({
     stockMap,
   ])
 
+  const brandSections = useMemo(() => {
+    const sectionsByBrand = new Map<string, { brand: WatchBrandOption; items: Item[] }>()
+    const brandOptionByKey = new Map(brandOptions.map(brand => [brand.name.toLowerCase(), brand]))
+
+    filteredItems.forEach((item) => {
+      const brandName = brandByItemId[item.id]
+      if (!brandName) return
+
+      const key = brandName.toLowerCase()
+      if (!sectionsByBrand.has(key)) {
+        sectionsByBrand.set(key, {
+          brand: brandOptionByKey.get(key) ?? { name: brandName, count: 0, inStockCount: 0 },
+          items: [],
+        })
+      }
+
+      sectionsByBrand.get(key)?.items.push(item)
+    })
+
+    return Array.from(sectionsByBrand.values()).filter(section => section.items.length > 0)
+  }, [brandByItemId, brandOptions, filteredItems])
+
   const activeFilterCount = [
     activeBrand,
     activeCollectionId,
@@ -541,6 +563,17 @@ export default function WatchesCatalogClient({
     }, nextQuantity)
   }, [brandByItemId, cartItems, items, stockMap])
 
+  const handleQuickView = useCallback((id: string) => {
+    setQuickViewItem(items.find(item => item.id === id) ?? null)
+  }, [items])
+
+  const handleViewBrand = useCallback((brandName: string) => {
+    setActiveBrand(brandName)
+    window.setTimeout(() => {
+      document.getElementById('new')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }, [])
+
   const handleUpdateQty = useCallback((id: string, qty: number) => {
     const available = stockMap[id] ?? Number.POSITIVE_INFINITY
     const nextQuantity = Math.max(0, Math.min(qty, available))
@@ -589,6 +622,7 @@ export default function WatchesCatalogClient({
   }, [])
 
   const cartCount = getWatchesCartCount(cartItems)
+  const showBrandSections = !hasActiveFilters && brandSections.length > 0
 
   return (
     <>
@@ -953,32 +987,65 @@ export default function WatchesCatalogClient({
             displayCurrency={displayCurrency}
             exchangeRate={activeExchangeRate}
             onAddToCart={handleAddToCart}
-            onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
+            onQuickView={handleQuickView}
           />
         )}
 
         {/* ══ Browse Collection ════════════════════════ */}
         <section>
-          <div id="new" className="px-4 pb-10 pt-4 sm:px-6 sm:pb-14 sm:pt-6 lg:px-12 lg:pb-16 lg:pt-8 max-w-screen-2xl mx-auto">
+          <div
+            id="new"
+            className={cn(
+              'scroll-mt-28 px-4 pt-4 sm:scroll-mt-32 sm:px-6 sm:pt-6 lg:px-12 lg:pt-8 max-w-screen-2xl mx-auto',
+              showBrandSections ? 'pb-4 sm:pb-6 lg:pb-8' : 'pb-10 sm:pb-14 lg:pb-16'
+            )}
+          >
             <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="mb-2 text-[9px] uppercase tracking-[0.35em]" style={{ color: 'var(--w-gold)' }}>
-                  {shouldShowFeaturedSection ? 'Live Catalog' : 'In The Vault'}
+                  {showBrandSections ? 'Brand Edit' : 'Results'}
                 </p>
                 <h2
                   className="text-2xl font-light sm:text-3xl"
                   style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
                 >
-                  {activeCollection ? activeCollection.name : activeBrand ? `${activeBrand} watches` : 'Every timepiece currently available'}
+                  {showBrandSections
+                    ? 'Browse by brand'
+                    : activeCollection
+                      ? activeCollection.name
+                      : activeBrand
+                        ? `${activeBrand} watches`
+                        : 'Filtered watch edit'}
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-relaxed" style={{ color: 'var(--w-muted)' }}>
-                {filteredItems.length} {filteredItems.length === 1 ? 'piece' : 'pieces'} in the current edit. Availability refreshes every minute.
+                {showBrandSections
+                  ? `${brandSections.length} ${brandSections.length === 1 ? 'brand' : 'brands'} organized into clean rows. Use filters above when someone needs a tighter selection.`
+                  : `${filteredItems.length} ${filteredItems.length === 1 ? 'piece' : 'pieces'} in the current edit. Availability refreshes every minute.`}
               </p>
             </div>
 
             {filteredItems.length === 0 ? (
               <EmptyState whatsappNumber={whatsappNumber} searchQuery={searchQuery} />
+            ) : showBrandSections ? (
+              <div className="space-y-0">
+                {brandSections.map((section, index) => (
+                  <WatchBrandSection
+                    key={section.brand.name}
+                    brand={section.brand}
+                    items={section.items}
+                    index={index}
+                    stockMap={stockMap}
+                    brandByItemId={brandByItemId}
+                    cartQuantityByItemId={cartQuantityByItemId}
+                    displayCurrency={displayCurrency}
+                    exchangeRate={activeExchangeRate}
+                    onAddToCart={handleAddToCart}
+                    onQuickView={handleQuickView}
+                    onViewBrand={handleViewBrand}
+                  />
+                ))}
+              </div>
             ) : (
               <div className={cn('grid gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:gap-x-5 lg:gap-y-8', catalogGridClassName)}>
                 {filteredItems.map(item => (
@@ -998,7 +1065,7 @@ export default function WatchesCatalogClient({
                     stockCount={stockMap[item.id] ?? 0}
                     compact
                     onAddToCart={handleAddToCart}
-                    onQuickView={id => setQuickViewItem(items.find(i => i.id === id) ?? null)}
+                    onQuickView={handleQuickView}
                   />
                 ))}
               </div>
@@ -1052,6 +1119,140 @@ export default function WatchesCatalogClient({
         />
       )}
     </>
+  )
+}
+
+interface WatchBrandSectionProps {
+  brand: WatchBrandOption
+  items: Item[]
+  index: number
+  stockMap: Record<string, number>
+  brandByItemId: Record<string, string>
+  cartQuantityByItemId: Record<string, number>
+  displayCurrency: Currency
+  exchangeRate: number
+  onAddToCart: (id: string) => void
+  onQuickView: (id: string) => void
+  onViewBrand: (brandName: string) => void
+}
+
+function WatchBrandSection({
+  brand,
+  items,
+  index,
+  stockMap,
+  brandByItemId,
+  cartQuantityByItemId,
+  displayCurrency,
+  exchangeRate,
+  onAddToCart,
+  onQuickView,
+  onViewBrand,
+}: WatchBrandSectionProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const visibleItems = items.slice(0, 8)
+  const shouldShowScrollControls = visibleItems.length > 3
+
+  const scroll = (direction: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({
+      left: direction === 'left' ? -360 : 360,
+      behavior: 'smooth',
+    })
+  }
+
+  return (
+    <section
+      className="border-t py-8 sm:py-10 lg:py-12"
+      style={{
+        borderColor: 'var(--w-border)',
+        background: index % 2 === 1 ? 'rgba(255,255,255,0.014)' : 'transparent',
+      }}
+    >
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p
+            className="mb-2 text-[9px] uppercase tracking-[0.35em]"
+            style={{ color: 'var(--w-gold)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+          >
+            Brand
+          </p>
+          <h3
+            className="text-2xl font-light sm:text-3xl"
+            style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
+          >
+            {brand.name}
+          </h3>
+          <p className="mt-2 text-xs uppercase tracking-[0.18em]" style={{ color: 'var(--w-muted)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+            {brand.count} {brand.count === 1 ? 'piece' : 'pieces'} / {brand.inStockCount} available
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {shouldShowScrollControls && (
+            <div className="hidden items-center gap-2 sm:flex">
+              <button
+                type="button"
+                onClick={() => scroll('left')}
+                className="flex h-9 w-9 items-center justify-center rounded-[4px] border transition-colors hover:border-[rgba(201,168,76,0.55)]"
+                style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}
+                aria-label={`Scroll ${brand.name} left`}
+              >
+                <ChevronLeft size={17} strokeWidth={1.7} />
+              </button>
+              <button
+                type="button"
+                onClick={() => scroll('right')}
+                className="flex h-9 w-9 items-center justify-center rounded-[4px] border transition-colors hover:border-[rgba(201,168,76,0.55)]"
+                style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)' }}
+                aria-label={`Scroll ${brand.name} right`}
+              >
+                <ChevronRight size={17} strokeWidth={1.7} />
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onViewBrand(brand.name)}
+            className="inline-flex items-center gap-2 border-b pb-1 text-[10px] uppercase tracking-[0.2em] transition-opacity hover:opacity-80"
+            style={{ borderColor: 'rgba(201,168,76,0.32)', color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+          >
+            View brand
+            <ArrowRight size={13} strokeWidth={1.7} />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative -mx-4 sm:mx-0">
+        <div
+          ref={scrollRef}
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-3 sm:gap-4 sm:px-0 lg:gap-5"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {visibleItems.map(item => (
+            <div key={item.id} className="w-[min(72vw,18rem)] shrink-0 snap-start sm:w-[17rem] lg:w-[18rem]">
+              <WatchProductCard
+                id={item.id}
+                name={item.name}
+                brand={brandByItemId[item.id] ?? item.brand ?? undefined}
+                categoryName={item.category?.name ?? undefined}
+                imageUrl={item.imageUrl}
+                sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
+                sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
+                imageSizes="(max-width: 640px) 72vw, (max-width: 1024px) 17rem, 18rem"
+                cartQuantity={cartQuantityByItemId[item.id] ?? 0}
+                displayCurrency={displayCurrency}
+                exchangeRate={exchangeRate}
+                stockCount={stockMap[item.id] ?? 0}
+                compact
+                onAddToCart={onAddToCart}
+                onQuickView={onQuickView}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   )
 }
 
