@@ -3,8 +3,23 @@
 import { useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { ArrowUpRight, MessageCircle } from 'lucide-react'
 import { catalogShellClassName } from '@/components/catalog/shell'
+
+const agencyNotes = [
+  {
+    label: 'Catalogus',
+    value: "Producten, categorieen en productpagina's.",
+  },
+  {
+    label: 'Voorraad',
+    value: 'Beschikbaarheid blijft zichtbaar voordat klanten contact opnemen.',
+  },
+  {
+    label: 'Bestellen',
+    value: 'Bestellen via WhatsApp blijft simpel en direct.',
+  },
+]
 
 export function NewValueSection() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -31,35 +46,36 @@ export function NewValueSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden border-y border-neutral-200 bg-white py-10 sm:py-12 lg:py-14"
+      className="relative overflow-hidden border-y border-neutral-200 bg-white py-12 sm:py-14 lg:py-16"
     >
       <div className={`${catalogShellClassName} relative z-10`}>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.78fr)_minmax(28rem,0.72fr)] lg:items-center lg:gap-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,0.74fr)_minmax(22rem,0.52fr)] lg:items-start lg:gap-14">
           <div className="max-w-2xl">
             <p className="catalog-reveal-left mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97015]">
               NextX Agency
             </p>
 
             <h2 className="catalog-reveal catalog-reveal-d1 text-2xl font-black leading-tight text-[#141c2e] sm:text-3xl lg:text-4xl">
-              Webshop door NextX Agency.
+              Een eenvoudige webshop voor NextX Audio.
             </h2>
 
             <p className="catalog-reveal catalog-reveal-d2 mt-5 text-sm leading-relaxed text-neutral-600 sm:text-base">
-              NextX Audio is ingericht voor snel bladeren, duidelijke voorraad en bestellen via WhatsApp. Het ontwerp en de bouw komen van NextX Agency.
+              Ontworpen en gebouwd door NextX Agency, met precies genoeg structuur voor producten, voorraad en bestellen via WhatsApp.
             </p>
 
-            <div className="catalog-reveal catalog-reveal-d3 mt-6 flex flex-wrap gap-x-6 gap-y-3 text-xs font-bold uppercase tracking-[0.14em]">
+            <div className="catalog-reveal catalog-reveal-d3 mt-7 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-[0.12em]">
               <a
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border-b border-[#f97015]/35 pb-1 text-[#141c2e] transition-colors hover:border-[#f97015] hover:text-[#f97015]"
+                className="inline-flex h-11 items-center gap-2 rounded-md bg-[#141c2e] px-4 text-white transition-colors hover:bg-[#1d2840]"
               >
                 Bekijk NextX Agency
+                <ArrowUpRight size={14} strokeWidth={2} />
               </a>
               <Link
                 href="/watches"
-                className="border-b border-neutral-300 pb-1 text-neutral-500 transition-colors hover:border-[#f97015] hover:text-[#f97015]"
+                className="inline-flex h-11 items-center rounded-md border border-neutral-200 px-4 text-[#141c2e] transition-colors hover:border-[#f97015] hover:text-[#f97015]"
               >
                 NextX Watches
               </Link>
@@ -67,23 +83,17 @@ export function NewValueSection() {
           </div>
 
           <aside className="catalog-reveal-right catalog-reveal-d1">
-            <div className="overflow-hidden rounded-lg border border-neutral-200 bg-[#141c2e] shadow-[0_18px_50px_rgba(20,28,46,0.12)]">
-              <div className="flex h-9 items-center justify-between border-b border-white/10 bg-[#101827] px-3">
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">
-                  nextxagency.com
-                </span>
-                <span className="h-1.5 w-16 rounded-full bg-white/10" aria-hidden="true" />
-              </div>
-              <div className="relative aspect-[16/10] overflow-hidden bg-white">
-                <iframe
-                  src="https://www.nextxagency.com"
-                  title="NextX Agency website preview"
-                  loading="lazy"
-                  scrolling="no"
-                  tabIndex={-1}
-                  className="pointer-events-none absolute left-0 top-0 h-[900px] w-[1280px] origin-top-left scale-[0.28] border-0 sm:scale-[0.42] md:scale-[0.48] lg:scale-[0.35] xl:scale-[0.40]"
-                />
-              </div>
+            <div className="border-y border-neutral-200 py-2">
+              {agencyNotes.map((note) => (
+                <div key={note.label} className="grid gap-2 border-b border-neutral-200 py-5 last:border-b-0 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97015]">
+                    {note.label}
+                  </p>
+                  <p className="text-sm leading-relaxed text-neutral-600">
+                    {note.value}
+                  </p>
+                </div>
+              ))}
             </div>
 
             <div className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 sm:grid-cols-3 lg:grid-cols-1">

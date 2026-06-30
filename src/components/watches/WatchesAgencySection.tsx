@@ -2,6 +2,22 @@
 
 import { memo, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
+
+const agencyNotes = [
+  {
+    label: 'Catalog',
+    value: 'Filters, product detail pages and collection browsing.',
+  },
+  {
+    label: 'Operations',
+    value: 'Stock visibility and WhatsApp enquiry handling.',
+  },
+  {
+    label: 'Care',
+    value: 'Designed to stay quiet as the watch list grows.',
+  },
+]
 
 function WatchesAgencySectionComponent() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -38,7 +54,7 @@ function WatchesAgencySectionComponent() {
         borderBottom: '1px solid var(--w-border)',
       }}
     >
-      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,0.76fr)_minmax(28rem,0.72fr)] lg:items-center lg:gap-16">
+      <div className="mx-auto grid max-w-screen-2xl gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(22rem,0.54fr)] lg:items-start lg:gap-20">
         <div className="w-reveal">
           <p
             className="mb-4 text-[9px] font-light uppercase tracking-[0.32em]"
@@ -51,7 +67,7 @@ function WatchesAgencySectionComponent() {
             className="max-w-xl text-3xl font-light leading-tight sm:text-4xl"
             style={{ color: 'var(--w-cream)', fontFamily: 'var(--font-cormorant, Georgia, serif)' }}
           >
-            Storefront for NextX Watches.
+            A quiet storefront for the NextX Watches collection.
           </h2>
 
           <div className="my-6 h-px w-12" style={{ background: 'var(--w-gold-muted)' }} />
@@ -60,22 +76,23 @@ function WatchesAgencySectionComponent() {
             className="max-w-xl text-sm font-light leading-loose"
             style={{ color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
           >
-            Built by NextX Agency for the current watch collection: restrained browsing, clear availability and WhatsApp enquiries in one place.
+            Built and maintained by NextX Agency so the collection can grow without making the page feel crowded. The focus stays on browsing, availability and direct contact.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-[10px] font-light uppercase tracking-[0.22em]">
+          <div className="mt-8 flex flex-wrap gap-3 text-[10px] font-light uppercase tracking-[0.18em]">
             <a
               href="https://www.nextxagency.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="border-b pb-1 transition-colors hover:opacity-100"
-              style={{ borderColor: 'rgba(201,168,76,0.38)', color: 'var(--w-gold)' }}
+              className="inline-flex h-11 items-center gap-2 rounded-[4px] border px-4 transition-opacity hover:opacity-85"
+              style={{ borderColor: 'rgba(201,168,76,0.4)', color: 'var(--w-gold)', background: 'rgba(201,168,76,0.06)' }}
             >
               NextX Agency
+              <ArrowUpRight size={13} strokeWidth={1.5} />
             </a>
             <Link
               href="/audio"
-              className="border-b pb-1 transition-colors hover:opacity-100"
+              className="inline-flex h-11 items-center rounded-[4px] border px-4 transition-opacity hover:opacity-85"
               style={{ borderColor: 'rgba(240,235,225,0.2)', color: 'var(--w-cream-2)' }}
             >
               NextX Audio
@@ -84,33 +101,25 @@ function WatchesAgencySectionComponent() {
         </div>
 
         <aside
-          className="w-reveal w-reveal-d1"
+          className="w-reveal w-reveal-d1 lg:pt-2"
           style={{ borderColor: 'var(--w-border)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
         >
           <div
-            className="overflow-hidden border"
+            className="border-y py-2"
             style={{
-              borderColor: 'var(--w-border-gold)',
-              background: 'var(--w-surface)',
-              boxShadow: '0 22px 70px rgba(0,0,0,0.28)',
+              borderColor: 'var(--w-border)',
             }}
           >
-            <div className="flex h-9 items-center justify-between border-b px-3" style={{ borderColor: 'var(--w-border)', background: 'rgba(201,168,76,0.045)' }}>
-              <span className="text-[9px] font-light uppercase tracking-[0.28em]" style={{ color: 'var(--w-gold)' }}>
-                nextxagency.com
-              </span>
-              <span className="h-px w-16" style={{ background: 'var(--w-border-gold)' }} aria-hidden="true" />
-            </div>
-            <div className="relative aspect-[16/10] overflow-hidden bg-[#0b0b0d]">
-              <iframe
-                src="https://www.nextxagency.com"
-                title="NextX Agency website preview"
-                loading="lazy"
-                scrolling="no"
-                tabIndex={-1}
-                className="pointer-events-none absolute left-0 top-0 h-[900px] w-[1280px] origin-top-left scale-[0.28] border-0 sm:scale-[0.42] md:scale-[0.48] lg:scale-[0.36] xl:scale-[0.42]"
-              />
-            </div>
+            {agencyNotes.map((note) => (
+              <div key={note.label} className="grid gap-2 border-b py-5 last:border-b-0 sm:grid-cols-[8rem_minmax(0,1fr)]" style={{ borderColor: 'var(--w-border)' }}>
+                <p className="text-[9px] uppercase tracking-[0.24em]" style={{ color: 'var(--w-gold)' }}>
+                  {note.label}
+                </p>
+                <p className="text-sm font-light leading-relaxed" style={{ color: 'var(--w-cream-2)' }}>
+                  {note.value}
+                </p>
+              </div>
+            ))}
           </div>
 
           <div className="mt-5 grid gap-3 border-t pt-5 text-sm font-light sm:grid-cols-3 lg:grid-cols-1" style={{ borderColor: 'var(--w-border)' }}>
