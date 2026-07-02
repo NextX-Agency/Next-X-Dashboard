@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw, Headphones, Watch } from 'lucide-react'
@@ -33,6 +34,184 @@ interface StockSummary {
   sellingPriceUsd?: number | null
   totalQuantity: number
   locations: StockSummaryLocation[]
+}
+
+interface StockItemSelectorProps {
+  label: string
+  items: Item[]
+  value: string
+  onChange: (itemId: string) => void
+  placeholder: string
+  exchangeRate: number
+  stockTotals: Map<string, number>
+}
+
+function StockItemThumbnail({ item }: { item?: Item }) {
+  if (item?.image_url) {
+    return (
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        <Image
+          src={item.image_url}
+          alt={item.name}
+          fill
+          sizes="48px"
+          className="object-cover"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+      <Package size={20} />
+    </div>
+  )
+}
+
+function StockItemSelector({
+  label,
+  items,
+  value,
+  onChange,
+  placeholder,
+  exchangeRate,
+  stockTotals,
+}: StockItemSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const selectedItem = useMemo(() => items.find((item) => item.id === value), [items, value])
+  const filteredItems = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (!normalizedQuery) return items
+
+    return items.filter((item) => {
+      const catalogLabel = item.catalog_type === 'watches' ? 'watches' : 'audio'
+      return [
+        item.name,
+        item.brand || '',
+        catalogLabel,
+      ].some((part) => part.toLowerCase().includes(normalizedQuery))
+    })
+  }, [items, query])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [isOpen])
+
+  const renderItemMeta = (item: Item) => {
+    const srdPrice = getSellingPrice(item, 'SRD', exchangeRate)
+    const usdPrice = getSellingPrice(item, 'USD', exchangeRate)
+    const catalogLabel = item.catalog_type === 'watches' ? 'Watches' : 'Audio'
+    const totalStock = stockTotals.get(item.id) || 0
+
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        {item.brand && <span className="font-medium text-foreground/80">{item.brand}</span>}
+        <span>{catalogLabel}</span>
+        <span>{totalStock} in stock</span>
+        <span>{formatCurrency(srdPrice, 'SRD')}</span>
+        <span>{formatCurrency(usdPrice, 'USD')}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="input-label">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className="flex min-h-[72px] w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <StockItemThumbnail item={selectedItem} />
+          <div className="min-w-0">
+            <div className={`truncate text-sm font-semibold ${selectedItem ? 'text-foreground' : 'text-muted-foreground'}`}>
+              {selectedItem?.name || placeholder}
+            </div>
+            {selectedItem ? (
+              renderItemMeta(selectedItem)
+            ) : (
+              <div className="mt-1 text-xs text-muted-foreground">Search by product, brand, audio, or watches</div>
+            )}
+          </div>
+        </div>
+        <Search size={18} className="shrink-0 text-muted-foreground" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-[60] mt-2 w-full overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+          <div className="border-b border-border p-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search items..."
+                autoFocus
+                className="input-field with-leading-icon-sm text-sm"
+              />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-y-auto p-1" role="listbox">
+            {value && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('')
+                  setQuery('')
+                  setIsOpen(false)
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-semibold text-muted-foreground hover:bg-muted"
+              >
+                <X size={16} />
+                Clear selection
+              </button>
+            )}
+            {filteredItems.length === 0 ? (
+              <div className="px-3 py-8 text-center text-sm text-muted-foreground">No matching items</div>
+            ) : (
+              filteredItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="option"
+                  aria-selected={item.id === value}
+                  onClick={() => {
+                    onChange(item.id)
+                    setQuery('')
+                    setIsOpen(false)
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    item.id === value ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                  }`}
+                >
+                  <StockItemThumbnail item={item} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-foreground">{item.name}</div>
+                    {renderItemMeta(item)}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function StockPage() {
@@ -404,6 +583,14 @@ export default function StockPage() {
   const totalItems = stockSummaries.length
   const totalQuantity = stockSummaries.reduce((sum, stock) => sum + stock.totalQuantity, 0)
   const hasLoadedData = items.length > 0 || locations.length > 0 || stocks.length > 0
+  const itemStockTotals = useMemo(() => {
+    const totals = new Map<string, number>()
+    stocks.forEach((stock) => {
+      totals.set(stock.item_id, (totals.get(stock.item_id) || 0) + stock.quantity)
+    })
+    return totals
+  }, [stocks])
+
   const renderSelectedItemPrice = (itemId: string) => {
     const item = items.find((stockItem) => stockItem.id === itemId)
     if (!item) return null
@@ -653,17 +840,15 @@ export default function StockPage() {
       <Modal isOpen={showAddForm} onClose={() => { setStockFormError(null); setShowAddForm(false) }} title="Add Stock">
         <form onSubmit={handleAddStock} className="space-y-4">
           {stockFormError && <div className="error-message">{stockFormError}</div>}
-          <Select
+          <StockItemSelector
             label="Item"
+            items={items}
             value={addForm.item_id}
-            onChange={(e) => setAddForm({ ...addForm, item_id: e.target.value })}
-            required
-          >
-            <option value="">Select Item</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </Select>
+            onChange={(itemId) => setAddForm({ ...addForm, item_id: itemId })}
+            placeholder="Select Item"
+            exchangeRate={exchangeRate}
+            stockTotals={itemStockTotals}
+          />
           {renderSelectedItemPrice(addForm.item_id)}
           <Select
             label="Location"
@@ -697,17 +882,15 @@ export default function StockPage() {
       <Modal isOpen={showTransferForm} onClose={() => { setStockFormError(null); setShowTransferForm(false) }} title="Transfer Stock">
         <form onSubmit={handleTransferStock} className="space-y-4">
           {stockFormError && <div className="error-message">{stockFormError}</div>}
-          <Select
+          <StockItemSelector
             label="Item"
+            items={items}
             value={transferForm.item_id}
-            onChange={(e) => setTransferForm({ ...transferForm, item_id: e.target.value })}
-            required
-          >
-            <option value="">Select Item</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </Select>
+            onChange={(itemId) => setTransferForm({ ...transferForm, item_id: itemId })}
+            placeholder="Select Item"
+            exchangeRate={exchangeRate}
+            stockTotals={itemStockTotals}
+          />
           {renderSelectedItemPrice(transferForm.item_id)}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select

@@ -14,6 +14,7 @@ import { Receipt, Search, Filter, Printer, Eye, Calendar, MapPin, User, Clock, S
 import { PageHeader, PageContainer, Button, Select, Badge, LoadingSpinner } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { printHtmlDocument } from '@/lib/printDocument'
 
 interface InvoiceViewData {
   invoiceNumber: string
@@ -176,6 +177,14 @@ export default function InvoicesPage() {
   }, [])
 
   const handlePrintInvoice = useCallback(() => {
+    if (invoiceRef.current) {
+      printHtmlDocument({
+        title: `${selectedInvoice?.type === 'sale' ? 'Invoice' : 'Receipt'} - ${selectedInvoice?.invoiceNumber || ''}`,
+        content: invoiceRef.current.innerHTML,
+      })
+      return
+    }
+
     if (invoiceRef.current) {
       const printContent = invoiceRef.current.innerHTML
       const printWindow = window.open('', '_blank')

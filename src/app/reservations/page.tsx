@@ -12,6 +12,7 @@ import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
 import { logActivity } from '@/lib/activityLog'
+import { printHtmlDocument } from '@/lib/printDocument'
 import type {
   ReservationsPageClient as Client,
   ReservationsPageDataResponse,
@@ -23,6 +24,28 @@ import type {
 
 type Stock = Database['public']['Tables']['stock']['Row']
 type CatalogType = 'audio' | 'watches'
+
+function SelectionItemThumbnail({ item }: { item: Item }) {
+  if (item.image_url) {
+    return (
+      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        <Image
+          src={item.image_url}
+          alt={item.name}
+          fill
+          sizes="44px"
+          className="object-cover"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+      <Package size={18} />
+    </div>
+  )
+}
 
 interface CartItem {
   item: Item
@@ -382,6 +405,14 @@ export default function ReservationsPage() {
   }
 
   const handlePrintInvoice = () => {
+    if (invoiceRef.current) {
+      printHtmlDocument({
+        title: `${invoiceData?.isPaid ? 'Receipt' : 'Invoice'} - ${invoiceData?.invoiceNumber || ''}`,
+        content: invoiceRef.current.innerHTML,
+      })
+      return
+    }
+
     if (invoiceRef.current) {
       const printContent = invoiceRef.current.innerHTML
       const printWindow = window.open('', '_blank')
@@ -1602,7 +1633,8 @@ export default function ReservationsPage() {
                                 : 'bg-muted/30 hover:bg-muted/50 border-transparent'
                             }`}
                           >
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center gap-3">
+                              <SelectionItemThumbnail item={item} />
                               <div className="min-w-0 flex-1">
                                 <div className={`font-medium text-sm truncate ${inCombo ? 'text-orange-600' : 'text-foreground'}`}>
                                   {item.name}

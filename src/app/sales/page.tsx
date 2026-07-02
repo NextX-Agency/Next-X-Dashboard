@@ -16,6 +16,7 @@ import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
 import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useAuth } from '@/lib/AuthContext'
+import { printHtmlDocument } from '@/lib/printDocument'
 
 type Item = Database['public']['Tables']['items']['Row']
 type Location = Database['public']['Tables']['locations']['Row']
@@ -63,6 +64,28 @@ interface InvoiceData {
 
 type WalletType = Database['public']['Tables']['wallets']['Row']
 type CatalogType = 'audio' | 'watches'
+
+function SelectionItemThumbnail({ item }: { item: Item }) {
+  if (item.image_url) {
+    return (
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:h-14 sm:w-14">
+        <Image
+          src={item.image_url}
+          alt={item.name}
+          fill
+          sizes="(max-width: 640px) 48px, 56px"
+          className="object-cover"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground sm:h-14 sm:w-14">
+      <Package size={20} />
+    </div>
+  )
+}
 
 export default function SalesPage() {
   const { dialogProps, confirm } = useConfirmDialog()
@@ -864,6 +887,14 @@ export default function SalesPage() {
   }
 
   const handlePrintInvoice = () => {
+    if (invoiceRef.current) {
+      printHtmlDocument({
+        title: `Invoice - ${invoiceData?.invoiceNumber || ''}`,
+        content: invoiceRef.current.innerHTML,
+      })
+      return
+    }
+
     // Open in new window for print - user can manually print from there
     if (invoiceRef.current) {
       const printContent = invoiceRef.current.innerHTML
@@ -1323,7 +1354,8 @@ export default function SalesPage() {
                               : 'bg-muted/50 hover:bg-muted active:bg-muted/80 border-transparent hover:border-primary/20'
                           }`}
                         >
-                          <div className="flex justify-between items-center gap-2">
+                          <div className="flex justify-between items-center gap-3">
+                            <SelectionItemThumbnail item={item} />
                             <div className="min-w-0 flex-1">
                               <div className={`font-semibold truncate transition-colors text-sm sm:text-base ${
                                 inCombo ? 'text-orange-600' : 'text-foreground group-hover:text-primary'
