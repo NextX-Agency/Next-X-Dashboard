@@ -64,6 +64,12 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;')
 }
 
+function isIOSPrintContext() {
+  const userAgent = window.navigator.userAgent
+  const platform = window.navigator.platform
+  return /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && window.navigator.maxTouchPoints > 1)
+}
+
 export function printHtmlDocument({ title, content, styles = defaultReceiptStyles }: PrintHtmlDocumentOptions) {
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
@@ -96,6 +102,11 @@ export function printHtmlDocument({ title, content, styles = defaultReceiptStyle
   const triggerPrint = () => {
     printWindow.focus()
     printWindow.print()
+  }
+
+  if (isIOSPrintContext()) {
+    triggerPrint()
+    return
   }
 
   const triggerPrintAfterImages = () => {
