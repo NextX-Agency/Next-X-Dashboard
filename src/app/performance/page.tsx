@@ -10,6 +10,7 @@ import {
   MonitorSmartphone,
   RefreshCw,
   Route,
+  Terminal,
   Users,
 } from 'lucide-react'
 import { PageContainer, PageHeader, LoadingSpinner, Badge } from '@/components/UI'
@@ -29,6 +30,40 @@ const CATALOG_OPTIONS: Array<{ value: SiteAnalyticsCatalog; label: string }> = [
 ]
 
 const RANGE_OPTIONS = [7, 30, 90] as const
+const TERMINAL_LINE_OPTIONS = [100, 250, 500, 1000] as const
+
+type TerminalLineOption = (typeof TERMINAL_LINE_OPTIONS)[number]
+
+type TerminalHistoryEntry = {
+  id: string
+  sourceId: string
+  source: string
+  kind: 'history' | 'log'
+  lineNumber: number
+  text: string
+  redacted: boolean
+}
+
+type TerminalHistorySource = {
+  id: string
+  label: string
+  kind: 'history' | 'log'
+  path: string
+  available: boolean
+  lines: number
+  updatedAt: string | null
+  truncated: boolean
+  error?: string
+}
+
+type TerminalHistoryResponse = {
+  generatedAt: string
+  linesPerSource: number
+  maxLinesPerSource: number
+  redactionEnabled: boolean
+  sources: TerminalHistorySource[]
+  entries: TerminalHistoryEntry[]
+}
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('en-US').format(value)
@@ -111,9 +146,14 @@ export default function PerformancePage() {
   const [rangeDays, setRangeDays] = useState<(typeof RANGE_OPTIONS)[number]>(30)
   const [catalog, setCatalog] = useState<SiteAnalyticsCatalog>('all')
   const [data, setData] = useState<SiteAnalyticsResponse | null>(null)
+  const [terminalLog, setTerminalLog] = useState<TerminalHistoryResponse | null>(null)
+  const [terminalLines, setTerminalLines] = useState<TerminalLineOption>(250)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [terminalLoading, setTerminalLoading] = useState(true)
+  const [terminalRefreshing, setTerminalRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [terminalError, setTerminalError] = useState<string | null>(null)
 
   const loadData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true)
@@ -143,9 +183,37 @@ export default function PerformancePage() {
     }
   }, [catalog, rangeDays])
 
+  const loadTerminalLog = useCallback(async (showRefresh = false) => {
+    if (showRefresh) setTerminalRefreshing(true)
+    else setTerminalLoading(true)
+    setTerminalError(null)
+
+    try {
+      const response = await fetch(`/api/dev/terminal-history?lines=${terminalLines}`, {
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to load terminal history.')
+      }
+
+      setTerminalLog(await response.json() as TerminalHistoryResponse)
+    } catch (loadError) {
+      console.error('Terminal history load error:', loadError)
+      setTerminalError(loadError instanceof Error ? loadError.message : 'Unable to load terminal history.')
+    } finally {
+      setTerminalLoading(false)
+      setTerminalRefreshing(false)
+    }
+  }, [terminalLines])
+
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  useEffect(() => {
+    void loadTerminalLog()
+  }, [loadTerminalLog])
 
   const pageViewPeak = useMemo(() => getPageViewPeak(data), [data])
   const routeVitals = useMemo(() => sortRouteVitals(data?.routeVitals ?? []), [data])
@@ -169,6 +237,7 @@ export default function PerformancePage() {
   }, [data])
 
   const hasData = Boolean(data && data.totals.pageViews > 0)
+  const isRefreshing = refreshing || terminalRefreshing
 
   return (
     <div className="min-h-screen pb-20 lg:pb-0">
@@ -179,11 +248,14 @@ export default function PerformancePage() {
         action={
           <button
             type="button"
-            onClick={() => void loadData(true)}
-            disabled={refreshing}
+            onClick={() => {
+              void loadData(true)
+              void loadTerminalLog(true)
+            }}
+            disabled={isRefreshing}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
             Refresh
           </button>
         }
@@ -409,6 +481,16 @@ export default function PerformancePage() {
             </section>
           </div>
         ) : null}
+
+        <TerminalLogPanel
+          terminalLog={terminalLog}
+          loading={terminalLoading}
+          refreshing={terminalRefreshing}
+          error={terminalError}
+          lines={terminalLines}
+          onLinesChange={setTerminalLines}
+          onRefresh={() => void loadTerminalLog(true)}
+        />
       </PageContainer>
     </div>
   )
@@ -474,5 +556,105 @@ function EmptyPanel({ label }: { label: string }) {
     <div className="flex min-h-32 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
       {label}
     </div>
+  )
+}
+
+function TerminalLogPanel({
+  terminalLog,
+  loading,
+  refreshing,
+  error,
+  lines,
+  onLinesChange,
+  onRefresh,
+}: {
+  terminalLog: TerminalHistoryResponse | null
+  loading: boolean
+  refreshing: boolean
+  error: string | null
+  lines: TerminalLineOption
+  onLinesChange: (lines: TerminalLineOption) => void
+  onRefresh: () => void
+}) {
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="rounded-xl bg-primary/10 p-2 text-primary">
+            <Terminal size={18} />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-foreground">Developer Command Line Log</h2>
+            <p className="text-xs text-muted-foreground">Admin-only terminal history and dev server output. Sensitive values are redacted.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            Lines
+            <select
+              value={lines}
+              onChange={(event) => onLinesChange(Number(event.target.value) as TerminalLineOption)}
+              className="select-field min-h-10 min-w-28"
+            >
+              {TERMINAL_LINE_OPTIONS.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            Refresh log
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      ) : loading ? (
+        <LoadingSpinner />
+      ) : !terminalLog || terminalLog.entries.length === 0 ? (
+        <EmptyPanel label="No terminal history files found" />
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {terminalLog.sources.map(source => (
+              <Badge key={source.id} variant={source.available ? 'success' : 'default'}>
+                {source.label}: {source.available ? `${formatNumber(source.lines)} lines` : source.error}
+                {source.truncated ? ' / truncated' : ''}
+              </Badge>
+            ))}
+          </div>
+
+          <div className="max-h-[28rem] overflow-auto rounded-xl bg-[#0d1117] p-3 font-mono text-[11px] leading-5 text-zinc-100 sm:text-xs">
+            {terminalLog.entries.map(entry => (
+              <div
+                key={entry.id}
+                className="grid gap-2 border-b border-white/5 py-1 last:border-b-0 sm:grid-cols-[10rem_1fr]"
+              >
+                <span className="truncate text-zinc-500">
+                  {entry.source}:{entry.lineNumber}
+                </span>
+                <code className="whitespace-pre-wrap break-words">
+                  {entry.text}
+                  {entry.redacted ? <span className="ml-2 text-amber-300">redacted</span> : null}
+                </code>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-2 text-xs text-muted-foreground">
+            Showing {formatNumber(terminalLog.entries.length)} lines from accessible server-side history files. Generated {new Date(terminalLog.generatedAt).toLocaleString()}.
+          </p>
+        </>
+      )}
+    </section>
   )
 }
