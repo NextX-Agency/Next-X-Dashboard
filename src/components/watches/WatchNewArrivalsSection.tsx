@@ -82,7 +82,7 @@ function WatchNewArrivalsSectionComponent({
           className="flex gap-4 lg:gap-5 overflow-x-auto scrollbar-none px-6 lg:px-12 pb-4"
           style={{ scrollSnapType: 'x mandatory' }}
         >
-          {items.map(item => (
+          {items.map((item, index) => (
             <div
               key={item.id}
               className="shrink-0"
@@ -97,6 +97,7 @@ function WatchNewArrivalsSectionComponent({
                 imageUrl={item.imageUrl}
                 sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                 sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
+                imagePriority={index < 3}
                 displayCurrency={displayCurrency}
                 exchangeRate={exchangeRate}
                 stockCount={stockMap[item.id] ?? 0}

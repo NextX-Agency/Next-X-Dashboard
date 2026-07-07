@@ -177,6 +177,9 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
     case 'subscribers':
       await prisma.subscriber.createMany({ data: parsed as any })
       break
+    case 'siteAnalyticsEvents':
+      await prisma.siteAnalyticsEvent.createMany({ data: parsed as any })
+      break
     case 'activityLogs':
       await prisma.activityLog.createMany({ data: parsed as any })
       break
@@ -320,6 +323,9 @@ async function upsertTable(tableName: string, records: Record<string, unknown>[]
           break
         case 'subscribers':
           await prisma.subscriber.upsert({ where: { id }, create: record as any, update: record as any })
+          break
+        case 'siteAnalyticsEvents':
+          await prisma.siteAnalyticsEvent.upsert({ where: { id }, create: record as any, update: record as any })
           break
         case 'activityLogs':
           await prisma.activityLog.upsert({ where: { id }, create: record as any, update: record as any })

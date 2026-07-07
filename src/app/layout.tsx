@@ -3,6 +3,7 @@ import "./globals.css";
 import { CurrencyProvider } from "@/lib/CurrencyContext";
 import { AuthProvider } from "@/lib/AuthContext";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
+import { SiteAnalyticsTracker } from "@/components/SiteAnalyticsTracker";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
@@ -217,6 +218,7 @@ export default function RootLayout({
       <body className="antialiased">
         <AuthProvider>
           <CurrencyProvider>
+            <SiteAnalyticsTracker />
             <LayoutWrapper>
               {children}
             </LayoutWrapper>

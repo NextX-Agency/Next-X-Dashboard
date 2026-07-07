@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Eye, ShoppingBag } from 'lucide-react'
@@ -25,46 +25,9 @@ interface WatchProductCardProps {
   stockCount?: number
   href?: string
   compact?: boolean
+  imagePriority?: boolean
   onAddToCart?: (id: string) => void
   onQuickView?: (id: string) => void
-}
-
-const MAX_CONCURRENT_WATCH_IMAGES = 2
-let activeWatchImageLoads = 0
-const pendingWatchImageLoads: Array<() => void> = []
-
-function scheduleWatchImageLoad(start: () => void) {
-  let queued = true
-
-  const run = () => {
-    if (!queued) return
-    queued = false
-    activeWatchImageLoads += 1
-    start()
-  }
-
-  if (activeWatchImageLoads < MAX_CONCURRENT_WATCH_IMAGES) {
-    run()
-  } else {
-    pendingWatchImageLoads.push(run)
-  }
-
-  return () => {
-    if (!queued) return
-    queued = false
-    const index = pendingWatchImageLoads.indexOf(run)
-    if (index >= 0) {
-      pendingWatchImageLoads.splice(index, 1)
-    }
-  }
-}
-
-function releaseWatchImageLoad() {
-  activeWatchImageLoads = Math.max(0, activeWatchImageLoads - 1)
-  const nextLoad = pendingWatchImageLoads.shift()
-  if (nextLoad) {
-    nextLoad()
-  }
 }
 
 function WatchProductCardComponent({
@@ -82,16 +45,14 @@ function WatchProductCardComponent({
   stockCount = 0,
   href,
   compact = false,
+  imagePriority = false,
   onAddToCart,
   onQuickView,
 }: WatchProductCardProps) {
   const productHref = href ?? `/watches/${id}`
   const price = getWatchSellingPrice({ sellingPriceUsd, sellingPriceSrd }, displayCurrency, exchangeRate)
   const inStock = stockCount > 0
-  const imageContainerRef = useRef<HTMLAnchorElement>(null)
-  const [shouldLoadImage, setShouldLoadImage] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
-  const releaseImageSlotRef = useRef<() => void>(() => {})
   const resolvedImageSizes = imageSizes ?? (
     compact
       ? '(max-width: 640px) 48vw, (max-width: 1024px) 32vw, (max-width: 1536px) 24vw, 19vw'
@@ -106,53 +67,7 @@ function WatchProductCardComponent({
   const shouldShowCategory = Boolean(categoryName && categoryName.toLowerCase() !== brand?.toLowerCase())
 
   useEffect(() => {
-    if (!imageUrl || shouldLoadImage) return
-    const target = imageContainerRef.current
-    if (!target) return
-
-    if (!('IntersectionObserver' in window)) {
-      setImageLoaded(false)
-      setShouldLoadImage(true)
-      return
-    }
-
-    let slotActive = false
-    let slotReleased = false
-    const releaseSlot = () => {
-      if (!slotActive || slotReleased) return
-      slotReleased = true
-      releaseWatchImageLoad()
-    }
-    releaseImageSlotRef.current = releaseSlot
-
-    const requestLoad = () => {
-      scheduleWatchImageLoad(() => {
-        slotActive = true
-        setShouldLoadImage(true)
-      })
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some(entry => entry.isIntersecting)) {
-          requestLoad()
-          observer.disconnect()
-        }
-      },
-      { rootMargin: compact ? '420px 0px' : '520px 0px', threshold: 0.01 }
-    )
-
-    observer.observe(target)
-    return () => {
-      observer.disconnect()
-      releaseSlot()
-      releaseImageSlotRef.current = () => {}
-    }
-  }, [compact, imageUrl, shouldLoadImage])
-
-  useEffect(() => {
     setImageLoaded(false)
-    setShouldLoadImage(false)
   }, [imageUrl])
 
   return (
@@ -166,7 +81,6 @@ function WatchProductCardComponent({
     >
       <div className="relative">
         <Link
-          ref={imageContainerRef}
           href={productHref}
           className={`block relative w-full overflow-hidden border-b ${compact ? 'aspect-square sm:aspect-[4/5]' : 'aspect-[4/5]'}`}
           style={{
@@ -176,22 +90,19 @@ function WatchProductCardComponent({
           tabIndex={-1}
           aria-label={name}
         >
-          {imageUrl && shouldLoadImage ? (
+          {imageUrl ? (
             <Image
               src={imageUrl}
               alt={name}
               fill
               sizes={resolvedImageSizes}
               quality={75}
-              loading="lazy"
+              loading={imagePriority ? undefined : 'lazy'}
               decoding="async"
-              fetchPriority="low"
+              fetchPriority={imagePriority ? 'high' : 'auto'}
+              priority={imagePriority}
               unoptimized={unoptimizedImage}
-              onLoad={() => {
-                setImageLoaded(true)
-                releaseImageSlotRef.current()
-              }}
-              onError={() => releaseImageSlotRef.current()}
+              onLoad={() => setImageLoaded(true)}
               className={`object-contain p-3 transition duration-500 will-change-transform group-hover:scale-[1.025] sm:p-4 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
           ) : null}

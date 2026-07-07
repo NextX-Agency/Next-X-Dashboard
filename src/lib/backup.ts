@@ -45,6 +45,7 @@ export const TABLE_ORDER = [
   'faqs',
   'testimonials',
   'subscribers',
+  'siteAnalyticsEvents',
   'activityLogs',
 ] as const
 
@@ -92,11 +93,13 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   faqs: 'faqs',
   testimonials: 'testimonials',
   subscribers: 'subscribers',
+  siteAnalyticsEvents: 'site_analytics_events',
   activityLogs: 'activity_logs',
 }
 
 export const DELETE_ORDER = [
   'activityLogs',
+  'siteAnalyticsEvents',
   'subscribers',
   'testimonials',
   'faqs',
@@ -243,6 +246,7 @@ export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   await fetchTable('faqs', () => prisma.fAQ.findMany())
   await fetchTable('testimonials', () => prisma.testimonial.findMany())
   await fetchTable('subscribers', () => prisma.subscriber.findMany())
+  await fetchTable('siteAnalyticsEvents', () => prisma.siteAnalyticsEvent.findMany())
   await fetchTable('activityLogs', () => prisma.activityLog.findMany())
 
   return data

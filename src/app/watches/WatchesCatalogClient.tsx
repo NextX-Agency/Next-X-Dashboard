@@ -370,6 +370,13 @@ export default function WatchesCatalogClient({
   )
 
   const heroBanner = banners[0]
+  const watchesHeroTitle = settings.watches_hero_title?.trim() || heroBanner?.title || undefined
+  const watchesHeroSubtitle = settings.watches_hero_subtitle?.trim() || heroBanner?.subtitle || undefined
+  const watchesHeroImage = settings.watches_hero_image_url?.trim() || heroBanner?.imageUrl || undefined
+  const watchesHeroMobileImage = settings.watches_hero_mobile_image_url?.trim() || heroBanner?.mobileImage || undefined
+  const watchesLogoUrl = settings.watches_store_logo_url?.trim() || settings.store_logo_url?.trim() || undefined
+  const watchesStoreDescription = settings.watches_store_description?.trim() || settings.store_description?.trim() || undefined
+  const watchesStoreAddress = settings.store_address?.trim() || undefined
 
   const brandOptions = useMemo<WatchBrandOption[]>(() => {
     const brandMap = new Map<string, WatchBrandOption>()
@@ -626,15 +633,15 @@ export default function WatchesCatalogClient({
 
   return (
     <>
-      <WatchesHeader cartCount={cartCount} onCartClick={() => setCartOpen(true)} />
+      <WatchesHeader cartCount={cartCount} logoUrl={watchesLogoUrl} onCartClick={() => setCartOpen(true)} />
 
       <main style={{ background: 'var(--w-bg)', minHeight: '100svh' }}>
         {/* ── Hero ────────────────────────────────────── */}
         <WatchesHero
-          title={heroBanner?.title ?? undefined}
-          subtitle={heroBanner?.subtitle ?? undefined}
-          imageUrl={heroBanner?.imageUrl ?? undefined}
-          mobileImageUrl={heroBanner?.mobileImage ?? undefined}
+          title={watchesHeroTitle}
+          subtitle={watchesHeroSubtitle}
+          imageUrl={watchesHeroImage}
+          mobileImageUrl={watchesHeroMobileImage}
           ctaLabel={heroBanner?.buttonText ?? heroBanner?.linkText ?? undefined}
           ctaHref={primaryCtaHref}
         />
@@ -1048,7 +1055,7 @@ export default function WatchesCatalogClient({
               </div>
             ) : (
               <div className={cn('grid gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:gap-x-5 lg:gap-y-8', catalogGridClassName)}>
-                {filteredItems.map(item => (
+                {filteredItems.map((item, index) => (
                   <WatchProductCard
                     key={item.id}
                     id={item.id}
@@ -1059,6 +1066,7 @@ export default function WatchesCatalogClient({
                     sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                     sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
                     imageSizes={catalogImageSizes}
+                    imagePriority={index < 6}
                     cartQuantity={getWatchesCartQuantity(cartItems, item.id)}
                     displayCurrency={displayCurrency}
                     exchangeRate={activeExchangeRate}
@@ -1080,7 +1088,12 @@ export default function WatchesCatalogClient({
         <div id="about" />
       </main>
 
-      <WatchesFooter whatsappNumber={whatsappNumber} />
+      <WatchesFooter
+        whatsappNumber={whatsappNumber}
+        logoUrl={watchesLogoUrl}
+        storeAddress={watchesStoreAddress}
+        storeDescription={watchesStoreDescription}
+      />
 
       {quickViewItem && (
         <WatchQuickViewModal
@@ -1229,7 +1242,7 @@ function WatchBrandSection({
           className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-3 sm:gap-4 sm:px-0 lg:gap-5"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {visibleItems.map(item => (
+          {visibleItems.map((item, itemIndex) => (
             <div key={item.id} className="w-[min(72vw,18rem)] shrink-0 snap-start sm:w-[17rem] lg:w-[18rem]">
               <WatchProductCard
                 id={item.id}
@@ -1240,6 +1253,7 @@ function WatchBrandSection({
                 sellingPriceUsd={item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null}
                 sellingPriceSrd={item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null}
                 imageSizes="(max-width: 640px) 72vw, (max-width: 1024px) 17rem, 18rem"
+                imagePriority={index === 0 && itemIndex < 3}
                 cartQuantity={cartQuantityByItemId[item.id] ?? 0}
                 displayCurrency={displayCurrency}
                 exchangeRate={exchangeRate}

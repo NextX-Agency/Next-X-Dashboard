@@ -10,6 +10,7 @@ import { formatCurrencyInputAmount } from '@/lib/pricing'
 
 interface WatchesHeaderProps {
   cartCount?: number
+  logoUrl?: string
   onCartClick?: () => void
 }
 
@@ -24,13 +25,13 @@ const brandLinks = [
   { label: 'Portal', href: '/' },
 ]
 
-function WatchesLogoLockup({ onClick }: { onClick?: () => void }) {
+function WatchesLogoLockup({ logoUrl, onClick }: { logoUrl?: string; onClick?: () => void }) {
   return (
     <div className="flex flex-col items-start leading-none shrink-0">
       <Link href="/watches" onClick={onClick} className="flex flex-col items-start" aria-label="NextX Watches">
         <span className="relative block h-[48px] w-28 sm:h-[63px] sm:w-[148px] lg:h-[70px] lg:w-[164px]">
           <Image
-            src="/nextx-logo-dark.png"
+            src={logoUrl || '/nextx-logo-dark.png'}
             alt="NextX company logo"
             fill
             sizes="(max-width: 640px) 112px, (max-width: 1024px) 148px, 164px"
@@ -128,7 +129,7 @@ function WatchesCurrencyPanel({
   )
 }
 
-function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderProps) {
+function WatchesHeaderComponent({ cartCount = 0, logoUrl, onCartClick }: WatchesHeaderProps) {
   const { displayCurrency, setDisplayCurrency, exchangeRate } = useCurrency()
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -206,7 +207,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           </div>
 
           <div className="flex h-14 items-center justify-between sm:h-14 lg:h-18">
-            <WatchesLogoLockup />
+            <WatchesLogoLockup logoUrl={logoUrl} />
 
             {/* Desktop nav */}
             <nav className="hidden items-center gap-12 lg:flex" aria-label="Primary navigation">
@@ -279,7 +280,7 @@ function WatchesHeaderComponent({ cartCount = 0, onCartClick }: WatchesHeaderPro
           style={{ background: 'var(--w-bg)' }}
         >
           <div className="flex items-center justify-between h-16 px-6 border-b" style={{ borderColor: 'var(--w-border)' }}>
-            <WatchesLogoLockup onClick={() => setMobileOpen(false)} />
+            <WatchesLogoLockup logoUrl={logoUrl} onClick={() => setMobileOpen(false)} />
             <button
               onClick={() => setMobileOpen(false)}
               className="p-2 opacity-50 hover:opacity-100 transition-opacity"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Settings, Save, Phone, Store, DollarSign, Shield, Users, Key, Loader2, Check, AlertCircle, ExternalLink, Globe, ImageIcon, Type, FileText, Palette, Star, Database, Download, Upload, Trash2, RefreshCw, HardDrive, Clock } from 'lucide-react'
+import { Settings, Save, Phone, Store, DollarSign, Shield, Users, Key, Loader2, Check, AlertCircle, ExternalLink, Globe, ImageIcon, Type, FileText, Database, Download, Upload, Trash2, RefreshCw, HardDrive, Clock, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner } from '@/components/UI'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
@@ -22,6 +22,16 @@ interface StoreSettings {
   store_logo_url: string
   hero_title: string
   hero_subtitle: string
+  audio_store_description: string
+  audio_store_logo_url: string
+  audio_hero_title: string
+  audio_hero_subtitle: string
+  watches_store_description: string
+  watches_store_logo_url: string
+  watches_hero_title: string
+  watches_hero_subtitle: string
+  watches_hero_image_url: string
+  watches_hero_mobile_image_url: string
 }
 
 interface User {
@@ -47,10 +57,21 @@ export default function SettingsPage() {
     store_description: '',
     store_logo_url: '',
     hero_title: '',
-    hero_subtitle: ''
+    hero_subtitle: '',
+    audio_store_description: '',
+    audio_store_logo_url: '',
+    audio_hero_title: '',
+    audio_hero_subtitle: '',
+    watches_store_description: '',
+    watches_store_logo_url: '',
+    watches_hero_title: '',
+    watches_hero_subtitle: '',
+    watches_hero_image_url: '',
+    watches_hero_mobile_image_url: ''
   })
   const [users, setUsers] = useState<User[]>([])
   const [activeTab, setActiveTab] = useState<'store' | 'webshop' | 'users' | 'security' | 'backup'>('store')
+  const [activeStorefront, setActiveStorefront] = useState<'audio' | 'watches'>('audio')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -94,7 +115,17 @@ export default function SettingsPage() {
           store_description: settingsMap.store_description || '',
           store_logo_url: settingsMap.store_logo_url || '',
           hero_title: settingsMap.hero_title || '',
-          hero_subtitle: settingsMap.hero_subtitle || ''
+          hero_subtitle: settingsMap.hero_subtitle || '',
+          audio_store_description: settingsMap.audio_store_description || settingsMap.store_description || '',
+          audio_store_logo_url: settingsMap.audio_store_logo_url || settingsMap.store_logo_url || '',
+          audio_hero_title: settingsMap.audio_hero_title || settingsMap.hero_title || '',
+          audio_hero_subtitle: settingsMap.audio_hero_subtitle || settingsMap.hero_subtitle || '',
+          watches_store_description: settingsMap.watches_store_description || '',
+          watches_store_logo_url: settingsMap.watches_store_logo_url || '',
+          watches_hero_title: settingsMap.watches_hero_title || '',
+          watches_hero_subtitle: settingsMap.watches_hero_subtitle || '',
+          watches_hero_image_url: settingsMap.watches_hero_image_url || '',
+          watches_hero_mobile_image_url: settingsMap.watches_hero_mobile_image_url || ''
         })
       }
     } catch (error) {
@@ -407,10 +438,20 @@ export default function SettingsPage() {
         { key: 'store_currency', value: settings.store_currency },
         { key: 'store_address', value: settings.store_address },
         { key: 'store_email', value: settings.store_email },
-        { key: 'store_description', value: settings.store_description },
-        { key: 'store_logo_url', value: settings.store_logo_url },
-        { key: 'hero_title', value: settings.hero_title },
-        { key: 'hero_subtitle', value: settings.hero_subtitle },
+        { key: 'store_description', value: settings.audio_store_description },
+        { key: 'store_logo_url', value: settings.audio_store_logo_url },
+        { key: 'hero_title', value: settings.audio_hero_title },
+        { key: 'hero_subtitle', value: settings.audio_hero_subtitle },
+        { key: 'audio_store_description', value: settings.audio_store_description },
+        { key: 'audio_store_logo_url', value: settings.audio_store_logo_url },
+        { key: 'audio_hero_title', value: settings.audio_hero_title },
+        { key: 'audio_hero_subtitle', value: settings.audio_hero_subtitle },
+        { key: 'watches_store_description', value: settings.watches_store_description },
+        { key: 'watches_store_logo_url', value: settings.watches_store_logo_url },
+        { key: 'watches_hero_title', value: settings.watches_hero_title },
+        { key: 'watches_hero_subtitle', value: settings.watches_hero_subtitle },
+        { key: 'watches_hero_image_url', value: settings.watches_hero_image_url },
+        { key: 'watches_hero_mobile_image_url', value: settings.watches_hero_mobile_image_url },
       ]
 
       for (const setting of settingsToSave) {
@@ -504,6 +545,28 @@ export default function SettingsPage() {
       await supabase.from('users').delete().eq('id', userId)
       loadUsers()
     }
+  }
+
+  const storefrontConfig = activeStorefront === 'audio'
+    ? {
+        label: 'Audio',
+        path: '/audio',
+        logoKey: 'audio_store_logo_url' as const,
+        titleKey: 'audio_hero_title' as const,
+        subtitleKey: 'audio_hero_subtitle' as const,
+        descriptionKey: 'audio_store_description' as const,
+      }
+    : {
+        label: 'Watches',
+        path: '/watches',
+        logoKey: 'watches_store_logo_url' as const,
+        titleKey: 'watches_hero_title' as const,
+        subtitleKey: 'watches_hero_subtitle' as const,
+        descriptionKey: 'watches_store_description' as const,
+      }
+
+  const updateStorefrontSetting = (key: keyof StoreSettings, value: string) => {
+    setSettings(previous => ({ ...previous, [key]: value }))
   }
 
   if (loading) {
@@ -687,35 +750,62 @@ export default function SettingsPage() {
           <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 space-y-5 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">Webshop Content</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">Manage the public catalog appearance</p>
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-1">Storefront Content</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">Manage public content for Audio and Watches separately</p>
               </div>
               <a
-                href="/catalog"
+                href={storefrontConfig.path}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium min-h-11 px-3 bg-primary/10 rounded-lg justify-center sm:justify-start"
               >
                 <ExternalLink size={16} />
-                Preview Webshop
+                Preview {storefrontConfig.label}
               </a>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/30 p-1.5">
+              <button
+                type="button"
+                onClick={() => setActiveStorefront('audio')}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeStorefront === 'audio'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                }`}
+              >
+                <Headphones size={16} />
+                Audio
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveStorefront('watches')}
+                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeStorefront === 'watches'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-card hover:text-foreground'
+                }`}
+              >
+                <Watch size={16} />
+                Watches
+              </button>
             </div>
 
             {/* Logo Section */}
             <div className="border-t border-border pt-5 sm:pt-6">
               <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
                 <ImageIcon size={18} className="sm:w-5 sm:h-5 text-primary" />
-                Store Logo
+                {storefrontConfig.label} Logo
               </h3>
               <div className="space-y-3 sm:space-y-4">
                 <ImageUpload
-                  value={settings.store_logo_url}
-                  onChange={(url) => setSettings({ ...settings, store_logo_url: url || '' })}
-                  folder="store"
-                  label="Store Logo"
+                  value={settings[storefrontConfig.logoKey]}
+                  onChange={(url) => updateStorefrontSetting(storefrontConfig.logoKey, url || '')}
+                  folder={activeStorefront === 'audio' ? 'store/audio' : 'store/watches'}
+                  label={`${storefrontConfig.label} Logo`}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Upload your store logo. For best results, use a PNG with transparent background (max 5MB).
+                  Upload a logo for this storefront. Audio also updates the legacy /catalog fallback when saved.
                 </p>
               </div>
             </div>
@@ -729,38 +819,63 @@ export default function SettingsPage() {
               <div className="space-y-3 sm:space-y-4">
                 <Input
                   label="Hero Title"
-                  value={settings.hero_title}
-                  onChange={(e) => setSettings({ ...settings, hero_title: e.target.value })}
-                  placeholder="Welkom bij onze store"
+                  value={settings[storefrontConfig.titleKey]}
+                  onChange={(e) => updateStorefrontSetting(storefrontConfig.titleKey, e.target.value)}
+                  placeholder={activeStorefront === 'watches' ? 'Timeless Precision' : 'Welkom bij NextX Audio'}
                 />
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Hero Subtitle</label>
                   <textarea
-                    value={settings.hero_subtitle}
-                    onChange={(e) => setSettings({ ...settings, hero_subtitle: e.target.value })}
-                    placeholder="Ontdek ons assortiment van premium producten"
+                    value={settings[storefrontConfig.subtitleKey]}
+                    onChange={(e) => updateStorefrontSetting(storefrontConfig.subtitleKey, e.target.value)}
+                    placeholder={activeStorefront === 'watches' ? 'A curated edit of statement and everyday timepieces.' : 'Ontdek premium in-ear monitors en audio accessoires.'}
                     className="input-field min-h-20 sm:min-h-20 resize-y"
                     rows={3}
                   />
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  The hero section is the first thing customers see when they visit your webshop.
+                  {activeStorefront === 'watches'
+                    ? 'Watches uses these values for the hero before falling back to active banner content.'
+                    : 'Audio uses these values in the public storefront and keeps /catalog compatible.'}
                 </p>
               </div>
             </div>
+
+            {activeStorefront === 'watches' && (
+              <div className="border-t border-border pt-5 sm:pt-6">
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                  <ImageIcon size={18} className="sm:w-5 sm:h-5 text-primary" />
+                  Watches Hero Images
+                </h3>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ImageUpload
+                    value={settings.watches_hero_image_url}
+                    onChange={(url) => updateStorefrontSetting('watches_hero_image_url', url || '')}
+                    folder="store/watches"
+                    label="Desktop Hero Image"
+                  />
+                  <ImageUpload
+                    value={settings.watches_hero_mobile_image_url}
+                    onChange={(url) => updateStorefrontSetting('watches_hero_mobile_image_url', url || '')}
+                    folder="store/watches"
+                    label="Mobile Hero Image"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Store Description */}
             <div className="border-t border-border pt-5 sm:pt-6">
               <h3 className="text-base sm:text-lg font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
                 <FileText size={18} className="sm:w-5 sm:h-5 text-primary" />
-                Store Description
+                {storefrontConfig.label} Description
               </h3>
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Description</label>
                   <textarea
-                    value={settings.store_description}
-                    onChange={(e) => setSettings({ ...settings, store_description: e.target.value })}
+                    value={settings[storefrontConfig.descriptionKey]}
+                    onChange={(e) => updateStorefrontSetting(storefrontConfig.descriptionKey, e.target.value)}
                     placeholder="Tell customers about your store, products, and what makes you unique..."
                     className="input-field min-h-[100px] sm:min-h-[120px] resize-y"
                     rows={4}
@@ -779,10 +894,10 @@ export default function SettingsPage() {
                 Webshop Tips
               </h3>
               <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
-                <li>• Mark items as &quot;Public&quot; in the Items page to show them on the webshop</li>
-                <li>• Add descriptions to items to help customers understand your products</li>
-                <li>• Make sure your WhatsApp number is correct for order notifications</li>
-                <li>• Use high-quality product images for better customer engagement</li>
+                <li>• Set the Catalog Focus in the sidebar before managing products for Audio or Watches</li>
+                <li>• Mark items as &quot;Public&quot; in the Items page to show them on the selected storefront</li>
+                <li>• Keep product images below 5MB and prefer sharp WebP/JPG uploads</li>
+                <li>• Make sure your WhatsApp number is correct for storefront order notifications</li>
               </ul>
             </div>
 

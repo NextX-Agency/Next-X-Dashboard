@@ -39,6 +39,40 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
+model SiteAnalyticsEvent {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  eventType          String   @map("event_type")
+  route              String
+  path               String
+  catalogType        String?  @map("catalog_type")
+  visitorId          String?  @map("visitor_id")
+  sessionId          String?  @map("session_id")
+  referrerHost       String?  @map("referrer_host")
+  source             String?
+  deviceType         String?  @map("device_type")
+  viewportWidth      Int?     @map("viewport_width")
+  viewportHeight     Int?     @map("viewport_height")
+  connectionType     String?  @map("connection_type")
+  metricName         String?  @map("metric_name")
+  metricValue        Float?   @map("metric_value")
+  metricRating       String?  @map("metric_rating")
+  metricId           String?  @map("metric_id")
+  navigationType     String?  @map("navigation_type")
+  loadTimeMs         Int?     @map("load_time_ms")
+  ttfbMs             Int?     @map("ttfb_ms")
+  domContentLoadedMs Int?     @map("dom_content_loaded_ms")
+  country            String?
+  userAgentHash      String?  @map("user_agent_hash")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([catalogType, createdAt(sort: Desc)], map: "idx_site_analytics_catalog_created")
+  @@index([createdAt(sort: Desc)], map: "idx_site_analytics_created")
+  @@index([eventType, createdAt(sort: Desc)], map: "idx_site_analytics_event_created")
+  @@index([metricName, createdAt(sort: Desc)], map: "idx_site_analytics_metric_created")
+  @@index([route, createdAt(sort: Desc)], map: "idx_site_analytics_route_created")
+  @@map("site_analytics_events")
+}
+
 model StoreSetting {
   id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   key       String    @unique

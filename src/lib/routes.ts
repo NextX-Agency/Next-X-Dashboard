@@ -41,6 +41,7 @@ export const ADMIN_ROUTES = [
   '/exchange',
   '/locations',
   '/reports',
+  '/performance',
   '/settings',
   '/activity',
   '/reservations',

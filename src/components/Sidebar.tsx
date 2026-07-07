@@ -25,7 +25,8 @@ import {
   ChevronDown,
   ChevronRight,
   Headphones,
-  Watch
+  Watch,
+  Gauge
 } from 'lucide-react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
 
@@ -101,6 +102,7 @@ export default function Sidebar() {
       title: 'Analytics',
       items: [
         { name: 'Reports', icon: BarChart3, path: '/reports' },
+        { name: 'Performance', icon: Gauge, path: '/performance' },
         { name: 'Activity Log', icon: Activity, path: '/activity' },
       ],
     },

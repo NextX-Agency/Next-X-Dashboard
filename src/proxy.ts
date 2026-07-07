@@ -17,7 +17,7 @@ const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
 const ADMIN_ROUTES = [
   '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
   '/budgets', '/wallets', '/commissions', '/exchange', '/locations',
-  '/reports', '/settings', '/activity', '/reservations', '/invoices',
+  '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
   '/upload-example', '/migrate', '/recalculate-commissions'
 ]
 const ADMIN_PREFIXES = ['/api/']

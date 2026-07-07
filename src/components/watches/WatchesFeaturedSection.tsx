@@ -108,6 +108,7 @@ function WatchesFeaturedSectionComponent({
                 cartQuantityByItemId={cartQuantityByItemId}
                 displayCurrency={displayCurrency}
                 exchangeRate={exchangeRate}
+                imagePriority={i < 3}
                 onAddToCart={onAddToCart}
                 onQuickView={onQuickView}
               />
@@ -163,6 +164,7 @@ function WatchesFeaturedSectionComponent({
               displayCurrency={displayCurrency}
               exchangeRate={exchangeRate}
               isHero
+              imagePriority
               onAddToCart={onAddToCart}
               onQuickView={onQuickView}
             />
@@ -211,6 +213,7 @@ interface FeaturedCardProps {
   displayCurrency: Currency
   exchangeRate: number
   isHero?: boolean
+  imagePriority?: boolean
   onAddToCart?: (id: string) => void
   onQuickView?: (id: string) => void
 }
@@ -223,6 +226,7 @@ function FeaturedCard({
   displayCurrency,
   exchangeRate,
   isHero,
+  imagePriority = false,
   onAddToCart,
   onQuickView,
 }: FeaturedCardProps) {
@@ -233,6 +237,7 @@ function FeaturedCard({
       brand={brandByItemId?.[item.id] ?? item.brand ?? undefined}
       imageUrl={item.imageUrl}
       imageSizes={isHero ? '(max-width: 1024px) 100vw, 44vw' : '(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw'}
+      imagePriority={imagePriority}
       cartQuantity={cartQuantityByItemId?.[item.id] ?? 0}
       sellingPriceUsd={item.sellingPriceUsd}
       sellingPriceSrd={item.sellingPriceSrd}

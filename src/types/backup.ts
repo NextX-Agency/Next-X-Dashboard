@@ -1,4 +1,4 @@
-export const BACKUP_VERSION = 3
+export const BACKUP_VERSION = 4
 export const WIPE_RESTORE_CONFIRMATION = 'WIPE DATABASE'
 
 export type BackupKind = 'manual' | 'auto' | 'pre-restore' | 'unknown'

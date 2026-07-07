@@ -157,18 +157,18 @@ function createStockMap(stockData: unknown[]): Map<string, number> {
 }
 
 function createStoreSettings(settingsMap: Record<string, string>): StoreSettings {
-  const logoUrl = settingsMap.store_logo_url || ''
+  const logoUrl = settingsMap.audio_store_logo_url || settingsMap.store_logo_url || ''
   const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
 
   return {
     whatsapp_number: settingsMap.whatsapp_number || DEFAULT_SETTINGS.whatsapp_number,
     store_name: settingsMap.store_name || DEFAULT_SETTINGS.store_name,
-    store_description: settingsMap.store_description || DEFAULT_SETTINGS.store_description,
+    store_description: settingsMap.audio_store_description || settingsMap.store_description || DEFAULT_SETTINGS.store_description,
     store_address: settingsMap.store_address || DEFAULT_SETTINGS.store_address,
     store_email: settingsMap.store_email || DEFAULT_SETTINGS.store_email,
     store_logo_url: validLogoUrl,
-    hero_title: settingsMap.hero_title || DEFAULT_SETTINGS.hero_title,
-    hero_subtitle: settingsMap.hero_subtitle || DEFAULT_SETTINGS.hero_subtitle,
+    hero_title: settingsMap.audio_hero_title || settingsMap.hero_title || DEFAULT_SETTINGS.hero_title,
+    hero_subtitle: settingsMap.audio_hero_subtitle || settingsMap.hero_subtitle || DEFAULT_SETTINGS.hero_subtitle,
   }
 }
 
@@ -337,19 +337,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         // Set settings
         if (Object.keys(apiData.settings).length > 0) {
           const settingsMap = apiData.settings
-          const logoUrl = settingsMap.store_logo_url || ''
-          const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
-          
-          setSettings({
-            whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
-            store_name: settingsMap.store_name || 'NextX',
-            store_description: settingsMap.store_description || '',
-            store_address: settingsMap.store_address || 'Commewijne, Noord',
-            store_email: settingsMap.store_email || '',
-            store_logo_url: validLogoUrl,
-            hero_title: settingsMap.hero_title || 'Welkom',
-            hero_subtitle: settingsMap.hero_subtitle || ''
-          })
+          setSettings(createStoreSettings(settingsMap))
         }
         
         // Set stock
@@ -446,19 +434,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
           settingsRes.data.forEach((s: { key: string; value: string }) => {
             settingsMap[s.key] = s.value
           })
-          const logoUrl = settingsMap.store_logo_url || ''
-          const validLogoUrl = logoUrl && logoUrl !== '/logo.png' ? logoUrl : ''
-          
-          setSettings({
-            whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
-            store_name: settingsMap.store_name || 'NextX',
-            store_description: settingsMap.store_description || '',
-            store_address: settingsMap.store_address || 'Commewijne, Noord',
-            store_email: settingsMap.store_email || '',
-            store_logo_url: validLogoUrl,
-            hero_title: settingsMap.hero_title || 'Welkom',
-            hero_subtitle: settingsMap.hero_subtitle || ''
-          })
+          setSettings(createStoreSettings(settingsMap))
         }
 
         const { data: stockData } = await supabase

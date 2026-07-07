@@ -1,3 +1,9 @@
 export function shouldBypassNextImageOptimization(src?: string | null) {
-  return Boolean(src?.includes('.public.blob.vercel-storage.com'))
+  if (!src) return false
+
+  const normalizedSrc = src.split('?')[0].toLowerCase()
+  return normalizedSrc.endsWith('.svg')
+    || normalizedSrc.endsWith('.gif')
+    || normalizedSrc.startsWith('data:')
+    || normalizedSrc.startsWith('blob:')
 }

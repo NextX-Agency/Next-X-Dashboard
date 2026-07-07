@@ -7,12 +7,14 @@ import { Instagram, MessageCircle } from 'lucide-react'
 
 interface WatchesFooterProps {
   whatsappNumber?: string
+  logoUrl?: string
   storeAddress?: string
   storeDescription?: string
 }
 
 function WatchesFooterComponent({
   whatsappNumber = '5978555555',
+  logoUrl,
   storeAddress = 'Paramaribo, Suriname',
   storeDescription = 'Curated luxury timepieces from NextX — delivering exceptional watches with personal service and expertise.',
 }: WatchesFooterProps) {
@@ -72,7 +74,7 @@ function WatchesFooterComponent({
             <Link href="/watches" className="inline-flex flex-col items-start mb-5">
               <span className="relative block h-[51px] w-[120px] sm:h-[58px] sm:w-[136px]">
                 <Image
-                  src="/nextx-logo-dark.png"
+                  src={logoUrl || '/nextx-logo-dark.png'}
                   alt="NextX company logo"
                   fill
                   sizes="(max-width: 640px) 120px, 136px"

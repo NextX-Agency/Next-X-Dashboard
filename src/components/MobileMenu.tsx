@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Layers,
   ClipboardList,
+  Gauge,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
@@ -52,7 +53,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
     if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
     if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
-    if (pathname.startsWith('/reports') || pathname.startsWith('/activity')) return 'Analytics'
+    if (pathname.startsWith('/reports') || pathname.startsWith('/performance') || pathname.startsWith('/activity')) return 'Analytics'
     if (pathname.startsWith('/settings')) return 'System'
     return 'Store'
   }, [pathname])
@@ -126,6 +127,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       title: 'Analytics',
       items: [
         { name: 'Reports', icon: BarChart3, path: '/reports' },
+        { name: 'Performance', icon: Gauge, path: '/performance' },
         { name: 'Activity Log', icon: Activity, path: '/activity' },
       ],
     },
