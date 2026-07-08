@@ -711,6 +711,23 @@ export interface Database {
           entity_name: string | null
           details: string | null
           user_id: string | null
+          actor_user_id: string | null
+          actor_email: string | null
+          actor_name: string | null
+          actor_role: string | null
+          operator_id: string | null
+          operator_name: string | null
+          operator_source: string | null
+          operator_session: string | null
+          request_id: string | null
+          request_method: string | null
+          request_path: string | null
+          source: string | null
+          ip_hash: string | null
+          user_agent_hash: string | null
+          metadata: Json | null
+          checksum: string | null
+          previous_checksum: string | null
           created_at: string
         }
         Insert: {
@@ -721,6 +738,23 @@ export interface Database {
           entity_name?: string | null
           details?: string | null
           user_id?: string | null
+          actor_user_id?: string | null
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          operator_id?: string | null
+          operator_name?: string | null
+          operator_source?: string | null
+          operator_session?: string | null
+          request_id?: string | null
+          request_method?: string | null
+          request_path?: string | null
+          source?: string | null
+          ip_hash?: string | null
+          user_agent_hash?: string | null
+          metadata?: Json | null
+          checksum?: string | null
+          previous_checksum?: string | null
           created_at?: string
         }
         Update: {
@@ -731,6 +765,23 @@ export interface Database {
           entity_name?: string | null
           details?: string | null
           user_id?: string | null
+          actor_user_id?: string | null
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          operator_id?: string | null
+          operator_name?: string | null
+          operator_source?: string | null
+          operator_session?: string | null
+          request_id?: string | null
+          request_method?: string | null
+          request_path?: string | null
+          source?: string | null
+          ip_hash?: string | null
+          user_agent_hash?: string | null
+          metadata?: Json | null
+          checksum?: string | null
+          previous_checksum?: string | null
           created_at?: string
         }
       }

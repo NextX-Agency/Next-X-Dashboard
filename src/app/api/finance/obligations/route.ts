@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import type {
   FinanceObligationRecord,
   FinanceObligationStatus,
@@ -247,15 +248,16 @@ export async function POST(request: NextRequest) {
         select: obligationSelect,
       })
 
-      await tx.activityLog.create({
-        data: {
-          action: 'create',
-          entityType: 'finance_obligation',
-          entityId: created.id,
-          entityName: counterpartyName,
-          details: `Created ${type} for ${counterpartyName}: ${originalAmount.toFixed(2)} ${currency}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'create',
+        entityType: 'finance_obligation',
+        entityId: created.id,
+        entityName: counterpartyName,
+        details: `Created ${type} for ${counterpartyName}: ${originalAmount.toFixed(2)} ${currency}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return created
@@ -319,15 +321,16 @@ export async function PATCH(request: NextRequest) {
         select: obligationSelect,
       })
 
-      await tx.activityLog.create({
-        data: {
-          action: 'update',
-          entityType: 'finance_obligation',
-          entityId: updated.id,
-          entityName: updated.counterpartyName,
-          details: `Updated ${updated.type} for ${updated.counterpartyName}: status ${updated.status}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'update',
+        entityType: 'finance_obligation',
+        entityId: updated.id,
+        entityName: updated.counterpartyName,
+        details: `Updated ${updated.type} for ${updated.counterpartyName}: status ${updated.status}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return updated
@@ -355,15 +358,16 @@ export async function DELETE(request: NextRequest) {
       if (!current) throw new ApiError('Finance obligation not found.', 404)
 
       await tx.financeObligation.delete({ where: { id } })
-      await tx.activityLog.create({
-        data: {
-          action: 'delete',
-          entityType: 'finance_obligation',
-          entityId: id,
-          entityName: current.counterpartyName,
-          details: `Deleted ${current.type} for ${current.counterpartyName}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'delete',
+        entityType: 'finance_obligation',
+        entityId: id,
+        entityName: current.counterpartyName,
+        details: `Deleted ${current.type} for ${current.counterpartyName}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
     })
 

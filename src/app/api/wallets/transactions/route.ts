@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 
 type TransactionMode = 'add' | 'remove' | 'correct'
 
@@ -123,17 +124,18 @@ export async function POST(request: NextRequest) {
           },
         })
 
-      await tx.activityLog.create({
-        data: {
-          action: 'update',
-          entityType: 'wallet',
-          entityId: walletId,
-          entityName: `${wallet.locations?.name || wallet.personName} - ${wallet.type} ${wallet.currency}`,
-          details: mode === 'correct'
-            ? `Corrected balance from ${previousBalance.toFixed(2)} ${wallet.currency} to ${nextBalance.toFixed(2)} ${wallet.currency}`
-            : `${mode === 'add' ? 'Added' : 'Removed'} ${amount.toFixed(2)} ${wallet.currency}; balance is now ${nextBalance.toFixed(2)} ${wallet.currency}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'update',
+        entityType: 'wallet',
+        entityId: walletId,
+        entityName: `${wallet.locations?.name || wallet.personName} - ${wallet.type} ${wallet.currency}`,
+        details: mode === 'correct'
+          ? `Corrected balance from ${previousBalance.toFixed(2)} ${wallet.currency} to ${nextBalance.toFixed(2)} ${wallet.currency}`
+          : `${mode === 'add' ? 'Added' : 'Removed'} ${amount.toFixed(2)} ${wallet.currency}; balance is now ${nextBalance.toFixed(2)} ${wallet.currency}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return { wallet: updatedWallet, transaction }

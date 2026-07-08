@@ -24,18 +24,38 @@ model User {
 }
 
 model ActivityLog {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  action     String
-  entityType String    @map("entity_type")
-  entityId   String?   @map("entity_id")
-  entityName String?   @map("entity_name")
-  details    String?
-  userId     String?   @map("user_id") @db.Uuid
-  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  action           String
+  entityType       String    @map("entity_type")
+  entityId         String?   @map("entity_id")
+  entityName       String?   @map("entity_name")
+  details          String?
+  userId           String?   @map("user_id") @db.Uuid
+  actorUserId      String?   @map("actor_user_id") @db.Uuid
+  actorEmail       String?   @map("actor_email")
+  actorName        String?   @map("actor_name")
+  actorRole        String?   @map("actor_role")
+  operatorId       String?   @map("operator_id")
+  operatorName     String?   @map("operator_name")
+  operatorSource   String?   @map("operator_source")
+  operatorSession  String?   @map("operator_session")
+  requestId        String?   @map("request_id")
+  requestMethod    String?   @map("request_method")
+  requestPath      String?   @map("request_path")
+  source           String?
+  ipHash           String?   @map("ip_hash")
+  userAgentHash    String?   @map("user_agent_hash")
+  metadata         Json?
+  checksum         String?
+  previousChecksum String?   @map("previous_checksum")
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([action], map: "idx_activity_logs_action")
+  @@index([actorUserId], map: "idx_activity_logs_actor_user")
   @@index([createdAt(sort: Desc)], map: "idx_activity_logs_created")
   @@index([entityType], map: "idx_activity_logs_entity")
+  @@index([operatorName, createdAt(sort: Desc)], map: "idx_activity_logs_operator_created")
+  @@index([requestPath, createdAt(sort: Desc)], map: "idx_activity_logs_request_created")
   @@map("activity_logs")
 }
 

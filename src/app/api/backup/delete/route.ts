@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
-import { logActivity } from '@/lib/activityLog'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import { isAllowedBackupUrl } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
@@ -29,11 +29,14 @@ export async function POST(request: NextRequest) {
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    await logActivity({
+    await writeActivityLog({
       action: 'delete',
       entityType: 'settings',
       entityName: 'Database Backup',
       details: `Backup deleted: ${url}`,
+      user: authResult,
+      request,
+      source: 'server',
     })
 
     return NextResponse.json({ success: true })

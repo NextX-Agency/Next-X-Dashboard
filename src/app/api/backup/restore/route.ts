@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { logActivity } from '@/lib/activityLog'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import {
   createBackupPayload,
   DELETE_ORDER,
@@ -467,11 +467,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await logActivity({
+    await writeActivityLog({
       action: 'update',
       entityType: 'settings',
       entityName: 'Database Restore',
       details: `Restored database (${mode} mode). Tables: ${Object.keys(results).length}, Errors: ${errors.length}, Safety snapshot: ${safetyBackup.pathname}`,
+      user: authResult,
+      request,
+      source: 'server',
     })
 
     return NextResponse.json({

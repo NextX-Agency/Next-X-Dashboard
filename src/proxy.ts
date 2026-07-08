@@ -41,7 +41,9 @@ const PROTECTED_API_PREFIXES = [
   '/api/create-missing-commissions',
   '/api/backup/export', '/api/backup/save', '/api/backup/list',
   '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
-  '/api/backup/download'
+  '/api/backup/download',
+  '/api/activity',
+  '/api/dev/terminal-history'
 ]
 
 function isPublicRoute(pathname: string): boolean {

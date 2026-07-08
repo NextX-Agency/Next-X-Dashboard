@@ -27,6 +27,7 @@ export type EntityType =
   | 'client'
   | 'commission'
   | 'exchange_rate'
+  | 'finance_obligation'
   | 'purchase_order'
   | 'blog_post'
   | 'blog_category'
@@ -47,6 +48,39 @@ interface LogActivityParams {
   entityName?: string | null
   details?: string | null
   userId?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
+const OPERATOR_PROFILE_STORAGE_KEY = 'nextx_operator_profile'
+const OPERATOR_SESSION_STORAGE_KEY = 'nextx_operator_session_id'
+
+function getBrowserOperatorContext() {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const rawProfile = window.localStorage.getItem(OPERATOR_PROFILE_STORAGE_KEY)
+    const profile = rawProfile ? JSON.parse(rawProfile) as { id?: string; name?: string } : null
+    let session = window.sessionStorage.getItem(OPERATOR_SESSION_STORAGE_KEY)
+
+    if (!session) {
+      session = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      window.sessionStorage.setItem(OPERATOR_SESSION_STORAGE_KEY, session)
+    }
+
+    return {
+      id: profile?.id,
+      name: profile?.name,
+      session,
+    }
+  } catch {
+    return null
+  }
+}
+
+function encodeHeaderValue(value: string | null | undefined) {
+  return encodeURIComponent(value ?? '')
 }
 
 /**
@@ -61,9 +95,35 @@ export async function logActivity({
   entityId = null,
   entityName = null,
   details = null,
-  userId = null
+  userId = null,
+  metadata = null
 }: LogActivityParams) {
   try {
+    if (typeof window !== 'undefined') {
+      const operator = getBrowserOperatorContext()
+      await fetch('/api/activity/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-nextx-operator-id': encodeHeaderValue(operator?.id),
+          'x-nextx-operator-name': encodeHeaderValue(operator?.name),
+          'x-nextx-operator-session': encodeHeaderValue(operator?.session),
+          'x-nextx-operator-source': 'browser',
+        },
+        body: JSON.stringify({
+          action,
+          entityType,
+          entityId,
+          entityName,
+          details,
+          userId,
+          operator,
+          metadata,
+        }),
+      })
+      return
+    }
+
     const insertData: Record<string, unknown> = {
       action,
       entity_type: entityType,
@@ -117,6 +177,7 @@ export function getEntityTypeText(entityType: string): string {
     case 'client': return 'Client'
     case 'commission': return 'Commission'
     case 'exchange_rate': return 'Exchange Rate'
+    case 'finance_obligation': return 'Finance Obligation'
     case 'purchase_order': return 'Purchase Order'
     case 'blog_post': return 'Blog Post'
     case 'blog_category': return 'Blog Category'

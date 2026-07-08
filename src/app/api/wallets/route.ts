@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import type {
   WalletsPageDataPayload,
   WalletsPageLocation,
@@ -326,15 +327,16 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      await tx.activityLog.create({
-        data: {
-          action: 'create',
-          entityType: 'wallet',
-          entityId: created.id,
-          entityName: walletName(location.name, purpose, type, currency),
-          details: `Created ${WALLET_PURPOSE_LABELS[purpose]} ${type} ${currency} wallet for ${location.name} with opening balance ${balance.toFixed(2)} ${currency}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'create',
+        entityType: 'wallet',
+        entityId: created.id,
+        entityName: walletName(location.name, purpose, type, currency),
+        details: `Created ${WALLET_PURPOSE_LABELS[purpose]} ${type} ${currency} wallet for ${location.name} with opening balance ${balance.toFixed(2)} ${currency}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return created
@@ -440,17 +442,18 @@ export async function PATCH(request: NextRequest) {
         })
       }
 
-      await tx.activityLog.create({
-        data: {
-          action: 'update',
-          entityType: 'wallet',
-          entityId: walletId,
-          entityName: walletName(location.name, purpose, type, currency),
-          details: difference === 0
-            ? `Updated wallet details for ${location.name}`
-            : `Corrected balance from ${previousBalance.toFixed(2)} ${current.currency} to ${balance.toFixed(2)} ${currency}`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'update',
+        entityType: 'wallet',
+        entityId: walletId,
+        entityName: walletName(location.name, purpose, type, currency),
+        details: difference === 0
+          ? `Updated wallet details for ${location.name}`
+          : `Corrected balance from ${previousBalance.toFixed(2)} ${current.currency} to ${balance.toFixed(2)} ${currency}`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return updated
@@ -497,15 +500,16 @@ export async function DELETE(request: NextRequest) {
 
       await tx.wallet.delete({ where: { id: walletId } })
 
-      await tx.activityLog.create({
-        data: {
-          action: 'delete',
-          entityType: 'wallet',
-          entityId: walletId,
-          entityName: walletName(wallet.locations?.name || wallet.personName, normalizePurpose(wallet.purpose), wallet.type, wallet.currency),
-          details: 'Deleted empty wallet with no financial history',
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'delete',
+        entityType: 'wallet',
+        entityId: walletId,
+        entityName: walletName(wallet.locations?.name || wallet.personName, normalizePurpose(wallet.purpose), wallet.type, wallet.currency),
+        details: 'Deleted empty wallet with no financial history',
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
     }, {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,

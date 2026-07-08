@@ -9,6 +9,7 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { WorkspaceLoadingScreen } from './UI'
 import { isPublicRoute, isAdminRoute } from '@/lib/routes'
+import { OperatorProvider } from '@/lib/OperatorContext'
 
 function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -44,26 +45,28 @@ function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   if (isAuthenticated && isAdmin) {
     return (
       <AuthGuard>
-        <div className="flex h-dvh overflow-hidden bg-gray-900">
-          {/* Desktop Sidebar - only shown to admins */}
-          <Sidebar />
-          
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-            {/* Top Bar */}
-            <TopBar />
+        <OperatorProvider>
+          <div className="flex h-dvh overflow-hidden bg-gray-900">
+            {/* Desktop Sidebar - only shown to admins */}
+            <Sidebar />
             
-            {/* Page Content - Extra padding on mobile for bottom nav */}
-            <main className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8 overscroll-contain">
-              <div className="h-full">
-                {children}
-              </div>
-            </main>
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+              {/* Top Bar */}
+              <TopBar />
+              
+              {/* Page Content - Extra padding on mobile for bottom nav */}
+              <main className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8 overscroll-contain">
+                <div className="h-full">
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
-        </div>
-        
-        {/* Mobile Bottom Navigation - only shown to admins */}
-        <BottomNav />
+          
+          {/* Mobile Bottom Navigation - only shown to admins */}
+          <BottomNav />
+        </OperatorProvider>
       </AuthGuard>
     )
   }

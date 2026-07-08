@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
-import { logActivity } from '@/lib/activityLog'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import { saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
@@ -20,11 +20,14 @@ export async function POST(request: NextRequest) {
 
     const savedBackup = await saveBackupToBlob(validation.backup)
 
-    await logActivity({
+    await writeActivityLog({
       action: 'create',
       entityType: 'settings',
       entityName: 'Database Backup',
       details: `Manual backup created: ${savedBackup.pathname} (${(savedBackup.size / 1024).toFixed(1)} KB, ${validation.backup.totalRows} rows)`,
+      user: authResult,
+      request,
+      source: 'server',
     })
 
     return NextResponse.json({

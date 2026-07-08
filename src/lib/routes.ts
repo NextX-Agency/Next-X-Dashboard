@@ -90,6 +90,8 @@ export const PROTECTED_API_ROUTES = [
   '/api/backup/validate',
   '/api/backup/self-check',
   '/api/backup/download',
+  '/api/activity',
+  '/api/dev/terminal-history',
 ] as const
 
 // Helper function to check if a path is a public route

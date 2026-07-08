@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Menu, DollarSign, LogOut, Headphones, Watch } from 'lucide-react'
+import { Bell, Menu, DollarSign, LogOut, Headphones, Watch, UserCheck, Pencil } from 'lucide-react'
 import { useState, useCallback, useMemo, memo } from 'react'
 import Image from 'next/image'
 import MobileMenu from './MobileMenu'
@@ -8,6 +8,7 @@ import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useAdminCatalog } from '@/lib/adminCatalog'
+import { useOperator } from '@/lib/OperatorContext'
 
 function TopBarComponent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -15,6 +16,7 @@ function TopBarComponent() {
   const { displayCurrency, setDisplayCurrency, exchangeRate } = useCurrency()
   const { user, logout } = useAuth()
   const { catalog, setCatalog } = useAdminCatalog()
+  const { profile: operatorProfile, openOperatorDialog } = useOperator()
   const router = useRouter()
 
   const handleLogout = useCallback(async () => {
@@ -68,9 +70,16 @@ function TopBarComponent() {
               </span>
             </div>
             <div className="hidden lg:block h-7 w-px bg-gray-800/80" />
-            <div className="hidden lg:block text-sm text-gray-400 truncate">
-              Shared admin
-            </div>
+            <button
+              type="button"
+              onClick={openOperatorDialog}
+              className="hidden min-w-0 items-center gap-2 rounded-xl border border-gray-700/60 bg-gray-800/40 px-2.5 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 lg:flex"
+              title="Change operator"
+            >
+              <UserCheck size={14} className="shrink-0 text-orange-400" />
+              <span className="truncate max-w-[180px]">{operatorProfile?.name || 'Set operator'}</span>
+              <Pencil size={12} className="shrink-0 text-gray-500" />
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5 lg:gap-2">
@@ -160,6 +169,20 @@ function TopBarComponent() {
                     <div className="px-4 py-3 border-b border-gray-700">
                       <p className="text-sm font-semibold text-white truncate">{user?.email}</p>
                       <p className="text-xs text-gray-400 capitalize mt-0.5">{user?.role}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closeUserMenu()
+                          openOperatorDialog()
+                        }}
+                        className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-gray-700 bg-gray-900/60 px-3 py-2 text-left text-xs text-gray-300 transition hover:border-orange-500/50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-gray-500">Operator</span>
+                          <span className="block truncate font-semibold text-white">{operatorProfile?.name || 'Not set'}</span>
+                        </span>
+                        <Pencil size={14} className="shrink-0 text-orange-400" />
+                      </button>
                     </div>
                     <button
                       onClick={handleLogout}

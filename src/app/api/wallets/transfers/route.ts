@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 
 class ApiError extends Error {
   status: number
@@ -144,15 +145,16 @@ export async function POST(request: NextRequest) {
         }),
       ])
 
-      await tx.activityLog.create({
-        data: {
-          action: 'transfer',
-          entityType: 'wallet',
-          entityId: fromWalletId,
-          entityName: `${fromName} -> ${toName}`,
-          details: `Transferred ${amount.toFixed(2)} ${fromWallet.currency} from ${fromName} (${fromWallet.type}) to ${toName} (${toWallet.type})`,
-          userId: authResult.id,
-        },
+      await writeActivityLog({
+        action: 'transfer',
+        entityType: 'wallet',
+        entityId: fromWalletId,
+        entityName: `${fromName} -> ${toName}`,
+        details: `Transferred ${amount.toFixed(2)} ${fromWallet.currency} from ${fromName} (${fromWallet.type}) to ${toName} (${toWallet.type})`,
+        user: authResult,
+        request,
+        source: 'server',
+        client: tx,
       })
 
       return {

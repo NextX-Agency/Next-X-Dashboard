@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Activity, Filter, Calendar, Search, RefreshCw, Trash2, Package, Tag, MapPin, Warehouse, ShoppingCart, Bookmark, Wallet, Receipt, Target, Users, User, Percent, DollarSign, TrendingUp, Clock, BarChart3, Download, ChevronDown, FileText, Image, MessageSquare, Star, Mail, Settings, Layers, ClipboardList } from 'lucide-react'
+import { Activity, Filter, Calendar, Search, RefreshCw, Package, Tag, MapPin, Warehouse, ShoppingCart, Bookmark, Wallet, Receipt, Target, Users, User, Percent, DollarSign, Clock, BarChart3, Download, ChevronDown, FileText, Image, MessageSquare, Star, Mail, Settings, Layers, ClipboardList, UserCheck, Fingerprint, ShieldCheck, Route } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, LoadingSpinner, Badge, EmptyState, StatBox } from '@/components/UI'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
-import { useConfirmDialog } from '@/lib/useConfirmDialog'
-import { getActionText, getEntityTypeText, getActionColor, parseActivityDetails, type ActionType, type EntityType } from '@/lib/activityLog'
+import { getActionText, getEntityTypeText, getActionColor, parseActivityDetails } from '@/lib/activityLog'
 
 type ActivityLog = Database['public']['Tables']['activity_logs']['Row']
 
@@ -30,6 +28,7 @@ const entityIcons: Record<string, React.ElementType> = {
   client: User,
   commission: Percent,
   exchange_rate: DollarSign,
+  finance_obligation: DollarSign,
   purchase_order: ClipboardList,
   blog_post: FileText,
   blog_category: Tag,
@@ -56,8 +55,22 @@ const detailChipColors: Record<string, string> = {
   Received: 'bg-teal-500/10 text-teal-400',
 }
 
+function getOperatorLabel(log: ActivityLog) {
+  return log.operator_name || log.actor_name || log.actor_email || 'Unknown operator'
+}
+
+function getRequestLabel(log: ActivityLog) {
+  const method = log.request_method || ''
+  const path = log.request_path || ''
+  return `${method} ${path}`.trim() || 'No request context'
+}
+
+function shortValue(value: string | null, length = 12) {
+  if (!value) return 'N/A'
+  return value.length > length ? value.slice(0, length) : value
+}
+
 export default function ActivityLogPage() {
-  const { dialogProps, confirm } = useConfirmDialog()
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -65,6 +78,7 @@ export default function ActivityLogPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [actionFilter, setActionFilter] = useState<string>('')
   const [entityFilter, setEntityFilter] = useState<string>('')
+  const [operatorFilter, setOperatorFilter] = useState<string>('')
   const [dateFrom, setDateFrom] = useState<string>('')
   const [dateTo, setDateTo] = useState<string>('')
 
@@ -115,30 +129,20 @@ export default function ActivityLogPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionFilter, entityFilter, dateFrom, dateTo])
 
-  const handleClearLogs = async () => {
-    const ok = await confirm({
-      title: 'Clear All Logs',
-      message: `This will permanently delete all ${logs.length} activity log entries. This cannot be undone.`,
-      variant: 'danger',
-      confirmLabel: 'Clear All Logs',
-    })
-    if (!ok) return
-    
-    setLoading(true)
-    await supabase.from('activity_logs').delete().neq('id', '')
-    loadLogs(false)
-  }
-
   const handleExportCSV = () => {
     if (filteredLogs.length === 0) return
     const rows = [
-      ['Date', 'Time', 'Action', 'Entity Type', 'Entity Name', 'Details'].join(','),
+      ['Date', 'Time', 'Operator', 'Login', 'Action', 'Entity Type', 'Entity Name', 'Request', 'Checksum', 'Details'].join(','),
       ...filteredLogs.map(log => [
         new Date(log.created_at).toLocaleDateString(),
         new Date(log.created_at).toLocaleTimeString(),
+        `"${getOperatorLabel(log).replace(/"/g, '""')}"`,
+        `"${(log.actor_email || '').replace(/"/g, '""')}"`,
         log.action,
         log.entity_type,
         `"${(log.entity_name || '').replace(/"/g, '""')}"`,
+        `"${getRequestLabel(log).replace(/"/g, '""')}"`,
+        log.checksum || '',
         `"${(typeof log.details === 'string' ? log.details : '').replace(/"/g, '""')}"`
       ].join(','))
     ]
@@ -152,17 +156,24 @@ export default function ActivityLogPage() {
   }
 
   const filteredLogs = logs.filter(log => {
+    if (operatorFilter && getOperatorLabel(log) !== operatorFilter) return false
     if (!searchQuery) return true
     const search = searchQuery.toLowerCase()
     return (
       log.entity_name?.toLowerCase().includes(search) ||
       log.action.toLowerCase().includes(search) ||
       log.entity_type.toLowerCase().includes(search) ||
+      log.operator_name?.toLowerCase().includes(search) ||
+      log.actor_email?.toLowerCase().includes(search) ||
+      log.actor_name?.toLowerCase().includes(search) ||
+      log.request_path?.toLowerCase().includes(search) ||
+      log.checksum?.toLowerCase().includes(search) ||
       (typeof log.details === 'string' && log.details.toLowerCase().includes(search))
     )
   })
 
-  const hasActiveFilters = !!(searchQuery || actionFilter || entityFilter || dateFrom || dateTo)
+  const hasActiveFilters = !!(searchQuery || actionFilter || entityFilter || operatorFilter || dateFrom || dateTo)
+  const operatorOptions = Array.from(new Set(logs.map(getOperatorLabel).filter(Boolean))).sort()
 
   // Activity Stats
   const getTodayActivityCount = () => {
@@ -177,17 +188,8 @@ export default function ActivityLogPage() {
     return logs.filter(log => new Date(log.created_at) >= weekAgo).length
   }
 
-  const getMostActiveEntityType = () => {
-    const counts = new Map<string, number>()
-    logs.forEach(log => {
-      counts.set(log.entity_type, (counts.get(log.entity_type) || 0) + 1)
-    })
-    let maxType = ''
-    let maxCount = 0
-    counts.forEach((count, type) => {
-      if (count > maxCount) { maxCount = count; maxType = type }
-    })
-    return maxType ? getEntityTypeText(maxType) : 'N/A'
+  const getOperatorCount = () => {
+    return new Set(logs.map(getOperatorLabel).filter(label => label !== 'Unknown operator')).size
   }
 
   const getMostCommonAction = () => {
@@ -264,7 +266,7 @@ export default function ActivityLogPage() {
   if (loading && logs.length === 0) {
     return (
       <div className="min-h-screen">
-        <PageHeader title="Activity Log" subtitle="Track all changes in your dashboard" />
+        <PageHeader title="Activity Log" subtitle="Track who did what across the dashboard" />
         <LoadingSpinner />
       </div>
     )
@@ -276,7 +278,7 @@ export default function ActivityLogPage() {
     <div className="min-h-screen pb-20 lg:pb-0">
       <PageHeader 
         title="Activity Log" 
-        subtitle="Track all changes in your dashboard"
+        subtitle="Audit who did what, from which operator session, and through which request"
         icon={<Activity size={24} />}
         action={
           <div className="flex gap-2">
@@ -285,9 +287,6 @@ export default function ActivityLogPage() {
             </Button>
             <Button variant="secondary" onClick={() => loadLogs(false)} className="p-2!">
               <RefreshCw size={18} />
-            </Button>
-            <Button variant="danger" onClick={handleClearLogs} className="p-2!">
-              <Trash2 size={18} />
             </Button>
           </div>
         }
@@ -298,7 +297,7 @@ export default function ActivityLogPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatBox label="Today's Activity" value={getTodayActivityCount().toString()} icon={<Clock size={20} />} variant="primary" />
           <StatBox label="This Week" value={getThisWeekActivityCount().toString()} icon={<Calendar size={20} />} variant="default" />
-          <StatBox label="Most Active" value={getMostActiveEntityType()} icon={<TrendingUp size={20} />} variant="success" />
+          <StatBox label="Operators" value={getOperatorCount().toString()} icon={<UserCheck size={20} />} variant="success" />
           <StatBox label="Common Action" value={getMostCommonAction()} icon={<BarChart3 size={20} />} variant="warning" />
         </div>
 
@@ -310,18 +309,18 @@ export default function ActivityLogPage() {
               <span className="font-semibold text-foreground">Filters</span>
             </div>
             {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setActionFilter(''); setEntityFilter(''); setDateFrom(''); setDateTo('') }}>
+              <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setActionFilter(''); setEntityFilter(''); setOperatorFilter(''); setDateFrom(''); setDateTo('') }}>
                 Clear filters
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <input
                 type="search"
                 inputMode="search"
-                placeholder="Search name, details..."
+                placeholder="Search operator, name, details..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 min-h-[48px] bg-muted border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary"
@@ -355,6 +354,7 @@ export default function ActivityLogPage() {
               <option value="seller">Sellers</option>
               <option value="client">Clients</option>
               <option value="commission">Commissions</option>
+              <option value="finance_obligation">Finance Obligations</option>
               <option value="exchange_rate">Exchange Rate</option>
               <option value="purchase_order">Purchase Orders</option>
               <option value="blog_post">Blog Posts</option>
@@ -367,6 +367,12 @@ export default function ActivityLogPage() {
               <option value="review">Reviews</option>
               <option value="subscriber">Subscribers</option>
               <option value="settings">Settings</option>
+            </Select>
+            <Select value={operatorFilter} onChange={(e) => setOperatorFilter(e.target.value)} className="min-h-[48px]">
+              <option value="">All Operators</option>
+              {operatorOptions.map(operator => (
+                <option key={operator} value={operator}>{operator}</option>
+              ))}
             </Select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -404,6 +410,9 @@ export default function ActivityLogPage() {
                     const detailParts = typeof log.details === 'string' ? parseActivityDetails(log.details) : []
                     const hasStructuredDetails = detailParts.length > 0 && detailParts.some(p => p.key)
                     const plainDetails = !hasStructuredDetails && typeof log.details === 'string' ? log.details : null
+                    const operatorName = getOperatorLabel(log)
+                    const hasOperator = operatorName !== 'Unknown operator'
+                    const requestLabel = getRequestLabel(log)
                     
                     return (
                       <div 
@@ -422,10 +431,32 @@ export default function ActivityLogPage() {
                               <Badge variant="info">
                                 {getEntityTypeText(log.entity_type)}
                               </Badge>
+                              <Badge variant={hasOperator ? 'success' : 'warning'}>
+                                <UserCheck size={12} />
+                                {operatorName}
+                              </Badge>
                             </div>
                             <p className="text-foreground font-medium mt-1 truncate">
                               {log.entity_name || `ID: ${log.entity_id?.slice(0, 8)}`}
                             </p>
+                            <div className="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-4">
+                              <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg bg-muted/50 px-2 py-1">
+                                <User size={12} className="shrink-0" />
+                                <span className="truncate">{log.actor_email || log.actor_name || 'Shared login unknown'}</span>
+                              </span>
+                              <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg bg-muted/50 px-2 py-1">
+                                <Route size={12} className="shrink-0" />
+                                <span className="truncate">{requestLabel}</span>
+                              </span>
+                              <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg bg-muted/50 px-2 py-1">
+                                <Fingerprint size={12} className="shrink-0" />
+                                <span className="truncate">{shortValue(log.checksum)}</span>
+                              </span>
+                              <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg bg-muted/50 px-2 py-1">
+                                <ShieldCheck size={12} className="shrink-0" />
+                                <span className="truncate">Session {shortValue(log.operator_session, 8)}</span>
+                              </span>
+                            </div>
                             {/* Structured detail chips */}
                             {hasStructuredDetails && (
                               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -447,6 +478,19 @@ export default function ActivityLogPage() {
                             {/* Plain text details fallback */}
                             {plainDetails && (
                               <p className="mt-1.5 text-sm text-muted-foreground truncate">{plainDetails}</p>
+                            )}
+                            {(log.ip_hash || log.user_agent_hash || log.request_id || log.previous_checksum) && (
+                              <details className="mt-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+                                <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
+                                  Audit proof
+                                </summary>
+                                <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                                  <span>Request ID: {shortValue(log.request_id, 18)}</span>
+                                  <span>IP hash: {shortValue(log.ip_hash, 18)}</span>
+                                  <span>User-agent hash: {shortValue(log.user_agent_hash, 18)}</span>
+                                  <span>Previous checksum: {shortValue(log.previous_checksum, 18)}</span>
+                                </div>
+                              </details>
                             )}
                           </div>
                           <div className="text-right text-sm text-muted-foreground whitespace-nowrap shrink-0">
@@ -484,8 +528,6 @@ export default function ActivityLogPage() {
           </div>
         )}
       </PageContainer>
-
-      <ConfirmDialog {...dialogProps} />
     </div>
   )
 }
