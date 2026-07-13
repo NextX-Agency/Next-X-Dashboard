@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
 import { type Currency } from '@/lib/currency'
 import { DEFAULT_EXCHANGE_RATE, normalizeExchangeRate } from '@/lib/pricing'
 
@@ -25,14 +24,19 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
   const refreshExchangeRate = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from('exchange_rates')
-        .select('*')
-        .eq('is_active', true)
-        .single()
+      const response = await fetch('/api/catalog?type=exchangeRate', {
+        cache: 'no-store',
+      })
 
-      if (data) {
-        setExchangeRate(normalizeExchangeRate(data.usd_to_srd))
+      if (!response.ok) return
+
+      const data = await response.json() as {
+        exchangeRate?: { usdToSrd?: number | string } | null
+      }
+      const nextRate = data.exchangeRate?.usdToSrd
+
+      if (nextRate != null) {
+        setExchangeRate(normalizeExchangeRate(Number(nextRate)))
       }
     } catch (error) {
       console.error('Error loading exchange rate:', error)

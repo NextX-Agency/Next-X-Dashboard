@@ -1,0 +1,1113 @@
+'use client'
+
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
+import Link from 'next/link'
+import { Database } from '@/types/database.types'
+import { formatCurrency, type Currency } from '@/lib/currency'
+import { DEFAULT_EXCHANGE_RATE, getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
+import { catalogShellClassName } from '@/components/catalog/shell'
+import { NewHeader } from '@/components/catalog/NewHeader'
+import { NewFooter } from '@/components/catalog/NewFooter'
+import { 
+  getItemStockStatus, 
+  getItemStockLevel, 
+  getStockStatusText,
+  getComboStockStatus,
+  type StockStatus 
+} from '@/lib/stockUtils'
+import { 
+  Package, 
+  MapPin, 
+  Clock, 
+  Shield, 
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  ShoppingCart,
+  Store,
+  Minus,
+  Plus,
+  AlertCircle
+} from 'lucide-react'
+
+const NewCartDrawer = dynamic(
+  () => import('@/components/catalog/NewCartDrawer').then(m => m.NewCartDrawer),
+  { ssr: false }
+)
+
+type Item = Database['public']['Tables']['items']['Row']
+type Category = Database['public']['Tables']['categories']['Row']
+type Location = Database['public']['Tables']['locations']['Row']
+
+interface ComboItem {
+  id: string
+  combo_id: string
+  item_id: string
+  child_item_id?: string  // For compatibility
+  quantity: number
+  child_item?: Item
+}
+
+interface ItemWithCombo extends Item {
+  combo_items?: ComboItem[]
+}
+
+interface CartItem {
+  item: Item | ItemWithCombo
+  quantity: number
+}
+
+// Cart item format for drawer component
+interface DrawerCartItem {
+  id: string
+  name: string
+  imageUrl?: string | null
+  price: number
+  quantity: number
+  isCombo?: boolean
+  comboItems?: Array<{ child_item_id: string; quantity: number }>
+}
+
+interface StoreSettings {
+  whatsapp_number: string
+  store_name: string
+  store_address: string
+  store_logo_url: string
+  store_description?: string
+  store_email?: string
+}
+
+// Cart storage key - same as catalog page for consistency
+const CART_STORAGE_KEY = 'nextx-cart'
+
+export interface ProductDetailInitialData {
+  product: ItemWithCombo
+  category: Category | null
+  categories: Category[]
+  locations: Location[]
+  stock: Array<{ item_id: string; location_id: string; quantity: number }>
+  settings: Record<string, string>
+  exchangeRate: { usd_to_srd?: number } | null
+}
+
+function createStockMaps(
+  stockRows: ProductDetailInitialData['stock'],
+  locations: Location[]
+) {
+  const stockMap = new Map<string, number>()
+  const stockByLocation = new Map<string, Map<string, number>>()
+  const visibleLocationIds = new Set(locations.map(location => location.id))
+
+  stockRows.forEach(stock => {
+    if (!visibleLocationIds.has(stock.location_id)) return
+
+    stockMap.set(stock.item_id, (stockMap.get(stock.item_id) || 0) + stock.quantity)
+
+    const itemLocations = stockByLocation.get(stock.item_id) || new Map<string, number>()
+    itemLocations.set(
+      stock.location_id,
+      (itemLocations.get(stock.location_id) || 0) + stock.quantity
+    )
+    stockByLocation.set(stock.item_id, itemLocations)
+  })
+
+  return { stockMap, stockByLocation }
+}
+
+function createStoreSettings(settingsMap: Record<string, string>): StoreSettings {
+  const logoUrl = settingsMap.audio_store_logo_url || settingsMap.store_logo_url || ''
+
+  return {
+    whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
+    store_name: settingsMap.store_name || 'NextX',
+    store_address: settingsMap.store_address || 'Commewijne, Noord',
+    store_logo_url: logoUrl && logoUrl !== '/logo.png' ? logoUrl : '',
+    store_description: settingsMap.audio_store_description || settingsMap.store_description || '',
+    store_email: settingsMap.store_email || '',
+  }
+}
+
+export default function ProductDetailClient({ initialData }: { initialData: ProductDetailInitialData }) {
+  const { product, category, categories, locations } = initialData
+  const productId = product.id
+  const { stockMap, stockByLocation } = useMemo(
+    () => createStockMaps(initialData.stock, locations),
+    [initialData.stock, locations]
+  )
+  const settings = useMemo(() => createStoreSettings(initialData.settings), [initialData.settings])
+  const exchangeRate = normalizeExchangeRate(initialData.exchangeRate?.usd_to_srd ?? DEFAULT_EXCHANGE_RATE)
+  const [currency, setCurrency] = useState<Currency>('SRD')
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [quantity, setQuantity] = useState(1)
+  const [cartCount, setCartCount] = useState(0)
+  const [addedToCart, setAddedToCart] = useState(false)
+  
+
+
+  // Cart drawer states
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState(() => locations[0]?.id || '')
+  const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'custom'>('today')
+  const [customPickupDate, setCustomPickupDate] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerNotes, setCustomerNotes] = useState('')
+
+  // Load cart count from localStorage
+  const loadCartCount = useCallback(() => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0)
+        setCartCount(count)
+      }
+    } catch (e) {
+      console.error('Failed to load cart:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCartCount()
+  }, [loadCartCount])
+
+  // Price calculation
+  const getPrice = useCallback((): number => {
+    if (!product) return 0
+    return getSellingPrice(product, currency, exchangeRate)
+  }, [product, currency, exchangeRate])
+
+  // Stock status helpers - handles both regular items and combos
+  const getProductStockInfo = useCallback((): { status: StockStatus; level: number } => {
+    if (!product) return { status: 'out-of-stock', level: 0 }
+    
+    // For combo products, calculate based on component availability
+    if (product.is_combo && product.combo_items && product.combo_items.length > 0) {
+      const comboStock = getComboStockStatus(
+        product.combo_items.map(ci => ({ child_item_id: ci.child_item_id, quantity: ci.quantity })),
+        stockMap
+      )
+      return { status: comboStock.status, level: comboStock.limitingFactor }
+    }
+    
+    // For regular items, use direct stock lookup
+    return {
+      status: getItemStockStatus(product.id, stockMap),
+      level: getItemStockLevel(product.id, stockMap)
+    }
+  }, [product, stockMap])
+  
+  const { status: stockStatus, level: stockLevel } = getProductStockInfo()
+  const isOutOfStock = stockStatus === 'out-of-stock'
+  const isLowStock = stockStatus === 'low-stock'
+  const isCombo = product?.is_combo && product?.combo_items && product.combo_items.length > 0
+  const locationStockAvailability = useMemo(() => {
+    if (!product || locations.length === 0) return []
+
+    return locations.map((location) => {
+      let quantity = 0
+
+      if (product.is_combo && product.combo_items && product.combo_items.length > 0) {
+        let availableCombos = Number.POSITIVE_INFINITY
+
+        product.combo_items.forEach((comboItem) => {
+          const childItemId = comboItem.child_item_id || comboItem.item_id
+          const requiredQuantity = Math.max(1, comboItem.quantity || 1)
+          const componentStock = stockByLocation.get(childItemId)?.get(location.id) || 0
+          availableCombos = Math.min(availableCombos, Math.floor(componentStock / requiredQuantity))
+        })
+
+        quantity = availableCombos === Number.POSITIVE_INFINITY ? 0 : availableCombos
+      } else {
+        quantity = stockByLocation.get(product.id)?.get(location.id) || 0
+      }
+
+      return {
+        ...location,
+        quantity
+      }
+    }).sort((a, b) => {
+      if (a.quantity > 0 && b.quantity <= 0) return -1
+      if (b.quantity > 0 && a.quantity <= 0) return 1
+      if (a.quantity !== b.quantity) return b.quantity - a.quantity
+      return a.name.localeCompare(b.name)
+    })
+  }, [locations, product, stockByLocation])
+  const stockedLocationCount = locationStockAvailability.filter((location) => location.quantity > 0).length
+  const stockBadgeClassName = isOutOfStock
+    ? 'border-red-200 bg-white text-red-700'
+    : isLowStock
+      ? 'border-amber-200 bg-[#fffaf2] text-amber-700'
+      : 'border-emerald-200 bg-white text-emerald-700'
+  const detailFeatureCardClassName = 'flex items-center gap-3 rounded-2xl border border-neutral-200/80 bg-white px-4 py-3 shadow-[0_14px_30px_rgba(20,28,46,0.05)]'
+  const detailStatusFeatureClassName = isOutOfStock
+    ? `${detailFeatureCardClassName} border-red-200 bg-red-50/70`
+    : isLowStock
+      ? `${detailFeatureCardClassName} border-amber-200 bg-amber-50/70`
+      : `${detailFeatureCardClassName} border-emerald-200 bg-emerald-50/70`
+
+  // Get current cart quantity for this product
+  const getCartQuantityForProduct = useCallback((): number => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        const item = cart.find(c => c.item.id === productId)
+        return item?.quantity || 0
+      }
+    } catch (e) {
+      console.error('Failed to get cart quantity:', e)
+    }
+    return 0
+  }, [productId])
+
+  // Max quantity available (stock - already in cart)
+  const maxAvailable = Math.max(0, stockLevel - getCartQuantityForProduct())
+
+  // Quantity handlers with stock validation
+  const incrementQuantity = useCallback(() => {
+    setQuantity(q => Math.min(q + 1, maxAvailable))
+  }, [maxAvailable])
+
+  const decrementQuantity = useCallback(() => {
+    setQuantity(q => Math.max(1, q - 1))
+  }, [])
+
+  // Reset quantity if it exceeds available stock
+  useEffect(() => {
+    if (quantity > maxAvailable && maxAvailable > 0) {
+      setQuantity(maxAvailable)
+    } else if (maxAvailable === 0 && !isOutOfStock) {
+      setQuantity(1)
+    }
+  }, [quantity, maxAvailable, isOutOfStock])
+
+  // Add to cart handler with stock validation
+  const handleAddToCart = useCallback(() => {
+    if (!product || isOutOfStock || quantity > maxAvailable) return
+
+    try {
+      // Get existing cart
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      const cart: CartItem[] = savedCart ? JSON.parse(savedCart) : []
+
+      // Check if product already exists in cart
+      const existingIndex = cart.findIndex(item => item.item.id === product.id)
+
+      // Calculate total quantity after adding
+      const currentInCart = existingIndex >= 0 ? cart[existingIndex].quantity : 0
+      const newTotal = currentInCart + quantity
+      
+      // Validate against stock (for combos, stockLevel is the limiting factor)
+      const effectiveStockLevel = stockLevel
+      
+      if (newTotal > effectiveStockLevel) {
+        const canAdd = Math.max(0, effectiveStockLevel - currentInCart)
+        if (canAdd <= 0) return
+        // Only add what's available
+        if (existingIndex >= 0) {
+          cart[existingIndex].quantity = effectiveStockLevel
+        } else {
+          cart.push({ item: product, quantity: canAdd })
+        }
+      } else {
+        if (existingIndex >= 0) {
+          // Update quantity
+          cart[existingIndex].quantity = newTotal
+        } else {
+          // Add new item
+          cart.push({ item: product, quantity })
+        }
+      }      // Save to localStorage
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+
+      // Update cart count
+      const newCount = cart.reduce((sum, item) => sum + item.quantity, 0)
+      setCartCount(newCount)
+
+      // Show success feedback
+      setAddedToCart(true)
+      setTimeout(() => setAddedToCart(false), 2000)
+
+    } catch (e) {
+      console.error('Failed to add to cart:', e)
+    }
+  }, [product, quantity, isOutOfStock, maxAvailable, stockLevel])
+
+  // Open cart drawer
+  const handleCartClick = useCallback(() => {
+    setIsCartOpen(true)
+  }, [])
+
+  // Load cart items from localStorage
+  const loadCartItems = useCallback((): DrawerCartItem[] => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        const cart: CartItem[] = JSON.parse(savedCart)
+        return cart.map(cartItem => {
+          const itemWithCombo = cartItem.item as ItemWithCombo
+          const hasComboItems = itemWithCombo.is_combo && itemWithCombo.combo_items && itemWithCombo.combo_items.length > 0
+          
+          // If this is the current product and it's a combo, use its combo_items
+          let comboItemsData: Array<{ child_item_id: string; quantity: number }> | undefined
+          if (cartItem.item.id === productId && isCombo && product?.combo_items) {
+            comboItemsData = product.combo_items.map(ci => ({
+              child_item_id: ci.child_item_id,
+              quantity: ci.quantity
+            }))
+          } else if (hasComboItems && itemWithCombo.combo_items) {
+            comboItemsData = itemWithCombo.combo_items.map(ci => ({
+              child_item_id: ci.child_item_id,
+              quantity: ci.quantity
+            }))
+          }
+          
+          return {
+            id: cartItem.item.id,
+            name: cartItem.item.name,
+            imageUrl: cartItem.item.image_url,
+            price: getSellingPrice(cartItem.item, currency, exchangeRate),
+            quantity: cartItem.quantity,
+            isCombo: cartItem.item.is_combo || (cartItem.item.id === productId && isCombo),
+            comboItems: comboItemsData
+          }
+        })
+      }
+      return []
+    } catch (e) {
+      console.error('Failed to load cart items:', e)
+      return []
+    }
+  }, [currency, exchangeRate, productId, isCombo, product])
+
+  // Update cart quantity
+  const handleUpdateQuantity = useCallback((itemId: string, quantity: number) => {
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+      if (savedCart) {
+        let cart: CartItem[] = JSON.parse(savedCart)
+        
+        if (quantity === 0) {
+          // Remove item
+          cart = cart.filter(item => item.item.id !== itemId)
+        } else {
+          // Update quantity
+          const itemIndex = cart.findIndex(item => item.item.id === itemId)
+          if (itemIndex >= 0) {
+            cart[itemIndex].quantity = quantity
+          }
+        }
+        
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
+        loadCartCount()
+      }
+    } catch (e) {
+      console.error('Failed to update cart quantity:', e)
+    }
+  }, [loadCartCount])
+
+  // Add one to cart
+  const handleAddOne = useCallback((itemId: string) => {
+    handleUpdateQuantity(itemId, loadCartItems().find(item => item.id === itemId)?.quantity + 1 || 1)
+  }, [handleUpdateQuantity, loadCartItems])
+
+  // Generate WhatsApp order message
+  const generateOrderMessage = useCallback(() => {
+    const cartItems = loadCartItems()
+    const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const selectedLocationData = locations.find(l => l.id === selectedLocation)
+    const pickupDateText = pickupDate === 'today' ? 'Vandaag' : pickupDate === 'tomorrow' ? 'Morgen' : customPickupDate
+    
+    let message = `Hallo ${settings.store_name}!\n\n`
+    message += `Ik wil graag de volgende producten ophalen:\n\n`
+    
+    cartItems.forEach(item => {
+      message += `• ${item.name} (${item.quantity}x) - ${formatCurrency(item.price * item.quantity, currency)}\n`
+    })
+    
+    message += `\n━━━━━━━━━━━━━━━━━━\n`
+    message += `💵 Totaal: ${formatCurrency(total, currency)}\n`
+    message += `━━━━━━━━━━━━━━━━━━\n\n`
+    message += `📍 Ophaallocatie: ${selectedLocationData?.name || 'Hoofdvestiging'}\n`
+    message += `📅 Gewenste ophaaldatum: ${pickupDateText}\n`
+    message += `👤 Naam: ${customerName}\n`
+    message += `📱 Telefoon: ${customerPhone}\n`
+    
+    if (customerNotes.trim()) {
+      message += `📝 Opmerkingen: ${customerNotes}\n`
+    }
+    
+    message += `\nBedankt!`
+    return message
+  }, [loadCartItems, locations, selectedLocation, pickupDate, customPickupDate, settings.store_name, currency, customerName, customerPhone, customerNotes])
+
+  // Submit WhatsApp order
+  const handleSubmitOrder = useCallback(() => {
+    const message = generateOrderMessage()
+    const whatsappNumber = settings.whatsapp_number.replace(/[^0-9]/g, '')
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
+  }, [generateOrderMessage, settings.whatsapp_number])
+
+  // Computed values
+  const unitPrice = getPrice()
+  const usdPreviewPrice = product ? getSellingPrice(product, 'USD', exchangeRate) : 0
+  const totalPrice = unitPrice * quantity
+  const images = product?.image_url ? [product.image_url] : []
+  const cartItems = loadCartItems()
+
+  // Generate product structured data for SEO
+  const productSchema = product ? {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": product.description || `${product.name} - Available at ${settings.store_name} in Suriname`,
+    "image": product.image_url || "",
+    "sku": product.id,
+    "brand": {
+      "@type": "Brand",
+      "name": settings.store_name
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": typeof window !== 'undefined' ? window.location.href : '',
+      "priceCurrency": currency,
+      "price": unitPrice,
+      "availability": stockStatus === 'out-of-stock' 
+        ? "https://schema.org/OutOfStock" 
+        : "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": settings.store_name
+      },
+      "areaServed": {
+        "@type": "Country",
+        "name": "Suriname"
+      }
+    },
+    "category": category?.name || "Audio Accessories"
+  } : null
+
+  // Breadcrumb schema
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/` : '/'
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Audio",
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/audio` : '/audio'
+      },
+      ...(category ? [{
+        "@type": "ListItem",
+        "position": 3,
+        "name": category.name,
+        "item": typeof window !== 'undefined' ? `${window.location.origin}/audio?category=${category.id}` : `/audio?category=${category.id}`
+      }] : []),
+      {
+        "@type": "ListItem",
+        "position": category ? 4 : 3,
+        "name": product?.name || "Product"
+      }
+    ]
+  }
+
+  // Loading state — Show a skeleton to avoid blank screen while data loads
+
+  // Product not found
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Structured Data for SEO */}
+      {productSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+
+      {/* Header */}
+      <NewHeader
+        storeName={settings.store_name}
+        logoUrl={settings.store_logo_url}
+        whatsappNumber={settings.whatsapp_number}
+        categories={categories}
+        currency={currency}
+        onCurrencyChange={setCurrency}
+        cartCount={cartCount}
+        onCartClick={handleCartClick}
+        searchQuery=""
+        onSearchChange={() => {}}
+        selectedCategory=""
+        catalogBasePath="/audio"
+        brandLinks={[
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
+        ]}
+        onCategoryChange={() => {}}
+      />
+
+      {/* Main Content */}
+      <main className={`${catalogShellClassName} bg-white pt-6 lg:pt-8 pb-32 sm:pb-36 lg:pb-8`} itemScope itemType="https://schema.org/Product">
+        {/* Breadcrumbs */}
+        <nav aria-label="Breadcrumb" className="mb-4">
+          <ol className="flex items-center text-sm flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <Link href="/" className="text-[#f97015] hover:underline" itemProp="item">
+                <span itemProp="name">Home</span>
+              </Link>
+              <meta itemProp="position" content="1" />
+            </li>
+            <li className="mx-1.5 text-neutral-400">/</li>
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <Link href="/audio" className="text-[#f97015] hover:underline" itemProp="item">
+                <span itemProp="name">Audio</span>
+              </Link>
+              <meta itemProp="position" content="2" />
+            </li>
+            {category && (
+              <>
+                <li className="mx-1.5 text-neutral-400">/</li>
+                <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+                  <Link href={`/audio?category=${category.id}`} className="text-[#f97015] hover:underline" itemProp="item">
+                    <span itemProp="name">{category.name}</span>
+                  </Link>
+                  <meta itemProp="position" content="3" />
+                </li>
+              </>
+            )}
+            <li className="mx-1.5 text-neutral-400">/</li>
+            <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
+              <span className="text-neutral-600" itemProp="name">{product.name}</span>
+              <meta itemProp="position" content={category ? "4" : "3"} />
+            </li>
+          </ol>
+        </nav>
+
+        <div className="lg:grid lg:grid-cols-2 lg:gap-12">
+          {/* Image Gallery - Left Column */}
+          <div className="relative">
+            {/* Main Image */}
+            <div className="aspect-square bg-white relative border border-neutral-200 rounded-2xl overflow-hidden shadow-sm lg:border-r-0 lg:rounded-r-none">
+              {images.length > 0 ? (
+                <>
+                  <Image
+                    src={images[currentImageIndex]}
+                    alt={`${product.name}${category ? ` ${category.name.toLowerCase()}` : ''} - buy at NextX Suriname`}
+                    fill
+                    className="object-cover"
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    itemProp="image"
+                  />
+                  
+                  {/* Image navigation arrows */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-md shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
+                        disabled={currentImageIndex === 0}
+                      >
+                        <ChevronLeft size={24} />
+                      </button>
+                      <button
+                        onClick={() => setCurrentImageIndex(i => Math.min(images.length - 1, i + 1))}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-md shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
+                        disabled={currentImageIndex === images.length - 1}
+                      >
+                        <ChevronRight size={24} />
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-100">
+                  <Package size={120} className="text-neutral-300" strokeWidth={1} />
+                </div>
+              )}
+
+              {/* Category badge */}
+              {category && (
+                <div className="absolute top-4 left-4">
+                  <span className="px-4 py-2 rounded-xl bg-white/95 backdrop-blur-xl border border-neutral-200 shadow-sm text-sm font-medium text-neutral-700">
+                    {category.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Image indicators */}
+              {images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                  {images.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                        idx === currentImageIndex ? 'bg-[#f97015]' : 'bg-neutral-400/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="hidden lg:flex gap-3 p-4 bg-white">
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-colors ${
+                      idx === currentImageIndex 
+                        ? 'border-[#f97015]' 
+                        : 'border-neutral-200 hover:border-neutral-300'
+                    }`}
+                  >
+                    <Image
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Product Info - Right Column */}
+          <div className="px-0 lg:pr-8 py-6 lg:py-8 bg-white lg:bg-transparent">
+            {/* Product Title */}
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-neutral-900 tracking-tight mb-4" itemProp="name">
+              {product.name}
+            </h1>
+
+            {/* Hidden SEO metadata */}
+            {product.description && <meta itemProp="description" content={product.description} />}
+            <span itemProp="offers" itemScope itemType="https://schema.org/Offer" className="hidden">
+              <meta itemProp="priceCurrency" content={currency} />
+              <meta itemProp="price" content={String(unitPrice)} />
+              <link itemProp="availability" href={stockStatus === 'out-of-stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock'} />
+            </span>
+
+            {/* Unit Price */}
+            <div className="mb-6">
+              <div className="flex items-baseline gap-3">
+                <span className={`text-3xl sm:text-4xl font-black ${isOutOfStock ? 'text-neutral-400' : 'text-[#f97015]'}`}>
+                  {formatCurrency(unitPrice, currency)}
+                </span>
+                {currency === 'SRD' && usdPreviewPrice > 0 && (
+                  <span className="text-sm text-neutral-500">
+                    (≈ {formatCurrency(usdPreviewPrice, 'USD')})
+                  </span>
+                )}
+              </div>
+              
+              {/* Stock Status Indicator */}
+              <div className="mt-3">
+                {isOutOfStock ? (
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                    <AlertCircle size={16} />
+                    <span className="text-sm font-semibold">Uitverkocht</span>
+                  </div>
+                ) : isLowStock ? (
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                    <AlertCircle size={16} />
+                    <span className="text-sm font-semibold">Nog {stockLevel} beschikbaar</span>
+                  </div>
+                ) : (
+                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                    <Check size={16} />
+                    <span className="text-sm font-semibold">Op voorraad</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pickup Info Banner */}
+            <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center shrink-0">
+                  <Store size={20} className="text-neutral-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-neutral-900 mb-1">Alleen ophalen</p>
+                  <p className="text-sm text-neutral-600">
+                    {stockedLocationCount > 0
+                      ? `Beschikbaar voor ophalen bij ${stockedLocationCount} ${stockedLocationCount === 1 ? 'locatie' : 'locaties'}.`
+                      : 'Momenteel geen voorraad op onze actieve locaties.'}
+                  </p>
+                </div>
+              </div>
+
+              {locationStockAvailability.length > 0 && (
+                <div className="mt-4 border-t border-neutral-100 pt-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      Voorraad per locatie
+                    </p>
+                    <span className="shrink-0 text-xs text-neutral-500">
+                      {stockedLocationCount}/{locationStockAvailability.length} op voorraad
+                    </span>
+                  </div>
+                  <div className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
+                    {locationStockAvailability.map((location) => {
+                      const hasStock = location.quantity > 0
+
+                      return (
+                        <div key={location.id} className="flex items-center justify-between gap-3 px-3 py-2 sm:py-2.5">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-neutral-900">{location.name}</p>
+                            {location.address && (
+                              <p className="hidden truncate text-xs text-neutral-500 sm:block">{location.address}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                            hasStock
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : 'border-neutral-200 bg-neutral-50 text-neutral-500'
+                          }`}>
+                            {hasStock ? `${location.quantity} beschikbaar` : 'Geen voorraad'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            {product.description && (
+              <div className="mb-8 rounded-lg bg-white p-5">
+                <h2 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider mb-3">Beschrijving</h2>
+                <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
+                  {product.description}
+                </p>
+              </div>
+            )}
+
+            {/* Combo Items - Show what's included if this is a combo */}
+            {isCombo && product.combo_items && product.combo_items.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+                  Inbegrepen in dit combo
+                </h2>
+                <div className="space-y-2">
+                  {product.combo_items.map((ci) => {
+                    const itemStock = stockMap.get(ci.child_item_id) || 0
+                    const itemOutOfStock = itemStock <= 0
+                    console.log(`Combo item: ${ci.child_item?.name}, child_item_id: ${ci.child_item_id}, stock: ${itemStock}`)
+                    return (
+                      <Link
+                        key={ci.id}
+                        href={`/audio/${ci.child_item_id}`}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
+                          itemOutOfStock
+                            ? 'bg-red-50 border-red-200 hover:bg-red-100'
+                            : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100'
+                        }`}
+                      >
+                        {ci.child_item?.image_url ? (
+                          <Image
+                            src={ci.child_item.image_url}
+                            alt={ci.child_item.name}
+                            width={40}
+                            height={40}
+                            className={`rounded-lg object-cover ${itemOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">
+                            <Package size={16} className="text-neutral-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${itemOutOfStock ? 'text-red-700' : 'text-neutral-900'}`}>
+                            {ci.child_item?.name || 'Onbekend product'}
+                          </p>
+                          <p className={`text-xs ${itemOutOfStock ? 'text-red-600' : 'text-neutral-500'}`}>
+                            {itemOutOfStock ? 'Uitverkocht' : `${ci.quantity}x`}
+                          </p>
+                        </div>
+                        {itemOutOfStock && (
+                          <AlertCircle size={16} className="text-red-500 shrink-0" />
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+                {isOutOfStock && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    Dit combo is niet beschikbaar omdat één of meer onderdelen uitverkocht zijn.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Features */}
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              <div className={detailFeatureCardClassName}>
+                <MapPin size={18} className="text-[#f97015]" />
+                <span className="text-sm text-neutral-700">Ophalen in winkel</span>
+              </div>
+              <div className={detailFeatureCardClassName}>
+                <Clock size={18} className="text-[#f97015]" />
+                <span className="text-sm text-neutral-700">Snel beschikbaar</span>
+              </div>
+              <div className={detailFeatureCardClassName}>
+                <Shield size={18} className="text-[#f97015]" />
+                <span className="text-sm text-neutral-700">Kwaliteit gegarandeerd</span>
+              </div>
+              <div className={detailStatusFeatureClassName}>
+                {isOutOfStock ? (
+                  <AlertCircle size={18} className="text-red-500" />
+                ) : isLowStock ? (
+                  <AlertCircle size={18} className="text-amber-500" />
+                ) : (
+                  <Check size={18} className="text-green-500" />
+                )}
+                <span className={`text-sm font-medium ${
+                  isOutOfStock 
+                    ? 'text-red-700' 
+                    : isLowStock 
+                      ? 'text-amber-700' 
+                      : 'text-green-700'
+                }`}>
+                  {getStockStatusText(stockStatus)}
+                </span>
+              </div>
+            </div>
+
+            {/* Order Section - Desktop */}
+            <div className="hidden lg:block border-t border-neutral-200 pt-6">
+              {/* Quantity and Total Row */}
+              <div className="flex items-center justify-between mb-6">
+                {/* Quantity Selector */}
+                <div>
+                  <label className="text-sm font-medium text-neutral-500 mb-2 block">Aantal</label>
+                  <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
+                    <button
+                      onClick={decrementQuantity}
+                      disabled={quantity <= 1}
+                      className={`w-12 h-12 flex items-center justify-center transition-colors ${
+                        quantity <= 1
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200'
+                      }`}
+                      aria-label="Verminder aantal"
+                    >
+                      <Minus size={18} />
+                    </button>
+                    <span className="w-14 text-center text-lg font-semibold text-neutral-900 select-none">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={incrementQuantity}
+                      disabled={quantity >= maxAvailable || isOutOfStock}
+                      className={`w-12 h-12 flex items-center justify-center transition-colors ${
+                        quantity >= maxAvailable || isOutOfStock
+                          ? 'text-neutral-300 cursor-not-allowed'
+                          : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200'
+                      }`}
+                      aria-label="Verhoog aantal"
+                    >
+                      <Plus size={18} />
+                    </button>
+                  </div>
+                  {quantity >= maxAvailable && !isOutOfStock && (
+                    <p className="text-xs text-amber-600 mt-1">Maximum bereikt</p>
+                  )}
+                </div>
+
+                {/* Total Price */}
+                <div className="text-right">
+                  <p className="text-sm font-medium text-neutral-500 mb-1">Totaal</p>
+                  <p className="text-3xl font-bold text-neutral-900">
+                    {formatCurrency(totalPrice, currency)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Add to Cart Button */}
+              {isOutOfStock ? (
+                <button
+                  className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-6"
+                  disabled
+                >
+                  <AlertCircle size={22} strokeWidth={2} />
+                  <span>Uitverkocht</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addedToCart}
+                  className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
+                    addedToCart
+                      ? 'bg-green-500 text-white shadow-green-500/20'
+                      : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
+                  }`}
+                >
+                  {addedToCart ? (
+                    <>
+                      <Check size={22} strokeWidth={2.5} />
+                      <span>Toegevoegd aan winkelwagen!</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={22} strokeWidth={2} />
+                      <span>Plaats in winkelwagen</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Mobile Sticky Bottom CTA */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-3 pt-3 pb-4 safe-area-bottom">
+        {/* Quantity and Total Row */}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          {/* Quantity Selector */}
+          <div>
+            <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
+              <button
+                onClick={decrementQuantity}
+                disabled={quantity <= 1}
+                className={`w-10 h-10 flex items-center justify-center transition-colors ${
+                  quantity <= 1
+                    ? 'text-neutral-300 cursor-not-allowed'
+                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
+                }`}
+                aria-label="Verminder aantal"
+              >
+                <Minus size={18} />
+              </button>
+              <span className="w-9 text-center text-sm font-semibold text-neutral-900 select-none">
+                {quantity}
+              </span>
+              <button
+                onClick={incrementQuantity}
+                disabled={quantity >= maxAvailable || isOutOfStock}
+                className={`w-10 h-10 flex items-center justify-center transition-colors ${
+                  quantity >= maxAvailable || isOutOfStock
+                    ? 'text-neutral-300 cursor-not-allowed'
+                    : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 active:bg-neutral-300'
+                }`}
+                aria-label="Verhoog aantal"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+            {quantity >= maxAvailable && !isOutOfStock && (
+              <p className="text-xs text-amber-600 mt-1">Max</p>
+            )}
+          </div>
+
+          {/* Total Price */}
+          <div className="text-right">
+            <p className="text-xs text-neutral-500">Totaal</p>
+            <p className="text-lg font-bold text-neutral-900 sm:text-xl">
+              {formatCurrency(totalPrice, currency)}
+            </p>
+          </div>
+        </div>
+
+        {/* Add to Cart Button */}
+        {isOutOfStock ? (
+          <button
+            className="w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed"
+            disabled
+          >
+            <AlertCircle size={20} strokeWidth={2} />
+            <span>Uitverkocht</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleAddToCart}
+            disabled={addedToCart}
+            className={`w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
+              addedToCart
+                ? 'bg-green-500 text-white shadow-green-500/20'
+                : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
+            }`}
+          >
+            {addedToCart ? (
+              <>
+                <Check size={20} strokeWidth={2.5} />
+                <span>Toegevoegd!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={20} strokeWidth={2} />
+                <span>Plaats in winkelwagen</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Footer */}
+      <NewFooter
+        storeName={settings.store_name}
+        logoUrl={settings.store_logo_url}
+        storeDescription={settings.store_description || ''}
+        storeAddress={settings.store_address}
+        whatsappNumber={settings.whatsapp_number}
+        storeEmail={settings.store_email || ''}
+        categories={categories}
+        brandLinks={[
+          { href: '/watches', label: 'Watches' },
+          { href: '/', label: 'Portal' },
+        ]}
+        onCategoryClick={() => {}}
+      />
+      
+      {/* Cart Drawer */}
+      {isCartOpen && <NewCartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        currency={currency}
+        storeName={settings.store_name}
+        whatsappNumber={settings.whatsapp_number}
+        storeAddress={settings.store_address}
+        locations={locations}
+        selectedLocation={selectedLocation}
+        onLocationChange={setSelectedLocation}
+        pickupDate={pickupDate}
+        onPickupDateChange={setPickupDate}
+        customPickupDate={customPickupDate}
+        onCustomPickupDateChange={setCustomPickupDate}
+        onUpdateQuantity={handleUpdateQuantity}
+        onAddOne={handleAddOne}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
+        customerNotes={customerNotes}
+        onCustomerNotesChange={setCustomerNotes}
+        onSubmitOrder={handleSubmitOrder}
+        stockMap={Object.fromEntries(stockMap)}
+      />}
+    </div>
+  )
+}

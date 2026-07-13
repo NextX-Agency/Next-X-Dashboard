@@ -17,10 +17,7 @@ interface NewHeroProps {
 }
 
 export function NewHero({
-  storeName,
-  heroTitle,
   heroSubtitle,
-  storeAddress,
   onExploreClick,
   accentVariant = 'default'
 }: NewHeroProps) {
@@ -92,7 +89,6 @@ export function NewHero({
                   height={77}
                   className="relative"
                   style={{ height: 'auto', width: '228px' }}
-                  priority
                 />
               </span>
             </h1>
@@ -138,15 +134,16 @@ export function NewHero({
                 )}
 
                 <div className="relative aspect-5/4 sm:aspect-square">
-                  <iframe
-                    src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
-                    className="absolute inset-0 h-full w-full border-0"
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
-                    style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
-                  />
+                  {mapActive && (
+                    <iframe
+                      src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
+                      className="absolute inset-0 h-full w-full border-0"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
+                    />
+                  )}
 
                   {!mapActive && (
                     <>
@@ -176,7 +173,6 @@ export function NewHero({
                   height={86}
                   className="relative"
                   style={{ height: 'auto', width: '268px' }}
-                  priority
                 />
               </span>
             </h1>
@@ -222,15 +218,16 @@ export function NewHero({
                 )}
 
                 <div className="relative aspect-[1.02/1]">
-                  <iframe
-                    src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
-                    className="absolute inset-0 h-full w-full border-0"
-                    allowFullScreen
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
-                    style={{ pointerEvents: mapActive ? 'auto' : 'none' }}
-                  />
+                  {mapActive && (
+                    <iframe
+                      src="https://www.google.com/maps/d/embed?mid=13wJoAN8Rq_At7ygnOmA3fxP2abjtj0w&ehbc=2E312F&noprof=1"
+                      className="absolute inset-0 h-full w-full border-0"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Store Location Map - Sinaiplein Surinam Ooststraat 132 / Parool Tbadjonsoweg 108"
+                    />
+                  )}
 
                   {!mapActive && (
                     <>

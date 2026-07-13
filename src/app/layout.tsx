@@ -196,10 +196,6 @@ export default function RootLayout({
   return (
     <html lang="nl" dir="ltr">
       <head>
-        {/* Preconnect to external domains for performance */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
         {/* DNS Prefetch for faster loading */}
         <link rel="dns-prefetch" href="//wa.me" />
         

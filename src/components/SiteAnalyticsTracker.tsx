@@ -180,13 +180,15 @@ export function SiteAnalyticsTracker() {
     if (lastTrackedPathRef.current === pathname) return
     lastTrackedPathRef.current = pathname
 
-    window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       sendAnalyticsEvent({
         ...buildBasePayload(pathname),
         ...getNavigationTiming(),
         eventType: 'page_view',
       })
-    }, 0)
+    }, 1000)
+
+    return () => window.clearTimeout(timeoutId)
   }, [pathname])
 
   return null

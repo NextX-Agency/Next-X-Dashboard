@@ -2,49 +2,50 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { supabase } from '@/lib/supabase'
-import { fetchCatalogData } from '@/lib/catalogApi'
 import type { NormalizedCatalogData } from '@/lib/catalogData'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
-import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 import { 
   getItemStockStatus, 
   getItemStockLevel, 
   canAddToCart, 
-  validateCartItem,
   getComboStockStatus,
   type StockStatus 
 } from '@/lib/stockUtils'
 
+import { NewHeader } from '@/components/catalog/NewHeader'
+import { NewHero } from '@/components/catalog/NewHero'
+import { NewCategoryNav } from '@/components/catalog/NewCategoryNav'
 import {
-  NewHeader,
-  NewHero,
-  NewCategoryNav,
   NewProductCard,
   NewProductGrid,
-  ProductSectionHeader,
-  NewProductCarousel,
-  NewFooter,
-  NewCartDrawer,
-  NewQuickViewModal,
-  BannerSlider,
-  SectionContainer,
-  CatalogEmptyState,
-  Breadcrumbs,
-  SEOIntro,
-  CategorySEOHeader,
+} from '@/components/catalog/NewProductCard'
+import { NewProductCarousel } from '@/components/catalog/NewProductCarousel'
+import { NewFooter } from '@/components/catalog/NewFooter'
+import { BannerSlider } from '@/components/catalog/BannerSlider'
+import { SectionContainer } from '@/components/catalog/SectionContainer'
+import { CatalogEmptyState } from '@/components/catalog/CatalogEmptyState'
+import {
   ProductListSchema,
   LocalBusinessSchema,
   WebsiteSchema,
-  SEO_CONTENT
-} from '@/components/catalog'
-import { PageSkeleton, CarouselSkeleton } from '@/components/catalog/SkeletonLoader'
+  SEO_CONTENT,
+} from '@/components/catalog/SEOComponents'
 
 // Lazy load heavy below-the-fold sections
 const NewValueSection_Lazy = dynamic(
-  () => import('@/components/catalog').then(m => ({ default: m.NewValueSection })),
+  () => import('@/components/catalog/NewValueSection').then(m => m.NewValueSection),
+  { ssr: false }
+)
+
+const NewCartDrawer = dynamic(
+  () => import('@/components/catalog/NewCartDrawer').then(m => m.NewCartDrawer),
+  { ssr: false }
+)
+
+const NewQuickViewModal = dynamic(
+  () => import('@/components/catalog/NewQuickViewModal').then(m => m.NewQuickViewModal),
   { ssr: false }
 )
 
@@ -120,11 +121,6 @@ interface StoreSettings {
   hero_subtitle: string
 }
 
-// Stock update timestamp for displaying freshness
-interface StockMetadata {
-  lastUpdated: Date
-}
-
 const DEFAULT_SETTINGS: StoreSettings = {
   whatsapp_number: '+5978318508',
   store_name: 'NextX',
@@ -136,8 +132,6 @@ const DEFAULT_SETTINGS: StoreSettings = {
   hero_subtitle: ''
 }
 
-const CATALOG_TYPE = 'audio'
-const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
 const STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
 
 function createStockMap(stockData: unknown[]): Map<string, number> {
@@ -174,21 +168,18 @@ function createStoreSettings(settingsMap: Record<string, string>): StoreSettings
 
 export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   // Data state
-  const [categories, setCategories] = useState<Category[]>(() => initialData.categories as Category[])
-  const [items, setItems] = useState<ItemWithCombo[]>(() => initialData.items as ItemWithCombo[])
-  const [comboItems, setComboItems] = useState<ItemWithCombo[]>(() => initialData.combos as ItemWithCombo[])
-  const [locations, setLocations] = useState<Location[]>(() => initialData.locations as Location[])
-  const [banners, setBanners] = useState<Banner[]>(() => initialData.banners as Banner[])
-  const [collections, setCollections] = useState<Collection[]>(() => initialData.collections as Collection[])
+  const categories = initialData.categories as Category[]
+  const items = initialData.items as ItemWithCombo[]
+  const comboItems = initialData.combos as ItemWithCombo[]
+  const locations = initialData.locations as Location[]
+  const banners = initialData.banners as Banner[]
+  const collections = initialData.collections as Collection[]
   const [stockMap, setStockMap] = useState<Map<string, number>>(() => createStockMap(initialData.stock))
-  const [stockMetadata, setStockMetadata] = useState<StockMetadata>(() => ({ lastUpdated: new Date() }))
-  const [settings, setSettings] = useState<StoreSettings>(() => createStoreSettings(initialData.settings))
-  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+  const settings = createStoreSettings(initialData.settings)
+  const exchangeRate = (() => {
     const rate = initialData.exchangeRate as { usd_to_srd?: number } | null
     return normalizeExchangeRate(rate?.usd_to_srd)
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  })()
 
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -284,191 +275,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     }
   }, [items, comboItems, cart])
 
-  // Load data - Use API route that bypasses RLS, with Supabase fallback
-  const loadData = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      // Try API route first (uses Prisma, bypasses RLS)
-      const apiData = await fetchCatalogData()
-      
-      // Check if we got data from the API
-      if (apiData.categories.length > 0 || apiData.items.length > 0) {
-        console.log('Using API data (Prisma)')
-        
-        // Set categories
-        if (apiData.categories.length > 0) {
-          setCategories(apiData.categories as Category[])
-        }
-        
-        // Set items
-        if (apiData.items.length > 0) {
-          setItems(apiData.items as ItemWithCombo[])
-        }
-        
-        // Set combos
-        if (apiData.combos.length > 0) {
-          setComboItems(apiData.combos as ItemWithCombo[])
-        }
-        
-        // Set locations
-        if (apiData.locations.length > 0) {
-          setLocations(apiData.locations as Location[])
-          if (!selectedLocation && apiData.locations.length > 0) {
-            setSelectedLocation((apiData.locations[0] as Location).id)
-          }
-        }
-        
-        // Set exchange rate
-        if (apiData.exchangeRate) {
-          setExchangeRate(normalizeExchangeRate((apiData.exchangeRate as { usd_to_srd: number }).usd_to_srd))
-        }
-        
-        // Set banners
-        if (apiData.banners.length > 0) {
-          setBanners(apiData.banners as Banner[])
-        }
-        
-        // Set collections
-        if (apiData.collections.length > 0) {
-          setCollections(apiData.collections as Collection[])
-        }
-        
-        // Set settings
-        if (Object.keys(apiData.settings).length > 0) {
-          const settingsMap = apiData.settings
-          setSettings(createStoreSettings(settingsMap))
-        }
-        
-        // Set stock
-        if (apiData.stock.length > 0) {
-          const map = new Map<string, number>()
-          apiData.stock.forEach((stock: unknown) => {
-            const s = stock as { item_id: string; quantity: number }
-            const current = map.get(s.item_id) || 0
-            map.set(s.item_id, current + s.quantity)
-          })
-          setStockMap(map)
-          setStockMetadata({ lastUpdated: new Date() })
-        }
-      } else {
-        // Fallback to Supabase (in case API fails)
-        console.log('Falling back to Supabase')
-        const [categoriesRes, itemsRes, rateRes, settingsRes, locationsRes, bannersRes, collectionsRes] = await Promise.all([
-          supabase.from('categories').select('*').eq('catalog_type', CATALOG_TYPE).order('name'),
-          supabase.from('items').select('*').eq('is_public', true).eq('is_combo', false).eq('catalog_type', CATALOG_TYPE).order('created_at', { ascending: false }),
-          supabase.from('exchange_rates').select('*').eq('is_active', true).single(),
-          supabase.from('store_settings').select('*'),
-          supabase.from('locations').select('*').eq('is_active', true).in('catalog_type', LOCATION_CATALOG_FILTER).order('name'),
-          supabase.from('banners').select('*').eq('is_active', true).eq('catalog_type', CATALOG_TYPE).order('position'),
-          supabase.from('collections')
-            .select(`
-              *,
-              collection_items (
-                id,
-                collection_id,
-                item_id,
-                sort_order,
-                items (*)
-              )
-            `)
-            .eq('is_active', true)
-            .eq('is_featured', true)
-            .eq('catalog_type', CATALOG_TYPE)
-            .order('created_at', { ascending: false })
-        ])
-        
-        if (categoriesRes.error) throw categoriesRes.error
-        if (itemsRes.error) throw itemsRes.error
-        
-        if (categoriesRes.data) setCategories(categoriesRes.data)
-        if (itemsRes.data) {
-          setItems(itemsRes.data)
-        }
-        
-        // Load combos separately
-        const combosRes = await supabase
-          .from('items')
-          .select('*')
-          .eq('is_public', true)
-          .eq('is_combo', true)
-          .eq('catalog_type', CATALOG_TYPE)
-        
-        if (combosRes.data && combosRes.data.length > 0) {
-          const comboItemsRes = await supabase
-            .from('combo_items')
-            .select('*')
-            .in('combo_id', combosRes.data.map(c => c.id))
-          
-          const childItemIds = comboItemsRes.data?.map(ci => ci.item_id) || []
-          const childItemsRes = await supabase
-            .from('items')
-            .select('*')
-            .in('id', childItemIds)
-          
-          const comboItemsWithChildren = comboItemsRes.data?.map(ci => ({
-            ...ci,
-            child_item: childItemsRes.data?.find(item => item.id === ci.item_id),
-            child_item_id: ci.item_id
-          })) || []
-          
-          const combosWithItems: ItemWithCombo[] = combosRes.data.map(combo => ({
-            ...combo,
-            combo_items: comboItemsWithChildren.filter(ci => ci.combo_id === combo.id)
-          }))
-          
-          setComboItems(combosWithItems)
-        }
-        
-        if (locationsRes.data) {
-          setLocations(locationsRes.data)
-          if (!selectedLocation && locationsRes.data.length > 0) {
-            setSelectedLocation(locationsRes.data[0].id)
-          }
-        }
-        if (bannersRes.data) setBanners(bannersRes.data as Banner[])
-        if (collectionsRes.data) setCollections(collectionsRes.data as Collection[])
-        if (rateRes.data) setExchangeRate(normalizeExchangeRate(rateRes.data.usd_to_srd))
-        if (settingsRes.data) {
-          const settingsMap: Record<string, string> = {}
-          settingsRes.data.forEach((s: { key: string; value: string }) => {
-            settingsMap[s.key] = s.value
-          })
-          setSettings(createStoreSettings(settingsMap))
-        }
-
-        const { data: stockData } = await supabase
-          .from('stock')
-          .select('item_id, location_id, quantity')
-        
-        if (stockData) {
-          const visibleLocationIds = new Set((locationsRes.data || []).map((location: { id: string }) => location.id))
-          const map = new Map<string, number>()
-          stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
-            if (!visibleLocationIds.has(stock.location_id)) {
-              return
-            }
-
-            const current = map.get(stock.item_id) || 0
-            map.set(stock.item_id, current + stock.quantity)
-          })
-          setStockMap(map)
-          setStockMetadata({ lastUpdated: new Date() })
-        }
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error('Error loading catalog data:', {
-        message: errorMessage,
-        error: err,
-        stack: err instanceof Error ? err.stack : undefined
-      })
-      setError('Er is een fout opgetreden bij het laden van de producten.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   // Refresh stock data periodically (every 30 seconds) for real-time accuracy
   const refreshStock = useCallback(async () => {
     try {
@@ -483,45 +289,26 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
             map.set(stock.itemId, current + stock.quantity)
           })
           setStockMap(map)
-          setStockMetadata({ lastUpdated: new Date() })
           return
         }
-      }
-      
-      // Fallback to Supabase
-      const { data: stockData } = await supabase
-        .from('stock')
-        .select('item_id, location_id, quantity')
-      
-      if (stockData) {
-        const visibleLocationIds = new Set(locations.map((location) => location.id))
-        const map = new Map<string, number>()
-        stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
-          if (!visibleLocationIds.has(stock.location_id)) {
-            return
-          }
-
-          const current = map.get(stock.item_id) || 0
-          map.set(stock.item_id, current + stock.quantity)
-        })
-        setStockMap(map)
-        setStockMetadata({ lastUpdated: new Date() })
       }
     } catch (err) {
       console.error('Error refreshing stock:', err)
     }
-  }, [locations])
+  }, [])
 
   // Periodic stock refresh for real-time accuracy (60s instead of 30s to reduce load)
   useEffect(() => {
-    const interval = setInterval(refreshStock, 60000)
+    const interval = setInterval(() => {
+      if (!document.hidden) void refreshStock()
+    }, 60000)
     return () => clearInterval(interval)
   }, [refreshStock])
 
   // Price calculation
-  const getPrice = (item: Item): number => {
+  const getPrice = useCallback((item: Item): number => {
     return getSellingPrice(item, currency, exchangeRate)
-  }
+  }, [currency, exchangeRate])
 
   // Stock status helper - uses centralized utility for consistency
   const getStockStatus = useCallback((itemId: string): StockStatus => {
@@ -710,7 +497,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       image_url: item.image_url,
       price: getPrice(item)
     }))
-  }, [items, currency, exchangeRate])
+  }, [items, getPrice])
 
   // Get products by category for homepage
   const productsByCategory = useMemo(() => {
@@ -767,29 +554,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   const showCategoryProducts = selectedCategory !== '' && !showSearchResults
   const showHomepage = !showSearchResults && !showCategoryProducts
 
-  // Loading state
-  if (loading) {
-    return <PageSkeleton />
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6">
-        <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Er ging iets mis</h2>
-          <p className="text-neutral-600 mb-6">{error}</p>
-          <button
-            onClick={loadData}
-            className="px-6 py-3 rounded-full bg-[#f97015] text-white font-medium hover:bg-[#e5640d] transition-colors"
-          >
-            Opnieuw proberen
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // Prepare products for structured data
   const productsForSchema = items.slice(0, 20).map(item => ({
     id: item.id,
@@ -800,21 +564,6 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     selling_price_usd: item.selling_price_usd,
     stockStatus: getStockStatus(item.id)
   }))
-
-  // Get breadcrumb items based on current view
-  const getBreadcrumbItems = (): Array<{ label: string; href?: string }> => {
-    const base: Array<{ label: string; href?: string }> = [
-      { label: 'Home', href: '/' }, 
-      { label: 'Audio', href: '/audio' }
-    ]
-    if (selectedCategory) {
-      const categoryName = getCategoryName(selectedCategory)
-      if (categoryName) {
-        base.push({ label: categoryName })
-      }
-    }
-    return base
-  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -1187,7 +936,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       />
 
       {/* Cart Drawer */}
-      <NewCartDrawer
+      {showCart && <NewCartDrawer
         isOpen={showCart}
         onClose={() => setShowCart(false)}
         items={cart.map(c => {
@@ -1234,7 +983,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         onCustomerNotesChange={setCustomerNotes}
         onSubmitOrder={sendWhatsAppOrder}
         stockMap={Object.fromEntries(stockMap)}
-      />
+      />}
 
       {/* Quick View Modal */}
       {selectedItem && (

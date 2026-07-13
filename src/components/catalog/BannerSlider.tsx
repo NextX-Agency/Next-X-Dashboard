@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { getImageProps } from 'next/image'
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
 
 interface Banner {
@@ -46,32 +47,44 @@ export function BannerSlider({ banners, autoPlayInterval = 5000 }: BannerSliderP
   if (banners.length === 0) return null
 
   const currentBanner = banners[currentIndex]
+  const imageOptions = {
+    alt: currentBanner.title,
+    fill: true,
+    sizes: '100vw',
+    quality: 75,
+    priority: currentIndex === 0,
+  } as const
+  const { props: desktopImageProps } = getImageProps({
+    ...imageOptions,
+    src: currentBanner.image_url,
+  })
+  const mobileImageProps = currentBanner.mobile_image
+    ? getImageProps({ ...imageOptions, src: currentBanner.mobile_image }).props
+    : null
 
   return (
     <section className="relative w-full overflow-hidden bg-slate-900">
       {/* Banner Image */}
       <div className="relative aspect-[21/9] md:aspect-[3/1]">
-        {banners.map((banner, index) => (
-          <div
-            key={banner.id}
-            className={`absolute inset-0 transition-opacity duration-500 ${
-              index === currentIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
-          >
-            <picture>
-              {banner.mobile_image && (
-                <source media="(max-width: 768px)" srcSet={banner.mobile_image} />
-              )}
-              <img
-                src={banner.image_url}
-                alt={banner.title}
-                className="w-full h-full object-cover"
+        <div key={currentBanner.id} className="absolute inset-0">
+          <picture>
+            {mobileImageProps && (
+              <source
+                media="(max-width: 768px)"
+                srcSet={mobileImageProps.srcSet}
+                sizes={mobileImageProps.sizes}
               />
-            </picture>
-            {/* Gradient Overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
-          </div>
-        ))}
+            )}
+            <img
+              {...desktopImageProps}
+              alt={currentBanner.title}
+              className="h-full w-full object-cover"
+              style={{ ...desktopImageProps.style, objectFit: 'cover' }}
+            />
+          </picture>
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
+        </div>
 
         {/* Content */}
         <div className="absolute inset-0 flex items-center">

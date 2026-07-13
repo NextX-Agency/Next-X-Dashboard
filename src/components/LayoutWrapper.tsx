@@ -1,82 +1,31 @@
 'use client'
 
-import { memo, useMemo } from 'react'
+import dynamic from 'next/dynamic'
+import { memo } from 'react'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/lib/AuthContext'
-import { AuthGuard } from './AuthGuard'
-import BottomNav from './BottomNav'
-import Sidebar from './Sidebar'
-import TopBar from './TopBar'
-import { WorkspaceLoadingScreen } from './UI'
-import { isPublicRoute, isAdminRoute } from '@/lib/routes'
-import { OperatorProvider } from '@/lib/OperatorContext'
+
+import { isPublicRoute } from '@/lib/routes'
+
+const AdminLayoutWrapper = dynamic(
+  () => import('./AdminLayoutWrapper').then(module => module.AdminLayoutWrapper),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-screen items-center justify-center bg-gray-900 text-sm text-gray-400">
+        Werkruimte laden…
+      </div>
+    ),
+  }
+)
 
 function LayoutWrapperComponent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const { loading, isAdmin, isAuthenticated } = useAuth()
 
-  // Check if this is a public route (must be called before any conditional returns)
-  const isPublic = useMemo(() => isPublicRoute(pathname), [pathname])
-  
-  // Check if this is an admin route (must be called before any conditional returns)
-  const requiresAdmin = useMemo(() => isAdminRoute(pathname), [pathname])
-
-  // Public routes should never wait on admin auth chrome
-  if (isPublic) {
+  if (isPublicRoute(pathname)) {
     return <>{children}</>
   }
 
-  // Show loading state while checking auth
-  if (loading) {
-    return <WorkspaceLoadingScreen />
-  }
-
-  // Non-admin users trying to access admin routes: let AuthGuard handle it
-  // But don't show admin navigation
-  if (requiresAdmin && (!isAuthenticated || !isAdmin)) {
-    return (
-      <AuthGuard>
-        {children}
-      </AuthGuard>
-    )
-  }
-
-  // Authenticated admin users: show full admin layout
-  if (isAuthenticated && isAdmin) {
-    return (
-      <AuthGuard>
-        <OperatorProvider>
-          <div className="flex h-dvh overflow-hidden bg-gray-900">
-            {/* Desktop Sidebar - only shown to admins */}
-            <Sidebar />
-            
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-              {/* Top Bar */}
-              <TopBar />
-              
-              {/* Page Content - Extra padding on mobile for bottom nav */}
-              <main className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8 overscroll-contain">
-                <div className="h-full">
-                  {children}
-                </div>
-              </main>
-            </div>
-          </div>
-          
-          {/* Mobile Bottom Navigation - only shown to admins */}
-          <BottomNav />
-        </OperatorProvider>
-      </AuthGuard>
-    )
-  }
-
-  // Default: require auth with AuthGuard
-  return (
-    <AuthGuard>
-      {children}
-    </AuthGuard>
-  )
+  return <AdminLayoutWrapper>{children}</AdminLayoutWrapper>
 }
 
 export const LayoutWrapper = memo(LayoutWrapperComponent)
