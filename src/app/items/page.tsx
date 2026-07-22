@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
-import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch } from 'lucide-react'
+import { Plus, Trash2, Package, Tag, Search, Layers, X, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -677,15 +677,6 @@ export default function ItemsPage() {
                       onEdit={() => handleEditItem(item)}
                       onDelete={() => handleDeleteItem(item.id)}
                     />
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 flex gap-1">
-                      {item.allow_custom_price && (
-                        <Badge variant="warning" className="text-xs">
-                          <DollarSign size={12} />
-                          Custom Price
-                        </Badge>
-                      )}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1002,19 +993,6 @@ export default function ItemsPage() {
               />
               <label htmlFor="is_public" className="text-sm font-medium text-foreground flex-1">
                 Show in public catalog (webshop)
-              </label>
-            </div>
-            <div className="flex items-center gap-3 min-h-11">
-              <input
-                type="checkbox"
-                id="allow_custom_price"
-                checked={itemForm.allow_custom_price}
-                onChange={(e) => setItemForm({ ...itemForm, allow_custom_price: e.target.checked })}
-                className="w-5 h-5 rounded border-border text-primary focus:ring-primary touch-manipulation"
-              />
-              <label htmlFor="allow_custom_price" className="text-sm font-medium text-foreground flex-1 flex items-center gap-2">
-                <DollarSign size={16} className="text-warning" />
-                Allow custom price (for discounts)
               </label>
             </div>
             {/* Catalog type */}

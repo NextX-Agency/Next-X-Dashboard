@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { Database } from '@/types/database.types'
 import type { SalesPageDataPayload, SalesPageDataResponse, SalesPageRecentSale, SalesPageStats } from '@/types/sales'
-import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw, Headphones, Watch } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Check, MapPin, Package, Receipt, Printer, History, Undo2, CheckCircle, Clock, CheckCircle2, TrendingUp, DollarSign, PackageCheck, Sparkles, X, Eye, RefreshCw, Headphones, Watch, CirclePlus, CircleMinus } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, CurrencyToggle, EmptyState, LoadingSpinner, Badge, Input } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
@@ -31,7 +31,7 @@ interface CartItem {
   availableStock: number
   isComboItem?: boolean
   comboId?: string
-  customPrice?: number | null // Custom price for discounts
+  customPrice?: number | null // Custom TOTAL price for the whole line (overrides unit price × quantity), not a per-unit price
   discountReason?: string // Reason for custom price
 }
 
@@ -409,12 +409,12 @@ export default function SalesPage() {
   const calculateTotal = () => {
     // Regular cart items (with custom price support)
     const cartTotal = cart.reduce((sum, cartItem) => {
-      // Use custom price if set, otherwise use regular price
+      // Custom price is the final total for the whole line, not a per-unit price
       const regularPrice = getItemSellingPrice(cartItem.item)
-      const price = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
-        ? cartItem.customPrice 
-        : regularPrice
-      return sum + (price * cartItem.quantity)
+      const lineTotal = cartItem.customPrice !== undefined && cartItem.customPrice !== null
+        ? cartItem.customPrice
+        : regularPrice * cartItem.quantity
+      return sum + lineTotal
     }, 0)
     
     // Combo totals
@@ -488,17 +488,18 @@ export default function SalesPage() {
       // Process regular cart items
       for (const cartItem of cart) {
         const originalPrice = getItemSellingPrice(cartItem.item)
-        
-        // Use custom price if set
+
+        // Custom price is the final total for the whole line, not a per-unit price
         const isCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
-        const finalPrice = isCustomPrice ? cartItem.customPrice! : originalPrice
-        
+        const lineTotal = isCustomPrice ? cartItem.customPrice! : originalPrice * cartItem.quantity
+        const unitPrice = isCustomPrice ? cartItem.customPrice! / cartItem.quantity : originalPrice
+
         const { error: siError } = await supabase.from('sale_items').insert({
           sale_id: sale.id,
           item_id: cartItem.item.id,
           quantity: cartItem.quantity,
-          unit_price: finalPrice,
-          subtotal: finalPrice * cartItem.quantity,
+          unit_price: unitPrice,
+          subtotal: lineTotal,
           is_custom_price: isCustomPrice,
           original_price: isCustomPrice ? originalPrice : null,
           discount_reason: isCustomPrice ? cartItem.discountReason || null : null
@@ -515,8 +516,8 @@ export default function SalesPage() {
         saleItems.push({
           name: cartItem.item.name,
           quantity: cartItem.quantity,
-          unitPrice: finalPrice,
-          subtotal: finalPrice * cartItem.quantity,
+          unitPrice: unitPrice,
+          subtotal: lineTotal,
           originalPrice: isCustomPrice ? originalPrice : undefined,
           discountReason: isCustomPrice ? cartItem.discountReason : undefined
         })
@@ -620,10 +621,9 @@ export default function SalesPage() {
               // Calculate commission for this category
               for (const cartItem of categoryItems) {
                 const regularPrice = getItemSellingPrice(cartItem.item)
-                const actualPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
-                  ? cartItem.customPrice 
-                  : regularPrice
-                const itemTotal = actualPrice * cartItem.quantity
+                const itemTotal = cartItem.customPrice !== undefined && cartItem.customPrice !== null
+                  ? cartItem.customPrice
+                  : regularPrice * cartItem.quantity
                 categoryCommission += itemTotal * (rateToUse / 100)
               }
 
@@ -1473,10 +1473,11 @@ export default function SalesPage() {
                       {/* Regular Cart Items */}
                       {cart.map((cartItem) => {
                         const originalPrice = getItemSellingPrice(cartItem.item)
+                        const originalLineTotal = originalPrice * cartItem.quantity
                         const hasCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
-                        const displayPrice = hasCustomPrice ? cartItem.customPrice! : originalPrice
+                        const lineTotal = hasCustomPrice ? cartItem.customPrice! : originalLineTotal
                         const isEditing = editingPriceItemId === cartItem.item.id
-                        
+
                         return (
                           <div key={cartItem.item.id} className={`p-3.5 rounded-xl border ${hasCustomPrice ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-muted/50 border-border/50'}`}>
                             <div className="flex justify-between items-start mb-3">
@@ -1485,10 +1486,10 @@ export default function SalesPage() {
                                 {hasCustomPrice ? (
                                   <div className="text-sm mt-0.5">
                                     <span className="text-muted-foreground line-through mr-2">
-                                      {formatCurrency(originalPrice, currency)}
+                                      {formatCurrency(originalLineTotal, currency)}
                                     </span>
                                     <span className="text-emerald-500 font-medium">
-                                      {formatCurrency(displayPrice, currency)} × {cartItem.quantity}
+                                      {formatCurrency(lineTotal, currency)} (qty {cartItem.quantity})
                                     </span>
                                     {cartItem.discountReason && (
                                       <div className="text-xs text-emerald-600 mt-0.5">
@@ -1503,77 +1504,68 @@ export default function SalesPage() {
                                 )}
                               </div>
                               <div className="font-bold text-foreground ml-3 text-right">
-                                {formatCurrency(displayPrice * cartItem.quantity, currency)}
+                                {formatCurrency(lineTotal, currency)}
                               </div>
                             </div>
-                            
-                            {/* Custom Price Editing */}
-                            {cartItem.item.allow_custom_price && (
-                              <div className="mb-3">
-                                {isEditing ? (
-                                  <div className="bg-background p-2 rounded-lg border border-border space-y-2">
-                                    <div className="flex gap-2">
-                                      <Input
-                                        type="number"
-                                        placeholder="Custom price"
-                                        value={tempCustomPrice}
-                                        onChange={(e) => setTempCustomPrice(e.target.value)}
-                                        className="flex-1 h-8 text-sm"
-                                      />
-                                      <Button
-                                        size="sm"
-                                        variant="primary"
-                                        onClick={() => {
-                                          const price = parseFloat(tempCustomPrice)
-                                          if (!isNaN(price) && price >= 0) {
-                                            setCart(cart.map(c => 
-                                              c.item.id === cartItem.item.id 
-                                                ? { ...c, customPrice: price, discountReason: tempDiscountReason || undefined }
-                                                : c
-                                            ))
-                                          }
-                                          setEditingPriceItemId(null)
-                                          setTempCustomPrice('')
-                                          setTempDiscountReason('')
-                                        }}
-                                      >
-                                        <Check size={14} />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          setEditingPriceItemId(null)
-                                          setTempCustomPrice('')
-                                          setTempDiscountReason('')
-                                        }}
-                                      >
-                                        <X size={14} />
-                                      </Button>
-                                    </div>
+
+                            {/* Discount / Custom Price Toggle */}
+                            <div className="mb-4">
+                              <button
+                                onClick={() => {
+                                  if (isEditing) {
+                                    setEditingPriceItemId(null)
+                                    setTempCustomPrice('')
+                                    setTempDiscountReason('')
+                                  } else {
+                                    setEditingPriceItemId(cartItem.item.id)
+                                    setTempCustomPrice(hasCustomPrice ? String(cartItem.customPrice) : String(originalLineTotal))
+                                    setTempDiscountReason(cartItem.discountReason || '')
+                                  }
+                                }}
+                                className="text-xs text-info hover:text-info/80 font-medium flex items-center gap-1"
+                              >
+                                {isEditing ? <CircleMinus size={14} /> : <CirclePlus size={14} />}
+                                {isEditing ? 'Hide discount' : hasCustomPrice ? 'Edit discount' : 'Add discount'}
+                              </button>
+                              {isEditing && (
+                                <div className="space-y-2 mt-3">
+                                  <div className="flex gap-2">
                                     <Input
-                                      type="text"
-                                      placeholder="Reason for discount (optional)"
-                                      value={tempDiscountReason}
-                                      onChange={(e) => setTempDiscountReason(e.target.value)}
-                                      className="h-8 text-sm"
+                                      type="number"
+                                      placeholder="Final price for this line"
+                                      value={tempCustomPrice}
+                                      onChange={(e) => setTempCustomPrice(e.target.value)}
+                                      className="flex-1"
                                     />
+                                    <Button
+                                      size="md"
+                                      variant="secondary"
+                                      onClick={() => {
+                                        const price = parseFloat(tempCustomPrice)
+                                        if (!isNaN(price) && price >= 0) {
+                                          setCart(cart.map(c =>
+                                            c.item.id === cartItem.item.id
+                                              ? { ...c, customPrice: price, discountReason: tempDiscountReason || undefined }
+                                              : c
+                                          ))
+                                        }
+                                        setEditingPriceItemId(null)
+                                        setTempCustomPrice('')
+                                        setTempDiscountReason('')
+                                      }}
+                                    >
+                                      Apply
+                                    </Button>
                                   </div>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      setEditingPriceItemId(cartItem.item.id)
-                                      setTempCustomPrice(hasCustomPrice ? String(cartItem.customPrice) : String(originalPrice))
-                                      setTempDiscountReason(cartItem.discountReason || '')
-                                    }}
-                                    className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
-                                  >
-                                    <DollarSign size={12} />
-                                    {hasCustomPrice ? 'Edit Custom Price' : 'Set Custom Price'}
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                                  <Input
+                                    type="text"
+                                    placeholder="Reason for discount (optional)"
+                                    value={tempDiscountReason}
+                                    onChange={(e) => setTempDiscountReason(e.target.value)}
+                                  />
+                                </div>
+                              )}
+                            </div>
                             
                             <div className="flex items-center gap-1 sm:gap-2">
                               <button
