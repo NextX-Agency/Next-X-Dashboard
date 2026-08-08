@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { getImageProps } from 'next/image'
-import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { catalogShellClassName } from '@/components/catalog/shell'
+import { useScrollReveal } from '@/lib/useScrollReveal'
 
 interface Banner {
   id: string
@@ -18,41 +20,49 @@ interface Banner {
 interface BannerSliderProps {
   banners: Banner[]
   autoPlayInterval?: number
+  /** Fallback copy when a banner has no subtitle of its own. */
+  storeAddress?: string
 }
 
-export function BannerSlider({ banners, autoPlayInterval = 5000 }: BannerSliderProps) {
+/**
+ * Campaign hero. Copy sits on white beside the image rather than on top of it:
+ * CMS banner images are uploaded by hand and are not composed to carry text,
+ * so overlaying a headline made legibility depend on whatever was uploaded.
+ */
+export function BannerSlider({ banners, autoPlayInterval = 6000, storeAddress }: BannerSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const sectionRef = useRef<HTMLElement>(null)
+
+  useScrollReveal(sectionRef, { threshold: 0.05, deps: [currentIndex] })
 
   const goToNext = useCallback(() => {
-    if (isTransitioning || banners.length <= 1) return
-    setIsTransitioning(true)
     setCurrentIndex((prev) => (prev + 1) % banners.length)
-    setTimeout(() => setIsTransitioning(false), 500)
-  }, [banners.length, isTransitioning])
+  }, [banners.length])
 
   const goToPrev = useCallback(() => {
-    if (isTransitioning || banners.length <= 1) return
-    setIsTransitioning(true)
     setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length)
-    setTimeout(() => setIsTransitioning(false), 500)
-  }, [banners.length, isTransitioning])
+  }, [banners.length])
 
+  // Auto-advance, but hold while the visitor is interacting and skip it
+  // entirely when they have asked for reduced motion.
   useEffect(() => {
-    if (banners.length <= 1) return
+    if (banners.length <= 1 || paused) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
     const interval = setInterval(goToNext, autoPlayInterval)
     return () => clearInterval(interval)
-  }, [banners.length, autoPlayInterval, goToNext])
+  }, [banners.length, autoPlayInterval, goToNext, paused])
 
   if (banners.length === 0) return null
 
   const currentBanner = banners[currentIndex]
   const imageOptions = {
-    alt: currentBanner.title,
+    alt: '',
     fill: true,
-    sizes: '100vw',
-    quality: 75,
-    priority: currentIndex === 0,
+    sizes: '(max-width: 1024px) 100vw, 30rem',
+    quality: 78,
+    priority: true,
   } as const
   const { props: desktopImageProps } = getImageProps({
     ...imageOptions,
@@ -63,96 +73,120 @@ export function BannerSlider({ banners, autoPlayInterval = 5000 }: BannerSliderP
     : null
 
   return (
-    <section className="relative w-full overflow-hidden bg-slate-900">
-      {/* Banner Image */}
-      <div className="relative aspect-[21/9] md:aspect-[3/1]">
-        <div key={currentBanner.id} className="absolute inset-0">
-          <picture>
-            {mobileImageProps && (
-              <source
-                media="(max-width: 768px)"
-                srcSet={mobileImageProps.srcSet}
-                sizes={mobileImageProps.sizes}
-              />
-            )}
-            <img
-              {...desktopImageProps}
-              alt={currentBanner.title}
-              className="h-full w-full object-cover"
-              style={{ ...desktopImageProps.style, objectFit: 'cover' }}
-            />
-          </picture>
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
-        </div>
+    <section
+      ref={sectionRef}
+      className="relative bg-white"
+      aria-roledescription="carousel"
+      aria-label="Uitgelichte acties"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      <div className={catalogShellClassName}>
+        <div className="grid items-center gap-8 py-10 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,27rem)] lg:gap-16 lg:py-16">
+          {/* ── Copy ───────────────────────────────── */}
+          <div className="max-w-xl" aria-live="polite">
+            <p className="catalog-reveal audio-eyebrow mb-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-[#f97015]" />
+              NextX Audio · Suriname
+            </p>
 
-        {/* Content */}
-        <div className="absolute inset-0 flex items-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            <div className="max-w-xl">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
-                {currentBanner.title}
-              </h2>
-              {currentBanner.subtitle && (
-                <p className="text-lg text-white/80 mb-6">{currentBanner.subtitle}</p>
+            <h2
+              key={`${currentBanner.id}-title`}
+              className="catalog-reveal catalog-reveal-d1 audio-display text-[2.5rem] leading-[0.95] text-[#111111] sm:text-[3.25rem] lg:text-[4rem]"
+            >
+              {currentBanner.title}
+            </h2>
+
+            <p
+              key={`${currentBanner.id}-sub`}
+              className="catalog-reveal catalog-reveal-d2 mt-6 max-w-md text-[0.975rem] leading-7 text-neutral-600"
+            >
+              {currentBanner.subtitle ||
+                `In-ear monitors, oordopjes en accessoires. Bestel via WhatsApp en haal op${storeAddress ? ` in ${storeAddress}` : ''}.`}
+            </p>
+
+            <div className="catalog-reveal catalog-reveal-d3 mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href={currentBanner.link_url || '#category-products'}
+                className="group inline-flex h-12 items-center justify-center gap-2.5 rounded-sm bg-[#f97015] px-7 text-[0.8125rem] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#d95c08]"
+              >
+                {currentBanner.link_text || 'Bekijk de collectie'}
+                <ArrowRight size={16} strokeWidth={2.2} className="transition-transform group-hover:translate-x-0.5" />
+              </Link>
+
+              {/* Slide controls */}
+              {banners.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrev}
+                    className="flex h-12 w-12 items-center justify-center rounded-sm border border-neutral-200 text-[#111111] transition-colors hover:border-[#111111]"
+                    aria-label="Vorige actie"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    onClick={goToNext}
+                    className="flex h-12 w-12 items-center justify-center rounded-sm border border-neutral-200 text-[#111111] transition-colors hover:border-[#111111]"
+                    aria-label="Volgende actie"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
               )}
-              {currentBanner.link_url && (
-                <Link
-                  href={currentBanner.link_url}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white text-[#141c2e] font-medium hover:bg-[#f97015] hover:text-white transition-all group"
-                >
-                  {currentBanner.link_text || 'Shop Now'}
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </Link>
-              )}
+            </div>
+
+            {/* Progress bars */}
+            {banners.length > 1 && (
+              <div className="mt-8 flex items-center gap-2">
+                {banners.map((banner, index) => (
+                  <button
+                    key={banner.id}
+                    onClick={() => setCurrentIndex(index)}
+                    className="group py-2"
+                    aria-label={`Ga naar actie ${index + 1}: ${banner.title}`}
+                    aria-current={index === currentIndex}
+                  >
+                    <span
+                      className={`block h-0.5 transition-all ${
+                        index === currentIndex
+                          ? 'w-10 bg-[#f97015]'
+                          : 'w-5 bg-neutral-300 group-hover:bg-neutral-400'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Banner image on an orange panel ────── */}
+          <div className="catalog-reveal catalog-reveal-d2 order-first lg:order-last">
+            <div className="rounded-sm bg-[#f97015] p-4 sm:p-5">
+              <div className="relative aspect-4/3 overflow-hidden bg-white sm:aspect-square lg:aspect-4/5">
+                <picture key={currentBanner.id}>
+                  {mobileImageProps && (
+                    <source
+                      media="(max-width: 768px)"
+                      srcSet={mobileImageProps.srcSet}
+                      sizes={mobileImageProps.sizes}
+                    />
+                  )}
+                  <img
+                    {...desktopImageProps}
+                    alt={currentBanner.title}
+                    className="h-full w-full object-cover"
+                    style={{ ...desktopImageProps.style, objectFit: 'cover' }}
+                  />
+                </picture>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Arrows */}
-      {banners.length > 1 && (
-        <>
-          <button
-            onClick={goToPrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-colors flex items-center justify-center"
-            aria-label="Previous banner"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <button
-            onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-colors flex items-center justify-center"
-            aria-label="Next banner"
-          >
-            <ChevronRight size={24} />
-          </button>
-        </>
-      )}
-
-      {/* Dots Indicator */}
-      {banners.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-          {banners.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                if (!isTransitioning) {
-                  setIsTransitioning(true)
-                  setCurrentIndex(index)
-                  setTimeout(() => setIsTransitioning(false), 500)
-                }
-              }}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${
-                index === currentIndex 
-                  ? 'bg-[#f97015] w-8' 
-                  : 'bg-white/40 hover:bg-white/60'
-              }`}
-              aria-label={`Go to banner ${index + 1}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="audio-rule" />
     </section>
   )
 }

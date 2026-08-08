@@ -42,7 +42,7 @@ export function NewFooter({
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-neutral-200 bg-white text-[#141c2e]">
+    <footer className="border-t border-neutral-200 bg-white text-[#111111]">
       <div className={`${catalogShellClassName} py-12 lg:py-14`}>
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-16">
 
@@ -59,7 +59,7 @@ export function NewFooter({
                 />
               ) : (
                 <span className="text-xl font-bold leading-none">
-                  <span className="text-[#141c2e]">Next</span>
+                  <span className="text-[#111111]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>
               )}
@@ -78,7 +78,7 @@ export function NewFooter({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Instagram"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+                className="flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
               >
                 <Instagram size={17} />
               </a>
@@ -87,7 +87,7 @@ export function NewFooter({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
+                className="flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 transition-colors hover:border-[#f97015]/40 hover:text-[#f97015]"
               >
                 <Facebook size={17} />
               </a>
@@ -96,7 +96,7 @@ export function NewFooter({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="WhatsApp"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 transition-colors hover:border-[#f97015]/40"
+                className="flex h-9 w-9 items-center justify-center rounded-sm border border-neutral-200 transition-colors hover:border-[#f97015]/40"
               >
                 <Image
                   src="/whatsapp.png"

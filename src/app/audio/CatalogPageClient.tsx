@@ -25,6 +25,7 @@ import { NewProductCarousel } from '@/components/catalog/NewProductCarousel'
 import { NewFooter } from '@/components/catalog/NewFooter'
 import { BannerSlider } from '@/components/catalog/BannerSlider'
 import { SectionContainer } from '@/components/catalog/SectionContainer'
+import { PickupSection } from '@/components/catalog/PickupSection'
 import { CatalogEmptyState } from '@/components/catalog/CatalogEmptyState'
 import {
   ProductListSchema,
@@ -549,6 +550,19 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
     })
   }, [items, comboItems, selectedCategory, stockMap])
 
+  // Collections that actually resolve to products, so the numbering below
+  // never skips a number for a collection that renders nothing.
+  const visibleCollections = useMemo(() => {
+    return collections.slice(0, 3).filter(collection =>
+      (collection.collection_items?.filter(ci => ci.items).length ?? 0) > 0
+    )
+  }, [collections])
+
+  // Running section numbers for the editorial index numerals.
+  const comboSectionOffset = comboItems.length > 0 ? 1 : 0
+  const newestSectionOffset = comboSectionOffset + (newestProducts.length > 0 ? 1 : 0)
+  const collectionSectionOffset = newestSectionOffset + visibleCollections.length
+
   // Determine view
   const showSearchResults = searchQuery.trim().length > 0
   const showCategoryProducts = selectedCategory !== '' && !showSearchResults
@@ -649,7 +663,8 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 link_url: b.link_url,
                 link_text: b.link_text || b.button_text
               }))}
-              autoPlayInterval={5000}
+              autoPlayInterval={6000}
+              storeAddress={settings.store_address}
             />
           ) : (
             <NewHero
@@ -659,6 +674,10 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
               storeAddress={settings.store_address}
               logoUrl={settings.store_logo_url}
               featuredImageUrl={items[0]?.image_url || undefined}
+              featuredName={items[0]?.name}
+              whatsappNumber={settings.whatsapp_number}
+              productCount={items.length + comboItems.length}
+              categoryCount={categories.length}
               onExploreClick={scrollToProducts}
               accentVariant="audio"
             />
@@ -817,6 +836,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 bgColor="neutral-50"
                 isComboCarousel={true}
                 catalogBasePath="/audio"
+                index={1}
               />
             )}
 
@@ -833,11 +853,13 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 currency={currency}
                 onAddToCart={addToCartById}
                 catalogBasePath="/audio"
+                eyebrow="Net binnen"
+                index={comboSectionOffset + 1}
               />
             )}
 
             {/* Section 3: Featured Collections (max 3) */}
-            {collections.length > 0 && collections.slice(0, 3).map((collection) => {
+            {visibleCollections.map((collection, collectionIndex) => {
               const collectionProducts = collection.collection_items
                 ?.sort((a, b) => a.sort_order - b.sort_order)
                 .filter(ci => ci.items)
@@ -870,6 +892,8 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                   currency={currency}
                   onAddToCart={addToCartById}
                   catalogBasePath="/audio"
+                  eyebrow="Collectie"
+                  index={newestSectionOffset + collectionIndex + 1}
                 />
               )
             })}
@@ -905,10 +929,19 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
                 }}
                 bgColor={index % 2 === 1 ? 'neutral-50' : 'white'}
                 catalogBasePath="/audio"
+                eyebrow="Categorie"
+                index={collectionSectionOffset + index + 1}
               />
             ))}
 
-            {/* Section 5: Value Proposition & CTA */}
+            {/* Section 5: Pickup & ordering (holds the store map) */}
+            <PickupSection
+              storeAddress={settings.store_address}
+              whatsappNumber={settings.whatsapp_number}
+              locations={locations.map(l => ({ id: l.id, name: l.name, address: l.address }))}
+            />
+
+            {/* Section 6: Value Proposition & CTA */}
             <NewValueSection_Lazy />
 
           </>

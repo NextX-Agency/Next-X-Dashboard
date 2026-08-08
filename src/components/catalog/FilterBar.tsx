@@ -37,7 +37,7 @@ export function FilterBar({
         <select
           value={selectedCategory}
           onChange={(e) => onCategoryChange(e.target.value)}
-          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
+          className="appearance-none h-12 pl-5 pr-12 rounded-sm bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
         >
           <option value="" className="bg-neutral-900">Alle categorieën</option>
           {categories.map(cat => (
@@ -57,7 +57,7 @@ export function FilterBar({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value)}
-          className="appearance-none h-12 pl-5 pr-12 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
+          className="appearance-none h-12 pl-5 pr-12 rounded-sm bg-white/5 border border-white/10 text-sm font-medium text-white hover:bg-white/8 hover:border-[#f97015]/30 focus:outline-none focus:border-[#f97015]/50 focus:ring-2 focus:ring-[#f97015]/20 transition-all cursor-pointer"
         >
           <option value="name" className="bg-neutral-900">Naam A-Z</option>
           <option value="price-asc" className="bg-neutral-900">Prijs: Laag → Hoog</option>
@@ -74,12 +74,12 @@ export function FilterBar({
       <div className="flex-1" />
 
       {/* Grid view toggle - desktop only */}
-      <div className="hidden sm:flex p-1 rounded-xl bg-white/5 border border-white/10">
+      <div className="hidden sm:flex p-1 rounded-sm bg-white/5 border border-white/10">
         <button
           onClick={() => onGridViewChange('comfortable')}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+          className={`w-10 h-10 rounded-sm flex items-center justify-center transition-all ${
             gridView === 'comfortable' 
-              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
+              ? 'bg-[#f97015] text-white' 
               : 'text-neutral-500 hover:text-white hover:bg-white/6'
           }`}
         >
@@ -87,9 +87,9 @@ export function FilterBar({
         </button>
         <button
           onClick={() => onGridViewChange('compact')}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+          className={`w-10 h-10 rounded-sm flex items-center justify-center transition-all ${
             gridView === 'compact' 
-              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
+              ? 'bg-[#f97015] text-white' 
               : 'text-neutral-500 hover:text-white hover:bg-white/6'
           }`}
         >
@@ -98,12 +98,12 @@ export function FilterBar({
       </div>
 
       {/* Currency toggle - mobile */}
-      <div className="flex sm:hidden p-1 rounded-xl bg-white/5 border border-white/10">
+      <div className="flex sm:hidden p-1 rounded-sm bg-white/5 border border-white/10">
         <button
           onClick={() => onCurrencyChange('SRD')}
-          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+          className={`px-4 py-2.5 rounded-sm text-xs font-bold transition-all ${
             currency === 'SRD' 
-              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
+              ? 'bg-[#f97015] text-white' 
               : 'text-neutral-400 hover:text-white'
           }`}
         >
@@ -111,9 +111,9 @@ export function FilterBar({
         </button>
         <button
           onClick={() => onCurrencyChange('USD')}
-          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+          className={`px-4 py-2.5 rounded-sm text-xs font-bold transition-all ${
             currency === 'USD' 
-              ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30' 
+              ? 'bg-[#f97015] text-white' 
               : 'text-neutral-400 hover:text-white'
           }`}
         >

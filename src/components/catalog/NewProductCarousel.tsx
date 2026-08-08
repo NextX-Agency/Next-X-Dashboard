@@ -1,11 +1,12 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, AlertCircle, Bell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Package, Plus, ArrowRight, Bell } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { getStockBadgeText, type StockStatus } from '@/lib/stockUtils'
+import { type StockStatus } from '@/lib/stockUtils'
+import { useScrollReveal } from '@/lib/useScrollReveal'
 
 // Re-export for backwards compatibility
 export type { StockStatus }
@@ -32,42 +33,30 @@ interface NewProductCarouselProps {
   bgColor?: 'white' | 'neutral-50'
   isComboCarousel?: boolean
   catalogBasePath?: string
+  /** Micro-label above the section title. */
+  eyebrow?: string
+  /** 1-based position on the page, rendered as a large index numeral. */
+  index?: number
 }
 
-export function NewProductCarousel({ 
-  title, 
+export function NewProductCarousel({
+  title,
   subtitle,
-  products, 
-  currency, 
+  products,
+  currency,
   onAddToCart,
   viewAllHref,
   viewAllClick,
   bgColor = 'white',
   isComboCarousel = false,
-  catalogBasePath = '/catalog'
+  catalogBasePath = '/catalog',
+  eyebrow,
+  index
 }: NewProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const sectionRef = useRef<HTMLElement>(null)
 
-  // Scroll-reveal for section header
-  useEffect(() => {
-    const el = sectionRef.current
-    if (!el) return
-    const targets = el.querySelectorAll('.catalog-reveal, .catalog-reveal-left')
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('catalog-reveal-visible')
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.1 }
-    )
-    targets.forEach((t) => observer.observe(t))
-    return () => observer.disconnect()
-  }, [])
+  useScrollReveal(sectionRef, { threshold: 0.1 })
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -81,53 +70,72 @@ export function NewProductCarousel({
 
   if (products.length === 0) return null
 
-  const backgroundClass = bgColor === 'neutral-50' ? 'bg-neutral-50' : 'bg-white'
+  const backgroundClass = bgColor === 'neutral-50' ? 'bg-[#f6f6f4]' : 'bg-white'
+  const sectionEyebrow = eyebrow || (isComboCarousel ? 'Voordeel' : 'Collectie')
 
   return (
-    <section ref={sectionRef} className={`py-8 sm:py-10 ${backgroundClass} border-b border-neutral-100`}>
+    <section ref={sectionRef} className={`py-8 sm:py-12 ${backgroundClass} border-b border-neutral-200`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h2 className="catalog-reveal-left text-xl sm:text-2xl font-bold text-[#141c2e] leading-tight">{title}</h2>
-            {subtitle && (
-              <p className="catalog-reveal catalog-reveal-d1 text-sm text-[#141c2e]/55 mt-1">{subtitle}</p>
+        <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-[#111111] pb-3 sm:mb-6 sm:pb-4">
+          <div className="flex min-w-0 items-start gap-4 sm:gap-6">
+            {index !== undefined && (
+              <span
+                className="audio-display audio-num catalog-reveal-left hidden shrink-0 text-[2.75rem] leading-[0.8] text-[#f97015] sm:block lg:text-[3.5rem]"
+                aria-hidden="true"
+              >
+                {String(index).padStart(2, '0')}
+              </span>
             )}
+            <div className="min-w-0">
+              <p className="catalog-reveal-left audio-eyebrow mb-2 flex items-center gap-3">
+                <span className="h-px w-6 bg-[#f97015]" />
+                {sectionEyebrow}
+              </p>
+              <h2 className="catalog-reveal audio-display text-2xl leading-[1.05] text-[#111111] sm:text-3xl lg:text-[2.5rem]">
+                {title}
+              </h2>
+              {subtitle && (
+                <p className="catalog-reveal catalog-reveal-d1 text-sm text-neutral-500 mt-2">{subtitle}</p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Scroll buttons */}
-            <div className="hidden sm:flex items-center gap-2 mr-4">
+            <div className="hidden sm:flex items-center gap-2">
               <button
                 onClick={() => scroll('left')}
-                className="w-9 h-9 rounded-full border-2 border-neutral-300 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/50 transition-colors"
+                className="w-9 h-9 rounded-sm border border-[#f97015] flex items-center justify-center text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white"
+                aria-label="Vorige producten"
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={17} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="w-9 h-9 rounded-full border-2 border-neutral-300 flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 hover:border-[#f97015]/50 transition-colors"
+                className="w-9 h-9 rounded-sm border border-[#f97015] flex items-center justify-center text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white"
+                aria-label="Volgende producten"
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={17} />
               </button>
             </div>
-            
+
             {/* View all */}
             {(viewAllHref || viewAllClick) && (
               viewAllHref ? (
-                <Link 
+                <Link
                   href={viewAllHref}
-                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all"
+                  className="flex h-9 items-center gap-1.5 rounded-sm border border-[#f97015] px-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white"
                 >
-                  Bekijk alles
-                  <ArrowRight size={14} />
+                  Alles
+                  <ArrowRight size={13} />
                 </Link>
               ) : (
                 <button
                   onClick={viewAllClick}
-                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all"
+                  className="flex h-9 items-center gap-1.5 rounded-sm border border-[#f97015] px-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white"
                 >
-                  Bekijk alles
-                  <ArrowRight size={14} />
+                  Alles
+                  <ArrowRight size={13} />
                 </button>
               )
             )}
@@ -145,21 +153,22 @@ export function NewProductCarousel({
               const isOutOfStock = product.stockStatus === 'out-of-stock'
               const isLowStock = product.stockStatus === 'low-stock'
               const productHref = `${catalogBasePath}/${product.id}`
-              const stockBadgeText = isLowStock && product.stockLevel && product.stockLevel > 0
-                ? `Nog ${product.stockLevel}`
-                : getStockBadgeText(product.stockStatus || 'in-stock')
-              
+
               return (
-                <div key={product.id} className="shrink-0 w-[44vw] sm:w-[200px] md:w-[210px] lg:w-[220px] snap-start">
-                  <article className={`catalog-hover-lift group bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+                <div key={product.id} className="shrink-0 w-[42vw] sm:w-[200px] md:w-[210px] lg:w-[220px] snap-start">
+                  <article className={`catalog-hover-lift group relative flex h-full flex-col overflow-hidden rounded-sm bg-white ${
                     isOutOfStock
-                      ? 'border border-neutral-300 opacity-75'
+                      ? 'border border-neutral-200 opacity-70'
                       : isComboCarousel || product.isCombo
-                        ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
-                        : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
+                        ? 'border border-[#f97015] hover:border-[#d95c08]'
+                        : 'border border-neutral-200 hover:border-[#111111]'
                   }`}>
+                    {!isOutOfStock && (
+                      <span className="absolute inset-x-0 top-0 z-10 h-[3px] origin-left scale-x-0 bg-[#f97015] transition-transform duration-300 group-hover:scale-x-100" />
+                    )}
+
                     {/* Image */}
-                    <Link href={productHref} className="block relative aspect-square bg-neutral-50 overflow-hidden">
+                    <Link href={productHref} className="block relative aspect-square bg-[#f6f6f4] overflow-hidden border-b border-neutral-200">
                       {product.image_url ? (
                         <Image
                           src={product.image_url}
@@ -177,96 +186,69 @@ export function NewProductCarousel({
                       
                       {/* Out of Stock Overlay */}
                       {isOutOfStock && (
-                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                          <span className="px-2.5 py-1 rounded-lg bg-neutral-800/90 text-white text-xs font-semibold">
+                        <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                          <span className="px-2.5 py-1 rounded-sm bg-[#111111] text-white text-[10px] font-semibold uppercase tracking-[0.1em]">
                             Uitverkocht
                           </span>
                         </div>
                       )}
-                      
+
                       {/* Combo Badge */}
                       {(isComboCarousel || product.isCombo) && !isOutOfStock && (
-                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-linear-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
-                          Combo Deal
+                        <span className="absolute top-0 left-0 px-2.5 py-1.5 bg-[#f97015] text-white text-[10px] font-semibold uppercase tracking-[0.1em]">
+                          Combo
                         </span>
                       )}
 
-                      {/* Low Stock Badge - Shows exact count */}
-                      {isLowStock && !isOutOfStock && stockBadgeText && (
-                        <span className="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full bg-amber-500/95 text-white text-[9px] font-bold shadow-md flex items-center gap-0.5 animate-pulse">
-                          <AlertCircle size={9} />
-                          {stockBadgeText}
-                        </span>
-                      )}
-                      
                       {/* Desktop Hover Quick Add */}
-                      {onAddToCart && !isOutOfStock && (
-                        <div className="hidden lg:block">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              onAddToCart(product.id)
-                            }}
-                            className="absolute bottom-3 right-3 w-9 h-9 rounded-xl bg-[#f97015] text-white flex items-center justify-center opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-[#e5640d] active:scale-95 shadow-lg"
-                          >
-                            <Plus size={18} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      )}
                     </Link>
-                    
+
                     {/* Info */}
-                    <div className="p-3 flex-1 flex flex-col">
+                    <div className="flex flex-1 flex-col p-3">
                       <Link href={productHref} className="block flex-1">
-                        <h3 className="text-sm text-[#141c2e] font-semibold line-clamp-2 leading-snug group-hover:text-[#f97015] transition-colors min-h-10">
+                        <h3 className="audio-heading line-clamp-2 min-h-10 text-sm leading-snug text-[#111111] transition-colors group-hover:text-[#f97015]">
                           {product.name}
                         </h3>
                       </Link>
-                      
-                      {/* Price and Button Row */}
-                      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-100">
-                        <div className="flex flex-col">
-                          <p className={`text-base sm:text-lg font-bold ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
-                            {formatCurrency(product.price, currency)}
-                          </p>
-                          {isOutOfStock && (
-                            <span className="text-[9px] text-red-500 font-semibold">Uitverkocht</span>
-                          )}
-                          {isLowStock && !isOutOfStock && (
-                            <span className="text-[9px] text-amber-600 font-semibold">
-                              {product.stockLevel && product.stockLevel > 0 
-                                ? `Nog ${product.stockLevel} beschikbaar` 
-                                : 'Beperkte voorraad'}
-                            </span>
-                          )}
-                        </div>
-                        {onAddToCart && (
-                          isOutOfStock ? (
-                            /* Notify button for out of stock */
-                            <Link
-                              href={productHref}
-                              onClick={(e) => e.stopPropagation()}
-                              className="lg:hidden shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-500"
-                              aria-label="Bekijk product"
-                            >
-                              <Bell size={14} />
-                            </Link>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                onAddToCart(product.id)
-                              }}
-                              className="lg:hidden shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
-                              aria-label="Toevoegen aan winkelwagen"
-                            >
-                              <Plus size={16} strokeWidth={2.5} />
-                            </button>
-                          )
-                        )}
+
+                      <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-neutral-200 pt-2.5">
+                        <p className={`audio-num audio-display text-lg leading-none ${isOutOfStock ? 'text-neutral-400' : 'text-[#111111]'}`}>
+                          {formatCurrency(product.price, currency)}
+                        </p>
+                        {/* Sold-out is already stated on the image and in the
+                            action bar, so it is not repeated here. */}
+                        {!isOutOfStock && isLowStock ? (
+                          <span className="audio-num shrink-0 text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-[#f97015]">
+                            {product.stockLevel && product.stockLevel > 0 ? `Nog ${product.stockLevel}` : 'Beperkt'}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
+
+                    {/* Action bar — always present, on every breakpoint */}
+                    {onAddToCart && (
+                      isOutOfStock ? (
+                        <Link
+                          href={productHref}
+                          className="flex h-10 shrink-0 items-center justify-center gap-2 border-t border-neutral-200 bg-white text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-neutral-500 transition-colors hover:text-[#111111]"
+                        >
+                          <Bell size={13} />
+                          Meld mij
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            onAddToCart(product.id)
+                          }}
+                          className="flex h-10 shrink-0 items-center justify-center gap-2 bg-[#f97015] text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#d95c08]"
+                        >
+                          <Plus size={14} strokeWidth={2.5} />
+                          Toevoegen
+                        </button>
+                      )
+                    )}
                   </article>
                 </div>
               )

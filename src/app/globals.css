@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
-/* NextX Dashboard - Premium Dark Design System
- * Brand Color: #141c2e (Main Brand - Dark Blue)
- * Accent Color: #f97015 (Primary Accent - Orange)
+/* NextX Design System
+ * Brand palette: white #ffffff · orange #f97015 · black #111111
+ * The admin dashboard below still runs on its own dark blue surface
+ * theme; the public storefronts (.audio-scope / .watches-scope) use
+ * the brand palette.
  */
 :root {
-  /* Dark Backgrounds with depth - Brand: #141c2e */
+  /* Dashboard surfaces (admin only — not brand colors) */
   --background: 218 36% 13%;
   --background-elevated: 218 36% 15%;
   --foreground: 0 0% 98%;
@@ -157,7 +159,7 @@ html {
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-feature-settings: 'cv11', 'ss01';
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
@@ -209,21 +211,101 @@ body {
 }
 
 /* ========================================
-   CATALOG PAGE THEME
-   Main: #141c2e | Accent: #f97015
+   STOREFRONT THEME
+   Brand: white #ffffff · orange #f97015 · black #111111
    ======================================== */
+
+/* ── Audio storefront scope ─────────────────────────
+   Mirrors .watches-scope: tokens + type live here so the
+   audio shop reads as its own brand, not as generic UI.
+   ------------------------------------------------- */
+.audio-scope {
+  /* Surfaces — flat, no gradients */
+  --a-ink:        #111111;
+  --a-ink-2:      #242424;
+  --a-paper:      #ffffff;
+  --a-paper-2:    #f6f6f4;
+  --a-paper-3:    #ededea;
+
+  /* Accent */
+  --a-accent:     #f97015;
+  --a-accent-ink: #d95c08;
+
+  /* Text — neutral greys, no blue cast */
+  --a-text:       #111111;
+  --a-text-2:     #55555a;
+  --a-text-3:     #8a8a8f;
+
+  /* Hairlines */
+  --a-line:       #e2e2df;
+  --a-line-2:     #d2d2ce;
+  --a-line-dark:  rgba(244, 243, 240, 0.16);
+
+  /* Typography */
+  --font-display: var(--font-archivo-black), 'Archivo Black', system-ui, sans-serif;
+  --font-heading: var(--font-archivo), 'Archivo', system-ui, sans-serif;
+  --font-body:    var(--font-sans), system-ui, sans-serif;
+
+  font-family: var(--font-body);
+}
+
+/* Big statements run in Archivo Black — heavy, wide, and meant to be looked at. */
+.audio-scope h1,
+.audio-scope h2,
+.audio-display {
+  /* Fallback chain matters: these classes are also used by /catalog,
+     which sits outside .audio-scope and has no --font-display. */
+  font-family: var(--font-display, var(--font-sans)), system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+/* Card and list headings stay on Archivo so they do not shout over the page. */
+.audio-scope h3,
+.audio-heading {
+  font-family: var(--font-heading, var(--font-sans)), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Micro-label above a heading — the recurring editorial device. */
+.audio-eyebrow {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--a-accent);
+}
+
+.audio-eyebrow-muted {
+  color: var(--a-text-3);
+}
+
+/* Prices and counts must not jitter as digits change. */
+.audio-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+.audio-rule {
+  height: 1px;
+  background: var(--a-line);
+}
 
 /* Catalog Brand Colors */
 .catalog-bg {
-  background-color: #141c2e;
+  background-color: #111111;
 }
 
 .catalog-bg-light {
-  background: linear-gradient(to bottom right, #f8fafc, #ffffff, #f1f5f9);
+  background-color: #ffffff;
 }
 
 .catalog-text {
-  color: #141c2e;
+  color: #111111;
 }
 
 .catalog-accent {
@@ -241,8 +323,7 @@ body {
 }
 
 .catalog-btn:hover {
-  background-color: #e5640d;
-  box-shadow: 0 10px 25px -5px rgba(249, 112, 21, 0.4);
+  background-color: #d95c08;
 }
 
 .catalog-btn-outline {
@@ -272,9 +353,8 @@ body {
 }
 
 .catalog-card:hover {
-  border-color: rgba(249, 112, 21, 0.4);
-  box-shadow: 0 10px 25px -5px rgba(20, 28, 46, 0.1), 0 8px 10px -6px rgba(249, 112, 21, 0.08);
-  transform: translateY(-2px);
+  border-color: #111111;
+  box-shadow: 0 8px 22px -12px rgba(20, 28, 46, 0.28);
 }
 
 /* Enhanced Product Card Styling */
@@ -288,8 +368,8 @@ body {
 }
 
 .catalog-product-card:hover {
-  border-color: rgba(249, 112, 21, 0.4);
-  box-shadow: 0 10px 25px -5px rgba(20, 28, 46, 0.12), 0 4px 6px -4px rgba(249, 112, 21, 0.1);
+  border-color: #111111;
+  box-shadow: 0 8px 22px -12px rgba(20, 28, 46, 0.28);
 }
 
 /* Info Card Styling - "Waarom bij ons bestellen" */
@@ -303,22 +383,20 @@ body {
 }
 
 .catalog-info-card:hover {
-  border-color: rgba(249, 112, 21, 0.4);
-  box-shadow: 0 10px 20px -5px rgba(20, 28, 46, 0.1), 0 4px 6px -4px rgba(249, 112, 21, 0.08);
-  transform: translateY(-2px);
+  border-color: #111111;
+  box-shadow: 0 8px 22px -12px rgba(20, 28, 46, 0.28);
 }
 
 /* Combo Deal Badge */
 .catalog-combo-badge {
-  background: linear-gradient(135deg, #f97015 0%, #e5640d 100%);
+  background: #f97015;
   color: #ffffff;
   font-weight: 600;
   padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
+  border-radius: 2px;
+  font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.025em;
-  box-shadow: 0 2px 8px rgba(249, 112, 21, 0.3);
+  letter-spacing: 0.08em;
 }
 
 /* Price Highlight */
@@ -344,12 +422,12 @@ body {
 }
 
 .catalog-header {
-  background-color: #141c2e;
+  background-color: #111111;
   color: #ffffff;
 }
 
 .catalog-footer {
-  background-color: #141c2e;
+  background-color: #111111;
   color: #ffffff;
 }
 
@@ -398,13 +476,39 @@ body {
   animation: catalogRevealRight 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Hover lift utility */
+/* Hover lift utility — restrained: 2px, neutral shadow, no colored glow */
 .catalog-hover-lift {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .catalog-hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 32px -8px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px -14px rgba(20, 28, 46, 0.4);
+}
+
+/* Respect the OS "reduce motion" setting: reveals resolve instantly,
+   nothing slides, parallax and hover lifts stand still. */
+@media (prefers-reduced-motion: reduce) {
+  .catalog-reveal,
+  .catalog-reveal-left,
+  .catalog-reveal-right,
+  .w-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .catalog-hover-lift:hover {
+    transform: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Hero Logo Styling */
@@ -1219,7 +1323,7 @@ button {
 
 /* Brand Color Utilities - Use these for consistent branding */
 .bg-brand {
-  background-color: #141c2e;
+  background-color: #111111;
 }
 
 .bg-accent {
@@ -1227,7 +1331,7 @@ button {
 }
 
 .text-brand {
-  color: #141c2e;
+  color: #111111;
 }
 
 .text-accent {
@@ -1252,7 +1356,7 @@ button {
 
 /* Brand gradient utilities */
 .bg-gradient-brand {
-  background: linear-gradient(135deg, #141c2e 0%, #1e293f 100%);
+  background: #111111;
 }
 
 .bg-gradient-accent {

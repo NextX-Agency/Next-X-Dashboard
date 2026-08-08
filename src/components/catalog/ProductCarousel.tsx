@@ -65,7 +65,7 @@ export function ProductCarousel({
           {/* Left scroll button */}
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-neutral-900/95 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-neutral-800 hover:scale-110 -ml-4 shadow-xl"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-sm bg-neutral-900/95 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-neutral-800 hover:scale-110 -ml-4 shadow-xl"
           >
             <ChevronLeft size={24} />
           </button>
@@ -82,7 +82,7 @@ export function ProductCarousel({
                 href={`/catalog/${product.id}`}
                 className="flex-shrink-0 w-[200px] sm:w-[220px] group/card"
               >
-                <article className="bg-neutral-900/50 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-[#f97015]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#f97015]/10">
+                <article className="bg-neutral-900/50 border border-white/[0.06] rounded-sm overflow-hidden hover:border-[#f97015]/30 transition-all duration-300">
                   {/* Image */}
                   <div className="aspect-square bg-neutral-800 relative overflow-hidden">
                     {product.image_url ? (
@@ -108,7 +108,7 @@ export function ProductCarousel({
                           e.stopPropagation()
                           onAddToCart(product.id)
                         }}
-                        className="absolute bottom-3 right-3 w-10 h-10 rounded-xl bg-[#f97015] hover:bg-[#e5640d] flex items-center justify-center text-white opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/card:translate-y-0 shadow-lg"
+                        className="absolute bottom-3 right-3 w-10 h-10 rounded-sm bg-[#f97015] hover:bg-[#d95c08] flex items-center justify-center text-white opacity-0 group-hover/card:opacity-100 transition-all duration-300 transform translate-y-2 group-hover/card:translate-y-0 shadow-lg"
                       >
                         <Plus size={20} />
                       </button>
@@ -135,7 +135,7 @@ export function ProductCarousel({
           {/* Right scroll button */}
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-neutral-900/95 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-neutral-800 hover:scale-110 -mr-4 shadow-xl"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-sm bg-neutral-900/95 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-neutral-800 hover:scale-110 -mr-4 shadow-xl"
           >
             <ChevronRight size={24} />
           </button>

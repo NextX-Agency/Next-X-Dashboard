@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { CurrencyProvider } from "@/lib/CurrencyContext";
 import { AuthProvider } from "@/lib/AuthContext";
@@ -6,6 +7,17 @@ import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { SiteAnalyticsTracker } from "@/components/SiteAnalyticsTracker";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+
+// Site-wide UI face. globals.css has always asked for Inter but nothing loaded it,
+// so every visitor fell back to whatever system font their device had.
+// Three weights only: headings run on Archivo, so a 700 Inter file would be
+// downloaded and almost never drawn.
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-sans',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   // Primary SEO - Optimized for "NextX Suriname"
@@ -122,7 +134,7 @@ export const viewport: Viewport = {
   userScalable: true,
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#141c2e' },
+    { media: '(prefers-color-scheme: dark)', color: '#111111' },
   ],
 }
 
@@ -194,7 +206,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="nl" dir="ltr">
+    <html lang="nl" dir="ltr" className={inter.variable}>
       <head>
         {/* DNS Prefetch for faster loading */}
         <link rel="dns-prefetch" href="//wa.me" />

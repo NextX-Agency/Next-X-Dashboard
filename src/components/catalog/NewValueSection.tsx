@@ -55,7 +55,7 @@ export function NewValueSection() {
               NextX Agency
             </p>
 
-            <h2 className="catalog-reveal catalog-reveal-d1 text-2xl font-black leading-tight text-[#141c2e] sm:text-3xl lg:text-4xl">
+            <h2 className="catalog-reveal catalog-reveal-d1 audio-display text-2xl leading-tight text-[#111111] sm:text-3xl lg:text-4xl">
               Een eenvoudige webshop voor NextX Audio.
             </h2>
 
@@ -68,14 +68,14 @@ export function NewValueSection() {
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-[#141c2e] px-4 text-white transition-colors hover:bg-[#1d2840]"
+                className="inline-flex h-11 items-center gap-2 rounded-sm bg-[#f97015] px-5 text-white transition-colors hover:bg-[#d95c08]"
               >
                 Bekijk NextX Agency
                 <ArrowUpRight size={14} strokeWidth={2} />
               </a>
               <Link
                 href="/watches"
-                className="inline-flex h-11 items-center rounded-md border border-neutral-200 px-4 text-[#141c2e] transition-colors hover:border-[#f97015] hover:text-[#f97015]"
+                className="inline-flex h-11 items-center rounded-sm border border-[#f97015] px-5 text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white"
               >
                 NextX Watches
               </Link>
@@ -97,10 +97,10 @@ export function NewValueSection() {
             </div>
 
             <div className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 sm:grid-cols-3 lg:grid-cols-1">
-              <Link href="/watches" className="text-sm font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]">
+              <Link href="/watches" className="text-sm font-semibold text-[#111111] transition-colors hover:text-[#f97015]">
                 NextX Watches
               </Link>
-              <Link href="/" className="text-sm font-semibold text-[#141c2e] transition-colors hover:text-[#f97015]">
+              <Link href="/" className="text-sm font-semibold text-[#111111] transition-colors hover:text-[#f97015]">
                 NextX Portal
               </Link>
               <a
@@ -148,69 +148,37 @@ export function NewCtaSection({ whatsappNumber }: NewCtaSectionProps) {
   }, [])
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative overflow-hidden py-16 sm:py-20"
-      style={{ backgroundColor: '#0f172a' }}
-    >
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage: 'radial-gradient(circle, #f97015 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-          opacity: 0.02,
-        }}
-      />
-
-      <div className="relative z-10 mx-auto max-w-4xl px-5 sm:px-6">
-        <div className="catalog-reveal relative overflow-hidden rounded-2xl bg-linear-to-br from-[#f97015] to-[#e5640d] px-6 py-12 text-center shadow-2xl shadow-[#f97015]/15 sm:px-12 sm:py-14">
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)',
-              backgroundSize: '32px 32px',
-            }}
-          />
-
-          <div className="relative z-10">
-            <div className="catalog-reveal catalog-reveal-d1 mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/15">
-              <Image
-                src="/whatsapp.png"
-                alt="WhatsApp"
-                width={28}
-                height={28}
-                className="h-7 w-7"
-              />
-            </div>
-
-            <h2 className="catalog-reveal catalog-reveal-d2 mb-3 text-2xl font-black tracking-tight text-white sm:text-3xl">
-              Klaar om te bestellen?
-            </h2>
-
-            <p className="catalog-reveal catalog-reveal-d3 mx-auto mb-8 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
-              Neem direct contact op via WhatsApp voor vragen of om je bestelling te plaatsen. We reageren meestal binnen een uur.
-            </p>
-
-            <div className="catalog-reveal catalog-reveal-d4">
-              <a
-                href={`https://wa.me/${whatsappClean}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 rounded-full bg-white px-8 py-3.5 text-sm font-bold text-[#f97015] shadow-lg transition-colors hover:bg-white/90"
-              >
-                <MessageCircle size={20} className="shrink-0 text-[#25D366]" strokeWidth={2.5} />
-                Chat met ons op WhatsApp
-              </a>
-            </div>
-
-            <p className="catalog-reveal catalog-reveal-d5 mt-5 text-xs font-medium tracking-wide text-white/50">
-              {whatsappNumber}
-            </p>
-          </div>
+    <section ref={sectionRef} className="border-t border-neutral-200 bg-[#f97015]">
+      <div className="mx-auto max-w-4xl px-5 py-14 text-center sm:px-6 sm:py-16">
+        <div className="catalog-reveal mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-sm bg-white">
+          <Image src="/whatsapp.png" alt="" width={24} height={24} className="h-6 w-6" />
         </div>
-      </div>
 
-      <div className="pointer-events-none absolute bottom-0 inset-x-0 h-px bg-linear-to-r from-transparent via-[#f97015]/20 to-transparent" />
+        <h2 className="catalog-reveal catalog-reveal-d1 audio-display mb-3 text-2xl text-white sm:text-3xl">
+          Klaar om te bestellen?
+        </h2>
+
+        <p className="catalog-reveal catalog-reveal-d2 mx-auto mb-8 max-w-md text-sm leading-relaxed text-white/85 sm:text-base">
+          Neem direct contact op via WhatsApp voor vragen of om je bestelling te plaatsen.
+          We reageren meestal binnen een uur.
+        </p>
+
+        <div className="catalog-reveal catalog-reveal-d3">
+          <a
+            href={`https://wa.me/${whatsappClean}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 items-center gap-3 rounded-sm bg-white px-8 text-[0.8125rem] font-semibold uppercase tracking-[0.1em] text-[#111111] transition-colors hover:bg-[#f6f6f4]"
+          >
+            <MessageCircle size={18} className="shrink-0 text-[#25D366]" strokeWidth={2.4} />
+            Chat op WhatsApp
+          </a>
+        </div>
+
+        <p className="catalog-reveal catalog-reveal-d4 audio-num mt-5 text-xs font-medium tracking-wide text-white/60">
+          {whatsappNumber}
+        </p>
+      </div>
     </section>
   )
 }

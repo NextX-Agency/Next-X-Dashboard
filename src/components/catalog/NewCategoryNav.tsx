@@ -36,16 +36,14 @@ export function NewCategoryNav({
   if (categories.length === 0) return null
 
   return (
-    <section className="bg-white border-b border-neutral-100 relative z-40">
+    <section className="relative z-30 bg-white border-y border-neutral-200">
       {/* Full-width scroll container */}
       <div className="overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <div className="relative py-3 sm:py-4 px-4 sm:px-6 lg:px-8">
-            {/* Left scroll gradient + button */}
-            <div className="absolute left-4 sm:left-6 lg:left-8 top-0 bottom-0 w-8 bg-linear-to-r from-white to-transparent z-10 pointer-events-none hidden md:block" />
+          <div className="relative py-2.5 sm:py-3 px-4 sm:px-6 lg:px-8">
             <button
               onClick={() => scroll('left')}
-              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm hidden md:flex"
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-sm bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:border-[#111111] transition-colors hidden md:flex"
               aria-label="Scroll categorieën links"
             >
               <ChevronLeft size={16} />
@@ -60,15 +58,15 @@ export function NewCategoryNav({
             {/* All products */}
             <button
               onClick={() => onCategoryChange('')}
-              className={`shrink-0 snap-start px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium transition-all min-h-11 flex items-center ${
+              className={`shrink-0 snap-start px-4 sm:px-5 rounded-sm border text-[0.8125rem] font-semibold uppercase tracking-[0.06em] transition-colors min-h-10 flex items-center ${
                 selectedCategory === ''
-                  ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
-                  : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
+                  ? 'border-[#f97015] bg-[#f97015] text-white'
+                  : 'border-neutral-200 bg-white text-[#111111] hover:border-[#111111]'
               }`}
             >
               <span className="flex items-center gap-2">
                 <Grid3X3 size={14} />
-                Alle Producten
+                Alles
               </span>
             </button>
 
@@ -77,31 +75,29 @@ export function NewCategoryNav({
               <button
                 key={category.id}
                 onClick={() => onCategoryChange(category.id)}
-                className={`shrink-0 snap-start px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium transition-all min-h-11 flex items-center whitespace-nowrap ${
+                className={`shrink-0 snap-start px-4 sm:px-5 rounded-sm border text-[0.8125rem] font-semibold uppercase tracking-[0.06em] transition-colors min-h-10 flex items-center whitespace-nowrap ${
                   selectedCategory === category.id
-                    ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
-                    : 'bg-neutral-100 text-[#141c2e] hover:bg-[#f97015]/10'
+                    ? 'border-[#f97015] bg-[#f97015] text-white'
+                    : 'border-neutral-200 bg-white text-[#111111] hover:border-[#111111]'
                 }`}
               >
                 {category.name}
                 {productCounts[category.id] !== undefined && (
-                  <span className={`ml-1.5 text-xs ${
-                    selectedCategory === category.id 
-                      ? 'text-white/70' 
-                      : 'text-[#141c2e]/50'
+                  <span className={`audio-num ml-2 text-[0.6875rem] font-medium ${
+                    selectedCategory === category.id
+                      ? 'text-white/70'
+                      : 'text-neutral-400'
                   }`}>
-                    ({productCounts[category.id]})
+                    {productCounts[category.id]}
                   </span>
                 )}
               </button>
             ))}
             </div>
 
-            {/* Right scroll gradient + button */}
-            <div className="absolute right-4 sm:right-6 lg:right-8 top-0 bottom-0 w-8 bg-linear-to-l from-white to-transparent z-10 pointer-events-none hidden md:block" />
             <button
               onClick={() => scroll('right')}
-              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:bg-neutral-50 transition-colors shadow-sm hidden md:flex"
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-sm bg-white border border-neutral-200 items-center justify-center text-neutral-600 hover:border-[#111111] transition-colors hidden md:flex"
               aria-label="Scroll categorieën rechts"
             >
               <ChevronRight size={16} />

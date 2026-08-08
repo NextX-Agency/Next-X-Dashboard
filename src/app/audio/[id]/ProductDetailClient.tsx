@@ -241,7 +241,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
     : isLowStock
       ? 'border-amber-200 bg-[#fffaf2] text-amber-700'
       : 'border-emerald-200 bg-white text-emerald-700'
-  const detailFeatureCardClassName = 'flex items-center gap-3 rounded-2xl border border-neutral-200/80 bg-white px-4 py-3 shadow-[0_14px_30px_rgba(20,28,46,0.05)]'
+  const detailFeatureCardClassName = 'flex items-center gap-3 rounded-sm border border-neutral-200/80 bg-white px-4 py-3 shadow-[0_14px_30px_rgba(20,28,46,0.05)]'
   const detailStatusFeatureClassName = isOutOfStock
     ? `${detailFeatureCardClassName} border-red-200 bg-red-50/70`
     : isLowStock
@@ -601,7 +601,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
           {/* Image Gallery - Left Column */}
           <div className="relative">
             {/* Main Image */}
-            <div className="aspect-square bg-white relative border border-neutral-200 rounded-2xl overflow-hidden shadow-sm lg:border-r-0 lg:rounded-r-none">
+            <div className="aspect-square bg-white relative border border-neutral-200 rounded-sm overflow-hidden shadow-sm lg:border-r-0 lg:rounded-r-none">
               {images.length > 0 ? (
                 <>
                   <Image
@@ -619,14 +619,14 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                     <>
                       <button
                         onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-md shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-sm bg-white shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
                         disabled={currentImageIndex === 0}
                       >
                         <ChevronLeft size={24} />
                       </button>
                       <button
                         onClick={() => setCurrentImageIndex(i => Math.min(images.length - 1, i + 1))}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-md shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-sm bg-white shadow-lg flex items-center justify-center text-neutral-700 hover:bg-white transition-colors"
                         disabled={currentImageIndex === images.length - 1}
                       >
                         <ChevronRight size={24} />
@@ -643,7 +643,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
               {/* Category badge */}
               {category && (
                 <div className="absolute top-4 left-4">
-                  <span className="px-4 py-2 rounded-xl bg-white/95 backdrop-blur-xl border border-neutral-200 shadow-sm text-sm font-medium text-neutral-700">
+                  <span className="px-4 py-2 rounded-sm bg-white border border-neutral-200 shadow-sm text-sm font-medium text-neutral-700">
                     {category.name}
                   </span>
                 </div>
@@ -656,7 +656,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                     <button
                       key={idx}
                       onClick={() => setCurrentImageIndex(idx)}
-                      className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                      className={`w-2.5 h-2.5 rounded-sm transition-colors ${
                         idx === currentImageIndex ? 'bg-[#f97015]' : 'bg-neutral-400/50'
                       }`}
                     />
@@ -672,7 +672,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                   <button
                     key={idx}
                     onClick={() => setCurrentImageIndex(idx)}
-                    className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-colors ${
+                    className={`w-20 h-20 rounded-sm overflow-hidden border-2 transition-colors ${
                       idx === currentImageIndex 
                         ? 'border-[#f97015]' 
                         : 'border-neutral-200 hover:border-neutral-300'
@@ -722,17 +722,17 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
               {/* Stock Status Indicator */}
               <div className="mt-3">
                 {isOutOfStock ? (
-                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                  <div className={`inline-flex items-center gap-2 rounded-sm border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <AlertCircle size={16} />
                     <span className="text-sm font-semibold">Uitverkocht</span>
                   </div>
                 ) : isLowStock ? (
-                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                  <div className={`inline-flex items-center gap-2 rounded-sm border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <AlertCircle size={16} />
                     <span className="text-sm font-semibold">Nog {stockLevel} beschikbaar</span>
                   </div>
                 ) : (
-                  <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
+                  <div className={`inline-flex items-center gap-2 rounded-sm border px-3.5 py-2 shadow-sm ${stockBadgeClassName}`}>
                     <Check size={16} />
                     <span className="text-sm font-semibold">Op voorraad</span>
                   </div>
@@ -741,7 +741,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
             </div>
 
             {/* Pickup Info Banner */}
-            <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 sm:p-5">
+            <div className="mb-6 rounded-sm border border-neutral-200 bg-white p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="flex h-9 w-9 items-center justify-center shrink-0">
                   <Store size={20} className="text-neutral-600" />
@@ -766,7 +766,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                       {stockedLocationCount}/{locationStockAvailability.length} op voorraad
                     </span>
                   </div>
-                  <div className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
+                  <div className="divide-y divide-neutral-100 rounded-sm border border-neutral-200">
                     {locationStockAvailability.map((location) => {
                       const hasStock = location.quantity > 0
 
@@ -778,7 +778,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                               <p className="hidden truncate text-xs text-neutral-500 sm:block">{location.address}</p>
                             )}
                           </div>
-                          <span className={`shrink-0 rounded-md border px-2.5 py-1 text-xs font-semibold ${
+                          <span className={`shrink-0 rounded-sm border px-2.5 py-1 text-xs font-semibold ${
                             hasStock
                               ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                               : 'border-neutral-200 bg-neutral-50 text-neutral-500'
@@ -795,7 +795,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
 
             {/* Description */}
             {product.description && (
-              <div className="mb-8 rounded-lg bg-white p-5">
+              <div className="mb-8 rounded-sm bg-white p-5">
                 <h2 className="text-sm font-semibold text-neutral-900 uppercase tracking-wider mb-3">Beschrijving</h2>
                 <p className="text-neutral-700 leading-relaxed whitespace-pre-line">
                   {product.description}
@@ -818,7 +818,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                       <Link
                         key={ci.id}
                         href={`/audio/${ci.child_item_id}`}
-                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
+                        className={`flex items-center gap-3 p-3 rounded-sm border cursor-pointer transition-all ${
                           itemOutOfStock
                             ? 'bg-red-50 border-red-200 hover:bg-red-100'
                             : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100'
@@ -830,10 +830,10 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                             alt={ci.child_item.name}
                             width={40}
                             height={40}
-                            className={`rounded-lg object-cover ${itemOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                            className={`rounded-sm object-cover ${itemOutOfStock ? 'opacity-50 grayscale' : ''}`}
                           />
                         ) : (
-                          <div className="w-10 h-10 bg-neutral-200 rounded-lg flex items-center justify-center">
+                          <div className="w-10 h-10 bg-neutral-200 rounded-sm flex items-center justify-center">
                             <Package size={16} className="text-neutral-400" />
                           </div>
                         )}
@@ -902,7 +902,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                 {/* Quantity Selector */}
                 <div>
                   <label className="text-sm font-medium text-neutral-500 mb-2 block">Aantal</label>
-                  <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
+                  <div className="flex items-center rounded-sm bg-neutral-100 border border-neutral-200 overflow-hidden">
                     <button
                       onClick={decrementQuantity}
                       disabled={quantity <= 1}
@@ -948,7 +948,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
               {/* Add to Cart Button */}
               {isOutOfStock ? (
                 <button
-                  className="w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-6"
+                  className="w-full h-14 rounded-sm font-semibold flex items-center justify-center gap-3 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed mb-6"
                   disabled
                 >
                   <AlertCircle size={22} strokeWidth={2} />
@@ -958,10 +958,10 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                 <button
                   onClick={handleAddToCart}
                   disabled={addedToCart}
-                  className={`w-full h-14 rounded-2xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
+                  className={`w-full h-14 rounded-sm font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg mb-6 ${
                     addedToCart
                       ? 'bg-green-500 text-white shadow-green-500/20'
-                      : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 hover:shadow-[#f97015]/30 active:scale-[0.98]'
+                      : 'bg-[#f97015] hover:bg-[#d95c08] text-white active:scale-[0.98]'
                   }`}
                 >
                   {addedToCart ? (
@@ -988,7 +988,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
         <div className="flex items-center justify-between gap-3 mb-3">
           {/* Quantity Selector */}
           <div>
-            <div className="flex items-center rounded-xl bg-neutral-100 border border-neutral-200 overflow-hidden">
+            <div className="flex items-center rounded-sm bg-neutral-100 border border-neutral-200 overflow-hidden">
               <button
                 onClick={decrementQuantity}
                 disabled={quantity <= 1}
@@ -1034,7 +1034,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
         {/* Add to Cart Button */}
         {isOutOfStock ? (
           <button
-            className="w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed"
+            className="w-full h-12 rounded-sm font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 bg-neutral-200 text-neutral-500 cursor-not-allowed"
             disabled
           >
             <AlertCircle size={20} strokeWidth={2} />
@@ -1044,10 +1044,10 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
           <button
             onClick={handleAddToCart}
             disabled={addedToCart}
-            className={`w-full h-12 rounded-2xl font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
+            className={`w-full h-12 rounded-sm font-semibold flex items-center justify-center gap-2.5 transition-all duration-200 shadow-lg ${
               addedToCart
                 ? 'bg-green-500 text-white shadow-green-500/20'
-                : 'bg-[#f97015] hover:bg-[#e5640d] text-white shadow-[#f97015]/20 active:scale-[0.98]'
+                : 'bg-[#f97015] hover:bg-[#d95c08] text-white active:scale-[0.98]'
             }`}
           >
             {addedToCart ? (

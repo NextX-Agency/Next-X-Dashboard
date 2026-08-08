@@ -67,7 +67,7 @@ export function SEOIntro({
   className = '' 
 }: SEOIntroProps) {
   return (
-    <section className={`bg-gradient-to-b from-[#141c2e] to-[#1a2438] ${className}`}>
+    <section className={`bg-[#111111] ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
         {/* Main Heading - H1 for SEO */}
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4 leading-tight">
@@ -82,19 +82,19 @@ export function SEOIntro({
         {/* Feature Pills */}
         {showFeatures && (
           <div className="flex flex-wrap gap-3">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white/10 text-white/90 text-sm">
               <MapPin size={16} className="text-[#f97015]" />
               <span>Available in Suriname</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white/10 text-white/90 text-sm">
               <Truck size={16} className="text-[#f97015]" />
               <span>Local Pickup</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white/10 text-white/90 text-sm">
               <MessageCircle size={16} className="text-[#f97015]" />
               <span>Order via WhatsApp</span>
             </span>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/90 text-sm">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white/10 text-white/90 text-sm">
               <Shield size={16} className="text-[#f97015]" />
               <span>Trusted Quality</span>
             </span>
@@ -123,7 +123,7 @@ export function CategorySEOHeader({
 }: CategorySEOHeaderProps) {
   return (
     <header className={`mb-6 ${className}`}>
-      <h2 className="text-xl sm:text-2xl font-bold text-[#141c2e] mb-2">
+      <h2 className="text-xl sm:text-2xl font-bold text-[#111111] mb-2">
         {categoryName}
       </h2>
       {description && (

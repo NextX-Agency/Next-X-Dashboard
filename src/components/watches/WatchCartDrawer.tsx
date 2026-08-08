@@ -1,8 +1,9 @@
 'use client'
 
-import { memo, useEffect } from 'react'
+import { memo, useRef } from 'react'
 import Image from 'next/image'
 import { X, Plus, Minus, Trash2, MessageCircle, ShoppingBag } from 'lucide-react'
+import { useDialog } from '@/lib/useDialog'
 import { formatCurrency } from '@/lib/currency'
 import { getWatchSellingPrice } from '@/lib/watchPricing'
 import { DEFAULT_EXCHANGE_RATE } from '@/lib/pricing'
@@ -51,11 +52,8 @@ function WatchCartDrawerComponent({
   onCustomerNotesChange,
   onSubmitOrder,
 }: WatchCartDrawerProps) {
-  useEffect(() => {
-    if (!open) return
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
-  }, [open])
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialog(open, onClose, panelRef)
 
   const getPrice = (item: CartItem) =>
     getWatchSellingPrice(item, displayCurrency, exchangeRate)
@@ -81,6 +79,7 @@ function WatchCartDrawerComponent({
 
       {/* Drawer */}
       <div
+        ref={panelRef}
         className="fixed right-0 top-0 bottom-0 z-160 flex flex-col w-full max-w-md transition-transform duration-500"
         style={{
           background: 'var(--w-surface)',
@@ -90,6 +89,8 @@ function WatchCartDrawerComponent({
         role="dialog"
         aria-modal="true"
         aria-label="Your cart"
+        tabIndex={-1}
+        aria-hidden={!open}
       >
         {/* Header */}
         <div

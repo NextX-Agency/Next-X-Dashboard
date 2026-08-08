@@ -24,8 +24,11 @@ function WatchesHeroComponent({
   ctaHref = '/watches#featured',
 }: WatchesHeroProps) {
   const bgRef = useRef<HTMLDivElement>(null)
-  const desktopImage = imageUrl || '/hero_section-watches.png'
-  const mobileImage = mobileImageUrl || desktopImage
+  // The original hero art was a 5816x2688 PNG weighing 16 MB, shipped on every
+  // watches visit. These WebP renders are visually identical at 114 KB / 28 KB.
+  const desktopImage = imageUrl || '/hero_section-watches.webp'
+  const mobileImage = mobileImageUrl || (imageUrl ? imageUrl : '/hero_section-watches-mobile.webp')
+  const hasDistinctMobileImage = mobileImage !== desktopImage
   const unoptimizedDesktopImage = shouldBypassNextImageOptimization(desktopImage)
   const unoptimizedMobileImage = shouldBypassNextImageOptimization(mobileImage)
 
@@ -33,18 +36,30 @@ function WatchesHeroComponent({
     const bg = bgRef.current
     if (!bg) return
     if (window.matchMedia('(max-width: 767px)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
+    // Write the transform inside rAF: the raw scroll handler set style on
+    // every event, which forced a style recalc per scroll tick.
+    let frame = 0
     const handleScroll = () => {
-      bg.style.transform = `translateY(${window.scrollY * 0.28}px)`
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        bg.style.transform = `translateY(${window.scrollY * 0.28}px)`
+        frame = 0
+      })
     }
+
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [])
 
   return (
     <section
       className="relative flex items-end overflow-hidden sm:items-center"
-      style={{ height: 'min(78svh, 860px)', minHeight: 400 }}
+      style={{ height: 'min(68svh, 860px)', minHeight: 360 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -57,13 +72,13 @@ function WatchesHeroComponent({
           src={desktopImage}
           alt=""
           fill
-          className={`${mobileImageUrl ? 'hidden sm:block' : ''} object-cover object-[72%_center] sm:object-[70%_center] lg:object-center`}
+          className={`${hasDistinctMobileImage ? 'hidden sm:block' : ''} object-cover object-[72%_center] sm:object-[70%_center] lg:object-center`}
           priority
-          quality={88}
+          quality={82}
           unoptimized={unoptimizedDesktopImage}
           sizes="100vw"
         />
-        {mobileImageUrl && (
+        {hasDistinctMobileImage && (
           <Image
             src={mobileImage}
             alt=""

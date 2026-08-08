@@ -29,11 +29,11 @@ export function SearchBar({ value, onChange, placeholder = 'Zoek producten...' }
     <div className="relative group">
       {/* Glowing border effect */}
       <div 
-        className={`absolute -inset-[1px] bg-[#f97015] rounded-2xl transition-opacity duration-500 ${isFocused ? 'opacity-100' : 'opacity-0'}`} 
+        className={`absolute -inset-[1px] bg-[#f97015] rounded-sm transition-opacity duration-500 ${isFocused ? 'opacity-100' : 'opacity-0'}`} 
       />
       
       {/* Input container */}
-      <div className={`relative flex items-center bg-neutral-900 border rounded-2xl transition-all duration-300 ${isFocused ? 'border-transparent shadow-2xl shadow-[#f97015]/20' : 'border-white/10 hover:border-white/20'}`}>
+      <div className={`relative flex items-center bg-neutral-900 border rounded-sm transition-all duration-300 ${isFocused ? 'border-transparent' : 'border-white/10 hover:border-white/20'}`}>
         {/* Search icon */}
         <div className="shrink-0 pl-5">
           <Search 
@@ -60,12 +60,12 @@ export function SearchBar({ value, onChange, placeholder = 'Zoek producten...' }
           {value ? (
             <button
               onClick={() => onChange('')}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-sm bg-white/5 hover:bg-white/10 transition-colors"
             >
               <X size={14} className="text-neutral-400" />
             </button>
           ) : (
-            <kbd className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-neutral-400 font-bold">
+            <kbd className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-white/5 border border-white/10 text-[11px] text-neutral-400 font-bold">
               <span>⌘</span>
               <span>K</span>
             </kbd>

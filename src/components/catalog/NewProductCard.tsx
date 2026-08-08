@@ -2,10 +2,10 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Plus, Package, Eye, AlertCircle, Bell } from 'lucide-react'
+import { Plus, Package, Eye, Bell } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { Database } from '@/types/database.types'
-import { getStockBadgeText, type StockStatus } from '@/lib/stockUtils'
+import { type StockStatus } from '@/lib/stockUtils'
 
 type Item = Database['public']['Tables']['items']['Row']
 
@@ -71,10 +71,6 @@ export function NewProductCard({
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
   
-  // Get the stock badge text based on stock level
-  const stockBadgeText = isLowStock && showExactStock && stockLevel > 0
-    ? `Nog ${stockLevel}`
-    : getStockBadgeText(stockStatus)
   const productHref = `${catalogBasePath}/${id}`
 
   // Generate SEO-friendly alt text
@@ -84,15 +80,15 @@ export function NewProductCard({
   const stockAvailability = isOutOfStock ? 'OutOfStock' : 'InStock'
   
   return (
-    <article 
-      className={`catalog-hover-lift group relative bg-white rounded-2xl overflow-hidden transition-all duration-300 h-full flex flex-col ${
+    <article
+      className={`catalog-hover-lift group relative flex h-full flex-col overflow-hidden rounded-sm bg-white ${
         isOutOfStock
-          ? 'border border-neutral-300 opacity-75'
-          : isCombo 
-            ? 'border-2 border-[#f97015]/40 shadow-md hover:shadow-xl hover:shadow-[#f97015]/15' 
-            : 'border border-neutral-200/80 shadow-sm hover:border-[#f97015]/30 hover:shadow-lg'
+          ? 'border border-neutral-200 opacity-70'
+          : isCombo
+            ? 'border border-[#f97015] hover:border-[#d95c08]'
+            : 'border border-neutral-200 hover:border-[#111111]'
       }`}
-      itemScope 
+      itemScope
       itemType="https://schema.org/Product"
     >
       {/* Hidden SEO metadata */}
@@ -104,8 +100,13 @@ export function NewProductCard({
         <link itemProp="availability" href={`https://schema.org/${stockAvailability}`} />
       </span>
 
-      {/* Image Container */}
-      <Link href={productHref} className="block relative aspect-square bg-neutral-50 overflow-hidden" itemProp="url">
+      {/* Accent rule — the card's only hover flourish */}
+      {!isOutOfStock && (
+        <span className="absolute inset-x-0 top-0 z-10 h-[3px] origin-left scale-x-0 bg-[#f97015] transition-transform duration-300 group-hover:scale-x-100" />
+      )}
+
+      {/* Image Container — tinted well so white product shots read as objects */}
+      <Link href={productHref} className="block relative aspect-square bg-[#f6f6f4] overflow-hidden border-b border-neutral-200" itemProp="url">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -124,66 +125,37 @@ export function NewProductCard({
         
         {/* Out of Stock Overlay */}
         {isOutOfStock && (
-          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-            <span className="px-3 py-1.5 rounded-lg bg-neutral-800/90 text-white text-sm font-semibold">
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="px-3 py-1.5 rounded-sm bg-[#111111] text-white text-xs font-semibold uppercase tracking-[0.1em]">
               Uitverkocht
             </span>
           </div>
         )}
-        
-        {/* Category Badge */}
-        {categoryName && !isCombo && !isOutOfStock && (
-          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur-sm text-[11px] font-medium text-[#141c2e] shadow-sm">
-            {categoryName}
-          </span>
-        )}
-        
+
         {/* Combo Badge */}
         {isCombo && !isOutOfStock && (
-          <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-linear-to-r from-[#f97015] to-[#e5640d] text-white text-[11px] font-semibold shadow-md">
-            Combo Deal
+          <span className="absolute top-0 left-0 px-2.5 py-1.5 bg-[#f97015] text-white text-[10px] font-semibold uppercase tracking-[0.1em]">
+            Combo
           </span>
         )}
 
-        {/* Low Stock Badge - Shows exact count when available */}
-        {isLowStock && !isOutOfStock && stockBadgeText && (
-          <span className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-full bg-amber-500/95 text-white text-[10px] font-bold shadow-md flex items-center gap-1 animate-pulse">
-            <AlertCircle size={11} />
-            {stockBadgeText}
-          </span>
-        )}
-        
-        {/* Desktop Hover Actions */}
+        {/* Quick view — slides in on hover, desktop only */}
         {!isOutOfStock && (
-          <div className="hidden lg:block">
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300" />
-            <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  onAddToCart()
-                }}
-                className="flex-1 h-10 rounded-xl bg-[#f97015] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#e5640d] active:scale-[0.98] transition-all shadow-lg"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-                Toevoegen
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  onQuickView()
-                }}
-                className="w-10 h-10 rounded-xl bg-white text-[#141c2e] flex items-center justify-center hover:bg-neutral-100 active:scale-[0.98] transition-all shadow-lg"
-              >
-                <Eye size={18} />
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              onQuickView()
+            }}
+            className="absolute right-0 top-0 hidden h-10 w-10 translate-x-full items-center justify-center bg-[#f97015] text-white transition-transform duration-300 group-hover:translate-x-0 hover:bg-[#d95c08] lg:flex"
+            aria-label="Snel bekijken"
+          >
+            <Eye size={17} />
+          </button>
         )}
-        
+
         {/* In Cart Indicator */}
         {quantity > 0 && !isOutOfStock && (
-          <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-[#f97015] text-white text-[11px] font-bold flex items-center justify-center shadow-md">
+          <div className="absolute top-0 right-0 h-6 min-w-6 px-1.5 bg-[#111111] text-white text-[11px] font-bold flex items-center justify-center audio-num">
             {quantity}
           </div>
         )}
@@ -191,13 +163,20 @@ export function NewProductCard({
       
       {/* Content */}
       <div className="p-3 sm:p-4 flex-1 flex flex-col">
+        {/* Category eyebrow — replaces the badge that used to cover the photo */}
+        {categoryName && !isCombo && (
+          <p className="audio-eyebrow audio-eyebrow-muted mb-1.5 truncate text-[0.625rem]">
+            {categoryName}
+          </p>
+        )}
+
         {/* Name */}
         <Link href={productHref} className="block shrink-0">
-          <h3 className="font-semibold text-[#141c2e] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-10 sm:min-h-11">
+          <h3 className="font-semibold text-[#111111] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#f97015] transition-colors min-h-10 sm:min-h-11">
             {name}
           </h3>
         </Link>
-        
+
         {/* Description or Combo Items */}
         {(isCombo && comboItems && comboItems.length > 0) || description ? (
           <div className="mt-1.5 shrink-0 min-h-5">
@@ -220,66 +199,59 @@ export function NewProductCard({
         
         {/* Spacer */}
         <div className="flex-1 min-h-2" />
-        
-        {/* Price and Add Button Row */}
-        <div className="flex items-end justify-between gap-2 mt-auto pt-2">
-          <div className="flex flex-col min-w-0">
-            {isCombo && originalPrice && originalPrice > price ? (
-              <>
-                <span className="text-[11px] text-neutral-400 line-through">
-                  {formatCurrency(originalPrice, currency)}
-                </span>
-                <span className="text-base sm:text-lg font-bold text-[#f97015]">
-                  {formatCurrency(price, currency)}
-                </span>
-              </>
-            ) : (
-              <span className={`text-base sm:text-lg font-bold ${isOutOfStock ? 'text-neutral-400' : 'text-[#141c2e]'}`}>
-                {formatCurrency(price, currency)}
+
+        {/* Price */}
+        <div className="mt-auto flex items-baseline justify-between gap-2 border-t border-neutral-200 pt-3">
+          <div className="flex min-w-0 flex-col">
+            {isCombo && originalPrice && originalPrice > price && (
+              <span className="audio-num text-[11px] text-neutral-400 line-through">
+                {formatCurrency(originalPrice, currency)}
               </span>
             )}
-            {/* Stock Status Text for mobile - enhanced with exact count */}
-            {isOutOfStock && (
-              <span className="text-[10px] text-red-500 font-semibold">Uitverkocht</span>
-            )}
-            {isLowStock && !isOutOfStock && (
-              <span className="text-[10px] text-amber-600 font-semibold">
-                {showExactStock && stockLevel > 0 ? `Nog ${stockLevel} beschikbaar` : 'Beperkte voorraad'}
-              </span>
-            )}
+            <span
+              className={`audio-num audio-display text-lg leading-none sm:text-xl ${
+                isOutOfStock ? 'text-neutral-400' : isCombo ? 'text-[#f97015]' : 'text-[#111111]'
+              }`}
+            >
+              {formatCurrency(price, currency)}
+            </span>
           </div>
-          
-          {/* Add Button or Notify Button */}
-          {isOutOfStock ? (
-            /* Notify Me Button for out of stock items */
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                e.preventDefault()
-                // Open product page where notification can be set up
-                window.location.href = productHref
-              }}
-              className="shrink-0 px-3 h-9 sm:h-10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-600 text-xs font-medium"
-              aria-label="Melding bij beschikbaarheid"
-            >
-              <Bell size={14} />
-              <span className="hidden sm:inline">Meld mij</span>
-            </button>
+
+          {/* Availability as a word, not a coloured pill. Sold-out is already
+              stated on the image and in the action bar. */}
+          {isOutOfStock ? null : isLowStock ? (
+            <span className="audio-num shrink-0 text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-[#f97015]">
+              {showExactStock && stockLevel > 0 ? `Nog ${stockLevel}` : 'Beperkt'}
+            </span>
           ) : (
-            /* Add Button - Always visible on mobile, visible on desktop too */
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onAddToCart()
-              }}
-              className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shadow-sm lg:opacity-0 lg:group-hover:opacity-100 bg-[#f97015] text-white hover:bg-[#e5640d] active:scale-95"
-              aria-label="Toevoegen aan winkelwagen"
-            >
-              <Plus size={18} strokeWidth={2.5} />
-            </button>
+            <span className="shrink-0 text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-neutral-400">
+              Op voorraad
+            </span>
           )}
         </div>
       </div>
+
+      {/* Action bar — always present, so every card ends on a solid block */}
+      {isOutOfStock ? (
+        <Link
+          href={productHref}
+          className="flex h-11 shrink-0 items-center justify-center gap-2 border-t border-neutral-200 bg-white text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-neutral-500 transition-colors hover:text-[#111111]"
+        >
+          <Bell size={14} />
+          Meld mij
+        </Link>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onAddToCart()
+          }}
+          className="flex h-11 shrink-0 items-center justify-center gap-2 bg-[#f97015] text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#d95c08]"
+        >
+          <Plus size={15} strokeWidth={2.5} />
+          Toevoegen
+        </button>
+      )}
     </article>
   )
 }
@@ -304,19 +276,19 @@ export function NewProductGrid({
     const isDark = variant === 'dark'
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6">
-        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-4 ${isDark ? 'bg-neutral-200' : 'bg-white/10'}`}>
-          <Package size={32} className={isDark ? 'text-neutral-400' : 'text-white/40'} strokeWidth={1.5} />
+        <div className={`w-16 h-16 rounded-sm border flex items-center justify-center mb-5 ${isDark ? 'border-neutral-200' : 'border-white/20'}`}>
+          <Package size={26} className={isDark ? 'text-neutral-400' : 'text-white/40'} strokeWidth={1.5} />
         </div>
-        <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-[#141c2e]' : 'text-white'}`}>
+        <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-[#111111]' : 'text-white'}`}>
           {emptyMessage}
         </h3>
-        <p className={`text-sm mb-6 text-center max-w-sm ${isDark ? 'text-[#141c2e]/60' : 'text-white/60'}`}>
+        <p className={`text-sm mb-6 text-center max-w-sm ${isDark ? 'text-neutral-600' : 'text-white/60'}`}>
           Probeer een andere zoekterm of bekijk alle producten
         </p>
         {onClearFilters && (
           <button
             onClick={onClearFilters}
-            className="px-6 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
+            className="h-11 px-6 rounded-sm bg-[#f97015] text-white text-[0.8125rem] font-semibold uppercase tracking-[0.1em] hover:bg-[#d95c08] transition-colors"
           >
             Bekijk alle producten
           </button>
@@ -326,7 +298,7 @@ export function NewProductGrid({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 lg:gap-5">
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 lg:gap-5">
       {children}
     </div>
   )
@@ -351,7 +323,7 @@ export function ProductSectionHeader({
   variant = 'light',
   action 
 }: ProductSectionHeaderProps) {
-  const titleClass = `text-2xl font-bold ${variant === 'light' ? 'text-white' : 'text-[#141c2e]'}`
+  const titleClass = `text-2xl font-bold ${variant === 'light' ? 'text-white' : 'text-[#111111]'}`
   const subtitleClass = `text-sm ${variant === 'light' ? 'text-white/60' : 'text-neutral-600'} mt-1`
 
   return (

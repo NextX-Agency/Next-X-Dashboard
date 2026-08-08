@@ -1,9 +1,10 @@
 'use client'
 
-import { memo, useEffect, useRef } from 'react'
+import { memo, useRef } from 'react'
 import Link from 'next/link'
 import type { Currency } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { useScrollReveal } from '@/lib/useScrollReveal'
 import { WatchProductCard } from './WatchProductCard'
 
 interface FeaturedItem {
@@ -39,24 +40,12 @@ function WatchesFeaturedSectionComponent({
 }: WatchesFeaturedSectionProps) {
   const sectionRef = useRef<HTMLElement>(null)
 
-  useEffect(() => {
-    const section = sectionRef.current
-    if (!section) return
-    const reveals = section.querySelectorAll('.w-reveal')
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible')
-            observer.unobserve(entry.target)
-          }
-        })
-      },
-      { threshold: 0.08 }
-    )
-    reveals.forEach(el => observer.observe(el))
-    return () => observer.disconnect()
-  }, [])
+  useScrollReveal(sectionRef, {
+    threshold: 0.08,
+    selector: '.w-reveal',
+    visibleClass: 'is-visible',
+    deps: [items.length],
+  })
 
   if (items.length === 0) return null
 

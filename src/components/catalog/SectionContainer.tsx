@@ -53,17 +53,17 @@ export function SectionContainer({
 }: SectionContainerProps) {
   const bgClass =
     bg === 'muted'
-      ? 'bg-neutral-50'
+      ? 'bg-[#f6f6f4]'
       : bg === 'accent'
-        ? 'bg-linear-to-br from-[#f97015] to-[#e5640d]'
+        ? 'bg-[#f97015]'
         : 'bg-white'
 
-  const paddingY = compact ? 'py-6 sm:py-8' : 'py-8 sm:py-10 lg:py-12'
-  const borderClass = borderBottom ? 'border-b border-neutral-100' : ''
+  const paddingY = compact ? "py-6 sm:py-10" : "py-8 sm:py-12 lg:py-14"
+  const borderClass = borderBottom ? 'border-b border-neutral-200' : ''
 
   const isAccent = bg === 'accent'
-  const titleColor = isAccent ? 'text-white' : 'text-[#141c2e]'
-  const subtitleColor = isAccent ? 'text-white/70' : 'text-[#141c2e]/55'
+  const titleColor = isAccent ? 'text-white' : 'text-[#111111]'
+  const subtitleColor = isAccent ? 'text-white/75' : 'text-neutral-500'
 
   return (
     <section
@@ -74,15 +74,15 @@ export function SectionContainer({
       <div className={catalogShellClassName}>
         {/* Section Header */}
         {(title || action || headerExtra) && (
-          <div className="flex items-end justify-between mb-6 gap-4">
+          <div className={`mb-6 flex items-end justify-between gap-4 border-b pb-4 ${isAccent ? 'border-white/25' : 'border-neutral-200'}`}>
             <div className="min-w-0">
               {title && (
-                <h2 className={`text-xl sm:text-2xl font-bold ${titleColor} leading-tight`}>
+                <h2 className={`audio-display text-xl sm:text-2xl ${titleColor} leading-tight`}>
                   {title}
                 </h2>
               )}
               {subtitle && (
-                <p className={`text-sm ${subtitleColor} mt-1`}>
+                <p className={`text-sm ${subtitleColor} mt-1.5`}>
                   {subtitle}
                 </p>
               )}
@@ -95,7 +95,7 @@ export function SectionContainer({
                 action.href ? (
                   <Link
                     href={action.href}
-                    className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all whitespace-nowrap"
+                    className="flex h-9 items-center gap-1.5 rounded-sm border border-neutral-200 px-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#111111] transition-colors hover:border-[#f97015] hover:text-[#f97015] whitespace-nowrap"
                   >
                     {action.label}
                     <ArrowRight size={14} />
@@ -103,7 +103,7 @@ export function SectionContainer({
                 ) : (
                   <button
                     onClick={action.onClick}
-                    className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#f97015] border-2 border-[#f97015]/30 rounded-lg hover:text-[#e5640d] hover:border-[#f97015]/50 hover:bg-[#f97015]/5 transition-all whitespace-nowrap"
+                    className="flex h-9 items-center gap-1.5 rounded-sm border border-neutral-200 px-3.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#111111] transition-colors hover:border-[#f97015] hover:text-[#f97015] whitespace-nowrap"
                   >
                     {action.label}
                     <ArrowRight size={14} />

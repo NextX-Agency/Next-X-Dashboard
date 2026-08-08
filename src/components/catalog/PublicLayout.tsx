@@ -161,7 +161,7 @@ export function PublicLayout({
                 />
               ) : (
                 <span className="text-xl font-bold tracking-tight inline-block">
-                  <span className="text-[#141c2e]">Next</span>
+                  <span className="text-[#111111]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>
               )}
@@ -171,7 +171,7 @@ export function PublicLayout({
             <nav className="hidden lg:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
               <Link
                 href="/catalog"
-                className="text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors whitespace-nowrap"
+                className="text-sm font-medium text-[#111111]/70 hover:text-[#111111] transition-colors whitespace-nowrap"
               >
                 Producten
               </Link>
@@ -180,7 +180,7 @@ export function PublicLayout({
                 className={`text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive('/blog') 
                     ? 'text-[#f97015]' 
-                    : 'text-[#141c2e]/70 hover:text-[#141c2e]'
+                    : 'text-[#111111]/70 hover:text-[#111111]'
                 }`}
               >
                 Blog
@@ -190,7 +190,7 @@ export function PublicLayout({
                 className={`text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive('/faq') 
                     ? 'text-[#f97015]' 
-                    : 'text-[#141c2e]/70 hover:text-[#141c2e]'
+                    : 'text-[#111111]/70 hover:text-[#111111]'
                 }`}
               >
                 FAQ
@@ -200,24 +200,24 @@ export function PublicLayout({
                 className={`text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive('/testimonials') 
                     ? 'text-[#f97015]' 
-                    : 'text-[#141c2e]/70 hover:text-[#141c2e]'
+                    : 'text-[#111111]/70 hover:text-[#111111]'
                 }`}
               >
                 Reviews
               </Link>
               {categories.length > 0 && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 hover:text-[#141c2e] transition-colors whitespace-nowrap">
+                  <button className="flex items-center gap-1 text-sm font-medium text-[#111111]/70 hover:text-[#111111] transition-colors whitespace-nowrap">
                     Categorieën
                     <ChevronDown size={14} />
                   </button>
                   <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <div className="bg-white rounded-xl shadow-xl border border-neutral-200 py-2 min-w-[180px]">
+                    <div className="bg-white rounded-sm shadow-xl border border-neutral-200 py-2 min-w-[180px]">
                       {categories.map((cat) => (
                         <Link
                           key={cat.id}
                           href={`/catalog?category=${cat.id}`}
-                          className="w-full px-4 py-2 text-sm text-left text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e] transition-colors block"
+                          className="w-full px-4 py-2 text-sm text-left text-[#111111]/70 hover:bg-[#f97015]/5 hover:text-[#111111] transition-colors block"
                         >
                           {cat.name}
                         </Link>
@@ -231,7 +231,7 @@ export function PublicLayout({
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-[#141c2e] hover:bg-[#f97015]/10 transition-colors"
+              className="lg:hidden w-10 h-10 rounded-sm flex items-center justify-center text-[#111111] hover:bg-[#f97015]/10 transition-colors"
             >
               {showMobileMenu ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -250,17 +250,17 @@ export function PublicLayout({
                 <Link
                   href="/catalog"
                   onClick={() => setShowMobileMenu(false)}
-                  className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
+                  className="w-full px-4 py-3 rounded-sm text-left text-sm font-medium text-[#111111]/70 hover:bg-neutral-50 transition-colors block"
                 >
                   Alle Producten
                 </Link>
                 <Link
                   href="/blog"
                   onClick={() => setShowMobileMenu(false)}
-                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors block ${
+                  className={`w-full px-4 py-3 rounded-sm text-left text-sm font-medium transition-colors block ${
                     isActive('/blog') 
                       ? 'bg-[#f97015]/10 text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                      : 'text-[#111111]/70 hover:bg-neutral-50'
                   }`}
                 >
                   Blog
@@ -268,10 +268,10 @@ export function PublicLayout({
                 <Link
                   href="/faq"
                   onClick={() => setShowMobileMenu(false)}
-                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors block ${
+                  className={`w-full px-4 py-3 rounded-sm text-left text-sm font-medium transition-colors block ${
                     isActive('/faq') 
                       ? 'bg-[#f97015]/10 text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                      : 'text-[#111111]/70 hover:bg-neutral-50'
                   }`}
                 >
                   FAQ
@@ -279,10 +279,10 @@ export function PublicLayout({
                 <Link
                   href="/testimonials"
                   onClick={() => setShowMobileMenu(false)}
-                  className={`w-full px-4 py-3 rounded-xl text-left text-sm font-medium transition-colors block ${
+                  className={`w-full px-4 py-3 rounded-sm text-left text-sm font-medium transition-colors block ${
                     isActive('/testimonials') 
                       ? 'bg-[#f97015]/10 text-[#f97015]' 
-                      : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                      : 'text-[#111111]/70 hover:bg-neutral-50'
                   }`}
                 >
                   Reviews
@@ -298,7 +298,7 @@ export function PublicLayout({
                       key={cat.id}
                       href={`/catalog?category=${cat.id}`}
                       onClick={() => setShowMobileMenu(false)}
-                      className="w-full px-4 py-3 rounded-xl text-left text-sm font-medium text-[#141c2e]/70 hover:bg-neutral-50 transition-colors block"
+                      className="w-full px-4 py-3 rounded-sm text-left text-sm font-medium text-[#111111]/70 hover:bg-neutral-50 transition-colors block"
                     >
                       {cat.name}
                     </Link>
@@ -316,7 +316,7 @@ export function PublicLayout({
       </main>
 
       {/* Footer */}
-      <footer className="bg-neutral-50 text-[#141c2e] border-t border-neutral-200">
+      <footer className="bg-neutral-50 text-[#111111] border-t border-neutral-200">
         {/* Main Footer */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
@@ -332,12 +332,12 @@ export function PublicLayout({
                 />
               ) : (
                 <span className="text-xl font-bold block mb-4">
-                  <span className="text-[#141c2e]">Next</span>
+                  <span className="text-[#111111]">Next</span>
                   <span className="text-[#f97015]">X</span>
                 </span>
               )}
               {settings.store_description && (
-                <p className="text-sm text-[#141c2e]/60 mb-6 leading-relaxed">
+                <p className="text-sm text-[#111111]/60 mb-6 leading-relaxed">
                   {settings.store_description}
                 </p>
               )}
@@ -346,7 +346,7 @@ export function PublicLayout({
                   href={`https://wa.me/${whatsappClean}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm bg-[#f97015] text-white text-sm font-medium hover:bg-[#d95c08] transition-colors"
                 >
                   WhatsApp
                 </a>
@@ -411,8 +411,8 @@ export function PublicLayout({
               </h4>
               <ul className="space-y-4">
                 {settings.store_address && (
-                  <li className="text-sm text-[#141c2e]/60">
-                    <p className="text-xs text-[#141c2e]/40 mb-0.5">Afhaallocatie</p>
+                  <li className="text-sm text-[#111111]/60">
+                    <p className="text-xs text-[#111111]/40 mb-0.5">Afhaallocatie</p>
                     <p>{settings.store_address}</p>
                   </li>
                 )}
@@ -447,10 +447,10 @@ export function PublicLayout({
         <div className="border-t border-neutral-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-[#141c2e]/50">
+              <p className="text-sm text-[#111111]/50">
                 © {currentYear} {settings.store_name}. Alle rechten voorbehouden.
               </p>
-              <p className="text-sm text-[#141c2e]/30">
+              <p className="text-sm text-[#111111]/30">
                 Powered by <span className="text-[#f97015]">NextX</span>
               </p>
             </div>

@@ -86,7 +86,7 @@ export function CartDrawer({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between p-6 border-b border-white/4">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-2xl bg-[#f97015]/10 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-sm bg-[#f97015]/10 flex items-center justify-center">
               <ShoppingBag size={20} className="text-[#f97015]" strokeWidth={1.5} />
             </div>
             <div>
@@ -98,7 +98,7 @@ export function CartDrawer({
           </div>
           <button 
             onClick={onClose}
-            className="w-10 h-10 rounded-xl bg-white/3 border border-white/6 flex items-center justify-center hover:bg-white/6 transition-colors"
+            className="w-10 h-10 rounded-sm bg-white/3 border border-white/6 flex items-center justify-center hover:bg-white/6 transition-colors"
           >
             <X size={18} className="text-neutral-400" />
           </button>
@@ -108,7 +108,7 @@ export function CartDrawer({
         <div className="flex-1 overflow-y-auto p-6">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12">
-              <div className="w-20 h-20 rounded-3xl bg-white/2 border border-white/4 flex items-center justify-center mb-6">
+              <div className="w-20 h-20 rounded-sm bg-white/2 border border-white/4 flex items-center justify-center mb-6">
                 <ShoppingBag size={32} className="text-neutral-700" strokeWidth={1} />
               </div>
               <h3 className="text-base font-medium text-white mb-2">
@@ -119,7 +119,7 @@ export function CartDrawer({
               </p>
               <button
                 onClick={onClose}
-                className="px-6 py-3 rounded-xl bg-white/4 border border-white/6 text-sm font-medium text-white hover:bg-white/6 transition-colors"
+                className="px-6 py-3 rounded-sm bg-white/4 border border-white/6 text-sm font-medium text-white hover:bg-white/6 transition-colors"
               >
                 Verder winkelen
               </button>
@@ -129,10 +129,10 @@ export function CartDrawer({
               {items.map((item) => (
                 <li 
                   key={item.id}
-                  className="flex gap-4 p-4 rounded-2xl bg-white/2 border border-white/4"
+                  className="flex gap-4 p-4 rounded-sm bg-white/2 border border-white/4"
                 >
                   {/* Image */}
-                  <div className="w-20 h-20 rounded-xl bg-neutral-900 overflow-hidden shrink-0">
+                  <div className="w-20 h-20 rounded-sm bg-neutral-900 overflow-hidden shrink-0">
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}
@@ -159,10 +159,10 @@ export function CartDrawer({
                     
                     {/* Quantity controls */}
                     <div className="flex items-center justify-between mt-auto">
-                      <div className="flex items-center gap-0.5 p-1 rounded-lg bg-white/3 border border-white/6">
+                      <div className="flex items-center gap-0.5 p-1 rounded-sm bg-white/3 border border-white/6">
                         <button
                           onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          className="w-7 h-7 rounded-md flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                          className="w-7 h-7 rounded-sm flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors"
                         >
                           <Minus size={12} strokeWidth={2} />
                         </button>
@@ -171,7 +171,7 @@ export function CartDrawer({
                         </span>
                         <button
                           onClick={() => onAddOne(item.id)}
-                          className="w-7 h-7 rounded-md flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors"
+                          className="w-7 h-7 rounded-sm flex items-center justify-center text-neutral-500 hover:text-white hover:bg-white/[0.06] transition-colors"
                         >
                           <Plus size={12} strokeWidth={2} />
                         </button>
@@ -185,7 +185,7 @@ export function CartDrawer({
                   {/* Remove button */}
                   <button
                     onClick={() => onUpdateQuantity(item.id, 0)}
-                    className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                    className="shrink-0 w-8 h-8 rounded-sm flex items-center justify-center text-neutral-600 hover:text-red-500 hover:bg-red-500/10 transition-colors"
                   >
                     <X size={14} strokeWidth={2} />
                   </button>
@@ -208,7 +208,7 @@ export function CartDrawer({
                 <select
                   value={selectedLocation}
                   onChange={(e) => onLocationChange(e.target.value)}
-                  className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-green-500/50 transition-colors appearance-none cursor-pointer hover:bg-white/[0.05]"
+                  className="w-full h-12 px-4 rounded-sm bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-green-500/50 transition-colors appearance-none cursor-pointer hover:bg-white/[0.05]"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                     backgroundRepeat: 'no-repeat',
@@ -223,7 +223,7 @@ export function CartDrawer({
                 </select>
               </div>
             ) : (
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+              <div className="flex items-center gap-3 p-3 rounded-sm bg-green-500/10 border border-green-500/20">
                 <MapPin size={18} className="text-green-500 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-green-400 font-medium">Ophaallocatie</p>
@@ -240,9 +240,9 @@ export function CartDrawer({
               <div className="flex gap-2">
                 <button
                   onClick={() => onPickupDateChange('today')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-all ${
                     pickupDate === 'today'
-                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                      ? 'bg-[#f97015] text-white'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -250,9 +250,9 @@ export function CartDrawer({
                 </button>
                 <button
                   onClick={() => onPickupDateChange('tomorrow')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-all ${
                     pickupDate === 'tomorrow'
-                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                      ? 'bg-[#f97015] text-white'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -260,9 +260,9 @@ export function CartDrawer({
                 </button>
                 <button
                   onClick={() => onPickupDateChange('custom')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-sm text-sm font-medium transition-all ${
                     pickupDate === 'custom'
-                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                      ? 'bg-[#f97015] text-white'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06]'
                   }`}
                 >
@@ -278,7 +278,7 @@ export function CartDrawer({
                     value={customPickupDate}
                     onChange={(e) => onCustomPickupDateChange(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-[#f97015]/50 transition-colors cursor-pointer"
+                    className="w-full h-12 px-4 rounded-sm bg-white/[0.03] border border-white/[0.06] text-sm text-white focus:outline-none focus:border-[#f97015]/50 transition-colors cursor-pointer"
                     style={{
                       colorScheme: 'dark'
                     }}
@@ -293,21 +293,21 @@ export function CartDrawer({
               value={customerName}
               onChange={(e) => onCustomerNameChange(e.target.value)}
               placeholder="Naam"
-              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
+              className="w-full h-12 px-4 rounded-sm bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
             />
             <input
               type="tel"
               value={customerPhone}
               onChange={(e) => onCustomerPhoneChange(e.target.value)}
               placeholder="Telefoonnummer"
-              className="w-full h-12 px-4 rounded-xl bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
+              className="w-full h-12 px-4 rounded-sm bg-white/[0.03] border border-white/[0.06] text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 transition-colors"
             />
             <textarea
               value={customerNotes}
               onChange={(e) => onCustomerNotesChange(e.target.value)}
               placeholder="Opmerkingen (optioneel)"
               rows={2}
-              className="w-full px-4 py-3 rounded-xl bg-white/3 border border-white/6 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 resize-none transition-colors"
+              className="w-full px-4 py-3 rounded-sm bg-white/3 border border-white/6 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-[#f97015]/30 resize-none transition-colors"
             />
             
             {/* Total */}
@@ -321,7 +321,7 @@ export function CartDrawer({
             {/* Submit button */}
             <button
               onClick={onSubmitOrder}
-              className="w-full h-14 rounded-2xl bg-[#25D366] hover:bg-[#22c55e] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-[#25D366]/20 hover:shadow-[#25D366]/30"
+              className="w-full h-14 rounded-sm bg-[#25D366] hover:bg-[#22c55e] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200"
             >
               <MessageCircle size={18} strokeWidth={2} />
               <span>Bestel via WhatsApp</span>

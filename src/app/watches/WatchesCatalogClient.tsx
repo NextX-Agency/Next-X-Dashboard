@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useDeferredValue, useRef, ty
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowDownUp, ArrowRight, Boxes, ChevronLeft, ChevronRight, CircleDollarSign, PackageCheck, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDownUp, ArrowRight, Boxes, ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, PackageCheck, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { shouldBypassNextImageOptimization } from '@/lib/imageOptimization'
@@ -252,6 +252,9 @@ export default function WatchesCatalogClient({
   const [priceBand, setPriceBand] = useState<PriceBand>('all')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [searchQuery, setSearchQuery] = useState('')
+  // On phones the four filter selects stacked into a full screen of chrome
+  // before the first watch appeared, so they start collapsed there.
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [quickViewItem, setQuickViewItem] = useState<Item | null>(null)
@@ -785,7 +788,33 @@ export default function WatchesCatalogClient({
               />
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4" style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}>
+            {/* Mobile disclosure — desktop always shows the filter grid */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(open => !open)}
+              aria-expanded={filtersOpen}
+              aria-controls="watches-filter-grid"
+              className="mt-4 flex h-11 w-full items-center justify-between rounded-[4px] border px-4 text-[10px] uppercase tracking-[0.2em] md:hidden"
+              style={{ borderColor: 'var(--w-border)', color: 'var(--w-cream-2)', fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <SlidersHorizontal size={13} />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span style={{ color: 'var(--w-gold)' }}>({activeFilterCount})</span>
+                )}
+              </span>
+              <ChevronDown
+                size={15}
+                className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            <div
+              id="watches-filter-grid"
+              className={`mt-4 gap-3 md:grid md:grid-cols-2 xl:grid-cols-4 ${filtersOpen ? 'grid' : 'hidden'}`}
+              style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)' }}
+            >
               <FilterControl icon={<Boxes size={14} />} label="Category">
                 <select
                   value={activeCategoryId}
@@ -935,7 +964,7 @@ export default function WatchesCatalogClient({
                       <div className="relative h-60 overflow-hidden">
                         {collection.imageUrl || previewItem?.imageUrl ? (
                           <Image
-                            src={collection.imageUrl || previewItem?.imageUrl || '/hero_section-watches.png'}
+                            src={collection.imageUrl || previewItem?.imageUrl || '/hero_section-watches.webp'}
                             alt={collection.name}
                             fill
                             sizes={collectionImageSizes}

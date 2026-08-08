@@ -39,7 +39,7 @@ export function FeatureIconsRow() {
               className="flex items-center gap-4 group"
             >
               {/* Icon container */}
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-[#f97015]/15 to-[#f97015]/5 border border-[#f97015]/20 flex items-center justify-center transition-all duration-300 group-hover:from-[#f97015]/25 group-hover:to-[#f97015]/15 group-hover:border-[#f97015]/40 group-hover:shadow-xl group-hover:shadow-[#f97015]/20 group-hover:scale-110">
+              <div className="flex-shrink-0 w-14 h-14 rounded-sm bg-gradient-to-br from-[#f97015]/15 to-[#f97015]/5 border border-[#f97015]/20 flex items-center justify-center transition-all duration-300 group-hover:from-[#f97015]/25 group-hover:to-[#f97015]/15 group-hover:border-[#f97015]/40 group-hover:shadow-[#f97015]/20 group-hover:scale-110">
                 <feature.icon 
                   size={22} 
                   className="text-[#f97015] transition-all duration-300" 

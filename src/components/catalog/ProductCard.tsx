@@ -35,12 +35,12 @@ export function ProductCard({
   return (
     <article className="group relative flex flex-col">
       {/* Card glow effect */}
-      <div className="absolute -inset-2 bg-gradient-to-r from-[#f97015]/0 via-[#f97015]/0 to-[#f97015]/0 rounded-3xl blur-xl group-hover:from-[#f97015]/20 group-hover:via-[#f97015]/10 group-hover:to-[#f97015]/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
+      <div className="absolute -inset-2 bg-gradient-to-r from-[#f97015]/0 via-[#f97015]/0 to-[#f97015]/0 rounded-sm blur-xl group-hover:from-[#f97015]/20 group-hover:via-[#f97015]/10 group-hover:to-[#f97015]/20 transition-all duration-500 opacity-0 group-hover:opacity-100" />
       
       {/* Entire card is a link for navigation */}
       <Link
         href={`/catalog/${id}`}
-        className="relative aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 cursor-pointer mb-4 border border-white/[0.08] group-hover:border-[#f97015]/40 transition-all duration-500 shadow-lg group-hover:shadow-2xl group-hover:shadow-[#f97015]/20 block"
+        className="relative aspect-square rounded-sm overflow-hidden bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 cursor-pointer mb-4 border border-white/[0.08] group-hover:border-[#f97015]/40 transition-all duration-500 shadow-lg group-hover:shadow-[#f97015]/20 block"
       >
         {/* Shimmer overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent" />
@@ -67,7 +67,7 @@ export function ProductCard({
         {/* Category badge */}
         {categoryName && (
           <div className="absolute top-4 left-4 z-10">
-            <span className="px-3.5 py-1.5 rounded-xl bg-black/70 backdrop-blur-xl border border-white/[0.15] text-[11px] font-bold text-white tracking-wide shadow-xl">
+            <span className="px-3.5 py-1.5 rounded-sm bg-black/70 backdrop-blur-xl border border-white/[0.15] text-[11px] font-bold text-white tracking-wide shadow-xl">
               {categoryName}
             </span>
           </div>
@@ -75,7 +75,7 @@ export function ProductCard({
         
         {/* View product indicator */}
         <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-sm bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center">
             <ChevronRight size={18} className="text-white" />
           </div>
         </div>
@@ -89,7 +89,7 @@ export function ProductCard({
                 e.stopPropagation()
                 onAddToCart()
               }}
-              className="w-full py-3.5 px-5 rounded-2xl bg-[#f97015] hover:bg-[#e5640d] text-white text-sm font-bold flex items-center justify-center gap-2.5 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 shadow-2xl shadow-[#f97015]/50 min-h-[48px]"
+              className="w-full py-3.5 px-5 rounded-sm bg-[#f97015] hover:bg-[#d95c08] text-white text-sm font-bold flex items-center justify-center gap-2.5 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 min-h-[48px]"
             >
               <Plus size={18} strokeWidth={2.5} />
               <span>Toevoegen</span>
@@ -120,13 +120,13 @@ export function ProductCard({
         </span>
         
         {quantity > 0 ? (
-          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+          <div className="flex items-center gap-0.5 p-1 rounded-sm bg-white/[0.04] border border-white/[0.06]">
             <button
               onClick={(e) => {
                 e.preventDefault()
                 onUpdateQuantity(quantity - 1)
               }}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="w-10 h-10 rounded-sm flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
             >
               <Minus size={16} strokeWidth={2} />
             </button>
@@ -138,7 +138,7 @@ export function ProductCard({
                 e.preventDefault()
                 onAddToCart()
               }}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+              className="w-10 h-10 rounded-sm flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
             >
               <Plus size={16} strokeWidth={2} />
             </button>
@@ -149,7 +149,7 @@ export function ProductCard({
               e.preventDefault()
               onAddToCart()
             }}
-            className="w-12 h-12 rounded-xl bg-[#f97015] hover:bg-[#e5640d] flex items-center justify-center transition-all duration-300 hover:scale-105 shadow-lg shadow-[#f97015]/40"
+            className="w-12 h-12 rounded-sm bg-[#f97015] hover:bg-[#d95c08] flex items-center justify-center transition-all duration-300 hover:scale-105"
           >
             <Plus size={20} className="text-white" strokeWidth={2.5} />
           </button>

@@ -62,7 +62,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
           {/* Left scroll button */}
           <button
             onClick={() => scroll('left')}
-            className="absolute left-4 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
+            className="absolute left-4 sm:left-6 lg:left-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-sm bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
             <ChevronLeft size={20} />
           </button>
@@ -76,13 +76,13 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
             {/* All products option */}
             <button
               onClick={() => onCategoryChange('')}
-              className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
+              className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-sm transition-all duration-200 w-[110px] ${
                 selectedCategory === ''
-                  ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                  ? 'bg-[#f97015] text-white'
                   : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
               }`}
             >
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+              <div className={`w-14 h-14 rounded-sm flex items-center justify-center ${
                 selectedCategory === '' ? 'bg-white/20' : 'bg-white/[0.04]'
               }`}>
                 <Package size={28} strokeWidth={1.5} />
@@ -99,13 +99,13 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
                 <button
                   key={category.id}
                   onClick={() => onCategoryChange(category.id)}
-                  className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-[110px] ${
+                  className={`flex-shrink-0 flex flex-col items-center gap-3 p-4 rounded-sm transition-all duration-200 w-[110px] ${
                     isSelected
-                      ? 'bg-[#f97015] text-white shadow-lg shadow-[#f97015]/30'
+                      ? 'bg-[#f97015] text-white'
                       : 'bg-white/[0.03] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.06] hover:text-white'
                   }`}
                 >
-                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden ${
+                  <div className={`w-14 h-14 rounded-sm flex items-center justify-center overflow-hidden ${
                     isSelected ? 'bg-white/20' : 'bg-white/[0.04]'
                   }`}>
                     {category.image_url ? (
@@ -131,7 +131,7 @@ export function CategorySlider({ categories, selectedCategory, onCategoryChange 
           {/* Right scroll button */}
           <button
             onClick={() => scroll('right')}
-            className="absolute right-4 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
+            className="absolute right-4 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-sm bg-neutral-900/90 border border-white/10 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-neutral-800"
           >
             <ChevronRight size={20} />
           </button>

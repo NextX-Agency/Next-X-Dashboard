@@ -1,4 +1,22 @@
 import type { Metadata } from "next";
+import { Archivo, Archivo_Black } from "next/font/google";
+
+// Type for the audio storefront, the way /watches pairs Cormorant with Jost:
+// Archivo Black for the big statements, Archivo for card-level headings,
+// Inter (loaded at the root) for body and UI copy.
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+
+const archivoBlack = Archivo_Black({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-archivo-black",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Shop In-Ear Monitors & Audio Accessories | NextX Suriname",
@@ -57,5 +75,9 @@ export default function CatalogLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div className={`audio-scope ${archivo.variable} ${archivoBlack.variable}`}>
+      {children}
+    </div>
+  );
 }

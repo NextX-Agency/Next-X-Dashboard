@@ -903,6 +903,10 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
               storeAddress={settings.store_address}
               logoUrl={settings.store_logo_url}
               featuredImageUrl={items[0]?.image_url || undefined}
+              featuredName={items[0]?.name}
+              whatsappNumber={settings.whatsapp_number}
+              productCount={items.length + comboItems.length}
+              categoryCount={categories.length}
               onExploreClick={scrollToProducts}
             />
           )}

@@ -54,11 +54,11 @@ export function NewHeader({
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const whatsappClean = whatsappNumber.replace(/[^0-9]/g, '')
-  const actionButtonClassName = 'relative flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 bg-white text-[#141c2e] shadow-[0_10px_24px_rgba(20,28,46,0.06)] [transition:all_0.3s_cubic-bezier(0.4,0,0.2,1)] hover:border-[#f97015]/40 hover:bg-[#fff7f2] active:scale-[0.96]'
+  const actionButtonClassName = 'relative flex h-10 w-10 items-center justify-center rounded-sm border border-[#f97015] bg-white text-[#f97015] transition-colors hover:bg-[#f97015] hover:text-white active:scale-[0.96]'
 
   return (
     <>
-      <header className="lg:sticky lg:top-0 z-50 border-b border-neutral-200 bg-white">
+      <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
         <div className="border-b border-neutral-100 hidden sm:block">
           <div className={catalogShellClassName}>
             <div className="flex h-10 items-center justify-between text-xs">
@@ -115,7 +115,7 @@ export function NewHeader({
                   />
                 ) : (
                   <span className="inline-block text-lg font-bold tracking-tight sm:text-xl">
-                    <span className="text-[#141c2e]">Next</span>
+                    <span className="text-[#111111]">Next</span>
                     <span className="text-[#f97015]">X</span>
                   </span>
                 )}
@@ -143,19 +143,19 @@ export function NewHeader({
               <button
                 onClick={() => onCategoryChange('')}
                 className={`text-sm font-medium transition-colors ${
-                  !selectedCategory ? 'text-[#f97015]' : 'text-[#141c2e]/70 hover:text-[#141c2e]'
+                  !selectedCategory ? 'text-[#f97015]' : 'text-[#111111]/70 hover:text-[#111111]'
                 }`}
               >
                 Producten
               </button>
               {categories.length > 0 && (
                 <div className="relative group">
-                  <button className="flex items-center gap-1 text-sm font-medium text-[#141c2e]/70 transition-colors hover:text-[#141c2e]">
+                  <button className="flex items-center gap-1 text-sm font-medium text-[#111111]/70 transition-colors hover:text-[#111111]">
                     Categorieën
                     <ChevronDown size={14} />
                   </button>
                   <div className="invisible absolute left-0 top-full pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                    <div className="min-w-[180px] rounded-xl border border-neutral-200 bg-white py-2 shadow-xl">
+                    <div className="min-w-[180px] rounded-sm border border-neutral-200 bg-white py-2 shadow-xl">
                       {categories.map((cat) => (
                         <button
                           key={cat.id}
@@ -163,7 +163,7 @@ export function NewHeader({
                           className={`w-full px-4 py-2 text-left text-sm transition-colors ${
                             selectedCategory === cat.id
                               ? 'bg-[#f97015]/10 text-[#f97015]'
-                              : 'text-[#141c2e]/70 hover:bg-[#f97015]/5 hover:text-[#141c2e]'
+                              : 'text-[#111111]/70 hover:bg-[#f97015]/5 hover:text-[#111111]'
                           }`}
                         >
                           {cat.name}
@@ -177,7 +177,7 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden rounded-lg px-2.5 py-2 text-sm font-medium text-[#141c2e]/60 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98] xl:inline-flex"
+                className="hidden rounded-sm px-2.5 py-2 text-sm font-medium text-[#111111]/60 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98] xl:inline-flex"
               >
                 NextX Agency
               </a>
@@ -199,7 +199,7 @@ export function NewHeader({
               >
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#f97015] px-1 text-[10px] font-bold text-white">
+                  <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-sm bg-[#f97015] px-1 text-[10px] font-bold text-white">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
                 )}
@@ -227,7 +227,7 @@ export function NewHeader({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   autoFocus
-                  className="h-11 w-full rounded-xl border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#141c2e] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015] sm:h-12 sm:text-base"
+                  className="h-11 w-full rounded-sm border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#111111] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015] sm:h-12 sm:text-base"
                 />
                 {searchQuery && (
                   <button
@@ -253,7 +253,7 @@ export function NewHeader({
                     placeholder="Zoek producten..."
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="h-10 w-full rounded-lg border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#141c2e] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015]"
+                    className="h-10 w-full rounded-sm border border-neutral-200 bg-white pl-11 pr-10 text-sm text-[#111111] placeholder:text-neutral-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#f97015]"
                   />
                   {searchQuery && (
                     <button
@@ -269,7 +269,7 @@ export function NewHeader({
                 href="https://www.nextxagency.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mb-3 block w-full rounded-xl px-4 py-3 text-sm font-medium text-[#141c2e]/70 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98]"
+                className="mb-3 block w-full rounded-sm px-4 py-3 text-sm font-medium text-[#111111]/70 transition-colors hover:bg-neutral-50 hover:text-[#f97015] active:scale-[0.98]"
               >
                 NextX Agency
               </a>
@@ -277,7 +277,7 @@ export function NewHeader({
                 href={`https://wa.me/${whatsappClean}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mb-3 flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#141c2e]/70 hover:bg-neutral-50 transition-colors"
+                className="mb-3 flex items-center gap-2 rounded-sm px-4 py-2 text-sm text-[#111111]/70 hover:bg-neutral-50 transition-colors"
               >
                 <Image
                   src="/whatsapp.png"
@@ -295,8 +295,8 @@ export function NewHeader({
                     onCategoryChange('')
                     setShowMobileMenu(false)
                   }}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
-                    !selectedCategory ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                  className={`w-full rounded-sm px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    !selectedCategory ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#111111]/70 hover:bg-neutral-50'
                   }`}
                 >
                   Alle Producten
@@ -311,8 +311,8 @@ export function NewHeader({
                     onCategoryChange(cat.id)
                     setShowMobileMenu(false)
                   }}
-                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
-                    selectedCategory === cat.id ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#141c2e]/70 hover:bg-neutral-50'
+                  className={`w-full rounded-sm px-4 py-3 text-left text-sm font-medium transition-colors ${
+                    selectedCategory === cat.id ? 'bg-[#f97015]/10 text-[#f97015]' : 'text-[#111111]/70 hover:bg-neutral-50'
                   }`}
                 >
                   {cat.name}

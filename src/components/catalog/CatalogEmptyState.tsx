@@ -57,19 +57,19 @@ export function CatalogEmptyState({
 
   return (
     <div className="flex flex-col items-center justify-center py-16 sm:py-20 px-6">
-      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm bg-neutral-100 flex items-center justify-center mb-4">
         <Icon size={32} className="text-neutral-300" strokeWidth={1.5} />
       </div>
-      <h3 className="text-base sm:text-lg font-semibold text-[#141c2e] mb-2 text-center">
+      <h3 className="text-base sm:text-lg font-semibold text-[#111111] mb-2 text-center">
         {displayTitle}
       </h3>
-      <p className="text-sm text-[#141c2e]/60 mb-6 text-center max-w-sm">
+      <p className="text-sm text-[#111111]/60 mb-6 text-center max-w-sm">
         {displayDescription}
       </p>
       {action && (
         <button
           onClick={action.onClick}
-          className="px-6 py-2.5 rounded-full bg-[#f97015] text-white text-sm font-medium hover:bg-[#e5640d] transition-colors shadow-sm"
+          className="px-6 py-2.5 rounded-sm bg-[#f97015] text-white text-sm font-medium hover:bg-[#d95c08] transition-colors shadow-sm"
         >
           {action.label}
         </button>

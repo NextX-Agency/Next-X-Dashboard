@@ -33,7 +33,7 @@ export function StockBadge({
   if (status === 'out-of-stock') {
     if (variant === 'badge') {
       return (
-        <span className="px-2.5 py-1 rounded-lg bg-neutral-800/90 text-white text-xs font-semibold">
+        <span className="px-2.5 py-1 rounded-sm bg-neutral-800/90 text-white text-xs font-semibold">
           Uitverkocht
         </span>
       )
@@ -57,7 +57,7 @@ export function StockBadge({
 
   if (variant === 'badge') {
     return (
-      <span className="px-2 py-0.5 rounded-full bg-amber-500/95 text-white text-[10px] font-bold shadow-md inline-flex items-center gap-1 animate-pulse">
+      <span className="px-2 py-0.5 rounded-sm bg-amber-500/95 text-white text-[10px] font-bold shadow-md inline-flex items-center gap-1">
         <AlertCircle size={10} />
         {badgeText}
       </span>

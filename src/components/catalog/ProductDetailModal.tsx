@@ -81,11 +81,11 @@ export function ProductDetailModal({
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-3xl bg-neutral-950 rounded-3xl overflow-hidden max-h-[90vh] overflow-y-auto border border-white/[0.06] shadow-2xl">
+      <div className="relative w-full max-w-3xl bg-neutral-950 rounded-sm overflow-hidden max-h-[90vh] overflow-y-auto border border-white/[0.06] shadow-2xl">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.06] flex items-center justify-center hover:bg-black/60 transition-colors min-h-[44px] min-w-[44px]"
+          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-sm bg-black/40 backdrop-blur-md border border-white/[0.06] flex items-center justify-center hover:bg-black/60 transition-colors min-h-[44px] min-w-[44px]"
         >
           <X size={18} className="text-white" />
         </button>
@@ -110,7 +110,7 @@ export function ProductDetailModal({
             {/* Category badge on image */}
             {categoryName && (
               <div className="absolute top-4 left-4">
-                <span className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/[0.06] text-xs font-medium text-white/90">
+                <span className="px-3 py-1.5 rounded-sm bg-black/40 backdrop-blur-md border border-white/[0.06] text-xs font-medium text-white/90">
                   {categoryName}
                 </span>
               </div>
@@ -121,7 +121,7 @@ export function ProductDetailModal({
           <div className="md:w-1/2 p-6 sm:p-8 flex flex-col">
             {/* Category tag */}
             {categoryName && (
-              <div className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-[#f97015]/10 text-[#f97015] text-xs font-medium mb-4 md:hidden">
+              <div className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-sm bg-[#f97015]/10 text-[#f97015] text-xs font-medium mb-4 md:hidden">
                 <Tag size={12} strokeWidth={2} />
                 <span>{categoryName}</span>
               </div>
@@ -140,7 +140,7 @@ export function ProductDetailModal({
             )}
 
             {/* Pickup Info */}
-            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-6 p-3 rounded-xl bg-[#f97015]/5 border border-[#f97015]/10">
+            <div className="flex items-center gap-2 text-sm text-neutral-500 mb-6 p-3 rounded-sm bg-[#f97015]/5 border border-[#f97015]/10">
               <MapPin size={16} className="text-[#f97015] flex-shrink-0" />
               <span>Ophalen in {storeAddress}</span>
             </div>
@@ -156,10 +156,10 @@ export function ProductDetailModal({
                 </div>
                 
                 {/* Quantity Selector */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                <div className="flex items-center gap-1 p-1 rounded-sm bg-white/[0.04] border border-white/[0.06]">
                   <button
                     onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="w-10 h-10 rounded-sm flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                   >
                     <Minus size={16} strokeWidth={2} />
                   </button>
@@ -168,7 +168,7 @@ export function ProductDetailModal({
                   </span>
                   <button
                     onClick={() => setQuantity(q => q + 1)}
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+                    className="w-10 h-10 rounded-sm flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/[0.06] transition-colors"
                   >
                     <Plus size={16} strokeWidth={2} />
                   </button>
@@ -188,7 +188,7 @@ export function ProductDetailModal({
                 {/* WhatsApp Order Button */}
                 <button
                   onClick={handleWhatsAppOrder}
-                  className="w-full h-14 rounded-2xl bg-[#25D366] hover:bg-[#22c55e] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 min-h-[56px]"
+                  className="w-full h-14 rounded-sm bg-[#25D366] hover:bg-[#22c55e] text-white font-semibold flex items-center justify-center gap-3 transition-all duration-200 shadow-lg shadow-green-500/20 hover:shadow-green-500/30 min-h-[56px]"
                 >
                   <MessageCircle size={20} strokeWidth={2} />
                   <span>Bestel voor ophalen</span>
@@ -198,7 +198,7 @@ export function ProductDetailModal({
                 <div className="flex gap-3">
                   <button
                     onClick={handleAddToCart}
-                    className="flex-1 h-12 rounded-xl bg-[#f97015] hover:bg-[#e5640d] text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
+                    className="flex-1 h-12 rounded-sm bg-[#f97015] hover:bg-[#d95c08] text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
                   >
                     <Plus size={18} strokeWidth={2} />
                     <span>{quantity > 1 ? `${quantity}× toevoegen` : 'In winkelwagen'}</span>
@@ -207,7 +207,7 @@ export function ProductDetailModal({
                   <Link
                     href={`/catalog/${id}`}
                     onClick={onClose}
-                    className="h-12 px-4 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
+                    className="h-12 px-4 rounded-sm bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] text-white font-medium flex items-center justify-center gap-2 transition-all duration-200 min-h-[48px]"
                   >
                     <ExternalLink size={18} />
                     <span className="hidden sm:inline">Bekijk product</span>

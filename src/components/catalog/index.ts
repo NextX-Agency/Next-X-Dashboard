@@ -25,6 +25,7 @@ export { NewQuickViewModal } from './NewQuickViewModal'
 export { BannerSlider } from './BannerSlider'
 export { PublicLayout } from './PublicLayout'
 export { SectionContainer } from './SectionContainer'
+export { PickupSection } from './PickupSection'
 export { CatalogEmptyState } from './CatalogEmptyState'
 export { StockBadge } from './StockBadge'
 
