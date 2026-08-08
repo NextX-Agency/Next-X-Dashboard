@@ -2021,14 +2021,19 @@ button {
   color: var(--w-cream-2);
 }
 
-/* Watches header scroll behavior */
+/* Watches header scroll behavior.
+   It sits over the hero photograph, so it keeps a light scrim at rest —
+   fully transparent left the top bar and nav illegible against the watch
+   image — and goes solid once the page scrolls. */
 .watches-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
-  background: transparent;
+  background: rgba(9, 9, 11, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   transition: var(--w-transition);
   border-bottom: 1px solid transparent;
 }
@@ -2038,6 +2043,58 @@ button {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom-color: var(--w-border);
+}
+
+/* Shared shell + vertical rhythm for watches sections.
+   Sections used to mix px-4/px-5/px-6 and py-5 through py-28, so content
+   edges never lined up and the page read as cramped in places and empty
+   in others. */
+.w-shell {
+  width: 100%;
+  max-width: 1536px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.w-section {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+
+.w-section-sm {
+  padding-top: 2.25rem;
+  padding-bottom: 2.25rem;
+}
+
+@media (min-width: 640px) {
+  .w-shell {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .w-section {
+    padding-top: 4.5rem;
+    padding-bottom: 4.5rem;
+  }
+
+  .w-section-sm {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .w-shell {
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+
+  .w-section {
+    padding-top: 5.5rem;
+    padding-bottom: 5.5rem;
+  }
 }
 
 /* Watches gold button */

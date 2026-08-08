@@ -176,8 +176,8 @@ function WatchProductCardComponent({
         )}
       </div>
 
-      <div className={`flex flex-1 flex-col ${compact ? 'px-3 py-3 sm:px-3.5 sm:py-3.5' : 'px-4 py-4 sm:px-5 sm:py-5'}`}>
-        <div className={`flex items-start justify-between gap-3 ${compact ? 'mb-2' : 'mb-3'}`}>
+      <div className={`flex flex-1 flex-col ${compact ? 'px-4 py-4 sm:px-4.5 sm:py-4.5' : 'px-5 py-5 sm:px-6 sm:py-6'}`}>
+        <div className={`flex items-start justify-between gap-3 ${compact ? 'mb-3' : 'mb-4'}`}>
           <div className="min-w-0">
             {brand && (
               <p
@@ -220,8 +220,8 @@ function WatchProductCardComponent({
           </p>
         )}
 
-        <div className={`mt-auto ${compact ? 'pt-2.5' : 'pt-4'}`} style={{ borderTop: '1px solid var(--w-border)' }}>
-          <div className={compact ? 'flex flex-col items-stretch gap-2.5' : 'flex items-end justify-between gap-2.5'}>
+        <div className={`mt-auto ${compact ? 'pt-3.5' : 'pt-5'}`} style={{ borderTop: '1px solid var(--w-border)' }}>
+          <div className={compact ? 'flex flex-col items-stretch gap-3' : 'flex items-end justify-between gap-3'}>
             <div className="min-w-0">
               <p
                 className={`mb-0.5 uppercase tracking-[0.16em] ${compact ? 'text-[8px]' : 'text-[10px]'}`}

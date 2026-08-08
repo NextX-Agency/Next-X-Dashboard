@@ -59,7 +59,7 @@ function WatchesHeroComponent({
   return (
     <section
       className="relative flex items-end overflow-hidden sm:items-center"
-      style={{ height: 'min(68svh, 860px)', minHeight: 360 }}
+      style={{ height: 'min(76svh, 880px)', minHeight: 520 }}
       aria-label="Hero section"
     >
       {/* Background image — fills viewport */}
@@ -120,13 +120,17 @@ function WatchesHeroComponent({
         style={{ background: 'linear-gradient(to bottom, transparent, rgba(201,168,76,0.3) 30%, rgba(201,168,76,0.3) 70%, transparent)' }}
       />
 
-      {/* Content */}
-      <div className="relative z-10 px-5 pb-8 pt-24 sm:px-6 sm:py-14 lg:px-12 lg:py-16 max-w-screen-2xl mx-auto w-full">
+      {/* Content.
+          The header is fixed and roughly 56 / 84 / 100px tall by breakpoint,
+          so the top padding has to clear it at every size — a single `pt-24`
+          was being overridden by `sm:py-14`, which put the headline under
+          the logo and nav. */}
+      <div className="relative z-10 mx-auto w-full max-w-screen-2xl px-5 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28 lg:px-12 lg:pb-16 lg:pt-36">
         <div className="max-w-60 sm:max-w-xl">
           {/* Eyebrow label */}
           <p
             aria-label="NextX Watches - Luxury Collection"
-            className="relative mb-5 text-[9px] font-light tracking-[0.34em] uppercase text-transparent sm:mb-6 sm:text-[10px] sm:tracking-[0.45em]"
+            className="relative mb-6 text-[9px] font-light tracking-[0.34em] uppercase text-transparent sm:mb-7 sm:text-[10px] sm:tracking-[0.45em]"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'transparent' }}
           >
             <span aria-hidden="true" className="absolute inset-0" style={{ color: 'var(--w-gold)' }}>
@@ -137,7 +141,7 @@ function WatchesHeroComponent({
 
           {/* Main title */}
           <h1
-            className="mb-5 font-light leading-[0.88]"
+            className="mb-6 font-light leading-[0.88] sm:mb-7"
             style={{
               fontFamily: 'var(--font-cormorant, Georgia, serif)',
               color: 'var(--w-cream)',
@@ -150,11 +154,11 @@ function WatchesHeroComponent({
           </h1>
 
           {/* Thin gold rule */}
-          <div className="mb-5 w-10 h-px" style={{ background: 'var(--w-gold-muted)' }} />
+          <div className="mb-6 w-10 h-px sm:mb-7" style={{ background: 'var(--w-gold-muted)' }} />
 
           {/* Subtitle */}
           <p
-            className="mb-6 max-w-56 text-[13px] font-light leading-7 sm:mb-10 sm:max-w-sm sm:text-[15px] sm:leading-relaxed"
+            className="mb-8 max-w-56 text-[13px] font-light leading-7 sm:mb-10 sm:max-w-sm sm:text-[15px] sm:leading-relaxed"
             style={{ fontFamily: 'var(--font-jost, system-ui, sans-serif)', color: 'var(--w-cream-2)', letterSpacing: '0.02em' }}
           >
             {subtitle}

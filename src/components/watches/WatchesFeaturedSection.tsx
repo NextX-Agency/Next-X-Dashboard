@@ -60,7 +60,7 @@ function WatchesFeaturedSectionComponent({
       <section
         ref={sectionRef}
         id="featured"
-        className="px-6 py-16 lg:px-12 lg:py-20 max-w-screen-2xl mx-auto"
+        className="w-shell w-section"
       >
         <div className="mb-10 w-reveal">
           <p
@@ -115,7 +115,7 @@ function WatchesFeaturedSectionComponent({
     <section
       ref={sectionRef}
       id="featured"
-      className="px-6 lg:px-12 py-20 lg:py-28 max-w-screen-2xl mx-auto"
+      className="w-shell w-section"
     >
       {/* Section header */}
       <div className="mb-12 lg:mb-16 w-reveal">

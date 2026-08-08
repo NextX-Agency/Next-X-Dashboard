@@ -651,7 +651,7 @@ export default function WatchesCatalogClient({
 
         {/* ── Philosophy strip ────────────────────────── */}
         <div
-          className="flex items-center justify-center gap-4 px-6 py-6 sm:gap-6 sm:py-8"
+          className="flex items-center justify-center gap-4 px-6 py-9 sm:gap-6 sm:py-11"
           style={{ borderBottom: '1px solid var(--w-border)' }}
         >
           <div className="hidden sm:block h-px flex-1 max-w-24" style={{ background: 'var(--w-border-gold)' }} />
@@ -669,7 +669,7 @@ export default function WatchesCatalogClient({
         </div>
 
         {banners.length > 1 && (
-          <section className="px-6 py-5 lg:px-12 lg:py-6">
+          <section className="w-shell w-section-sm">
             <div className="mx-auto grid max-w-screen-2xl gap-4 md:grid-cols-2 xl:grid-cols-3">
               {banners.slice(0, 3).map((banner) => (
                 <Link
@@ -716,7 +716,7 @@ export default function WatchesCatalogClient({
           </section>
         )}
 
-        <section id="collections" className="px-5 py-6 sm:px-6 sm:py-8 lg:px-12 lg:py-10">
+        <section id="collections" className="w-shell w-section-sm">
           <div
             className="mx-auto max-w-screen-2xl border-y py-6 sm:py-8"
             style={{ borderColor: 'var(--w-border)' }}
@@ -919,7 +919,7 @@ export default function WatchesCatalogClient({
         </section>
 
         {normalizedCollections.length > 0 && (
-          <section id="featured-collections" className="px-5 py-8 sm:px-6 sm:py-10 lg:px-12 lg:py-14">
+          <section id="featured-collections" className="w-shell w-section">
             <div className="mx-auto max-w-screen-2xl">
               <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -1032,8 +1032,8 @@ export default function WatchesCatalogClient({
           <div
             id="new"
             className={cn(
-              'scroll-mt-28 px-4 pt-4 sm:scroll-mt-32 sm:px-6 sm:pt-6 lg:px-12 lg:pt-8 max-w-screen-2xl mx-auto',
-              showBrandSections ? 'pb-4 sm:pb-6 lg:pb-8' : 'pb-10 sm:pb-14 lg:pb-16'
+              'w-shell scroll-mt-28 pt-10 sm:scroll-mt-32 sm:pt-12 lg:pt-14',
+              showBrandSections ? 'pb-2 sm:pb-4' : 'pb-14 sm:pb-16 lg:pb-20'
             )}
           >
             <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -1083,7 +1083,7 @@ export default function WatchesCatalogClient({
                 ))}
               </div>
             ) : (
-              <div className={cn('grid gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-7 lg:gap-x-5 lg:gap-y-8', catalogGridClassName)}>
+              <div className={cn('grid gap-x-4 gap-y-9 sm:gap-x-5 sm:gap-y-11 lg:gap-x-6 lg:gap-y-12', catalogGridClassName)}>
                 {filteredItems.map((item, index) => (
                   <WatchProductCard
                     key={item.id}
@@ -1204,7 +1204,7 @@ function WatchBrandSection({
 
   return (
     <section
-      className="border-t py-8 sm:py-10 lg:py-12"
+      className="border-t py-11 sm:py-14 lg:py-16"
       style={{
         borderColor: 'var(--w-border)',
         background: index % 2 === 1 ? 'rgba(255,255,255,0.014)' : 'transparent',
@@ -1395,7 +1395,7 @@ function EmptyState({ whatsappNumber, searchQuery }: { whatsappNumber: string; s
 function AtelierSection() {
   return (
     <section
-      className="px-6 lg:px-12 py-20 lg:py-28 max-w-screen-2xl mx-auto"
+      className="w-shell w-section"
       style={{ borderTop: '1px solid var(--w-border)' }}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
