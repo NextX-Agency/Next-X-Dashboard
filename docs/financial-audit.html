@@ -289,6 +289,20 @@
   td:first-child { color: var(--ink); font-weight: 550; }
   tr:last-child td { border-bottom: none; }
   .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .pass, .fail {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .pass { color: var(--good); }
+  .fail { color: var(--crit); }
+  .pass::before, .fail::before {
+    display: inline-block;
+    width: 1.15em;
+    font-weight: 700;
+  }
+  .pass::before { content: "✓"; }
+  .fail::before { content: "✗"; }
 
   /* ---------- Findings ledger ---------- */
   .ledger { border-top: 1px solid var(--rule); margin: 26px 0 0; }
@@ -324,6 +338,7 @@
   .chip.critical { color: var(--crit); background: var(--crit-wash); }
   .chip.high     { color: var(--high); background: var(--high-wash); }
   .chip.medium   { color: var(--med);  background: var(--med-wash); }
+  .chip.low      { color: var(--ink-3); background: var(--surface-2); }
   .f-body h4 {
     font-family: var(--sans);
     font-size: 1rem;
@@ -481,14 +496,16 @@
     <h1>Build the ledger. Don't migrate to Odoo.</h1>
     <p class="standfirst">
       A review of the money-handling layer across 47 data models, 53 API routes and every
-      client-side financial write path — and what it takes to run several legal entities on it.
+      client-side financial write path — reconciled against the live production database, and
+      assessed for what it takes to run several legal entities on it.
     </p>
     <div class="meta-strip">
-      <span><b>14</b> findings</span>
-      <span><b>5</b> critical</span>
-      <span><b>4</b> high</span>
-      <span><b>5</b> medium</span>
-      <span>Est. remediation <b>10–14 weeks</b></span>
+      <span><b>23</b> findings</span>
+      <span><b>6</b> critical</span>
+      <span><b>7</b> high</span>
+      <span><b>9</b> medium</span>
+      <span><b>1</b> low</span>
+      <span>Est. remediation <b>11–15 weeks</b></span>
     </div>
   </header>
 
@@ -508,13 +525,21 @@
       throughout. Meanwhile you have already built the part most teams get wrong.
       <code>finance_ledger_entries</code> is append-only and enforced in the database by
       <code>prevent_finance_ledger_mutation()</code>, with automatic capture from wallet transactions
-      via trigger. What's missing on top of it — a chart of accounts and balanced debit/credit legs — is
-      weeks of work, not months.
+      via trigger — and production confirms it works: <strong>490 wallet transactions, 490 ledger
+      entries, zero gaps.</strong> What's missing on top of it — a chart of accounts and balanced
+      debit/credit legs — is weeks of work, not months.
     </p>
     <p>
       One thing worth naming: <strong>a company entity has to be built either way.</strong> Odoo wouldn't
       spare you the modelling work of deciding what a legal entity means in your business. It would only
       move that work into an unfamiliar stack.
+    </p>
+    <p>
+      A caveat, stated plainly: the reconciliation in §3 means your books would not survive an external
+      audit today. Roughly 6.7% of recorded revenue carries no cost of goods, and SRD 9,458 of commission
+      payouts never reached the expense ledger at all. That is an argument for fixing the write paths
+      urgently — not for migrating. Moving to Odoo on top of unreliable data relocates the problem, and
+      you would still have to clean it before import.
     </p>
   </div>
 
@@ -588,17 +613,79 @@
     <p>Worth stating plainly, because it's the reason the build path works at all.</p>
     <ul class="plain">
       <li><strong>Immutable ledger.</strong> <code>finance_ledger_entries</code> blocks UPDATE and DELETE at the database layer, with a message directing you to corrective entries. This is correct practice.</li>
-      <li><strong>Automatic ledger capture.</strong> The <code>wallet_transactions_capture_ledger</code> trigger means even client-side writes land in the ledger — the backstop holds despite finding F-02.</li>
-      <li><strong>FX snapshot on sales.</strong> <code>sales.exchange_rate</code> is stored per sale rather than looked up later.</li>
+      <li><strong>Automatic ledger capture, verified.</strong> The <code>wallet_transactions_capture_ledger</code> trigger has captured 490 of 490 wallet transactions with no gaps — the backstop holds despite finding F-02.</li>
+      <li><strong>FX snapshot on sales, verified.</strong> Zero USD sales are missing an exchange rate. That discipline has held across every sale ever recorded.</li>
+      <li><strong>Commission arithmetic is internally consistent.</strong> Zero rows where the commission amount disagrees with rate × sale total. The maths is right; the plumbing around it is where the problems are.</li>
+      <li><strong>No negative stock, no negative wallet balances.</strong></li>
       <li><strong>Correlation IDs</strong> on every ledger entry — the foundation for grouping the legs of a future double-entry transaction.</li>
-      <li><strong>Expense controls.</strong> Classification, status, vendor, receipt number, reviewer identity, refund tracking. Real internal-control thinking.</li>
-      <li><strong>Wallet reconciliation</strong> with confirmed balance and the identity of who reconciled it.</li>
+      <li><strong>Expense control columns exist</strong> — classification, status, vendor, receipt, reviewer, refunds. The schema thinking is right; they're simply unused (F-20).</li>
       <li><strong>DECIMAL throughout</strong> rather than floating point, and an obligations table with due dates and source tracing.</li>
     </ul>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 03</span><h2>Findings</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 03</span><h2>Reconciliation against production</h2></div>
+    <p>
+      This is what separates an opinion from an audit. Every number below came from a read-only query
+      against the live database — 149 sales, 490 wallet transactions, 83 expenses, 13 wallets.
+      Nothing was modified.
+    </p>
+
+    <h3>Integrity tests that pass</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:62%">Test</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Wallet transactions captured into the immutable ledger</td><td><span class="pass">490 / 490 — no gaps</span></td></tr>
+          <tr><td>USD sales missing an FX rate snapshot</td><td><span class="pass">0</span></td></tr>
+          <tr><td>Commission amount vs rate × sale total</td><td><span class="pass">0 mismatches</span></td></tr>
+          <tr><td>Negative stock rows</td><td><span class="pass">0</span></td></tr>
+          <tr><td>Negative wallet balances</td><td><span class="pass">0</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Reconciliation breaks</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:52%">Test</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>Commission payouts recorded as expenses</td><td><span class="fail">0</span>, against 106 commissions marked paid worth <span class="num">SRD 9,458.05</span></td></tr>
+          <tr><td>Commissions marked paid vs commission wallet debits</td><td><span class="num">SRD 9,458.05</span> paid vs <span class="num">SRD 8,006.67</span> debited — <span class="fail">SRD 1,451.38 unexplained</span></td></tr>
+          <tr><td>Sale headers with no line items</td><td><span class="fail">4 of 149</span> — carrying <span class="num">SRD 11,420.02</span> of revenue with zero COGS</td></tr>
+          <tr><td>Sale header total vs sum of line items</td><td><span class="fail">4 sales</span>, <span class="num">SRD 1,050.02</span> combined gap</td></tr>
+          <tr><td>Wallet balance vs last recorded balance</td><td><span class="fail">1 wallet adrift by SRD 500.00</span> — Blauwgrond bank/SRD reads 0.00, history says 500.00</td></tr>
+          <tr><td>Sales with a seller but no commission row</td><td><span class="fail">8</span></td></tr>
+          <tr><td>Expenses with no matching wallet transaction</td><td><span class="fail">2</span></td></tr>
+          <tr><td>Wallet reconciliations ever performed</td><td><span class="fail">0</span>, against <span class="num">SRD 42,005.99 + USD 534.00</span> across 13 wallets</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Revenue booked with no cost of goods</h3>
+    <div class="tbl-scroll">
+      <table>
+        <tbody>
+          <tr><td style="width:62%">Total recorded revenue, at each sale's own FX rate</td><td class="num">SRD 211,976.02</td></tr>
+          <tr><td>From the 4 item-less sale headers</td><td class="num">SRD 11,420.02</td></tr>
+          <tr><td>From 5 active items priced at zero cost</td><td class="num">SRD 2,800.00</td></tr>
+          <tr><td><strong>Booked at 100% margin</strong></td><td class="num"><strong style="color:var(--crit)">SRD 14,220.02 — 6.7%</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Gross profit is overstated by roughly SRD 14,220 before considering F-01 at all.</p>
+
+    <h3>Control adoption: the columns exist, nobody fills them</h3>
+    <p>
+      Of 83 expenses, <strong>83 have no date, 83 have no vendor, 83 have no receipt number, 83 have
+      never been reviewed, and all 83 are unclassified.</strong> Adoption of the expense-control
+      migration is exactly zero, so reporting expenses by category is impossible today. Purchase orders:
+      zero records, meaning item cost has only ever come from a manually typed field.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 04</span><h2>Findings</h2></div>
 
     <div class="ledger">
 
@@ -650,6 +737,16 @@
       </div>
 
       <div class="finding">
+        <div class="f-id"><span>F-15</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Commission payouts write to columns that don't exist, and fail silently</h4>
+          <p><code>commissions/page.tsx:343</code> inserts <code>category</code>, <code>payment_method</code> and <code>date</code> into the expenses table. <strong>None of those columns exist</strong> — and the table's <code>wallet_id</code> is <code>NOT NULL</code> but is never supplied. The insert fails every single time, and the result is never checked: no error destructuring, no <code>.select()</code>. It fails without a sound.</p>
+          <p><strong>Production evidence:</strong> zero commission-payout expenses exist, against 106 commissions marked paid worth <span class="num">SRD 9,458.05</span>. Operating expenses are understated by that amount, so every margin and profit figure the dashboard has ever shown is correspondingly overstated.</p>
+          <p class="f-fix"><b>Fix</b>Correct the column names, supply <code>wallet_id</code>, check the error, and move the payout into the same server-side transaction that flips <code>commissions.paid</code>.</p>
+        </div>
+      </div>
+
+      <div class="finding">
         <div class="f-id"><span>F-06</span><span class="chip high">High</span></div>
         <div class="f-body">
           <h4>"Undo Sale" hard-deletes financial records</h4>
@@ -678,8 +775,35 @@
         <div class="f-id"><span>F-09</span><span class="chip high">High</span></div>
         <div class="f-body">
           <h4>Decimal(10,2) will overflow</h4>
-          <p>26 money columns cap at 99,999,999.99. At roughly 40 SRD per USD that ceiling is about USD 2.5M — reachable for cumulative wallet balances or annual revenue aggregates. Rates at <code>Decimal(10,4)</code> are tight too.</p>
+          <p>26 money columns cap at 99,999,999.99. At 38 SRD per USD that ceiling is about USD 2.6M. Your largest single wallet holds SRD 18,255.99 and lifetime revenue is SRD 211,976 — comfortable now, but cumulative aggregates and multi-entity consolidation shorten the runway fast. Rates at <code>Decimal(10,4)</code> are tight too.</p>
           <p class="f-fix"><b>Fix</b><code>Decimal(18,4)</code> for amounts, <code>Decimal(18,8)</code> for rates.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-16</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>Commissions marked paid without a matching wallet debit</h4>
+          <p><span class="num">SRD 9,458.05</span> of commissions are flagged paid, but commission-related wallet debits total only <span class="num">SRD 8,006.67</span> across 11 transactions. <strong>SRD 1,451.38 was marked as paid without money leaving any wallet on record.</strong> Either cash left the business untracked, or the flag was set without payment. Both need reconciling by hand before any ledger migration.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-17</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>Invoice numbers are random, never stored, and not reproducible</h4>
+          <p><code>sales/page.tsx:433</code> builds <code>INV-YYYYMMDD-{random}</code> from <code>Math.random()</code>. There is no <code>invoice_number</code> column anywhere in the schema, so the number handed to the customer exists only in that browser session and the activity log.</p>
+          <p>Reprinting later calls a different function (line 949) that builds <code>INV-YYYYMMDD-{last 6 of the UUID}</code> — <strong>a different number than the customer received.</strong> Reservations add a third format, <code>RES-COMP-{timestamp}</code>.</p>
+          <p>So you cannot match a customer's invoice to a sale record; numbering is neither sequential nor gapless, which most jurisdictions require for tax; and random four-digit suffixes collide within a day at a meaningful rate.</p>
+          <p class="f-fix"><b>Fix</b>A persisted, per-company, gapless sequence allocated inside the sale transaction and stored on the sale.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-18</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>6.7% of recorded revenue carries no cost of goods</h4>
+          <p><span class="num">SRD 14,220.02</span> of <span class="num">SRD 211,976.02</span> — SRD 11,420.02 from the four item-less headers, SRD 2,800.00 from five active items priced at zero cost. All of it currently reports at 100% margin. This is separate from, and additive to, the F-01 distortion.</p>
         </div>
       </div>
 
@@ -687,7 +811,15 @@
         <div class="f-id"><span>F-10</span><span class="chip medium">Medium</span></div>
         <div class="f-body">
           <h4>No FX revaluation or gain/loss tracking</h4>
-          <p>USD-denominated wallets are never revalued and there is no FX gain/loss account. Under SRD volatility this misstates results by a material amount.</p>
+          <p>The USD 534.00 held across your wallets is never revalued, and there is no FX gain/loss account. Under SRD volatility this misstates results by a material amount.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-19</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>The exchange rate is 68 days stale</h4>
+          <p>One active rate, fixed at <span class="num">38.0000</span>, last set 2026-06-05. Every USD-to-SRD conversion in reporting — and the snapshot written onto every new sale — uses a rate over two months old. This compounds the <code>cogsSrd</code> problem in F-01.</p>
         </div>
       </div>
 
@@ -703,7 +835,7 @@
         <div class="f-id"><span>F-12</span><span class="chip medium">Medium</span></div>
         <div class="f-body">
           <h4>Commission isn't recognised as a liability when earned</h4>
-          <p>It's inserted client-side alongside the sale, then becomes a wallet movement only when someone manually pays it. Between earning and payment it is an unrecorded obligation — so margins look better than they are.</p>
+          <p>It's inserted client-side alongside the sale, then becomes a wallet movement only when someone manually pays it. 16 unpaid commissions worth <span class="num">SRD 1,431.63</span> sit as an unrecorded obligation today — so margins look better than they are.</p>
         </div>
       </div>
 
@@ -719,7 +851,40 @@
         <div class="f-id"><span>F-14</span><span class="chip medium">Medium</span></div>
         <div class="f-body">
           <h4>Budget spend is an unreconciled counter</h4>
-          <p><code>budgets.amount_spent</code> is denormalised with no visible reconciliation against actual expense records.</p>
+          <p><code>budgets.amount_spent</code> is denormalised with no visible reconciliation against actual expense records. Only one budget exists.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-20</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>Expense controls are 100% unused</h4>
+          <p>All 83 expenses lack a date, a vendor, a receipt number and a review, and all 83 are unclassified. The migration shipped columns nobody fills, so reporting expenses by category is impossible today. Controls have to be required at the point of entry, not merely available.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-21</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>No wallet has ever been reconciled</h4>
+          <p>Zero rows in <code>wallet_reconciliations</code>, against <span class="num">SRD 42,005.99</span> and <span class="num">USD 534.00</span> held across 13 wallets. For a cash-heavy business this is the largest theft-and-error exposure you have — and it's the control most likely to have caught the SRD 500 drift in F-03.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-22</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>The ledger-guard functions are the least hardened objects in the schema</h4>
+          <p><code>capture_wallet_transaction_ledger()</code> is <code>SECURITY DEFINER</code> and remains executable by the <code>anon</code> and <code>authenticated</code> roles over <code>/rest/v1/rpc/</code> — the migration's <code>REVOKE ... FROM PUBLIC</code> doesn't cover explicit role grants. And <code>prevent_finance_ledger_mutation()</code>, the function enforcing ledger immutability itself, has a mutable <code>search_path</code>.</p>
+          <p class="f-fix"><b>Fix</b><code>REVOKE EXECUTE ... FROM anon, authenticated</code> and add <code>SET search_path = public</code> to both.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-23</span><span class="chip low">Low</span></div>
+        <div class="f-body">
+          <h4>The purchase order module is unused</h4>
+          <p>Zero purchase orders recorded, so receiving never informs cost. Either adopt it as the cost source or remove it — an unused module in the finance path is a maintenance liability, and it makes F-01 harder to fix properly.</p>
         </div>
       </div>
 
@@ -727,7 +892,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 04</span><h2>Target architecture</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 05</span><h2>Target architecture</h2></div>
     <p>Four additions on top of what already exists.</p>
 
     <h3>1 — Company, the legal entity</h3>
@@ -776,7 +941,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 05</span><h2>Roadmap</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 06</span><h2>Roadmap</h2></div>
     <p>Ordered so each phase is independently valuable, and nothing later depends on reopening the Odoo question.</p>
 
     <div class="phase">
@@ -785,10 +950,29 @@
         <h4>Stop the bleeding</h4>
         <p>The highest risk-to-effort ratio in the whole plan.</p>
         <ul>
+          <li>Fix the commission payout insert and check its error <span class="num">(F-15)</span></li>
           <li>Add auth guards to the five unguarded mutation endpoints, or delete them <span class="num">(F-05)</span></li>
           <li>Replace read-modify-write with atomic increments on wallets and stock <span class="num">(F-03)</span></li>
           <li>Replace blanket RLS with company, location and role scoping <span class="num">(F-04)</span></li>
+          <li>Harden the two ledger-guard functions <span class="num">(F-22)</span></li>
+          <li>Set a current exchange rate and warn when it goes stale <span class="num">(F-19)</span></li>
           <li>Widen money columns to <code>Decimal(18,4)</code> <span class="num">(F-09)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 0.5</span><span class="t">a few days</span></div>
+      <div>
+        <h4>Clean the existing books</h4>
+        <p>Mostly manual, and it has to happen before any ledger migration — these numbers cannot be derived later.</p>
+        <ul>
+          <li>Reconcile the 4 orphaned sale headers <span class="num">(SRD 11,420.02)</span> — restore line items or void them properly</li>
+          <li>Reconcile the 4 header/line mismatches <span class="num">(SRD 1,050.02)</span></li>
+          <li>Explain the <span class="num">SRD 1,451.38</span> commission gap <span class="num">(F-16)</span> and the <span class="num">SRD 500.00</span> wallet drift <span class="num">(F-03)</span></li>
+          <li>Backfill the <span class="num">SRD 9,458.05</span> of missing commission-payout expenses <span class="num">(F-15)</span></li>
+          <li>Set real costs on the 5 zero-cost items <span class="num">(F-18)</span></li>
+          <li>Run a first physical count and reconciliation of all 13 wallets <span class="num">(F-21)</span></li>
         </ul>
       </div>
     </div>
@@ -800,7 +984,9 @@
         <ul>
           <li>Move sale creation into a server route wrapped in one transaction <span class="num">(F-02)</span></li>
           <li>Snapshot unit cost and FX rate onto sale items; backfill flagged as estimated <span class="num">(F-01)</span></li>
+          <li>Persisted, gapless, per-company invoice numbering <span class="num">(F-17)</span></li>
           <li>Convert undo-sale to void plus contra entries <span class="num">(F-06)</span></li>
+          <li>Make expense date, vendor, receipt and classification required at entry <span class="num">(F-20)</span></li>
           <li>Retire the commission repair endpoints once the write path is atomic</li>
         </ul>
       </div>
@@ -839,21 +1025,21 @@
         <ul>
           <li>Bill inbox: upload or email a supplier invoice → OCR extract → draft expense → approval queue → posts on approve. The expense table already has status, vendor, receipt number and reviewer, so the model is largely there.</li>
           <li>Recurring expenses — rent, salaries, subscriptions — auto-posted on schedule</li>
-          <li>Bank and cash reconciliation UI extending wallet reconciliations</li>
-          <li>Automatic FX revaluation at close, posting to gain/loss <span class="num">(F-10)</span></li>
+          <li>Bank and cash reconciliation UI extending wallet reconciliations, with a monthly prompt <span class="num">(F-21)</span></li>
+          <li>Automatic FX revaluation at close, posting to gain/loss <span class="num">(F-10, F-19)</span></li>
           <li>Month-end checklist gating the period lock</li>
         </ul>
       </div>
     </div>
 
     <p style="margin-top:26px">
-      Roughly <strong>10–14 weeks</strong> on your existing stack, delivered incrementally — against
+      Roughly <strong>11–15 weeks</strong> on your existing stack, delivered incrementally — against
       4–8 months of migration during which nothing else ships.
     </p>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 06</span><h2>Metrics to run the business on</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Metrics to run the business on</h2></div>
     <p>Once Phase 3 lands these become computable per company and consolidated. Track them monthly.</p>
 
     <div class="metrics">
@@ -891,7 +1077,8 @@
         <h4>Discipline</h4>
         <ul>
           <li>Discount leakage: custom-price sales against list, by seller — already captured, nothing reports on it</li>
-          <li>Expense ratio by classification against revenue</li>
+          <li>Expense ratio by classification against revenue — impossible today at 100% unclassified</li>
+          <li>Wallet reconciliation coverage: % reconciled this month. Currently <strong>0%</strong></li>
           <li>Budget variance, actual against plan</li>
         </ul>
       </div>
@@ -906,23 +1093,25 @@
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Summary</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Summary</h2></div>
     <div class="tbl-scroll">
       <table>
         <tbody>
           <tr><td style="width:32%">Decision</td><td>Build. Adopt Odoo's model, not Odoo. Revisit it later as a downstream book of record if statutory audit demands it.</td></tr>
-          <tr><td>Why</td><td>The operational layer is 70% of the system and your actual edge; the immutable ledger already exists; a company entity is required either way.</td></tr>
-          <tr><td>Most urgent</td><td><span class="num">F-04</span>, <span class="num">F-05</span> — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all.</td></tr>
-          <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> — every historical margin you have ever looked at is retroactively mutable.</td></tr>
+          <tr><td>Why</td><td>The operational layer is 70% of the system and your actual edge; the immutable ledger already exists and is verified working; a company entity is required either way.</td></tr>
+          <tr><td>Fix this week</td><td><span class="num">F-15</span> — <span class="num">SRD 9,458.05</span> of commission payouts silently never reached the expense ledger, because the insert targets columns that don't exist.</td></tr>
+          <tr><td>Most urgent security</td><td><span class="num">F-04</span>, <span class="num">F-05</span> — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all.</td></tr>
+          <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> + <span class="num">F-18</span> — 6.7% of revenue is booked at 100% margin today, and every historical margin is retroactively mutable.</td></tr>
           <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
-          <tr><td>Effort</td><td class="num">~10–14 weeks phased, vs. 4–8 months migrating</td></tr>
+          <tr><td>Effort</td><td class="num">~11–15 weeks phased, vs. 4–8 months migrating</td></tr>
         </tbody>
       </table>
     </div>
 
     <p class="closer">
-      Phase 0 is worth starting regardless of which way you go on everything else. Those fixes are needed
-      even if you did migrate to Odoo — because the data you'd carry across has to be trustworthy first.
+      Phase 0 and 0.5 are worth starting regardless of which way you go on everything else. Those fixes
+      and that cleanup are needed even if you did migrate to Odoo — because the data you'd carry across
+      has to be trustworthy first.
     </p>
   </section>
 
