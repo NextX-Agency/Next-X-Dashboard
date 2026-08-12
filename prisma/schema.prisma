@@ -9,21 +9,22 @@ datasource db {
 }
 
 model User {
-  id              String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email           String                 @unique
-  passwordHash    String                 @map("password_hash")
-  name            String?
-  role            String                 @default("admin")
-  isActive        Boolean?               @default(true) @map("is_active")
-  lastLoginAt     DateTime?              @map("last_login_at") @db.Timestamptz(6)
-  createdAt       DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime?              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sellerProfile   Seller?                @relation("SellerAccount")
-  sessions        AppSession[]
-  locationAccess  UserLocationAccess[]
-  reconciliations WalletReconciliation[] @relation("WalletReconciledBy")
-  notifications   UserNotification[]
-  ledgerEntries   FinanceLedgerEntry[]   @relation("LedgerActor")
+  id               String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email            String                 @unique
+  passwordHash     String                 @map("password_hash")
+  name             String?
+  role             String                 @default("admin")
+  isActive         Boolean?               @default(true) @map("is_active")
+  lastLoginAt      DateTime?              @map("last_login_at") @db.Timestamptz(6)
+  createdAt        DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime?              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sellerProfile    Seller?                @relation("SellerAccount")
+  sessions         AppSession[]
+  locationAccess   UserLocationAccess[]
+  reconciliations  WalletReconciliation[] @relation("WalletReconciledBy")
+  notifications    UserNotification[]
+  ledgerEntries    FinanceLedgerEntry[]   @relation("LedgerActor")
+  reviewedExpenses Expense[]              @relation("ExpenseReviewedBy")
 
   @@index([email], map: "idx_users_email")
   @@map("users")
@@ -371,12 +372,23 @@ model Expense {
   description         String?
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   location_id         String?               @db.Uuid
+  expenseDate         DateTime?             @map("expense_date") @db.Date
+  vendorName          String?               @map("vendor_name")
+  receiptNumber       String?               @map("receipt_number")
+  classification      String                @default("unclassified")
+  status              String                @default("posted")
+  refundedAt          DateTime?             @map("refunded_at") @db.Timestamptz(6)
+  refundReason        String?               @map("refund_reason")
+  reviewedAt          DateTime?             @map("reviewed_at") @db.Timestamptz(6)
+  reviewedByUserId    String?               @map("reviewed_by_user_id") @db.Uuid
   category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  reviewedBy          User?                 @relation("ExpenseReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
   wallet_transactions wallet_transactions[]
 
   @@index([location_id], map: "idx_expenses_location")
+  @@index([status, classification, expenseDate(sort: Desc), createdAt(sort: Desc)], map: "idx_expenses_financial_review")
   @@map("expenses")
 }
 

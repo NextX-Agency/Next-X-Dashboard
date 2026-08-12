@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client'
 import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 import { prisma } from '@/lib/prisma'
 import { writeActivityLog } from '@/lib/serverActivityLog'
+import { isExpenseClassification } from '@/lib/expenseClassification'
 import type {
   ExpensesPageDataPayload,
   ExpensesPageExpense,
@@ -96,6 +97,15 @@ export async function GET(request: NextRequest) {
           description: true,
           createdAt: true,
           location_id: true,
+          expenseDate: true,
+          vendorName: true,
+          receiptNumber: true,
+          classification: true,
+          status: true,
+          refundedAt: true,
+          refundReason: true,
+          reviewedAt: true,
+          reviewedByUserId: true,
           category: {
             select: {
               id: true,
@@ -172,6 +182,15 @@ export async function GET(request: NextRequest) {
         description: expense.description,
         created_at: toIsoString(expense.createdAt),
         location_id: expense.location_id,
+        expense_date: expense.expenseDate?.toISOString() ?? null,
+        vendor_name: expense.vendorName,
+        receipt_number: expense.receiptNumber,
+        classification: expense.classification,
+        status: expense.status,
+        refunded_at: expense.refundedAt?.toISOString() ?? null,
+        refund_reason: expense.refundReason,
+        reviewed_at: expense.reviewedAt?.toISOString() ?? null,
+        reviewed_by_user_id: expense.reviewedByUserId,
         expense_categories: expense.category ? mapCategory(expense.category) : null,
         wallets: expense.wallet ? mapWallet(expense.wallet) : null,
         locations: expense.locations ? mapLocation(expense.locations) : null,
@@ -200,14 +219,41 @@ function parseAmount(value: unknown) {
   return Math.round(amount * 100) / 100
 }
 
+function parseExpenseDate(value: unknown) {
+  const rawDate = typeof value === 'string' ? value.trim() : ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new Error('A valid expense date is required.')
+  const date = new Date(`${rawDate}T12:00:00.000Z`)
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== rawDate) throw new Error('A valid expense date is required.')
+  const today = new Date()
+  today.setUTCHours(23, 59, 59, 999)
+  if (date > today) throw new Error('An expense cannot be dated in the future.')
+  return date
+}
+
+function optionalText(value: unknown, maximumLength: number) {
+  const text = typeof value === 'string' ? value.trim() : ''
+  if (!text) return null
+  if (text.length > maximumLength) throw new Error(`Use no more than ${maximumLength} characters.`)
+  return text
+}
+
 function parseExpenseBody(body: Record<string, unknown>) {
   const locationId = typeof body.locationId === 'string' ? body.locationId : typeof body.location_id === 'string' ? body.location_id : ''
   const walletId = typeof body.walletId === 'string' ? body.walletId : typeof body.wallet_id === 'string' ? body.wallet_id : ''
   const categoryId = typeof body.categoryId === 'string' ? body.categoryId : typeof body.category_id === 'string' ? body.category_id : null
   const currency = body.currency === 'USD' || body.currency === 'SRD' ? body.currency : null
-  const description = typeof body.description === 'string' ? body.description.trim() : null
+  const description = optionalText(body.description, 500)
+  const vendorName = optionalText(body.vendorName ?? body.vendor_name ?? body.vendor, 160)
+  const receiptNumber = optionalText(body.receiptNumber ?? body.receipt_number, 120)
+  const classification = body.classification
+  const expenseDate = parseExpenseDate(body.expenseDate ?? body.expense_date)
   if (!locationId || !walletId || !currency) throw new Error('Location, wallet, and currency are required.')
-  return { locationId, walletId, categoryId, currency, description }
+  if (!vendorName) throw new Error('A supplier, payee, or counterparty is required.')
+  if (!description || description.length < 3) throw new Error('Add a clear description of at least 3 characters.')
+  if (!isExpenseClassification(classification) || classification === 'unclassified') {
+    throw new Error('Choose the financial classification for this expense.')
+  }
+  return { locationId, walletId, categoryId, currency, description, vendorName, receiptNumber, classification, expenseDate }
 }
 
 export async function POST(request: NextRequest) {
@@ -217,7 +263,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as Record<string, unknown>
     const amount = parseAmount(body.amount)
-    const { locationId, walletId, categoryId, currency, description } = parseExpenseBody(body)
+    const { locationId, walletId, categoryId, currency, description, vendorName, receiptNumber, classification, expenseDate } = parseExpenseBody(body)
 
     const expense = await prisma.$transaction(async (tx) => {
       await markFinanceLedgerRecorded(tx)
@@ -229,8 +275,11 @@ export async function POST(request: NextRequest) {
       if (Number(wallet.balance) < amount) throw new Error('Insufficient wallet balance.')
 
       const created = await tx.expense.create({
-        data: { location_id: locationId, categoryId, walletId, amount, currency, description },
-        select: { id: true, createdAt: true, category: { select: { name: true } } },
+        data: {
+          location_id: locationId, categoryId, walletId, amount, currency, description,
+          expenseDate, vendorName, receiptNumber, classification,
+        },
+        select: { id: true, createdAt: true, expenseDate: true, category: { select: { name: true } } },
       })
       const before = Number(wallet.balance)
       const after = Math.round((before - amount) * 100) / 100
@@ -239,19 +288,21 @@ export async function POST(request: NextRequest) {
         data: {
           wallet_id: walletId, expense_id: created.id, type: 'debit', amount,
           balance_before: before, balance_after: after, currency,
-          description: `Expense: ${description || 'No description'}`,
+          description: `Expense to ${vendorName}: ${description}`,
           reference_type: 'expense', reference_id: created.id,
         },
       })
       await recordFinanceLedgerEntry(tx, {
         walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
         eventType: 'expense', direction: 'out', amount, currency: currency as 'SRD' | 'USD',
-        sourceType: 'expense', sourceId: created.id, counterparty: created.category?.name ?? null,
-        description, occurredAt: created.createdAt,
+        sourceType: 'expense', sourceId: created.id, counterparty: vendorName,
+        description: `${description}${receiptNumber ? ` · Receipt ${receiptNumber}` : ''}`,
+        occurredAt: created.expenseDate ?? created.createdAt,
+        metadata: { classification, expenseDate: expenseDate.toISOString().slice(0, 10), receiptNumber },
       })
       await writeActivityLog({
         action: 'create', entityType: 'expense', entityId: created.id, entityName: created.category?.name ?? 'Uncategorized',
-        details: `Recorded ${amount.toFixed(2)} ${currency} expense from ${wallet.personName}.`,
+        details: `Recorded ${amount.toFixed(2)} ${currency} ${classification} expense to ${vendorName} from ${wallet.personName}.`,
         user, request, source: 'expenses-api', client: tx,
       })
       return created
@@ -272,17 +323,25 @@ export async function PATCH(request: NextRequest) {
     const expenseId = typeof body.id === 'string' ? body.id : ''
     if (!expenseId) return NextResponse.json({ error: 'Expense id is required.' }, { status: 400 })
     const amount = parseAmount(body.amount)
-    const { locationId, walletId, categoryId, currency, description } = parseExpenseBody(body)
+    const { locationId, walletId, categoryId, currency, description, vendorName, receiptNumber, classification, expenseDate } = parseExpenseBody(body)
 
     const expense = await prisma.$transaction(async (tx) => {
       await markFinanceLedgerRecorded(tx)
       const existing = await tx.expense.findUnique({
         where: { id: expenseId },
-        select: { id: true, walletId: true, location_id: true, currency: true, amount: true, category: { select: { name: true } } },
+        select: {
+          id: true, walletId: true, location_id: true, currency: true, amount: true, status: true,
+          expenseDate: true, vendorName: true, receiptNumber: true, classification: true,
+          category: { select: { name: true } },
+        },
       })
       if (!existing) throw new Error('Expense not found.')
+      if (existing.status === 'refunded') throw new Error('A refunded expense is locked. Record a new expense instead.')
       if (existing.walletId !== walletId || existing.location_id !== locationId || existing.currency !== currency) {
         throw new Error('Keep the original location, wallet, and currency. Record a compensating expense instead of moving history.')
+      }
+      if (existing.expenseDate && existing.expenseDate.toISOString().slice(0, 10) !== expenseDate.toISOString().slice(0, 10)) {
+        throw new Error('The booked expense date is locked once set. Refund and record a new expense if the date is materially wrong.')
       }
 
       const difference = Math.round((amount - Number(existing.amount)) * 100) / 100
@@ -292,7 +351,10 @@ export async function PATCH(request: NextRequest) {
 
       const updated = await tx.expense.update({
         where: { id: expenseId },
-        data: { categoryId, amount, description },
+        data: {
+          categoryId, amount, description, expenseDate, vendorName, receiptNumber, classification,
+          reviewedAt: new Date(), reviewedByUserId: user.id,
+        },
         select: { id: true, category: { select: { name: true } } },
       })
       if (difference !== 0) {
@@ -303,21 +365,25 @@ export async function PATCH(request: NextRequest) {
           data: {
             wallet_id: walletId, expense_id: expenseId, type: difference > 0 ? 'debit' : 'credit', amount: Math.abs(difference),
             balance_before: before, balance_after: after, currency,
-            description: `Expense correction: ${description || 'No description'}`,
+            description: `Expense correction for ${vendorName}: ${description}`,
             reference_type: 'expense_correction', reference_id: expenseId,
           },
         })
         await recordFinanceLedgerEntry(tx, {
           walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
           eventType: 'expense', direction: difference > 0 ? 'out' : 'in', amount: Math.abs(difference), currency: currency as 'SRD' | 'USD',
-          sourceType: 'expense_correction', sourceId: expenseId,
-          description: `Correction from ${Number(existing.amount).toFixed(2)} to ${amount.toFixed(2)} ${currency}: ${description || 'No description'}`,
-          metadata: { previousAmount: Number(existing.amount), nextAmount: amount },
+          sourceType: 'expense_correction', sourceId: expenseId, counterparty: vendorName,
+          description: `Correction from ${Number(existing.amount).toFixed(2)} to ${amount.toFixed(2)} ${currency}: ${description}`,
+          metadata: {
+            previousAmount: Number(existing.amount), nextAmount: amount,
+            previousClassification: existing.classification, classification,
+            expenseDate: expenseDate.toISOString().slice(0, 10), receiptNumber,
+          },
         })
       }
       await writeActivityLog({
         action: 'update', entityType: 'expense', entityId: expenseId, entityName: updated.category?.name ?? 'Uncategorized',
-        details: `Updated expense to ${amount.toFixed(2)} ${currency}; financial corrections remain in the ledger.`,
+        details: `Reviewed ${classification} expense to ${vendorName} at ${amount.toFixed(2)} ${currency}; any amount correction remains in the ledger.`,
         user, request, source: 'expenses-api', client: tx,
       })
       return updated
@@ -343,12 +409,13 @@ export async function DELETE(request: NextRequest) {
         where: { id: expenseId },
         select: {
           id: true, amount: true, currency: true, walletId: true, location_id: true,
-          categoryId: true, description: true, category: { select: { name: true } },
+          categoryId: true, description: true, status: true, expenseDate: true, vendorName: true,
+          receiptNumber: true, classification: true, category: { select: { name: true } },
         },
       })
       if (!expense) throw new Error('Expense not found.')
       const amount = Number(expense.amount)
-      if (amount <= 0) throw new Error('This expense has already been refunded.')
+      if (expense.status === 'refunded') throw new Error('This expense has already been refunded.')
       const wallet = await tx.wallet.findUnique({ where: { id: expense.walletId }, select: { balance: true, currency: true, personName: true } })
       if (!wallet) throw new Error('Expense wallet not found.')
 
@@ -356,14 +423,20 @@ export async function DELETE(request: NextRequest) {
       const after = Math.round((before + amount) * 100) / 100
       await tx.expense.update({
         where: { id: expenseId },
-        data: { amount: 0, description: `[Refunded] ${expense.description || 'No description'}` },
+        data: {
+          status: 'refunded',
+          refundedAt: new Date(),
+          refundReason: 'Refunded to the source wallet; original amount retained for audit.',
+          reviewedAt: new Date(),
+          reviewedByUserId: user.id,
+        },
       })
       await tx.wallet.update({ where: { id: expense.walletId }, data: { balance: after } })
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
           wallet_id: expense.walletId, expense_id: expenseId, type: 'credit', amount,
           balance_before: before, balance_after: after, currency: wallet.currency,
-          description: `Expense refund: ${expense.description || 'No description'}`,
+          description: `Expense refund from ${expense.vendorName || 'unrecorded vendor'}: ${expense.description || 'No description'}`,
           reference_type: 'expense_refund', reference_id: expenseId,
         },
       })
@@ -371,11 +444,17 @@ export async function DELETE(request: NextRequest) {
         walletTransactionId: walletTransaction.id, walletId: expense.walletId, locationId: expense.location_id,
         categoryId: expense.categoryId, actorUserId: user.id, eventType: 'expense', direction: 'in', amount,
         currency: wallet.currency as 'SRD' | 'USD', sourceType: 'expense_refund', sourceId: expenseId,
+        counterparty: expense.vendorName,
         description: `Refunded expense: ${expense.description || 'No description'}`,
+        metadata: {
+          classification: expense.classification,
+          expenseDate: expense.expenseDate?.toISOString().slice(0, 10) ?? null,
+          receiptNumber: expense.receiptNumber,
+        },
       })
       await writeActivityLog({
         action: 'cancel', entityType: 'expense', entityId: expenseId, entityName: expense.category?.name ?? 'Uncategorized',
-        details: `Refunded ${amount.toFixed(2)} ${wallet.currency}; the original expense remains as a zero-value audit record.`,
+        details: `Refunded ${amount.toFixed(2)} ${wallet.currency}; the original expense amount is retained for audit.`,
         user, request, source: 'expenses-api', client: tx,
       })
       return { expenseId, refunded: amount, currency: wallet.currency }

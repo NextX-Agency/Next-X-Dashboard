@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import { prisma } from '@/lib/prisma'
 import { STOCK_THRESHOLDS } from '@/lib/stockUtils'
 import type { DashboardActivity, DashboardMetrics } from '@/types/dashboard'
@@ -36,6 +37,7 @@ type ProfitExpense = {
   amount: unknown
   currency: string
   description: string | null
+  classification: string
   category: {
     name: string
   } | null
@@ -85,36 +87,11 @@ function toUsdAmount(amount: unknown, currency: string, exchangeRate: number): n
 }
 
 function isInventoryExpense(expense: ProfitExpense): boolean {
-  const categoryName = (expense.category?.name || '').toLowerCase().trim()
-  const isInventory =
-    categoryName === 'business expense' ||
-    categoryName === 'personal items' ||
-    categoryName === 'personal' ||
-    categoryName === 'inventory' ||
-    categoryName === 'stock' ||
-    categoryName === 'stock purchase' ||
-    categoryName === 'purchases' ||
-    categoryName === 'goods' ||
-    categoryName === 'wholesale' ||
-    categoryName === 'vendor' ||
-    categoryName === 'cogs' ||
-    categoryName === 'cost of goods sold' ||
-    categoryName === 'merchandise' ||
-    categoryName === 'product purchases' ||
-    categoryName.includes('inventory purchase') ||
-    categoryName.includes('stock order') ||
-    categoryName === 'inventory shipping' ||
-    categoryName === 'stock shipping' ||
-    categoryName.includes('product shipping')
-
-  const description = (expense.description || '').toLowerCase()
-  const hasInventoryKeywords = description.includes('inventory') ||
-    description.includes('stock') ||
-    description.includes('wholesale') ||
-    description.includes('supplier') ||
-    description.includes('vendor')
-
-  return isInventory || (hasInventoryKeywords && (categoryName === 'shipping' || categoryName === 'marketing'))
+  return isExcludedExpenseFromOperatingProfit({
+    classification: expense.classification,
+    categoryName: expense.category?.name,
+    description: expense.description,
+  })
 }
 
 function calculateGrossProfitUsd(
@@ -303,11 +280,17 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.expense.findMany({
-        where: { createdAt: { gte: thisWeekStart } },
+        where: {
+          OR: [
+            { expenseDate: { gte: thisWeekStart } },
+            { expenseDate: null, createdAt: { gte: thisWeekStart } },
+          ],
+        },
         select: {
           amount: true,
           currency: true,
           description: true,
+          classification: true,
           category: {
             select: {
               name: true,
@@ -316,11 +299,17 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.expense.findMany({
-        where: { createdAt: { gte: lastWeekStart, lte: lastWeekEnd } },
+        where: {
+          OR: [
+            { expenseDate: { gte: lastWeekStart, lte: lastWeekEnd } },
+            { expenseDate: null, createdAt: { gte: lastWeekStart, lte: lastWeekEnd } },
+          ],
+        },
         select: {
           amount: true,
           currency: true,
           description: true,
+          classification: true,
           category: {
             select: {
               name: true,

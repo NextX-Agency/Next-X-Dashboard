@@ -1,16 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Plus, Tag, Receipt, Trash2, Edit, X, Search, Filter, ArrowUpDown, MapPin, Building2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
-import { useAuth } from '@/lib/AuthContext'
+import { EXPENSE_CLASSIFICATIONS, EXPENSE_CLASSIFICATION_LABELS, type ExpenseClassification } from '@/lib/expenseClassification'
 import type {
   ExpensesPageDataResponse,
   ExpensesPageExpense as Expense,
@@ -27,7 +25,6 @@ type SortOrder = 'asc' | 'desc'
 export default function ExpensesPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const { dialogProps, confirm } = useConfirmDialog()
-  const { user } = useAuth()
   const [categories, setCategories] = useState<ExpenseCategory[]>([])
   const [expenses, setExpenses] = useState<ExpenseWithDetails[]>([])
   const [wallets, setWallets] = useState<Wallet[]>([])
@@ -50,7 +47,8 @@ export default function ExpensesPage() {
     description: '',
     expense_date: new Date().toISOString().split('T')[0],
     vendor: '',
-    receipt_number: ''
+    receipt_number: '',
+    classification: 'unclassified' as ExpenseClassification,
   })
   
   // Filter and sort states
@@ -127,7 +125,8 @@ export default function ExpensesPage() {
       description: '',
       expense_date: new Date().toISOString().split('T')[0],
       vendor: '',
-      receipt_number: ''
+      receipt_number: '',
+      classification: 'unclassified',
     })
     setEditingExpense(null)
     setShowExpenseForm(false)
@@ -139,6 +138,9 @@ export default function ExpensesPage() {
       const matchesSearch = !searchQuery || 
         expense.expense_categories?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         expense.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        expense.vendor_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        expense.receipt_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        expense.classification.toLowerCase().includes(searchQuery.toLowerCase()) ||
         expense.wallets?.person_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         expense.locations?.name?.toLowerCase().includes(searchQuery.toLowerCase())
       
@@ -192,29 +194,17 @@ export default function ExpensesPage() {
     if (submitting) return
     setSubmitting(true)
     try {
-      if (editingCategory) {
-        await supabase.from('expense_categories').update({ name: categoryName }).eq('id', editingCategory.id)
-        await logActivity({
-          action: 'update',
-          entityType: 'expense_category',
-          entityId: editingCategory.id,
-          entityName: categoryName,
-          details: buildActivityDetails({ Category: `${editingCategory.name} → ${categoryName}` }),
-          userId: user?.id
-        })
-      } else {
-        const { data } = await supabase.from('expense_categories').insert({ name: categoryName }).select().single()
-        await logActivity({
-          action: 'create',
-          entityType: 'expense_category',
-          entityId: data?.id,
-          entityName: categoryName,
-          details: buildActivityDetails({ Category: categoryName }),
-          userId: user?.id
-        })
-      }
+      const response = await fetch('/api/expenses/categories', {
+        method: editingCategory ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingCategory ? { id: editingCategory.id, name: categoryName } : { name: categoryName }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to save expense category.')
       resetCategoryForm()
       await loadData()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to save expense category.')
     } finally {
       setSubmitting(false)
     }
@@ -229,21 +219,18 @@ export default function ExpensesPage() {
   const handleDeleteCategory = async (category: ExpenseCategory) => {
     const ok = await confirm({
       title: 'Delete Category',
-      message: 'This will remove the category. Existing expenses will be uncategorized.',
+      message: 'Only unused categories can be deleted. Categories attached to expenses are retained to protect financial history.',
       itemName: category.name,
       variant: 'danger',
       confirmLabel: 'Delete',
     })
     if (!ok) return
-    await supabase.from('expense_categories').delete().eq('id', category.id)
-    await logActivity({
-      action: 'delete',
-      entityType: 'expense_category',
-      entityId: category.id,
-      entityName: category.name,
-      details: buildActivityDetails({ Category: category.name }),
-      userId: user?.id
-    })
+    const response = await fetch(`/api/expenses/categories?id=${encodeURIComponent(category.id)}`, { method: 'DELETE' })
+    const payload = await response.json() as { error?: string }
+    if (!response.ok) {
+      alert(payload.error || 'This category could not be deleted.')
+      return
+    }
     await loadData()
   }
 
@@ -277,7 +264,11 @@ export default function ExpensesPage() {
           walletId: expenseForm.wallet_id,
           amount,
           currency: expenseForm.currency,
-          description: expenseForm.description || null,
+          description: expenseForm.description,
+          expenseDate: expenseForm.expense_date,
+          vendorName: expenseForm.vendor,
+          receiptNumber: expenseForm.receipt_number || null,
+          classification: expenseForm.classification,
         }),
       })
       const payload = await response.json() as { error?: string }
@@ -301,9 +292,10 @@ export default function ExpensesPage() {
       amount: expense.amount.toString(),
       currency: expense.currency as Currency,
       description: expense.description || '',
-      expense_date: new Date(expense.created_at).toISOString().split('T')[0],
-      vendor: '',
-      receipt_number: ''
+      expense_date: (expense.expense_date || expense.created_at).slice(0, 10),
+      vendor: expense.vendor_name || '',
+      receipt_number: expense.receipt_number || '',
+      classification: expense.classification as ExpenseClassification,
     })
     setShowExpenseForm(true)
   }
@@ -311,12 +303,12 @@ export default function ExpensesPage() {
   const handleDeleteExpense = async (expense: ExpenseWithDetails) => {
     const category = categories.find(c => c.id === expense.category_id)
     const ok = await confirm({
-      title: 'Delete Expense',
-      message: 'The amount will be refunded to the wallet. This cannot be undone.',
+      title: 'Refund Expense',
+      message: 'The amount will be returned to the wallet. The original expense stays intact in your audit history and is marked refunded.',
       itemName: formatCurrency(expense.amount, expense.currency as Currency),
       itemDetails: category?.name || expense.expense_categories?.name || 'Uncategorized',
       variant: 'danger',
-      confirmLabel: 'Delete & Refund',
+      confirmLabel: 'Refund & retain history',
     })
     if (!ok) return
     
@@ -330,14 +322,20 @@ export default function ExpensesPage() {
   }
 
   const getTotalExpensesInDisplayCurrency = () => {
-    const totalUSD = expenses.filter(e => e.currency === 'USD').reduce((sum, e) => sum + e.amount, 0)
-    const totalSRD = expenses.filter(e => e.currency === 'SRD').reduce((sum, e) => sum + e.amount, 0)
+    const postedExpenses = expenses.filter((expense) => expense.status !== 'refunded')
+    const totalUSD = postedExpenses.filter(e => e.currency === 'USD').reduce((sum, e) => sum + e.amount, 0)
+    const totalSRD = postedExpenses.filter(e => e.currency === 'SRD').reduce((sum, e) => sum + e.amount, 0)
     
     if (displayCurrency === 'USD') {
       return totalUSD + (totalSRD / exchangeRate)
     }
     return totalSRD + (totalUSD * exchangeRate)
   }
+
+  const postedExpenses = expenses.filter((expense) => expense.status !== 'refunded')
+  const expensesNeedingReview = postedExpenses.filter((expense) => (
+    !expense.expense_date || expense.classification === 'unclassified' || !expense.vendor_name || !expense.description
+  ))
 
   if (loading) {
     return (
@@ -418,7 +416,8 @@ export default function ExpensesPage() {
             value={formatCurrency(
               expenses
                 .filter(e => {
-                  const expDate = new Date(e.created_at)
+                  if (e.status === 'refunded') return false
+                  const expDate = new Date(e.expense_date || e.created_at)
                   const now = new Date()
                   return expDate.getMonth() === now.getMonth() && expDate.getFullYear() === now.getFullYear()
                 })
@@ -434,18 +433,25 @@ export default function ExpensesPage() {
             variant="warning"
           />
           <StatBox 
-            label="Total Entries"
-            value={expenses.length.toString()} 
-            icon={<Receipt size={20} />}
-            variant="default"
+            label="Needs Review"
+            value={expensesNeedingReview.length.toString()}
+            icon={<AlertTriangle size={20} />}
+            variant={expensesNeedingReview.length > 0 ? 'warning' : 'default'}
           />
           <StatBox 
             label="Categories Used"
-            value={new Set(expenses.filter(e => e.category_id).map(e => e.category_id)).size.toString()} 
+            value={new Set(postedExpenses.filter(e => e.category_id).map(e => e.category_id)).size.toString()}
             icon={<Tag size={20} />}
             variant="primary"
           />
         </div>
+
+        {expensesNeedingReview.length > 0 && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-4 text-sm text-amber-950">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" />
+            <p><span className="font-bold">{expensesNeedingReview.length} expense{expensesNeedingReview.length === 1 ? '' : 's'} need financial review.</span> Open each record and add its real booked date, supplier, clear description, and financial classification. Historical amounts are not changed.</p>
+          </div>
+        )}
 
         {/* Top Spending Categories */}
         {categories.length > 0 && (
@@ -457,7 +463,7 @@ export default function ExpensesPage() {
             <div className="space-y-3">
               {categories
                 .map(cat => {
-                  const catExpenses = expenses.filter(e => e.category_id === cat.id)
+                  const catExpenses = postedExpenses.filter(e => e.category_id === cat.id)
                   const total = catExpenses.reduce((sum, e) => {
                     if (displayCurrency === 'USD') {
                       return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
@@ -471,7 +477,7 @@ export default function ExpensesPage() {
                 .slice(0, 5)
                 .map((cat, index) => {
                   const maxTotal = categories
-                    .map(c => expenses.filter(e => e.category_id === c.id).reduce((sum, e) => {
+                    .map(c => postedExpenses.filter(e => e.category_id === c.id).reduce((sum, e) => {
                       if (displayCurrency === 'USD') {
                         return sum + (e.currency === 'USD' ? e.amount : e.amount / exchangeRate)
                       }
@@ -505,7 +511,7 @@ export default function ExpensesPage() {
                     </div>
                   )
                 })}
-              {categories.filter(cat => expenses.some(e => e.category_id === cat.id)).length === 0 && (
+              {categories.filter(cat => postedExpenses.some(e => e.category_id === cat.id)).length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">No categorized expenses yet</p>
               )}
             </div>
@@ -668,6 +674,11 @@ export default function ExpensesPage() {
                         <p className="text-sm text-muted-foreground mt-1 truncate">{expense.description}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
+                        <Badge variant={expense.status === 'refunded' ? 'default' : expense.classification === 'unclassified' ? 'warning' : 'success'}>
+                          {expense.status === 'refunded' ? 'Refunded' : EXPENSE_CLASSIFICATION_LABELS[expense.classification as ExpenseClassification] || 'Needs review'}
+                        </Badge>
+                        {expense.vendor_name && <span>{expense.vendor_name}</span>}
+                        {expense.receipt_number && <><span>â€¢</span><span>Ref {expense.receipt_number}</span></>}
                         {expense.locations && (
                           <>
                             <span className="inline-flex items-center gap-1">
@@ -682,7 +693,7 @@ export default function ExpensesPage() {
                           {expense.wallets?.person_name || locations.find(l => l.id === expense.wallets?.location_id)?.name}
                         </span>
                         <span>•</span>
-                        <span>{new Date(expense.created_at).toLocaleDateString()}</span>
+                        <span>{new Date(expense.expense_date || expense.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
@@ -690,20 +701,20 @@ export default function ExpensesPage() {
                         -{formatCurrency(expense.amount, expense.currency as Currency)}
                       </div>
                       <div className="flex gap-1">
-                        <button
+                        {expense.status !== 'refunded' && <button
                           onClick={() => handleEditExpense(expense)}
                           className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                           title="Edit"
                         >
                           <Edit size={16} />
-                        </button>
-                        <button
+                        </button>}
+                        {expense.status !== 'refunded' && <button
                           onClick={() => handleDeleteExpense(expense)}
                           className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </button>}
                       </div>
                     </div>
                   </div>
@@ -762,6 +773,17 @@ export default function ExpensesPage() {
               ))}
             </Select>
           </div>
+          <Select
+            label="Financial classification"
+            value={expenseForm.classification}
+            onChange={(e) => setExpenseForm({ ...expenseForm, classification: e.target.value as ExpenseClassification })}
+            required
+          >
+            <option value="unclassified">Choose how this affects the business</option>
+            {EXPENSE_CLASSIFICATIONS.filter((classification) => classification !== 'unclassified').map((classification) => (
+              <option key={classification} value={classification}>{EXPENSE_CLASSIFICATION_LABELS[classification]}</option>
+            ))}
+          </Select>
           <div className="grid grid-cols-2 gap-3">
             <Select
               label="Wallet"
@@ -804,11 +826,12 @@ export default function ExpensesPage() {
               required
             />
             <Input
-              label="Vendor/Supplier"
+              label="Vendor / payee"
               type="text"
               value={expenseForm.vendor}
               onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
               placeholder="Who was paid?"
+              required
             />
           </div>
           <Input
@@ -822,8 +845,9 @@ export default function ExpensesPage() {
             label="Description"
             value={expenseForm.description}
             onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-            placeholder="What was this expense for?"
+            placeholder="What was paid for, and why?"
             rows={2}
+            required
           />
           <div className="flex gap-3">
             <Button type="submit" variant={editingExpense ? 'primary' : 'danger'} fullWidth loading={submitting}>

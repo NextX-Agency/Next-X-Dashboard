@@ -23,6 +23,7 @@ import {
   type SaleFinancials,
 } from '@/lib/reportCalculations'
 import { cn } from '@/lib/utils'
+import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import type {
   ReportCategory as Category,
   ReportCommission as CommissionWithSale,
@@ -411,41 +412,13 @@ export default function ReportsPage() {
   }, [setCatalogFilter])
 
   // ─── Helper to check if expense is inventory-related ───
-  const isInventoryExpense = useCallback((exp: ExpenseWithCategory): boolean => {
-    const categoryName = (exp.expense_categories?.name || '').toLowerCase().trim()
-    // Exclude inventory purchases AND personal/non-business expenses
-    const isInventory = 
-      categoryName === 'business expense' ||  // Your inventory category
-      categoryName === 'personal items' ||     // Personal expenses (not business operating costs)
-      categoryName === 'personal' ||
-      categoryName === 'inventory' ||
-      categoryName === 'stock' ||
-      categoryName === 'stock purchase' ||
-      categoryName === 'purchases' ||
-      categoryName === 'goods' ||
-      categoryName === 'wholesale' ||
-      categoryName === 'vendor' ||
-      categoryName === 'cogs' ||
-      categoryName === 'cost of goods sold' ||
-      categoryName === 'merchandise' ||
-      categoryName === 'product purchases' ||
-      categoryName.includes('inventory purchase') ||
-      categoryName.includes('stock order') ||
-      // Only exclude shipping/marketing if explicitly for inventory
-      categoryName === 'inventory shipping' ||
-      categoryName === 'stock shipping' ||
-      categoryName.includes('product shipping')
-    
-    // Check description for additional context
-    const description = (exp.description || '').toLowerCase()
-    const hasInventoryKeywords = description.includes('inventory') || 
-                                 description.includes('stock') || 
-                                 description.includes('wholesale') ||
-                                 description.includes('supplier') ||
-                                 description.includes('vendor')
-    
-    return isInventory || (hasInventoryKeywords && (categoryName === 'shipping' || categoryName === 'marketing'))
-  }, [])
+  const isInventoryExpense = useCallback((exp: ExpenseWithCategory): boolean => (
+    isExcludedExpenseFromOperatingProfit({
+      classification: exp.classification,
+      categoryName: exp.expense_categories?.name,
+      description: exp.description,
+    })
+  ), [])
 
   // ─── Period boundaries ───
   const now = useMemo(() => new Date(), [])

@@ -128,6 +128,11 @@ export async function GET(request: NextRequest) {
           currency: true,
           description: true,
           createdAt: true,
+          expenseDate: true,
+          vendorName: true,
+          receiptNumber: true,
+          classification: true,
+          status: true,
           category: {
             select: {
               id: true,
@@ -333,7 +338,12 @@ export async function GET(request: NextRequest) {
         amount: toNumber(expense.amount),
         currency: expense.currency,
         description: expense.description,
-        created_at: toIsoString(expense.createdAt),
+        created_at: toIsoString(expense.expenseDate ?? expense.createdAt),
+        expense_date: expense.expenseDate?.toISOString() ?? null,
+        vendor_name: expense.vendorName,
+        receipt_number: expense.receiptNumber,
+        classification: expense.classification,
+        status: expense.status,
         expense_categories: expense.category
           ? {
             id: expense.category.id,

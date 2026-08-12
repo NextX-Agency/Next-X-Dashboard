@@ -450,6 +450,15 @@ export interface Database {
           currency: string
           description: string | null
           created_at: string
+          expense_date: string | null
+          vendor_name: string | null
+          receipt_number: string | null
+          classification: string
+          status: string
+          refunded_at: string | null
+          refund_reason: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
         }
         Insert: {
           id?: string
@@ -460,6 +469,15 @@ export interface Database {
           currency: string
           description?: string | null
           created_at?: string
+          expense_date?: string | null
+          vendor_name?: string | null
+          receipt_number?: string | null
+          classification?: string
+          status?: string
+          refunded_at?: string | null
+          refund_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
         }
         Update: {
           id?: string
@@ -470,6 +488,15 @@ export interface Database {
           currency?: string
           description?: string | null
           created_at?: string
+          expense_date?: string | null
+          vendor_name?: string | null
+          receipt_number?: string | null
+          classification?: string
+          status?: string
+          refunded_at?: string | null
+          refund_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
         }
       }
       sellers: {

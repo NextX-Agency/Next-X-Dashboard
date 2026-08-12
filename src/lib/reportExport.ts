@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import { calculateFinancialHealthScore } from '@/lib/financialHealth'
 import { prisma } from '@/lib/prisma'
+import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import {
   calculateSaleFinancials,
   calculateScaledLineAmount,
@@ -281,16 +282,23 @@ export async function buildReportExportData(
     }),
     prisma.expense.findMany({
       where: {
-        createdAt: {
-          gte: bounds.start,
-          lte: bounds.end,
-        },
+        OR: [
+          { expenseDate: { gte: bounds.start, lte: bounds.end } },
+          { expenseDate: null, createdAt: { gte: bounds.start, lte: bounds.end } },
+        ],
         ...(locationId ? { location_id: locationId } : {}),
       },
       select: {
         amount: true,
         currency: true,
         walletId: true,
+        classification: true,
+        description: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
       },
     }),
     prisma.location.findMany({
@@ -430,6 +438,11 @@ export async function buildReportExportData(
   }, [])
 
   const expenses = isCatalogScoped ? [] : rawExpenses
+  const operatingExpenses = expenses.filter((expense) => !isExcludedExpenseFromOperatingProfit({
+    classification: expense.classification,
+    categoryName: expense.category?.name,
+    description: expense.description,
+  }))
   const wallets = isCatalogScoped ? [] : rawWallets
   const stocks = rawStocks.filter((stock) => !isCatalogScoped || stock.item?.catalogType === catalogType)
 
@@ -681,11 +694,11 @@ export async function buildReportExportData(
     totalRevenueUsd += saleRevenueUsd
   }
 
-  const totalExpensesSrd = expenses.reduce((sum, expense) => {
+  const totalExpensesSrd = operatingExpenses.reduce((sum, expense) => {
     const amount = toNumber(expense.amount)
     return sum + (expense.currency === 'SRD' ? amount : amount * fallbackExchangeRate)
   }, 0)
-  const totalExpensesUsd = expenses.reduce((sum, expense) => {
+  const totalExpensesUsd = operatingExpenses.reduce((sum, expense) => {
     const amount = toNumber(expense.amount)
     return sum + (expense.currency === 'USD' ? amount : amount / fallbackExchangeRate)
   }, 0)

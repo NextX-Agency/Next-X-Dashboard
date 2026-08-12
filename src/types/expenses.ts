@@ -20,6 +20,8 @@ export type ExpensesPageLocation = Pick<
 export interface ExpensesPageExpense extends Pick<
   ExpenseRow,
   'id' | 'category_id' | 'wallet_id' | 'amount' | 'currency' | 'description' | 'created_at' | 'location_id'
+  | 'expense_date' | 'vendor_name' | 'receipt_number' | 'classification' | 'status'
+  | 'refunded_at' | 'refund_reason' | 'reviewed_at' | 'reviewed_by_user_id'
 > {
   expense_categories?: ExpensesPageExpenseCategory | null
   wallets?: ExpensesPageWallet | null

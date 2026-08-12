@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { DEFAULT_EXCHANGE_RATE, normalizeExchangeRate } from '@/lib/pricing'
 import { prisma } from '@/lib/prisma'
+import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import type {
   FinanceMoneyTotals,
   FinanceForecastSummary,
@@ -38,6 +39,8 @@ type ProfitExpense = {
   currency: string
   description: string | null
   createdAt: Date
+  expenseDate: Date | null
+  classification: string
   category: {
     name: string
   } | null
@@ -224,36 +227,24 @@ function calculateVolatility(values: number[]): number {
 }
 
 function isInventoryExpense(expense: ProfitExpense): boolean {
-  const categoryName = (expense.category?.name || '').toLowerCase().trim()
-  const isInventory =
-    categoryName === 'business expense' ||
-    categoryName === 'personal items' ||
-    categoryName === 'personal' ||
-    categoryName === 'inventory' ||
-    categoryName === 'stock' ||
-    categoryName === 'stock purchase' ||
-    categoryName === 'purchases' ||
-    categoryName === 'goods' ||
-    categoryName === 'wholesale' ||
-    categoryName === 'vendor' ||
-    categoryName === 'cogs' ||
-    categoryName === 'cost of goods sold' ||
-    categoryName === 'merchandise' ||
-    categoryName === 'product purchases' ||
-    categoryName.includes('inventory purchase') ||
-    categoryName.includes('stock order') ||
-    categoryName === 'inventory shipping' ||
-    categoryName === 'stock shipping' ||
-    categoryName.includes('product shipping')
+  return isExcludedExpenseFromOperatingProfit({
+    classification: expense.classification,
+    categoryName: expense.category?.name,
+    description: expense.description,
+  })
+}
 
-  const description = (expense.description || '').toLowerCase()
-  const hasInventoryKeywords = description.includes('inventory') ||
-    description.includes('stock') ||
-    description.includes('wholesale') ||
-    description.includes('supplier') ||
-    description.includes('vendor')
+function expenseAccountingDate(expense: Pick<ProfitExpense, 'expenseDate' | 'createdAt'>) {
+  return expense.expenseDate ?? expense.createdAt
+}
 
-  return isInventory || (hasInventoryKeywords && (categoryName === 'shipping' || categoryName === 'marketing'))
+function expenseDateWindow(start: Date, end: Date) {
+  return {
+    OR: [
+      { expenseDate: { gte: start, lt: end } },
+      { expenseDate: null, createdAt: { gte: start, lt: end } },
+    ],
+  }
 }
 
 function buildPeriodSummary(
@@ -436,7 +427,10 @@ function buildForecastSummary({
   const rows = monthStarts.map((monthStart) => {
     const nextMonthStart = addMonths(monthStart, 1)
     const monthSales = sales.filter((sale) => sale.createdAt >= monthStart && sale.createdAt < nextMonthStart)
-    const monthExpenses = expenses.filter((expense) => expense.createdAt >= monthStart && expense.createdAt < nextMonthStart)
+    const monthExpenses = expenses.filter((expense) => {
+      const date = expenseAccountingDate(expense)
+      return date >= monthStart && date < nextMonthStart
+    })
     const monthCommissions = commissions.filter((commission) => commission.createdAt >= monthStart && commission.createdAt < nextMonthStart)
     const summary = buildPeriodSummary(monthSales, monthExpenses, monthCommissions, exchangeRate)
     const isPartial = monthKey(monthStart) === monthKey(currentMonthStart)
@@ -572,22 +566,26 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.expense.findMany({
-        where: { createdAt: { gte: thisMonthStart, lt: nextMonthStart } },
+        where: expenseDateWindow(thisMonthStart, nextMonthStart),
         select: {
           amount: true,
           currency: true,
           description: true,
           createdAt: true,
+          expenseDate: true,
+          classification: true,
           category: { select: { name: true } },
         },
       }),
       prisma.expense.findMany({
-        where: { createdAt: { gte: yearStart, lt: nextYearStart } },
+        where: expenseDateWindow(yearStart, nextYearStart),
         select: {
           amount: true,
           currency: true,
           description: true,
           createdAt: true,
+          expenseDate: true,
+          classification: true,
           category: { select: { name: true } },
         },
       }),
@@ -624,12 +622,14 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.expense.findMany({
-        where: { createdAt: { gte: forecastStart, lt: nextMonthStart } },
+        where: expenseDateWindow(forecastStart, nextMonthStart),
         select: {
           amount: true,
           currency: true,
           description: true,
           createdAt: true,
+          expenseDate: true,
+          classification: true,
           category: { select: { name: true } },
         },
       }),

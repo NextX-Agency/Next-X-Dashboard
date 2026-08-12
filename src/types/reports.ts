@@ -42,6 +42,7 @@ export type ReportExpenseCategory = Pick<ExpenseCategoryRow, 'id' | 'name' | 'cr
 export interface ReportExpense extends Pick<
   ExpenseRow,
   'id' | 'category_id' | 'wallet_id' | 'location_id' | 'amount' | 'currency' | 'description' | 'created_at'
+  | 'expense_date' | 'vendor_name' | 'receipt_number' | 'classification' | 'status'
 > {
   expense_categories?: ReportExpenseCategory | null
 }
