@@ -1,14 +1,12 @@
-import { del } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
-import { createBackupPayload, fetchBackupFromUrl, saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
+import { createBackupPayload, deletePrivateBackup, fetchBackupFromPathname, saveBackupToBlob, validateBackupPayload } from '@/lib/backup'
 import type { BackupSelfCheckResponse } from '@/types/backup'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (authResult instanceof NextResponse) return authResult
 
-  let temporaryBlobUrl: string | null = null
   let temporaryBlobPathname = ''
 
   try {
@@ -23,10 +21,9 @@ export async function POST(request: NextRequest) {
     }
 
     const savedBackup = await saveBackupToBlob(exportValidation.backup, { prefix: 'self-check-backup' })
-    temporaryBlobUrl = savedBackup.url
     temporaryBlobPathname = savedBackup.pathname
 
-    const roundTripCandidate = await fetchBackupFromUrl(savedBackup.url)
+    const roundTripCandidate = await fetchBackupFromPathname(savedBackup.pathname)
     const roundTripValidation = validateBackupPayload(roundTripCandidate)
 
     if (!roundTripValidation.valid) {
@@ -48,8 +45,8 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    if (temporaryBlobUrl && process.env.BLOB_READ_WRITE_TOKEN) {
-      await del(temporaryBlobUrl, { token: process.env.BLOB_READ_WRITE_TOKEN })
+    if (temporaryBlobPathname) {
+      await deletePrivateBackup(temporaryBlobPathname)
       response.temporaryBlob.cleanedUp = true
     }
 
@@ -57,9 +54,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Backup self-check error:', error)
 
-    if (temporaryBlobUrl && process.env.BLOB_READ_WRITE_TOKEN) {
+    if (temporaryBlobPathname) {
       try {
-        await del(temporaryBlobUrl, { token: process.env.BLOB_READ_WRITE_TOKEN })
+        await deletePrivateBackup(temporaryBlobPathname)
       } catch (cleanupError) {
         console.error('Backup self-check cleanup error:', cleanupError)
       }

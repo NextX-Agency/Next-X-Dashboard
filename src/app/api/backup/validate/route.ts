@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
-import { fetchBackupFromUrl, validateBackupPayload } from '@/lib/backup'
+import { fetchBackupFromPathname, validateBackupPayload } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (isAuthError(authResult)) return authResult
 
   try {
-    const body = await request.json() as { backup?: unknown; url?: string }
+    const body = await request.json() as { backup?: unknown; pathname?: string }
 
-    if (!body.backup && !body.url) {
+    if (!body.backup && !body.pathname) {
       return NextResponse.json(
-        { error: 'Provide either a backup payload or a backup URL.' },
+        { error: 'Provide either a backup payload or a backup pathname.' },
         { status: 400 }
       )
     }
 
-    const backupSource = body.url
-      ? await fetchBackupFromUrl(body.url)
+    const backupSource = body.pathname
+      ? await fetchBackupFromPathname(body.pathname)
       : body.backup
 
     const validation = validateBackupPayload(backupSource)

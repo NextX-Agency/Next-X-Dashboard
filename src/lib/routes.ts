@@ -37,6 +37,7 @@ export const ADMIN_ROUTES = [
   '/expenses',
   '/budgets',
   '/wallets',
+  '/finance',
   '/commissions',
   '/exchange',
   '/locations',
@@ -49,7 +50,10 @@ export const ADMIN_ROUTES = [
   '/upload-example',
   '/migrate',
   '/recalculate-commissions',
+  '/team',
 ] as const
+
+export const SELLER_ROUTES = ['/seller'] as const
 
 // Admin route prefixes (for startsWith matching)
 export const ADMIN_ROUTE_PREFIXES = [
@@ -122,8 +126,8 @@ export function isProtectedApiRoute(pathname: string): boolean {
 }
 
 // Get the appropriate redirect for a user based on role
-export function getDefaultRedirect(isAdmin: boolean): string {
-  return isAdmin ? '/dashboard' : '/'
+export function getDefaultRedirect(role: 'admin' | 'seller' | 'user' | 'staff'): string {
+  return role === 'admin' ? '/dashboard' : role === 'seller' ? '/seller' : '/'
 }
 
 // Get the login redirect URL

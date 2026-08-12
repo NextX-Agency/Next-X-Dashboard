@@ -16,9 +16,9 @@ const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
 // Admin routes that require admin role
 const ADMIN_ROUTES = [
   '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
-  '/budgets', '/wallets', '/commissions', '/exchange', '/locations',
+  '/budgets', '/wallets', '/finance', '/commissions', '/exchange', '/locations',
   '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
-  '/upload-example', '/migrate', '/recalculate-commissions'
+  '/upload-example', '/migrate', '/recalculate-commissions', '/team'
 ]
 const ADMIN_PREFIXES = ['/api/']
 
@@ -77,8 +77,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get session data from cookie (set by client-side auth)
-  const sessionCookie = request.cookies.get('auth_session')
+  // The session is opaque and verified in route handlers. Proxy only checks
+  // presence because middleware cannot safely query the database here.
+  const sessionCookie = request.cookies.get('nextics_session')
 
   // For API routes
   if (pathname.startsWith('/api/')) {
@@ -93,20 +94,6 @@ export function proxy(request: NextRequest) {
         )
       }
 
-      try {
-        const session = JSON.parse(sessionCookie.value)
-        if (session.role !== 'admin') {
-          return NextResponse.json(
-            { error: 'Forbidden', message: 'Admin access required' },
-            { status: 403 }
-          )
-        }
-      } catch {
-        return NextResponse.json(
-          { error: 'Unauthorized', message: 'Invalid session' },
-          { status: 401 }
-        )
-      }
     }
     return NextResponse.next()
   }
@@ -120,18 +107,6 @@ export function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
-    try {
-      const session = JSON.parse(sessionCookie.value)
-      // Check if user is admin
-      if (session.role !== 'admin') {
-        // Not admin, redirect to home/catalog
-        return NextResponse.redirect(new URL('/', request.url))
-      }
-    } catch {
-      // Invalid session, redirect to login
-      const loginUrl = new URL('/login', request.url)
-      return NextResponse.redirect(loginUrl)
-    }
   }
 
   return NextResponse.next()
@@ -141,12 +116,14 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/items/:path*',
+    '/seller/:path*',
     '/stock/:path*',
     '/orders/:path*',
     '/sales/:path*',
     '/expenses/:path*',
     '/budgets/:path*',
     '/wallets/:path*',
+    '/finance/:path*',
     '/commissions/:path*',
     '/exchange/:path*',
     '/locations/:path*',
@@ -159,12 +136,14 @@ export const config = {
     '/upload-example/:path*',
     '/migrate/:path*',
     '/recalculate-commissions/:path*',
+    '/team/:path*',
     '/api/commissions/:path*',
     '/api/dashboard/:path*',
     '/api/invoices/:path*',
     '/api/reports/:path*',
     '/api/sales/:path*',
     '/api/stock/:path*',
+    '/api/seller/:path*',
     '/api/orders/:path*',
     '/api/wallets/:path*',
     '/api/budgets/:path*',

@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { writeActivityLog } from '@/lib/serverActivityLog'
+import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
+import { randomUUID } from 'crypto'
 
 class ApiError extends Error {
   status: number
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
       const [fromWallet, toWallet] = await Promise.all([
         tx.wallet.findUnique({
           where: { id: fromWalletId },
@@ -70,6 +73,7 @@ export async function POST(request: NextRequest) {
             type: true,
             currency: true,
             balance: true,
+            location_id: true,
             locations: { select: { name: true } },
           },
         }),
@@ -81,6 +85,7 @@ export async function POST(request: NextRequest) {
             type: true,
             currency: true,
             balance: true,
+            location_id: true,
             locations: { select: { name: true } },
           },
         }),
@@ -142,6 +147,40 @@ export async function POST(request: NextRequest) {
             reference_id: fromWalletId,
             currency: toWallet.currency,
           },
+        }),
+      ])
+
+      const correlationId = randomUUID()
+      await Promise.all([
+        recordFinanceLedgerEntry(tx, {
+          walletTransactionId: debitTransaction.id,
+          walletId: fromWalletId,
+          locationId: fromWallet.location_id,
+          actorUserId: authResult.id,
+          eventType: 'wallet_transfer',
+          direction: 'out',
+          amount,
+          currency: fromWallet.currency as 'SRD' | 'USD',
+          sourceType: 'transfer',
+          sourceId: toWalletId,
+          counterparty: toName,
+          description: debitTransaction.description,
+          correlationId,
+        }),
+        recordFinanceLedgerEntry(tx, {
+          walletTransactionId: creditTransaction.id,
+          walletId: toWalletId,
+          locationId: toWallet.location_id,
+          actorUserId: authResult.id,
+          eventType: 'wallet_transfer',
+          direction: 'in',
+          amount,
+          currency: toWallet.currency as 'SRD' | 'USD',
+          sourceType: 'transfer',
+          sourceId: fromWalletId,
+          counterparty: fromName,
+          description: creditTransaction.description,
+          correlationId,
         }),
       ])
 

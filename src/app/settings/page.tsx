@@ -167,7 +167,7 @@ export default function SettingsPage() {
     }
   }
 
-  const validateBackup = async (payload: { backup?: unknown; url?: string }) => {
+  const validateBackup = async (payload: { backup?: unknown; pathname?: string }) => {
     const res = await fetch('/api/backup/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -247,13 +247,10 @@ export default function SettingsPage() {
     setBackupLoading(false)
   }
 
-  const handleDownloadBackup = async (backupUrl: string, pathname: string) => {
+  const handleDownloadBackup = async (pathname: string) => {
     try {
       const a = document.createElement('a')
-      const params = new URLSearchParams({
-        url: backupUrl,
-        pathname,
-      })
+      const params = new URLSearchParams({ pathname })
       a.href = `/api/backup/download?${params.toString()}`
       document.body.appendChild(a)
       a.click()
@@ -264,7 +261,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleDeleteBackup = async (url: string) => {
+  const handleDeleteBackup = async (pathname: string) => {
     const ok = await confirm({
       title: 'Delete Backup',
       message: 'This will permanently remove this backup file from cloud storage.',
@@ -278,7 +275,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/backup/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ pathname }),
       })
       if (res.ok) {
         await loadBackups()
@@ -288,7 +285,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleRestoreFromCloud = async (backupUrl: string) => {
+  const handleRestoreFromCloud = async (pathname: string) => {
     if (restoreMode === 'wipe' && wipeConfirmation.trim() !== WIPE_RESTORE_CONFIRMATION) {
       setBackupError(`Type ${WIPE_RESTORE_CONFIRMATION} before starting a wipe restore.`)
       return
@@ -300,7 +297,7 @@ export default function SettingsPage() {
     setBackupSelfCheck(null)
     setBackupError(null)
     try {
-      const validation = await validateBackup({ url: backupUrl })
+      const validation = await validateBackup({ pathname })
       setBackupValidation(validation)
 
       setBackupLoading(false)
@@ -320,7 +317,7 @@ export default function SettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: backupUrl,
+          pathname,
           mode: restoreMode,
           confirmationText: wipeConfirmation.trim(),
         }),
@@ -1278,7 +1275,7 @@ export default function SettingsPage() {
                     const sizeDisplay = backup.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`
 
                     return (
-                      <div key={backup.url} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div key={backup.pathname} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isAuto ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
                             {isAuto ? <RefreshCw size={16} className="text-blue-500" /> : <HardDrive size={16} className="text-primary" />}
@@ -1302,14 +1299,14 @@ export default function SettingsPage() {
                         </div>
                         <div className="flex items-center gap-1.5 pl-12 sm:pl-0 shrink-0">
                           <button
-                            onClick={() => handleDownloadBackup(backup.url, backup.pathname)}
+                            onClick={() => handleDownloadBackup(backup.pathname)}
                             className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors min-w-11 min-h-11 flex items-center justify-center"
                             title="Download"
                           >
                             <Download size={16} />
                           </button>
                           <button
-                            onClick={() => handleRestoreFromCloud(backup.url)}
+                            onClick={() => handleRestoreFromCloud(backup.pathname)}
                             disabled={backupLoading}
                             className="p-2 rounded-lg text-blue-500 hover:bg-blue-500/10 transition-colors min-w-11 min-h-11 flex items-center justify-center disabled:opacity-50"
                             title="Restore"
@@ -1317,7 +1314,7 @@ export default function SettingsPage() {
                             <Upload size={16} />
                           </button>
                           <button
-                            onClick={() => handleDeleteBackup(backup.url)}
+                            onClick={() => handleDeleteBackup(backup.pathname)}
                             disabled={backupLoading}
                             className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors min-w-11 min-h-11 flex items-center justify-center disabled:opacity-50"
                             title="Delete"

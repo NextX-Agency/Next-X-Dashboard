@@ -43,3 +43,9 @@ next-env.d.ts
 # prisma
 /prisma/*.db
 /prisma/*.db-journal
+
+# Supabase CLI cache
+/supabase/.temp/
+
+# Local production database exports. Never commit live data.
+/backups/

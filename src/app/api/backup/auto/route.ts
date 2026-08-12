@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { del, list } from '@vercel/blob'
-import { createBackupPayload, saveBackupToBlob } from '@/lib/backup'
+import { createBackupPayload, deletePrivateBackup, listPrivateBackups, saveBackupToBlob } from '@/lib/backup'
 
 // Delete auto-backups older than 30 days
 async function cleanupOldBackups() {
-  const { blobs } = await list({
-    prefix: 'backups/auto-',
-    token: process.env.BLOB_READ_WRITE_TOKEN,
-  })
+  const { blobs } = await listPrivateBackups('backups/auto-')
 
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -15,7 +11,7 @@ async function cleanupOldBackups() {
   let deleted = 0
   for (const blob of blobs) {
     if (blob.uploadedAt < thirtyDaysAgo) {
-      await del(blob.url, { token: process.env.BLOB_READ_WRITE_TOKEN })
+      await deletePrivateBackup(blob.pathname)
       deleted++
     }
   }
@@ -28,7 +24,14 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'CRON_SECRET must be configured before automatic backups are enabled.' },
+      { status: 503 },
+    )
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }

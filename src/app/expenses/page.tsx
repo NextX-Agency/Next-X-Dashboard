@@ -267,113 +267,26 @@ export default function ExpensesPage() {
 
     setSubmitting(true)
     try {
-      if (editingExpense) {
-        // Update expense - adjust wallet balance for difference
-        const oldAmount = editingExpense.amount
-        const difference = amount - oldAmount
-        
-        if (wallet.balance < difference) {
-          alert('Insufficient balance')
-          setSubmitting(false)
-          return
-        }
-
-        await supabase.from('expenses').update({
-          location_id: expenseForm.location_id,
-          category_id: expenseForm.category_id || null,
-          wallet_id: expenseForm.wallet_id,
+      const response = await fetch('/api/expenses', {
+        method: editingExpense ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(editingExpense ? { id: editingExpense.id } : {}),
+          locationId: expenseForm.location_id,
+          categoryId: expenseForm.category_id || null,
+          walletId: expenseForm.wallet_id,
           amount,
           currency: expenseForm.currency,
-          description: expenseForm.description || null
-        }).eq('id', editingExpense.id)
-
-        // Update wallet balance
-        await supabase
-          .from('wallets')
-          .update({ balance: wallet.balance - difference })
-          .eq('id', wallet.id)
-
-        // Log wallet transaction
-        await supabase.from('wallet_transactions').insert({
-          wallet_id: wallet.id,
-          type: difference > 0 ? 'debit' : 'credit',
-          amount: Math.abs(difference),
-          balance_before: wallet.balance,
-          balance_after: wallet.balance - difference,
-          currency: wallet.currency,
-          description: `Expense update: ${expenseForm.description || 'No description'}`,
-          reference_type: 'expense',
-          reference_id: editingExpense.id
-        })
-
-        const category = categories.find(c => c.id === expenseForm.category_id)
-        await logActivity({
-          action: 'update',
-          entityType: 'expense',
-          entityId: editingExpense.id,
-          entityName: category?.name || 'Uncategorized',
-          details: buildActivityDetails({
-            Amount: formatCurrency(amount, expenseForm.currency),
-            Category: category?.name || 'Uncategorized',
-            Wallet: `${wallet.person_name} (${wallet.currency})`,
-            Location: location?.name || ''
-          }),
-          userId: user?.id
-        })
-      } else {
-        if (wallet.balance < amount) {
-          alert('Insufficient balance')
-          setSubmitting(false)
-          return
-        }
-
-        const { data } = await supabase.from('expenses').insert({
-          location_id: expenseForm.location_id,
-          category_id: expenseForm.category_id || null,
-          wallet_id: expenseForm.wallet_id,
-          amount,
-          currency: expenseForm.currency,
-          description: expenseForm.description || null
-        }).select().single()
-
-        await supabase
-          .from('wallets')
-          .update({ balance: wallet.balance - amount })
-          .eq('id', wallet.id)
-
-        // Log wallet transaction
-        if (data) {
-          await supabase.from('wallet_transactions').insert({
-            wallet_id: wallet.id,
-            type: 'debit',
-            amount,
-            balance_before: wallet.balance,
-            balance_after: wallet.balance - amount,
-            currency: wallet.currency,
-            description: `Expense: ${expenseForm.description || 'No description'}`,
-            reference_type: 'expense',
-            reference_id: data.id
-          })
-        }
-
-        const category = categories.find(c => c.id === expenseForm.category_id)
-        await logActivity({
-          action: 'create',
-          entityType: 'expense',
-          entityId: data?.id,
-          entityName: category?.name || 'Uncategorized',
-          details: buildActivityDetails({
-            Amount: formatCurrency(amount, expenseForm.currency),
-            Category: category?.name || 'Uncategorized',
-            Wallet: `${wallet.person_name} (${wallet.currency})`,
-            Location: location?.name || ''
-          }),
-          userId: user?.id
-        })
-      }
+          description: expenseForm.description || null,
+        }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to save expense.')
 
       resetExpenseForm()
       await loadData()
+    } catch (submitError) {
+      alert(submitError instanceof Error ? submitError.message : 'Unable to save expense.')
     } finally {
       setSubmitting(false)
     }
@@ -407,45 +320,12 @@ export default function ExpensesPage() {
     })
     if (!ok) return
     
-    await supabase.from('expenses').delete().eq('id', expense.id)
-    
-    // Refund to wallet
-    if (expense.wallets) {
-      const newBalance = expense.wallets.balance + expense.amount
-      
-      await supabase
-        .from('wallets')
-        .update({ balance: newBalance })
-        .eq('id', expense.wallet_id)
-      
-      // Log wallet transaction for refund
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: expense.wallet_id,
-        type: 'credit',
-        amount: expense.amount,
-        balance_before: expense.wallets.balance,
-        balance_after: newBalance,
-        currency: expense.wallets.currency,
-        description: `Expense refund: ${expense.description || 'No description'}`,
-        reference_type: 'expense_refund',
-        reference_id: expense.id
-      })
+    const response = await fetch(`/api/expenses?id=${encodeURIComponent(expense.id)}`, { method: 'DELETE' })
+    const payload = await response.json() as { error?: string }
+    if (!response.ok) {
+      alert(payload.error || 'Expenses are retained for auditability.')
+      return
     }
-
-    await logActivity({
-      action: 'delete',
-      entityType: 'expense',
-      entityId: expense.id,
-      entityName: expense.expense_categories?.name || 'Uncategorized',
-      details: buildActivityDetails({
-        Amount: formatCurrency(expense.amount, expense.currency as Currency),
-        Category: expense.expense_categories?.name || 'Uncategorized',
-        Wallet: expense.wallets ? `${expense.wallets.person_name} (${expense.wallets.currency})` : '',
-        Location: expense.locations?.name || ''
-      }),
-      userId: user?.id
-    })
-    
     await loadData()
   }
 

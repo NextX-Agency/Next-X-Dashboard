@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
+import { Prisma } from '@prisma/client'
+import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 import { prisma } from '@/lib/prisma'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import type {
   ExpensesPageDataPayload,
   ExpensesPageExpense,
@@ -188,5 +191,198 @@ export async function GET(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     )
+  }
+}
+
+function parseAmount(value: unknown) {
+  const amount = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''))
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Expense amount must be greater than zero.')
+  return Math.round(amount * 100) / 100
+}
+
+function parseExpenseBody(body: Record<string, unknown>) {
+  const locationId = typeof body.locationId === 'string' ? body.locationId : typeof body.location_id === 'string' ? body.location_id : ''
+  const walletId = typeof body.walletId === 'string' ? body.walletId : typeof body.wallet_id === 'string' ? body.wallet_id : ''
+  const categoryId = typeof body.categoryId === 'string' ? body.categoryId : typeof body.category_id === 'string' ? body.category_id : null
+  const currency = body.currency === 'USD' || body.currency === 'SRD' ? body.currency : null
+  const description = typeof body.description === 'string' ? body.description.trim() : null
+  if (!locationId || !walletId || !currency) throw new Error('Location, wallet, and currency are required.')
+  return { locationId, walletId, categoryId, currency, description }
+}
+
+export async function POST(request: NextRequest) {
+  const user = await requireAdmin(request)
+  if (user instanceof NextResponse) return user
+
+  try {
+    const body = await request.json() as Record<string, unknown>
+    const amount = parseAmount(body.amount)
+    const { locationId, walletId, categoryId, currency, description } = parseExpenseBody(body)
+
+    const expense = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
+      const wallet = await tx.wallet.findFirst({
+        where: { id: walletId, location_id: locationId, currency },
+        select: { id: true, balance: true, currency: true, personName: true },
+      })
+      if (!wallet) throw new Error('Select a wallet belonging to the chosen location and currency.')
+      if (Number(wallet.balance) < amount) throw new Error('Insufficient wallet balance.')
+
+      const created = await tx.expense.create({
+        data: { location_id: locationId, categoryId, walletId, amount, currency, description },
+        select: { id: true, createdAt: true, category: { select: { name: true } } },
+      })
+      const before = Number(wallet.balance)
+      const after = Math.round((before - amount) * 100) / 100
+      await tx.wallet.update({ where: { id: walletId }, data: { balance: after } })
+      const walletTransaction = await tx.wallet_transactions.create({
+        data: {
+          wallet_id: walletId, expense_id: created.id, type: 'debit', amount,
+          balance_before: before, balance_after: after, currency,
+          description: `Expense: ${description || 'No description'}`,
+          reference_type: 'expense', reference_id: created.id,
+        },
+      })
+      await recordFinanceLedgerEntry(tx, {
+        walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
+        eventType: 'expense', direction: 'out', amount, currency: currency as 'SRD' | 'USD',
+        sourceType: 'expense', sourceId: created.id, counterparty: created.category?.name ?? null,
+        description, occurredAt: created.createdAt,
+      })
+      await writeActivityLog({
+        action: 'create', entityType: 'expense', entityId: created.id, entityName: created.category?.name ?? 'Uncategorized',
+        details: `Recorded ${amount.toFixed(2)} ${currency} expense from ${wallet.personName}.`,
+        user, request, source: 'expenses-api', client: tx,
+      })
+      return created
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+    return NextResponse.json({ data: expense }, { status: 201 })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to record expense.' }, { status: 400 })
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const user = await requireAdmin(request)
+  if (user instanceof NextResponse) return user
+
+  try {
+    const body = await request.json() as Record<string, unknown>
+    const expenseId = typeof body.id === 'string' ? body.id : ''
+    if (!expenseId) return NextResponse.json({ error: 'Expense id is required.' }, { status: 400 })
+    const amount = parseAmount(body.amount)
+    const { locationId, walletId, categoryId, currency, description } = parseExpenseBody(body)
+
+    const expense = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
+      const existing = await tx.expense.findUnique({
+        where: { id: expenseId },
+        select: { id: true, walletId: true, location_id: true, currency: true, amount: true, category: { select: { name: true } } },
+      })
+      if (!existing) throw new Error('Expense not found.')
+      if (existing.walletId !== walletId || existing.location_id !== locationId || existing.currency !== currency) {
+        throw new Error('Keep the original location, wallet, and currency. Record a compensating expense instead of moving history.')
+      }
+
+      const difference = Math.round((amount - Number(existing.amount)) * 100) / 100
+      const wallet = await tx.wallet.findUnique({ where: { id: walletId }, select: { balance: true, currency: true, personName: true } })
+      if (!wallet) throw new Error('Wallet not found.')
+      if (difference > 0 && Number(wallet.balance) < difference) throw new Error('Insufficient wallet balance for this increase.')
+
+      const updated = await tx.expense.update({
+        where: { id: expenseId },
+        data: { categoryId, amount, description },
+        select: { id: true, category: { select: { name: true } } },
+      })
+      if (difference !== 0) {
+        const before = Number(wallet.balance)
+        const after = Math.round((before - difference) * 100) / 100
+        await tx.wallet.update({ where: { id: walletId }, data: { balance: after } })
+        const walletTransaction = await tx.wallet_transactions.create({
+          data: {
+            wallet_id: walletId, expense_id: expenseId, type: difference > 0 ? 'debit' : 'credit', amount: Math.abs(difference),
+            balance_before: before, balance_after: after, currency,
+            description: `Expense correction: ${description || 'No description'}`,
+            reference_type: 'expense_correction', reference_id: expenseId,
+          },
+        })
+        await recordFinanceLedgerEntry(tx, {
+          walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
+          eventType: 'expense', direction: difference > 0 ? 'out' : 'in', amount: Math.abs(difference), currency: currency as 'SRD' | 'USD',
+          sourceType: 'expense_correction', sourceId: expenseId,
+          description: `Correction from ${Number(existing.amount).toFixed(2)} to ${amount.toFixed(2)} ${currency}: ${description || 'No description'}`,
+          metadata: { previousAmount: Number(existing.amount), nextAmount: amount },
+        })
+      }
+      await writeActivityLog({
+        action: 'update', entityType: 'expense', entityId: expenseId, entityName: updated.category?.name ?? 'Uncategorized',
+        details: `Updated expense to ${amount.toFixed(2)} ${currency}; financial corrections remain in the ledger.`,
+        user, request, source: 'expenses-api', client: tx,
+      })
+      return updated
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+    return NextResponse.json({ data: expense })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to update expense.' }, { status: 400 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const user = await requireAdmin(request)
+  if (user instanceof NextResponse) return user
+
+  try {
+    const expenseId = request.nextUrl.searchParams.get('id')
+    if (!expenseId) return NextResponse.json({ error: 'Expense id is required.' }, { status: 400 })
+
+    const result = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
+      const expense = await tx.expense.findUnique({
+        where: { id: expenseId },
+        select: {
+          id: true, amount: true, currency: true, walletId: true, location_id: true,
+          categoryId: true, description: true, category: { select: { name: true } },
+        },
+      })
+      if (!expense) throw new Error('Expense not found.')
+      const amount = Number(expense.amount)
+      if (amount <= 0) throw new Error('This expense has already been refunded.')
+      const wallet = await tx.wallet.findUnique({ where: { id: expense.walletId }, select: { balance: true, currency: true, personName: true } })
+      if (!wallet) throw new Error('Expense wallet not found.')
+
+      const before = Number(wallet.balance)
+      const after = Math.round((before + amount) * 100) / 100
+      await tx.expense.update({
+        where: { id: expenseId },
+        data: { amount: 0, description: `[Refunded] ${expense.description || 'No description'}` },
+      })
+      await tx.wallet.update({ where: { id: expense.walletId }, data: { balance: after } })
+      const walletTransaction = await tx.wallet_transactions.create({
+        data: {
+          wallet_id: expense.walletId, expense_id: expenseId, type: 'credit', amount,
+          balance_before: before, balance_after: after, currency: wallet.currency,
+          description: `Expense refund: ${expense.description || 'No description'}`,
+          reference_type: 'expense_refund', reference_id: expenseId,
+        },
+      })
+      await recordFinanceLedgerEntry(tx, {
+        walletTransactionId: walletTransaction.id, walletId: expense.walletId, locationId: expense.location_id,
+        categoryId: expense.categoryId, actorUserId: user.id, eventType: 'expense', direction: 'in', amount,
+        currency: wallet.currency as 'SRD' | 'USD', sourceType: 'expense_refund', sourceId: expenseId,
+        description: `Refunded expense: ${expense.description || 'No description'}`,
+      })
+      await writeActivityLog({
+        action: 'cancel', entityType: 'expense', entityId: expenseId, entityName: expense.category?.name ?? 'Uncategorized',
+        details: `Refunded ${amount.toFixed(2)} ${wallet.currency}; the original expense remains as a zero-value audit record.`,
+        user, request, source: 'expenses-api', client: tx,
+      })
+      return { expenseId, refunded: amount, currency: wallet.currency }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
+
+    return NextResponse.json({ data: result })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to refund expense.' }, { status: 400 })
   }
 }

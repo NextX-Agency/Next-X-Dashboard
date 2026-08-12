@@ -29,6 +29,7 @@ import {
   Gauge
 } from 'lucide-react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
+import { useAuth } from '@/lib/AuthContext'
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'nextx:sidebar-collapsed'
 const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
@@ -58,11 +59,19 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { catalog, setCatalog } = useAdminCatalog()
+  const { user } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(DEFAULT_EXPANDED_SECTIONS)
 
   // Memoize navigation sections to prevent recreation on each render
-  const navSections: NavSection[] = useMemo(() => [
+  const navSections: NavSection[] = useMemo(() => user?.role === 'seller' ? [
+    {
+      title: 'Seller',
+      items: [
+        { name: 'My Workspace', icon: LayoutDashboard, path: '/seller' },
+      ],
+    },
+  ] : [
     {
       title: 'Store',
       items: [
@@ -93,6 +102,7 @@ export default function Sidebar() {
       items: [
         { name: 'Exchange', icon: DollarSign, path: '/exchange' },
         { name: 'Wallets', icon: Wallet, path: '/wallets' },
+        { name: 'Money Trail', icon: BarChart3, path: '/finance' },
         { name: 'Expenses', icon: Receipt, path: '/expenses' },
         { name: 'Commissions', icon: Users, path: '/commissions' },
         { name: 'Budgets', icon: Target, path: '/budgets' },
@@ -109,10 +119,11 @@ export default function Sidebar() {
     {
       title: 'System',
       items: [
+        { name: 'Team Access', icon: Users, path: '/team' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ],
     },
-  ], [])
+  ], [user?.role])
 
   const isItemActive = useCallback((path: string) => {
     const routePath = path.split('?')[0]
@@ -179,7 +190,7 @@ export default function Sidebar() {
     >
       {/* Premium Logo Section */}
       <div className="p-6 border-b border-gray-800/50 flex items-center justify-between backdrop-blur-sm">
-        {!isCollapsed && (
+        {!isCollapsed && user?.role !== 'seller' && (
           <div className="flex items-center gap-3 w-full">
             <div className="relative w-full h-12">
               <Image

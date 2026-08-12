@@ -62,4 +62,5 @@ export async function POST(request: NextRequest): Promise<NextResponse<BlobUploa
   }
 }
 
-export const runtime = 'edge'
+// Session validation and Prisma access require the Node.js runtime.
+export const runtime = 'nodejs'

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { writeActivityLog } from '@/lib/serverActivityLog'
+import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 import type {
   WalletsPageDataPayload,
   WalletsPageLocation,
@@ -279,6 +280,7 @@ export async function POST(request: NextRequest) {
     const balance = parseAmount(body.balance, 'Initial balance')
 
     const wallet = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
       const location = await tx.location.findUnique({
         where: { id: locationId },
         select: { id: true, name: true },
@@ -313,7 +315,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (balance > 0) {
-        await tx.wallet_transactions.create({
+        const transaction = await tx.wallet_transactions.create({
           data: {
             wallet_id: created.id,
             type: 'adjustment',
@@ -324,6 +326,19 @@ export async function POST(request: NextRequest) {
             reference_type: 'opening_balance',
             currency,
           },
+        })
+        await recordFinanceLedgerEntry(tx, {
+          walletTransactionId: transaction.id,
+          walletId: created.id,
+          locationId,
+          actorUserId: authResult.id,
+          eventType: 'opening_balance',
+          direction: 'in',
+          amount: balance,
+          currency,
+          sourceType: 'opening_balance',
+          sourceId: created.id,
+          description: 'Opening balance',
         })
       }
 
@@ -364,6 +379,7 @@ export async function PATCH(request: NextRequest) {
     const balance = parseAmount(body.balance, 'Balance')
 
     const wallet = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
       const current = await tx.wallet.findUnique({
         where: { id: walletId },
         select: walletSelect,
@@ -428,7 +444,7 @@ export async function PATCH(request: NextRequest) {
 
       const difference = Math.round((balance - previousBalance) * 100) / 100
       if (difference !== 0) {
-        await tx.wallet_transactions.create({
+        const transaction = await tx.wallet_transactions.create({
           data: {
             wallet_id: walletId,
             type: 'adjustment',
@@ -439,6 +455,20 @@ export async function PATCH(request: NextRequest) {
             reference_type: 'wallet_edit',
             currency,
           },
+        })
+        await recordFinanceLedgerEntry(tx, {
+          walletTransactionId: transaction.id,
+          walletId,
+          locationId,
+          actorUserId: authResult.id,
+          eventType: 'wallet_adjustment',
+          direction: difference > 0 ? 'in' : 'out',
+          amount: Math.abs(difference),
+          currency,
+          sourceType: 'wallet_edit',
+          sourceId: walletId,
+          description: `Balance correction to ${balance.toFixed(2)} ${currency}`,
+          metadata: { previousBalance, nextBalance: balance },
         })
       }
 
@@ -475,6 +505,7 @@ export async function DELETE(request: NextRequest) {
     const walletId = parseUuid(request.nextUrl.searchParams.get('id'), 'id')
 
     await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
       const wallet = await tx.wallet.findUnique({
         where: { id: walletId },
         select: walletSelect,

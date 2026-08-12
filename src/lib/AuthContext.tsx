@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getDefaultRedirect, getAccessDeniedRedirect } from './routes'
 
 // User roles enum for type safety
-export type UserRole = 'admin' | 'user' | 'staff'
+export type UserRole = 'admin' | 'seller' | 'user' | 'staff'
 
 interface User {
   id: string
@@ -40,32 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check for existing session using API route (bypasses RLS)
     const checkSession = async () => {
-      const sessionData = localStorage.getItem('auth_session')
-      if (sessionData) {
-        try {
-          const session = JSON.parse(sessionData)
-          // Verify session via API route
-          const response = await fetch('/api/auth/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: session.userId })
+      try {
+        const response = await fetch('/api/auth/verify', { method: 'POST' })
+        const result = await response.json()
+
+        if (result.success && result.user) {
+          setUser({
+            id: result.user.id,
+            email: result.user.email,
+            name: result.user.name,
+            role: result.user.role as UserRole,
           })
-          
-          const result = await response.json()
-          
-          if (result.success && result.user) {
-            setUser({
-              id: result.user.id,
-              email: result.user.email,
-              name: result.user.name,
-              role: result.user.role as UserRole
-            })
-          } else {
-            localStorage.removeItem('auth_session')
-          }
-        } catch {
-          localStorage.removeItem('auth_session')
         }
+      } catch {
+        // A missing session is an expected signed-out state.
       }
       setLoading(false)
     }
@@ -99,22 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUser(userInfo)
 
-      // Store session in localStorage
-      localStorage.setItem('auth_session', JSON.stringify({
-        userId: userData.id,
-        role: userData.role,
-        loginAt: new Date().toISOString()
-      }))
-
-      // Also store in cookie for middleware access
-      document.cookie = `auth_session=${JSON.stringify({
-        userId: userData.id,
-        role: userData.role
-      })}; path=/; max-age=604800; SameSite=Lax`
-
       // Determine redirect based on role
-      const isAdmin = userData.role === 'admin'
-      const redirectTo = getDefaultRedirect(isAdmin)
+      const redirectTo = getDefaultRedirect(userData.role as UserRole)
 
       return { success: true, redirectTo }
     } catch (err) {
@@ -125,9 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     setUser(null)
-    localStorage.removeItem('auth_session')
-    // Clear the auth cookie
-    document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    await fetch('/api/auth/logout', { method: 'POST' })
     // Redirect to home/catalog after logout
     router.push(getAccessDeniedRedirect())
   }, [router])

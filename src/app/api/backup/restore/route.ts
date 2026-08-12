@@ -5,7 +5,7 @@ import { writeActivityLog } from '@/lib/serverActivityLog'
 import {
   createBackupPayload,
   DELETE_ORDER,
-  fetchBackupFromUrl,
+  fetchBackupFromPathname,
   getExistingBackupTables,
   INSERT_ORDER,
   saveBackupToBlob,
@@ -41,14 +41,28 @@ function quoteIdentifier(identifier: string) {
 
 // Wipe all present tables in FK-safe order.
 async function wipeAllTables(existingTables: ReadonlySet<BackupTableName>) {
-  for (const table of DELETE_ORDER) {
-    if (!existingTables.has(table)) continue
-    await prisma.$executeRawUnsafe(`DELETE FROM ${quoteIdentifier(TABLE_DB_NAMES[table])}`)
-  }
+  await prisma.$transaction(async (tx) => {
+    // The append-only ledger allows this scoped maintenance path only during
+    // an explicit administrator-approved wipe restore.
+    await tx.$executeRawUnsafe("SELECT set_config('app.finance_ledger_maintenance', 'on', true)")
+    const sessionTable = await tx.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      "SELECT to_regclass('public.app_sessions') IS NOT NULL AS exists",
+    )
+    // Sessions are deliberately not restored, so revoke every live session
+    // before restoring users. This prevents an old browser token surviving a
+    // recovery operation.
+    if (sessionTable[0]?.exists) {
+      await tx.$executeRawUnsafe('DELETE FROM public.app_sessions')
+    }
+    for (const table of DELETE_ORDER) {
+      if (!existingTables.has(table)) continue
+      await tx.$executeRawUnsafe(`DELETE FROM ${quoteIdentifier(TABLE_DB_NAMES[table])}`)
+    }
+  })
 }
 
 // Insert records for a given table using createMany
-async function insertTable(tableName: string, records: Record<string, unknown>[]) {
+async function insertTable(tableName: string, records: Record<string, unknown>[], hasLedgerSnapshot: boolean) {
   if (!records || records.length === 0) return 0
 
   const parsed = records.map(parseDates)
@@ -74,6 +88,9 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
       break
     case 'locations':
       await prisma.location.createMany({ data: parsed as any })
+      break
+    case 'userLocationAccess':
+      await prisma.userLocationAccess.createMany({ data: parsed as any })
       break
     case 'exchangeRates':
       await prisma.exchangeRate.createMany({ data: parsed as any })
@@ -111,6 +128,9 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
     case 'wallets':
       await prisma.wallet.createMany({ data: parsed as any })
       break
+    case 'walletReconciliations':
+      await prisma.walletReconciliation.createMany({ data: parsed as any })
+      break
     case 'goals':
       await prisma.goal.createMany({ data: parsed as any })
       break
@@ -142,7 +162,22 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
       await prisma.expense.createMany({ data: parsed as any })
       break
     case 'walletTransactions':
-      await prisma.wallet_transactions.createMany({ data: parsed as any })
+      if (hasLedgerSnapshot) {
+        await prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe("SELECT set_config('app.finance_ledger_recorded', 'on', true)")
+          await tx.wallet_transactions.createMany({ data: parsed as any })
+        })
+      } else {
+        // A legacy backup has no ledger payload. Let the database trigger
+        // derive a trace entry for every restored wallet transaction.
+        await prisma.wallet_transactions.createMany({ data: parsed as any })
+      }
+      break
+    case 'financeLedgerEntries':
+      await prisma.financeLedgerEntry.createMany({ data: parsed as any })
+      break
+    case 'userNotifications':
+      await prisma.userNotification.createMany({ data: parsed as any })
       break
     case 'budgets':
       await prisma.budget.createMany({ data: parsed as any })
@@ -189,11 +224,33 @@ async function insertTable(tableName: string, records: Record<string, unknown>[]
 }
 
 // Upsert records for a given table (merge mode)
-async function upsertTable(tableName: string, records: Record<string, unknown>[]) {
+async function upsertTable(tableName: string, records: Record<string, unknown>[], hasLedgerSnapshot: boolean) {
   if (!records || records.length === 0) return 0
 
   let count = 0
   const parsed = records.map(parseDates)
+
+  if (tableName === 'userLocationAccess') {
+    for (const record of parsed) {
+      const userId = record.userId as string
+      const locationId = record.locationId as string
+      if (!userId || !locationId) continue
+      await prisma.userLocationAccess.upsert({
+        where: { userId_locationId: { userId, locationId } },
+        create: record as any,
+        update: record as any,
+      })
+      count++
+    }
+    return count
+  }
+
+  if (tableName === 'financeLedgerEntries') {
+    // Ledger rows are immutable; merge adds missing history but never rewrites
+    // an existing audit record.
+    const result = await prisma.financeLedgerEntry.createMany({ data: parsed as any, skipDuplicates: true })
+    return result.count
+  }
 
   for (const record of parsed) {
     const id = record.id as string
@@ -258,6 +315,9 @@ async function upsertTable(tableName: string, records: Record<string, unknown>[]
         case 'wallets':
           await prisma.wallet.upsert({ where: { id }, create: record as any, update: record as any })
           break
+        case 'walletReconciliations':
+          await prisma.walletReconciliation.upsert({ where: { id }, create: record as any, update: record as any })
+          break
         case 'goals':
           await prisma.goal.upsert({ where: { id }, create: record as any, update: record as any })
           break
@@ -289,7 +349,17 @@ async function upsertTable(tableName: string, records: Record<string, unknown>[]
           await prisma.expense.upsert({ where: { id }, create: record as any, update: record as any })
           break
         case 'walletTransactions':
-          await prisma.wallet_transactions.upsert({ where: { id }, create: record as any, update: record as any })
+          if (hasLedgerSnapshot) {
+            await prisma.$transaction(async (tx) => {
+              await tx.$executeRawUnsafe("SELECT set_config('app.finance_ledger_recorded', 'on', true)")
+              await tx.wallet_transactions.upsert({ where: { id }, create: record as any, update: record as any })
+            })
+          } else {
+            await prisma.wallet_transactions.upsert({ where: { id }, create: record as any, update: record as any })
+          }
+          break
+        case 'userNotifications':
+          await prisma.userNotification.upsert({ where: { id }, create: record as any, update: record as any })
           break
         case 'budgets':
           await prisma.budget.upsert({ where: { id }, create: record as any, update: record as any })
@@ -346,10 +416,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { backup, mode, url, confirmationText } = body as {
+    const { backup, mode, pathname, confirmationText } = body as {
       backup?: unknown
       mode: 'wipe' | 'merge'
-      url?: string
+      pathname?: string
       confirmationText?: string
     }
 
@@ -360,9 +430,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!backup && !url) {
+    if (!backup && !pathname) {
       return NextResponse.json(
-        { error: 'Provide either backup data or a backup URL.' },
+        { error: 'Provide either backup data or a backup pathname.' },
         { status: 400 }
       )
     }
@@ -374,7 +444,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const backupSource = url ? await fetchBackupFromUrl(url) : backup
+    const backupSource = pathname ? await fetchBackupFromPathname(pathname) : backup
     const validation = validateBackupPayload(backupSource)
 
     if (!validation.valid || !validation.backup) {
@@ -433,7 +503,8 @@ export async function POST(request: NextRequest) {
             continue
           }
 
-          const count = await insertTable(table, records || [])
+          const hasLedgerSnapshot = (validation.backup.tables.financeLedgerEntries?.length ?? 0) > 0
+          const count = await insertTable(table, records || [], hasLedgerSnapshot)
           results[table] = count
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err)
@@ -457,7 +528,8 @@ export async function POST(request: NextRequest) {
             continue
           }
 
-          const count = await upsertTable(table, records || [])
+          const hasLedgerSnapshot = (validation.backup.tables.financeLedgerEntries?.length ?? 0) > 0
+          const count = await upsertTable(table, records || [], hasLedgerSnapshot)
           results[table] = count
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err)

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { supabase } from './supabase'
+import { getSessionUser } from '@/lib/sessions'
 
-export type UserRole = 'admin' | 'user' | 'staff'
+export type UserRole = 'admin' | 'seller' | 'staff' | 'user'
 
-interface AuthUser {
+export interface AuthUser {
   id: string
   email: string
   name: string | null
@@ -14,133 +13,75 @@ interface AuthUser {
 interface AuthResult {
   authenticated: boolean
   user: AuthUser | null
+  sessionId: string | null
   error?: string
 }
 
 /**
- * Verify authentication from API routes
- * Checks both cookie and validates against database
+ * Authentication is based on an opaque, server-issued session cookie. The
+ * browser never provides a user id or a role, so changing local storage or a
+ * cookie value cannot grant access to another account.
  */
 export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
   try {
-    // Get session from cookie
-    const cookieStore = await cookies()
-    const sessionCookie = cookieStore.get('auth_session')
-    
-    if (!sessionCookie) {
-      return { authenticated: false, user: null, error: 'No session found' }
-    }
-
-    let session: { userId: string; role: string }
-    try {
-      session = JSON.parse(sessionCookie.value)
-    } catch {
-      return { authenticated: false, user: null, error: 'Invalid session format' }
-    }
-
-    if (!session.userId) {
-      return { authenticated: false, user: null, error: 'Invalid session data' }
-    }
-
-    // Verify user exists and is active in database
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('id, email, name, role, is_active')
-      .eq('id', session.userId)
-      .eq('is_active', true)
-      .single()
-
-    if (error || !user) {
-      return { authenticated: false, user: null, error: 'User not found or inactive' }
+    const session = await getSessionUser(request)
+    if (!session) {
+      return { authenticated: false, user: null, sessionId: null, error: 'Session is missing, expired, or revoked' }
     }
 
     return {
       authenticated: true,
+      sessionId: session.sessionId,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role as UserRole
-      }
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: session.user.role as UserRole,
+      },
     }
-  } catch (err) {
-    console.error('Auth verification error:', err)
-    return { authenticated: false, user: null, error: 'Authentication failed' }
+  } catch (error) {
+    console.error('Auth verification error:', error)
+    return { authenticated: false, user: null, sessionId: null, error: 'Authentication failed' }
   }
 }
 
-/**
- * Require authentication for API route
- * Returns error response if not authenticated
- */
 export async function requireAuth(request: NextRequest): Promise<AuthUser | NextResponse> {
   const result = await verifyAuth(request)
-  
   if (!result.authenticated || !result.user) {
     return NextResponse.json(
       { error: 'Unauthorized', message: result.error || 'Authentication required' },
-      { status: 401 }
+      { status: 401 },
     )
   }
-  
   return result.user
 }
 
-/**
- * Require admin role for API route
- * Returns error response if not authenticated or not admin
- */
 export async function requireAdmin(request: NextRequest): Promise<AuthUser | NextResponse> {
-  const result = await verifyAuth(request)
-  
-  if (!result.authenticated || !result.user) {
-    return NextResponse.json(
-      { error: 'Unauthorized', message: result.error || 'Authentication required' },
-      { status: 401 }
-    )
+  const user = await requireAuth(request)
+  if (user instanceof NextResponse) return user
+  if (user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden', message: 'Admin access required' }, { status: 403 })
   }
-  
-  if (result.user.role !== 'admin') {
-    return NextResponse.json(
-      { error: 'Forbidden', message: 'Admin access required' },
-      { status: 403 }
-    )
-  }
-  
-  return result.user
+  return user
 }
 
-/**
- * Require specific role(s) for API route
- */
 export async function requireRole(
   request: NextRequest,
-  allowedRoles: UserRole | UserRole[]
+  allowedRoles: UserRole | UserRole[],
 ): Promise<AuthUser | NextResponse> {
-  const result = await verifyAuth(request)
-  
-  if (!result.authenticated || !result.user) {
-    return NextResponse.json(
-      { error: 'Unauthorized', message: result.error || 'Authentication required' },
-      { status: 401 }
-    )
-  }
-  
+  const user = await requireAuth(request)
+  if (user instanceof NextResponse) return user
+
   const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles]
-  
-  if (!roles.includes(result.user.role)) {
+  if (!roles.includes(user.role)) {
     return NextResponse.json(
       { error: 'Forbidden', message: `One of these roles required: ${roles.join(', ')}` },
-      { status: 403 }
+      { status: 403 },
     )
   }
-  
-  return result.user
+  return user
 }
 
-/**
- * Helper to check if result is an error response
- */
 export function isAuthError(result: AuthUser | NextResponse): result is NextResponse {
   return result instanceof NextResponse
 }

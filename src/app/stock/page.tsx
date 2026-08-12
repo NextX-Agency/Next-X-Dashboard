@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
 import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
 import { Package, Plus, ArrowRightLeft, AlertTriangle, Filter, Search, X, ArrowUpDown, Minus, RefreshCcw, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, Input, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { StockCard, Modal } from '@/components/PageCards'
-import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
@@ -308,44 +306,17 @@ export default function StockPage() {
     try {
       const { item_id, location_id, quantity } = addForm
       const qty = parseInt(quantity, 10)
-      const item = items.find(i => i.id === item_id)
-      const location = locations.find(l => l.id === location_id)
-
       if (!item_id || !location_id || Number.isNaN(qty) || qty <= 0) {
         throw new Error('Select an item, location, and a quantity greater than 0.')
       }
-      
-      const { data: existing, error: existingError } = await supabase
-        .from('stock')
-        .select('*')
-        .eq('item_id', item_id)
-        .eq('location_id', location_id)
-        .maybeSingle()
 
-      if (existingError) throw existingError
-
-      if (existing) {
-        const { error } = await supabase
-          .from('stock')
-          .update({ quantity: existing.quantity + qty })
-          .eq('id', existing.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('stock').insert({
-          item_id,
-          location_id,
-          quantity: qty
-        })
-        if (error) throw error
-      }
-
-      await logActivity({
-        action: 'create',
-        entityType: 'stock',
-        entityId: item_id,
-        entityName: item?.name,
-        details: `Added ${quantity} units of ${item?.name} to ${location?.name}`
+      const response = await fetch('/api/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', itemId: item_id, locationId: location_id, quantity: qty }),
       })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to add stock right now.')
 
       setAddForm({ item_id: '', location_id: '', quantity: '' })
       setShowAddForm(false)
@@ -378,71 +349,19 @@ export default function StockPage() {
 
     setSubmitting(true)
     try {
-      const { data: fromStock, error: fromStockError } = await supabase
-        .from('stock')
-        .select('*')
-        .eq('item_id', item_id)
-        .eq('location_id', from_location_id)
-        .maybeSingle()
-
-      if (fromStockError) throw fromStockError
-
-      if (!fromStock || fromStock.quantity < qty) {
-        throw new Error('Insufficient stock at the selected source location.')
-      }
-
-      const item = items.find(i => i.id === item_id)
-      const fromLocation = locations.find(l => l.id === from_location_id)
-      const toLocation = locations.find(l => l.id === to_location_id)
-
-      const remainingSourceQuantity = fromStock.quantity - qty
-      const { error: updateFromError } = remainingSourceQuantity === 0
-        ? await supabase.from('stock').delete().eq('id', fromStock.id)
-        : await supabase
-          .from('stock')
-          .update({ quantity: remainingSourceQuantity })
-          .eq('id', fromStock.id)
-      if (updateFromError) throw updateFromError
-
-      const { data: toStock, error: toStockError } = await supabase
-        .from('stock')
-        .select('*')
-        .eq('item_id', item_id)
-        .eq('location_id', to_location_id)
-        .maybeSingle()
-
-      if (toStockError) throw toStockError
-
-      if (toStock) {
-        const { error } = await supabase
-          .from('stock')
-          .update({ quantity: toStock.quantity + qty })
-          .eq('id', toStock.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('stock').insert({
-          item_id,
-          location_id: to_location_id,
-          quantity: qty
-        })
-        if (error) throw error
-      }
-
-      const { error: transferLogError } = await supabase.from('stock_transfers').insert({
-        item_id,
-        from_location_id,
-        to_location_id,
-        quantity: qty
+      const response = await fetch('/api/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'transfer',
+          itemId: item_id,
+          fromLocationId: from_location_id,
+          toLocationId: to_location_id,
+          quantity: qty,
+        }),
       })
-      if (transferLogError) throw transferLogError
-
-      await logActivity({
-        action: 'transfer',
-        entityType: 'stock',
-        entityId: item_id,
-        entityName: item?.name,
-        details: `Transferred ${qty} units of ${item?.name} from ${fromLocation?.name} to ${toLocation?.name}`
-      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to transfer stock right now.')
 
       setTransferForm({ item_id: '', from_location_id: '', to_location_id: '', quantity: '' })
       setShowTransferForm(false)
@@ -467,14 +386,19 @@ export default function StockPage() {
     const qty = parseInt(removeQty)
     if (isNaN(qty) || qty <= 0 || qty > stock.quantity) return
 
-    const newQty = stock.quantity - qty
-    if (newQty === 0) {
-      await supabase.from('stock').delete().eq('id', stock.id)
-    } else {
-      await supabase.from('stock').update({ quantity: newQty }).eq('id', stock.id)
+    try {
+      const response = await fetch('/api/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', itemId: stock.item_id, locationId: stock.location_id, quantity: qty }),
+      })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to remove stock right now.')
+      setRemoveModal(null)
+      await loadData()
+    } catch (error) {
+      setStockFormError(error instanceof Error ? error.message : 'Unable to remove stock right now.')
     }
-    setRemoveModal(null)
-    await loadData()
   }
 
   const scopedStocks = useMemo(() => {

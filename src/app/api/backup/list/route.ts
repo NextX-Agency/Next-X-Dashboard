@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { list } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
+import { listPrivateBackups } from '@/lib/backup'
 import type { BackupBlobFile } from '@/types/backup'
 
 export async function GET(request: NextRequest) {
@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
   if (isAuthError(authResult)) return authResult
 
   try {
-    const { blobs } = await list({
-      prefix: 'backups/',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
+    const { blobs } = await listPrivateBackups()
 
     // Sort by uploadedAt descending (newest first)
     const sorted: BackupBlobFile[] = blobs

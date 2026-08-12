@@ -1,39 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { del } from '@vercel/blob'
 import { requireAdmin, isAuthError } from '@/lib/apiAuth'
 import { writeActivityLog } from '@/lib/serverActivityLog'
-import { isAllowedBackupUrl } from '@/lib/backup'
+import { deletePrivateBackup } from '@/lib/backup'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (isAuthError(authResult)) return authResult
 
   try {
-    const { url } = await request.json()
+    const { pathname } = await request.json()
 
-    if (!url) {
+    if (!pathname) {
       return NextResponse.json(
-        { error: 'No backup URL provided' },
+        { error: 'No backup pathname provided' },
         { status: 400 }
       )
     }
 
-    if (!isAllowedBackupUrl(url)) {
-      return NextResponse.json(
-        { error: 'Invalid backup URL' },
-        { status: 400 }
-      )
-    }
-
-    await del(url, {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
+    await deletePrivateBackup(pathname)
 
     await writeActivityLog({
       action: 'delete',
       entityType: 'settings',
       entityName: 'Database Backup',
-      details: `Backup deleted: ${url}`,
+      details: `Backup deleted: ${pathname}`,
       user: authResult,
       request,
       source: 'server',

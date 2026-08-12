@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { writeActivityLog } from '@/lib/serverActivityLog'
+import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 
 type TransactionMode = 'add' | 'remove' | 'correct'
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await markFinanceLedgerRecorded(tx)
       const wallet = await tx.wallet.findUnique({
         where: { id: walletId },
         select: {
@@ -76,6 +78,7 @@ export async function POST(request: NextRequest) {
           type: true,
           currency: true,
           balance: true,
+          location_id: true,
           locations: { select: { name: true } },
         },
       })
@@ -123,6 +126,23 @@ export async function POST(request: NextRequest) {
             currency: wallet.currency,
           },
         })
+
+      if (transaction) {
+        await recordFinanceLedgerEntry(tx, {
+          walletTransactionId: transaction.id,
+          walletId,
+          locationId: wallet.location_id,
+          actorUserId: authResult.id,
+          eventType: 'wallet_adjustment',
+          direction: nextBalance >= previousBalance ? 'in' : 'out',
+          amount: ledgerAmount,
+          currency: wallet.currency as 'SRD' | 'USD',
+          sourceType: mode === 'correct' ? 'correction' : 'manual_adjustment',
+          sourceId: walletId,
+          description: transaction.description,
+          metadata: { previousBalance, nextBalance, mode },
+        })
+      }
 
       await writeActivityLog({
         action: 'update',

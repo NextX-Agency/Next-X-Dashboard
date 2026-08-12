@@ -10,7 +10,7 @@ import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login, isAuthenticated, loading: authLoading, isAdmin } = useAuth()
+  const { login, isAuthenticated, loading: authLoading, isAdmin, user } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -26,10 +26,10 @@ function LoginForm() {
       if (from && isAdmin) {
         router.replace(from)
       } else {
-        router.replace(getDefaultRedirect(isAdmin))
+        router.replace(getDefaultRedirect(user?.role ?? 'user'))
       }
     }
-  }, [isAuthenticated, isAdmin, router, searchParams])
+  }, [isAuthenticated, isAdmin, router, searchParams, user?.role])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

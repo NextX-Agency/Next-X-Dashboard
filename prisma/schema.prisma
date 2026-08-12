@@ -9,18 +9,54 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  name         String?
-  role         String    @default("admin")
-  isActive     Boolean?  @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
-  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id              String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email           String                 @unique
+  passwordHash    String                 @map("password_hash")
+  name            String?
+  role            String                 @default("admin")
+  isActive        Boolean?               @default(true) @map("is_active")
+  lastLoginAt     DateTime?              @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime?              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sellerProfile   Seller?                @relation("SellerAccount")
+  sessions        AppSession[]
+  locationAccess  UserLocationAccess[]
+  reconciliations WalletReconciliation[] @relation("WalletReconciledBy")
+  notifications   UserNotification[]
+  ledgerEntries   FinanceLedgerEntry[]   @relation("LedgerActor")
 
   @@index([email], map: "idx_users_email")
   @@map("users")
+}
+
+model AppSession {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(6)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  userAgentHash String?   @map("user_agent_hash")
+  ipHash        String?   @map("ip_hash")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt(sort: Desc)], map: "idx_app_sessions_user_active")
+  @@map("app_sessions")
+}
+
+model UserLocationAccess {
+  userId          String   @map("user_id") @db.Uuid
+  locationId      String   @map("location_id") @db.Uuid
+  canManageWallet Boolean  @default(true) @map("can_manage_wallet")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location        Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, locationId])
+  @@index([locationId, userId], map: "idx_user_location_access_location")
+  @@map("user_location_access")
 }
 
 model ActivityLog {
@@ -169,6 +205,10 @@ model Location {
   transfersTo              StockTransfer[]           @relation("ToLocation")
   wallets                  Wallet[]
   financeObligations       FinanceObligation[]
+  userLocationAccess       UserLocationAccess[]
+  walletReconciliations    WalletReconciliation[]
+  notifications            UserNotification[]
+  ledgerEntries            FinanceLedgerEntry[]
 
   @@index([catalogType], map: "idx_locations_catalog_type")
   @@map("locations")
@@ -288,20 +328,23 @@ model SaleItem {
 }
 
 model Wallet {
-  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  personName          String                @map("person_name")
+  id                  String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  personName          String                 @map("person_name")
   type                String
   currency            String
-  balance             Decimal               @default(0) @db.Decimal(10, 2)
-  purpose             String                @default("operational")
-  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  location_id         String?               @db.Uuid
+  balance             Decimal                @default(0) @db.Decimal(10, 2)
+  purpose             String                 @default("operational")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location_id         String?                @db.Uuid
   expenses            Expense[]
   purchaseOrders      PurchaseOrder[]
   sales               Sale[]
   wallet_transactions wallet_transactions[]
-  locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  locations           Location?              @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  reconciliations     WalletReconciliation[]
+  notifications       UserNotification[]
+  ledgerEntries       FinanceLedgerEntry[]
 
   @@unique([location_id, type, currency, purpose], map: "wallets_location_type_currency_purpose_key")
   @@index([location_id], map: "idx_wallets_location")
@@ -310,10 +353,11 @@ model Wallet {
 }
 
 model ExpenseCategory {
-  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name      String
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  expenses  Expense[]
+  id            String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name          String
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  expenses      Expense[]
+  ledgerEntries FinanceLedgerEntry[]
 
   @@map("expense_categories")
 }
@@ -343,10 +387,13 @@ model Seller {
   createdAt             DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   location_id           String?                 @db.Uuid
+  user_id               String?                 @unique @db.Uuid
   commissions           Commission[]
   sales                 Sale[]
   seller_category_rates seller_category_rates[]
   locations             Location?               @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  user                  User?                   @relation("SellerAccount", fields: [user_id], references: [id], onDelete: SetNull)
+  ledgerEntries         FinanceLedgerEntry[]
 
   @@index([location_id], map: "idx_sellers_location")
   @@map("sellers")
@@ -743,26 +790,98 @@ model seller_category_rates {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model wallet_transactions {
-  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  wallet_id      String    @db.Uuid
-  sale_id        String?   @db.Uuid
+  id             String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  wallet_id      String              @db.Uuid
+  sale_id        String?             @db.Uuid
   type           String
-  amount         Decimal   @db.Decimal(10, 2)
-  balance_before Decimal   @db.Decimal(10, 2)
-  balance_after  Decimal   @db.Decimal(10, 2)
+  amount         Decimal             @db.Decimal(10, 2)
+  balance_before Decimal             @db.Decimal(10, 2)
+  balance_after  Decimal             @db.Decimal(10, 2)
   description    String?
-  created_at     DateTime? @default(now()) @db.Timestamptz(6)
-  expense_id     String?   @db.Uuid
-  currency       String?   @default("SRD")
+  created_at     DateTime?           @default(now()) @db.Timestamptz(6)
+  expense_id     String?             @db.Uuid
+  currency       String?             @default("SRD")
   reference_type String?
-  reference_id   String?   @db.Uuid
-  expenses       Expense?  @relation(fields: [expense_id], references: [id], onUpdate: NoAction)
-  sales          Sale?     @relation(fields: [sale_id], references: [id], onUpdate: NoAction)
-  wallets        Wallet    @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reference_id   String?             @db.Uuid
+  expenses       Expense?            @relation(fields: [expense_id], references: [id], onUpdate: NoAction)
+  sales          Sale?               @relation(fields: [sale_id], references: [id], onUpdate: NoAction)
+  wallets        Wallet              @relation(fields: [wallet_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ledgerEntry    FinanceLedgerEntry?
 
   @@index([created_at(sort: Desc)], map: "idx_wallet_transactions_created")
   @@index([expense_id], map: "idx_wallet_transactions_expense")
   @@index([reference_type], map: "idx_wallet_transactions_reference_type")
   @@index([sale_id], map: "idx_wallet_transactions_sale")
   @@index([wallet_id], map: "idx_wallet_transactions_wallet")
+}
+
+model WalletReconciliation {
+  id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  walletId           String    @map("wallet_id") @db.Uuid
+  locationId         String?   @map("location_id") @db.Uuid
+  confirmedBalance   Decimal   @map("confirmed_balance") @db.Decimal(10, 2)
+  note               String?
+  reconciledByUserId String?   @map("reconciled_by_user_id") @db.Uuid
+  reconciledAt       DateTime  @default(now()) @map("reconciled_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  wallet             Wallet    @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  location           Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  reconciledBy       User?     @relation("WalletReconciledBy", fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, reconciledAt(sort: Desc)], map: "idx_wallet_reconciliations_wallet_recent")
+  @@map("wallet_reconciliations")
+}
+
+model UserNotification {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  walletId         String?   @map("wallet_id") @db.Uuid
+  locationId       String?   @map("location_id") @db.Uuid
+  notificationType String    @map("notification_type")
+  title            String
+  body             String
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  readAt           DateTime? @map("read_at") @db.Timestamptz(6)
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(6)
+  metadata         Json      @default("{}")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet           Wallet?   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  location         Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_user_notifications_user_unread")
+  @@map("user_notifications")
+}
+
+model FinanceLedgerEntry {
+  id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  walletTransactionId String?              @unique @map("wallet_transaction_id") @db.Uuid
+  walletId            String?              @map("wallet_id") @db.Uuid
+  locationId          String?              @map("location_id") @db.Uuid
+  sellerId            String?              @map("seller_id") @db.Uuid
+  categoryId          String?              @map("category_id") @db.Uuid
+  actorUserId         String?              @map("actor_user_id") @db.Uuid
+  eventType           String               @map("event_type")
+  direction           String
+  amount              Decimal              @db.Decimal(10, 2)
+  currency            String               @db.VarChar(10)
+  sourceType          String?              @map("source_type")
+  sourceId            String?              @map("source_id") @db.Uuid
+  counterparty        String?
+  description         String?
+  correlationId       String               @default(dbgenerated("uuid_generate_v4()")) @map("correlation_id") @db.Uuid
+  occurredAt          DateTime             @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  metadata            Json                 @default("{}")
+  walletTransaction   wallet_transactions? @relation(fields: [walletTransactionId], references: [id], onDelete: Restrict)
+  wallet              Wallet?              @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  location            Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  seller              Seller?              @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  category            ExpenseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  actor               User?                @relation("LedgerActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt(sort: Desc)], map: "idx_finance_ledger_entries_occurred")
+  @@index([walletId, occurredAt(sort: Desc)], map: "idx_finance_ledger_entries_wallet_occurred")
+  @@index([locationId, occurredAt(sort: Desc)], map: "idx_finance_ledger_entries_location_occurred")
+  @@index([sourceType, sourceId], map: "idx_finance_ledger_entries_source")
+  @@map("finance_ledger_entries")
 }

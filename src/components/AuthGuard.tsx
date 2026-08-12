@@ -17,6 +17,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const isPublic = isPublicRoute(pathname)
   const requiresAdmin = isAdminRoute(pathname)
+  const isSellerRoute = pathname === '/seller'
+  const canUseSellerRoute = user?.role === 'seller' || isAdmin
 
   // Public routes should render immediately without showing admin loading UI
   if (isPublic) {
@@ -38,7 +40,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace(getAccessDeniedRedirect())
       return
     }
-  }, [isAuthenticated, loading, pathname, router, isPublic, requiresAdmin, isAdmin])
+    if (isAuthenticated && isSellerRoute && !canUseSellerRoute) {
+      router.replace(getAccessDeniedRedirect())
+    }
+  }, [isAuthenticated, loading, pathname, router, isPublic, requiresAdmin, isAdmin, isSellerRoute, canUseSellerRoute])
 
   // Show loading state while checking auth
   if (loading) {
@@ -97,6 +102,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (isSellerRoute && !canUseSellerRoute) {
+    return <WorkspaceLoadingScreen title="Access denied" subtitle="Your account does not have seller access." />
   }
 
   // Authenticated and authorized, show content

@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob'
+import { del, get, list, put } from '@vercel/blob'
 import { createHash, randomUUID } from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { BACKUP_VERSION, type BackupBlobSaveResult, type BackupKind, type BackupPayload, type BackupValidationResult } from '@/types/backup'
@@ -11,6 +11,7 @@ export const TABLE_ORDER = [
   'blogCategories',
   'blogTags',
   'locations',
+  'userLocationAccess',
   'exchangeRates',
   'storeSettings',
   'sellers',
@@ -23,6 +24,7 @@ export const TABLE_ORDER = [
   'stock',
   'stockTransfers',
   'wallets',
+  'walletReconciliations',
   'goals',
   'financeObligations',
   'purchaseOrders',
@@ -34,6 +36,8 @@ export const TABLE_ORDER = [
   'commissions',
   'expenses',
   'walletTransactions',
+  'financeLedgerEntries',
+  'userNotifications',
   'budgets',
   'blogPosts',
   'blogPostTags',
@@ -59,6 +63,7 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   blogCategories: 'blog_categories',
   blogTags: 'blog_tags',
   locations: 'locations',
+  userLocationAccess: 'user_location_access',
   exchangeRates: 'exchange_rates',
   storeSettings: 'store_settings',
   sellers: 'sellers',
@@ -71,6 +76,7 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   stock: 'stock',
   stockTransfers: 'stock_transfers',
   wallets: 'wallets',
+  walletReconciliations: 'wallet_reconciliations',
   goals: 'goals',
   financeObligations: 'finance_obligations',
   purchaseOrders: 'purchase_orders',
@@ -82,6 +88,8 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   commissions: 'commissions',
   expenses: 'expenses',
   walletTransactions: 'wallet_transactions',
+  financeLedgerEntries: 'finance_ledger_entries',
+  userNotifications: 'user_notifications',
   budgets: 'budgets',
   blogPosts: 'blog_posts',
   blogPostTags: 'blog_post_tags',
@@ -97,6 +105,10 @@ export const TABLE_DB_NAMES: Record<BackupTableName, string> = {
   activityLogs: 'activity_logs',
 }
 
+// Session tokens are intentionally excluded. Restoring one would revive an
+// old login session; users safely sign in again after a restore.
+const NON_BACKUP_TABLES = ['app_sessions'] as const
+
 export const DELETE_ORDER = [
   'activityLogs',
   'siteAnalyticsEvents',
@@ -111,7 +123,10 @@ export const DELETE_ORDER = [
   'blogPostTags',
   'blogPosts',
   'budgets',
+  'userNotifications',
+  'financeLedgerEntries',
   'walletTransactions',
+  'walletReconciliations',
   'expenses',
   'commissions',
   'saleItems',
@@ -134,6 +149,7 @@ export const DELETE_ORDER = [
   'sellers',
   'storeSettings',
   'exchangeRates',
+  'userLocationAccess',
   'locations',
   'blogTags',
   'blogCategories',
@@ -167,7 +183,7 @@ export async function getUntrackedPublicTables(): Promise<string[]> {
       AND table_type = 'BASE TABLE'
     ORDER BY table_name
   `
-  const trackedDbTables = new Set(Object.values(TABLE_DB_NAMES))
+  const trackedDbTables = new Set([...Object.values(TABLE_DB_NAMES), ...NON_BACKUP_TABLES])
 
   return rows
     .map((row) => row.table_name)
@@ -212,6 +228,7 @@ export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   await fetchTable('blogCategories', () => prisma.blogCategory.findMany())
   await fetchTable('blogTags', () => prisma.blogTag.findMany())
   await fetchTable('locations', () => prisma.location.findMany())
+  await fetchTable('userLocationAccess', () => prisma.userLocationAccess.findMany())
   await fetchTable('exchangeRates', () => prisma.exchangeRate.findMany())
   await fetchTable('storeSettings', () => prisma.storeSetting.findMany())
   await fetchTable('sellers', () => prisma.seller.findMany())
@@ -224,6 +241,7 @@ export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   await fetchTable('stock', () => prisma.stock.findMany())
   await fetchTable('stockTransfers', () => prisma.stockTransfer.findMany())
   await fetchTable('wallets', () => prisma.wallet.findMany())
+  await fetchTable('walletReconciliations', () => prisma.walletReconciliation.findMany())
   await fetchTable('goals', () => prisma.goal.findMany())
   await fetchTable('financeObligations', () => prisma.financeObligation.findMany())
   await fetchTable('purchaseOrders', () => prisma.purchaseOrder.findMany())
@@ -235,6 +253,8 @@ export async function exportAllTables(): Promise<Record<string, unknown[]>> {
   await fetchTable('commissions', () => prisma.commission.findMany())
   await fetchTable('expenses', () => prisma.expense.findMany())
   await fetchTable('walletTransactions', () => prisma.wallet_transactions.findMany())
+  await fetchTable('financeLedgerEntries', () => prisma.financeLedgerEntry.findMany())
+  await fetchTable('userNotifications', () => prisma.userNotification.findMany())
   await fetchTable('budgets', () => prisma.budget.findMany())
   await fetchTable('blogPosts', () => prisma.blogPost.findMany())
   await fetchTable('blogPostTags', () => prisma.blogPostTag.findMany())
@@ -429,30 +449,55 @@ export function validateBackupPayload(candidate: unknown): BackupValidationResul
   }
 }
 
-export function isAllowedBackupUrl(url: string): boolean {
-  try {
-    const parsedUrl = new URL(url)
-    return parsedUrl.protocol === 'https:'
-      && (parsedUrl.hostname.endsWith('.public.blob.vercel-storage.com') || parsedUrl.hostname.endsWith('.blob.vercel-storage.com'))
-  } catch {
-    return false
+function getBackupBlobOptions() {
+  const token = process.env.BACKUP_BLOB_READ_WRITE_TOKEN
+  const storeId = process.env.BACKUP_BLOB_STORE_ID
+
+  if (!token || !storeId) {
+    throw new Error('Private backup storage is not configured. Set BACKUP_BLOB_READ_WRITE_TOKEN and BACKUP_BLOB_STORE_ID.')
   }
+
+  return { token, storeId }
 }
 
-export async function fetchBackupFromUrl(url: string): Promise<unknown> {
-  if (!isAllowedBackupUrl(url)) {
-    throw new Error('Invalid backup URL. Only Vercel Blob backup files are supported.')
+export function isValidBackupPathname(pathname: string): boolean {
+  return pathname.startsWith('backups/')
+    && !pathname.includes('..')
+    && !pathname.includes('\\')
+    && pathname.endsWith('.json')
+}
+
+export async function fetchBackupFromPathname(pathname: string): Promise<unknown> {
+  if (!isValidBackupPathname(pathname)) {
+    throw new Error('Invalid backup pathname.')
   }
 
-  const response = await fetch(url, {
-    cache: 'no-store',
+  const result = await get(pathname, {
+    access: 'private',
+    useCache: false,
+    ...getBackupBlobOptions(),
   })
 
-  if (!response.ok) {
-    throw new Error(`Unable to fetch backup file (${response.status}).`)
+  if (!result || result.statusCode !== 200) {
+    throw new Error('Unable to fetch the private backup file.')
   }
 
-  return response.json()
+  return new Response(result.stream).json()
+}
+
+export async function listPrivateBackups(prefix = 'backups/') {
+  return list({
+    prefix,
+    ...getBackupBlobOptions(),
+  })
+}
+
+export async function deletePrivateBackup(pathname: string) {
+  if (!isValidBackupPathname(pathname)) {
+    throw new Error('Invalid backup pathname.')
+  }
+
+  await del(pathname, getBackupBlobOptions())
 }
 
 function getFilenamePrefix(type: string) {
@@ -462,20 +507,14 @@ function getFilenamePrefix(type: string) {
 }
 
 export async function saveBackupToBlob(backup: BackupPayload, options?: { prefix?: string }): Promise<BackupBlobSaveResult> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN
-
-  if (!token) {
-    throw new Error('BLOB_READ_WRITE_TOKEN is not configured.')
-  }
-
   const timestamp = backup.createdAt.replace(/[:.]/g, '-')
   const filename = `backups/${options?.prefix ?? getFilenamePrefix(backup.type)}-${timestamp}-${backup.backupId.slice(0, 8)}.json`
   const content = JSON.stringify(backup)
 
   const blob = await put(filename, content, {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
-    token,
+    ...getBackupBlobOptions(),
   })
 
   return {
