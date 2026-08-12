@@ -15,7 +15,12 @@ After:  <verification numbers>
 Notes:  <anything surprising>
 ```
 
-**Migration agent:** _(set this before starting — only this agent applies DDL to production)_
+**Migration agent: `claude`** — the only agent permitted to apply DDL to production.
+`codex` is the code agent and must never make a schema change.
+Swap these if Codex is the one holding Supabase access; only one agent may hold the role.
+
+**Supabase plan: free.** Branching is unavailable — use the transactional DDL protocol in
+Part 1 of the runbook. Do not try `create_branch`.
 
 ---
 

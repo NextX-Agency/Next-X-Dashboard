@@ -69,7 +69,52 @@ DATABASE_URL="postgresql://u:p@localhost:5432/db" DIRECT_URL="postgresql://u:p@l
 
 **Database access.** Use the Supabase MCP tools. `mcp__Supabase__execute_sql` for reads and verification, `mcp__Supabase__apply_migration` for DDL. Project ref is `ivvhazwjtnyznojeoojs`.
 
-**Test migrations on a branch, never on production first.** `mcp__Supabase__create_branch` gives an isolated copy. Apply, verify, then `merge_branch`. Every task that changes schema must do this.
+### Testing migrations — read this before your first migration
+
+**The organisation is on the Supabase free plan, where database branching is not available.**
+`create_branch` will fail. Do not spend time diagnosing it, and do not proceed to production without
+the protocol below.
+
+**Use transactional DDL instead.** Postgres applies schema changes inside a transaction, so a
+migration can be applied, verified, and rolled back atomically on production itself:
+
+```sql
+BEGIN;
+
+-- 1. the migration
+ALTER TABLE public.sale_items ADD COLUMN unit_cost_usd NUMERIC(18,4);
+
+-- 2. the backfill
+UPDATE public.sale_items si SET unit_cost_usd = i.purchase_price_usd
+FROM public.items i WHERE si.item_id = i.id AND si.unit_cost_usd IS NULL;
+
+-- 3. verification, inside the same transaction
+SELECT count(*) AS should_be_zero FROM public.sale_items WHERE unit_cost_usd IS NULL;
+SELECT count(*) AS should_be_149 FROM public.sales;
+
+-- 4. COMMIT only if every check passed. Otherwise ROLLBACK.
+COMMIT;
+```
+
+Rules for this protocol:
+
+- **Run the verification queries inside the transaction, before COMMIT.** That is the entire point —
+  a bad result means `ROLLBACK` and nothing happened.
+- **One migration per transaction.** Never batch.
+- **Take a backup immediately before each migration** once T-01 has made restore safe.
+- `CREATE INDEX CONCURRENTLY` cannot run inside a transaction. No migration in this plan needs it —
+  use a plain `CREATE INDEX`, which can.
+- If `apply_migration` auto-commits, use `execute_sql` with an explicit `BEGIN`/`COMMIT` block so you
+  control the boundary.
+
+**What this protocol does not protect against**, and you should know it: a migration that succeeds
+and verifies but is *conceptually* wrong — right syntax, wrong intent. Only the Part 6 suite and
+careful reading catch that. This is why R1 (additive only) matters more here than it would with
+branching available.
+
+> **If the organisation is upgraded to Pro**, prefer real branching — `create_branch` → apply →
+> verify → `merge_branch` — and treat the transactional protocol as the fallback. Check with
+> `mcp__Supabase__list_branches`; if it returns without error and the plan allows it, branching is on.
 
 **Checks before any commit:**
 
@@ -87,13 +132,13 @@ For every task, in order, without deviation:
 
 1. **Claim the task** in `docs/IMPLEMENTATION_LOG.md` and push (Part 8), then read it fully, plus any task it depends on.
 2. **Run the task's "before" verification query.** Record the number.
-3. **Create a Supabase branch** if the task changes schema.
+3. **Open a transaction** (`BEGIN`) if the task changes schema — see Part 1. Branching is unavailable on this plan.
 4. **Make the change** — one task, one migration, one commit.
 5. **Backfill** in the same migration as the schema change. Never separate them.
 6. **Run the "after" verification query** plus the global suite in Part 6.
 7. **If any global count moved and the task didn't predict it — STOP.** Revert, investigate, report.
 8. **Run** `pnpm lint`, `prisma validate`, `pnpm build`.
-9. **Merge the branch** to production.
+9. **COMMIT** if every verification passed; `ROLLBACK` and stop if any failed.
 10. **Commit** with the message given in the task.
 11. **Append the result** to `docs/IMPLEMENTATION_LOG.md`: task ID, before/after numbers, anything surprising.
 
@@ -102,7 +147,7 @@ For every task, in order, without deviation:
 **Stop conditions — halt and report rather than improvising:**
 
 - A global verification count moved unexpectedly
-- A migration fails partway on production (not a branch)
+- A migration fails partway, or a verification inside the transaction returns an unexpected value
 - A task's "before" number doesn't match what this plan says it should be
 - You are about to delete, overwrite or drop anything financial
 - The change you think is needed contradicts this plan
@@ -212,7 +257,7 @@ Nothing else may start until this phase completes.
 - Raise `timeout` and `maxWait` in the transaction options; a full restore exceeds the 5s default. Use 120000ms.
 - If one transaction proves impractical, restore into a staging schema and swap. **Do not ship the current behaviour.**
 
-**Verify:** create a Supabase branch. Export a backup, corrupt one table's payload, restore, and confirm the branch database is unchanged — not wiped.
+**Verify:** export a backup, corrupt one table's payload in the file, run the restore, and confirm the database is unchanged — not wiped. Do this inside a transaction you roll back, or against a local Supabase stack (`supabase start`), never as an uncontrolled production experiment.
 
 **Done when:** a deliberately failed restore leaves the database exactly as it was.
 
@@ -289,7 +334,7 @@ The insert targets `category`, `payment_method`, `date` — none exist — omits
 
 **Do not backfill the historical SRD 9,458 here** — that is T-09's report (Part 5).
 
-**Verify:** pay a test commission on a branch; confirm exactly one expense, one wallet debit, one ledger entry, `paid = true`. Force a failure mid-transaction and confirm nothing persists.
+**Verify:** pay a test commission inside a rolled-back transaction; confirm exactly one expense, one wallet debit, one ledger entry, `paid = true`. Force a failure mid-transaction and confirm nothing persists.
 
 **Commit:** `fix(commissions): post payouts transactionally through the expense path`
 
@@ -587,7 +632,7 @@ A draw is an expense with `classification = 'owner_draw'` — already exists, al
 
 Per-run options remain available for manual runs and for editing a draft: recipients and split, source wallet, method, amount override with reason, defer/skip, savings transfer adjust. Savings moves as a `wallet_transfer` to the existing savings wallet.
 
-**Verify each breaker with a synthetic month on a branch** — force a negative trailing average, a reserve breach, a 3× anomaly, and an unposted subscription, and confirm each downgrades to a draft rather than posting.
+**Verify each breaker with a synthetic month inside a rolled-back transaction** — force a negative trailing average, a reserve breach, a 3× anomaly, and an unposted subscription, and confirm each downgrades to a draft rather than posting.
 
 **Verify against the back-test:** trailing-3 for 2026-07 is SRD 4,789 and 20% is SRD 958. **If your code produces a different number, reconcile before shipping.**
 
@@ -737,7 +782,7 @@ recover from.
 **Only one agent applies migrations to production. Ever.**
 
 Designate that agent at the start — it must be the one holding Supabase MCP access. The other agent
-does code-only work and **never** calls `apply_migration`, `merge_branch`, or any DDL. If you are
+does code-only work and **never** calls `apply_migration`, `execute_sql` with DDL, or any schema change. If you are
 the code-only agent and a task requires a migration, stop and hand the task over rather than
 finding another route to the database.
 
