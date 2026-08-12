@@ -303,6 +303,18 @@ Jan–Jul nets to roughly SRD 38,500, about SRD 5,500 a month — but that figur
 
 Revenue is also trending down — 41.6k in January against a 25.1k average since — with June collapsing to 10.5k. That argues for a modest fixed draw, not a variable sweep of surplus cash.
 
+**F-28 (High) — Stock purchasing outruns sell-through by SRD 4,508 a month**
+
+Purchases booked to `Business Expense` average SRD 16,344/month while COGS actually consumed by sales averages SRD 11,836/month. Over seven months that is **SRD 31,552 of cash turned into shelf stock**, reconciling almost exactly with the USD 788.57 (~SRD 29,966) on hand — of which 86% is dead or overstocked (F-25).
+
+This is the answer to "can we pay ourselves": the constraint is not earnings, it is that roughly SRD 4,500 a month is being spent on stock that does not sell. Fixing restock discipline releases more cash than any realistic owner draw. Full analysis in §7.
+
+**F-29 (Medium) — "Personal Items" is an unclassifiable dumping ground**
+
+Nine transactions, SRD 10,662, containing at least three different kinds of thing: probable inventory (~SRD 6,460 — Anne Klein watches, headlight kits, a dongle and splitter), genuine personal consumption (~SRD 2,546 — Shein, a card game), one subscription (Spotify, SRD 456), and one unlabelled SRD 1,200 entry.
+
+Two consequences. The only subscription record in the entire system is filed here, under a personal-spending label. And any attempt to compute an operating run rate — which is what sizes your payout — has to guess at this bucket. It is the concrete case for making classification mandatory at entry (F-20).
+
 **F-27 (Medium) — Expense recording has lapsed**
 
 The last expense was recorded 2026-07-31; the last sale was 2026-08-08. Twelve days of trading with sales posting and not one cost recorded. Manual entry decays, which is the structural argument for automating the recurring ones.
@@ -458,13 +470,145 @@ Show every line, not just the total. The value of this screen is that it explain
 
 **Surfaces.** `GET /api/finance/owner-draw` returns the breakdown; `POST` records the draw through the expense path. A panel on `/finance` showing safe-to-draw with its derivation, draw history, and total drawn year to date.
 
+**The monthly automation, the per-payout options and the recommended amounts are specified in §7**, which analyses what the business can actually sustain alongside restocking and savings.
+
 **Done means:** a draw posts as an `owner_draw` expense with wallet debit and ledger entry; it appears in the ledger and activity log with the actor recorded; drawing above the safe amount requires an explicit reason; and the year-to-date total is visible on one screen.
 
 **One caveat, stated plainly.** Build this last of the three. The safe-to-draw number is only as honest as the expense classification behind it, and today every expense is `unclassified` — so the reserve floor would be computed from a run rate that mixes stock purchases with rent. Shipping this before F-20 and F-15 are fixed would produce a confident, precise, wrong number, which is worse than no number at all.
 
 ---
 
-## 7. Roadmap
+## 7. Month-end close and payout policy
+
+You asked how much you can pay yourselves each month, allowing for restocking and savings. Here is the answer the data supports, and the mechanism to run it automatically.
+
+### 7.1 Two things the data changed
+
+**You already have a savings wallet, and it holds SRD 17,000.** `purpose = 'savings'` exists on wallets and one is funded. So the three-way split already has somewhere to go, and the real cash picture is not one pot:
+
+| | Amount |
+|---|---|
+| Operational SRD (3 bank + 3 cash wallets) | 25,005.99 |
+| Operational USD | 534.00 |
+| **Savings SRD** (ring-fenced) | **17,000.00** |
+| Less: unpaid commissions already owed | (1,431.63) |
+
+Working capital is therefore **SRD 25,006**, not the SRD 42,006 headline. That distinction matters for every number below.
+
+**"Personal Items" is not owner pay — it's a dumping ground.** Nine transactions, SRD 10,662, and they are three different things wearing one label:
+
+| Looks like | Examples | SRD |
+|---|---|---|
+| Probable inventory | Anne Klein watch, Anne Klein re-order, Headlight Restore Kit, Headlights, Dongle/Splitter | ~6,460 |
+| Actual personal consumption | Shein, Uno No Mercy | ~2,546 |
+| A subscription | **Spotify, 2026-01-14** | 456 |
+| Unlabelled | one entry, no description | 1,200 |
+
+So no, you have not been quietly paying yourselves — but you have been filing stock purchases and your Spotify bill in the same bucket as personal spending. That single Spotify entry is the *only* subscription record in the entire system (F-24), and it is misfiled.
+
+### 7.2 What the business actually generates
+
+Averages across the seven complete months, January to July:
+
+| Line | SRD / month | % of revenue |
+|---|---|---|
+| Revenue (line-level) | 27,734 | 100% |
+| Less COGS at actual sell-through | 11,836 | 42.7% |
+| **Gross profit** | **15,897** | **57.3%** |
+| Less operating — shipping, marketing, Copilot | 4,332 | 15.6% |
+| Less subscriptions not yet recorded (Codex + Claude + Spotify, est.) | ~1,970 | 7.1% |
+| Less commissions earned | 1,511 | 5.4% |
+| **Net cash generated** | **~8,084** | **29.1%** |
+
+A 57.3% gross margin is healthy. The estimate for unrecorded subscriptions is derived from your own data — the misfiled Spotify entry was SRD 456, and Copilot already runs at SRD 752/month — so roughly SRD 2,000/month of real cost is currently invisible. **Recording your subscriptions properly raises operating costs by about 45%.** That is not a new cost; it is a cost you are already paying.
+
+### 7.3 The real leak is restocking, not pay
+
+| | SRD / month |
+|---|---|
+| Spent buying stock ("Business Expense") | 16,344 |
+| COGS actually consumed by sales | 11,836 |
+| **Overbought** | **4,508** |
+
+Over seven months that is **SRD 31,552 of cash converted into shelf stock**. It reconciles almost exactly with the USD 788.57 (~SRD 29,966) of inventory on hand — and 86% of that stock is dead or overstocked (F-25).
+
+**This is the single biggest finding for your question.** You are not short of money to pay yourselves; you are buying stock faster than you sell it, at roughly SRD 4,500 a month. Fixing restocking discipline frees more cash than any draw you would realistically take.
+
+### 7.4 The bad-month test
+
+June, re-run with subscriptions properly recorded:
+
+```
+Revenue                10,500
+− COGS                  4,475
+= Gross profit          6,025
+− operating + subs      6,302
+− commissions             602
+= net                    −879
+```
+
+**A June-like month loses money once subscriptions are on the books.** Any payout policy has to survive that, which rules out sweeping surplus cash and argues for a modest fixed draw backed by a real reserve.
+
+### 7.5 Recommended policy
+
+**Reserve floor: SRD 23,439** — three months of operating, subscriptions and commissions. Savings holds SRD 17,000, so you are **SRD 6,439 short**. Top that up before raising pay.
+
+Allocate the ~SRD 8,084 average monthly net in this order:
+
+1. **Restock — capped at trailing-3-month COGS, and zero for dead lines.** Not a share of profit; a ceiling. This is the discipline that frees SRD 4,500/month.
+2. **Savings — 30% of net until the reserve floor is met, then 15%.** At current run rate the floor is reached in about three months.
+3. **Owner draw — SRD 2,500/month fixed to start**, rising to **SRD 3,500** once the reserve floor is met and real subscription costs are known.
+
+Sizing check: SRD 2,500 is 31% of average net, leaves roughly SRD 3,200/month after the savings transfer, and in a June-type month draws SRD 3,379 from reserve — survivable for many months at a SRD 23,439 floor. Review quarterly, and take any variable top-up as an explicit quarterly decision when operating cash exceeds the floor plus one month, never as an automatic sweep.
+
+> Every figure here inherits the error bars in §4. Revenue is inflated by the 6.7% booked with no COGS, expenses are missing SRD 9,458 of commission payouts, and the classification split above is inferred from category names rather than the `classification` column, because all 83 expenses are `unclassified`. Treat SRD 2,500 as a defensible opening position to be re-derived after Phase 1, not a precise entitlement.
+
+### 7.6 Mechanism: the month-end run
+
+**Ordering is the whole design.** A payout computed before all costs are posted pays out money that is already spent.
+
+```
+Days 1–28    subscriptions post on their own anchor days (§6.1)
+Last day     23:00  month-end close job:
+               1. verify every subscription due this month posted
+               2. verify commissions for the month are recorded
+               3. block if any wallet is unreconciled this month
+               4. compute allocation → restock cap, savings, draw
+               5. create a DRAFT payout run and notify admins
+Next day     admin reviews, adjusts, approves → posts atomically
+```
+
+**Draft, then approve — not blind auto-post.** A cron that moves money out of the business unattended is how a bad month becomes a worse one. The job proposes; a human approves. Optionally allow auto-post when the amount is at or under the policy cap *and* no warning fired, so a normal month needs one click and an abnormal month needs a decision.
+
+**Payout options, per run.** Each draft is editable before posting:
+
+| Option | Behaviour |
+|---|---|
+| Recipients | one or more owners, with a split — percentage or fixed amount each |
+| Source wallet | which operational wallet, per currency; never mixes currencies in one line |
+| Method | cash or bank, matching the wallet type |
+| Amount | accept the computed figure, or override with a required reason |
+| Defer / skip | roll this month's draw forward, recorded as skipped with a reason |
+| Savings transfer | accept, adjust or skip the transfer to the savings wallet |
+
+**Traceability — the requirement you named.** Every posted line reuses the existing expense path, so it inherits the guarantees already in the system rather than inventing new ones:
+
+- an `expenses` row with `classification = 'owner_draw'`, vendor set to the recipient, and the period key
+- an atomic wallet debit
+- a `wallet_transactions` row
+- a `finance_ledger_entries` row — append-only, immutable, DB-enforced
+- an `activity_logs` entry naming the approving admin
+- all lines of one run sharing a `correlation_id`, so a month's payout is a single auditable object
+
+The savings transfer posts as a `wallet_transfer` between the operational and savings wallets — an event type the ledger already supports. Reversal is a contra entry, never a delete (F-06).
+
+**Guardrails.** Refuse if the wallet would go negative. Refuse above the safe amount without a typed reason. Warn when the exchange rate is stale (F-19). Block entirely if the month has unposted subscriptions or an unreconciled wallet — a payout is the reward for closing the month, so it should be gated on the month actually being closed.
+
+**Done means:** on the last day of each month a draft run appears with restock cap, savings transfer and draw computed and explained line by line; approving it posts every leg atomically under one correlation ID; running the job twice produces one run, not two; and a year-to-date owner-draw total is visible on `/finance`.
+
+---
+
+## 8. Roadmap
 
 **Phase 0 — Stop the bleeding (about 1 week)**
 
@@ -529,11 +673,11 @@ The BPA flow you admire, on your own stack:
 - Automatic FX revaluation at period close, posting to FX gain/loss (F-10, F-19)
 - Month-end close checklist gating the period lock
 
-Roughly 13–17 weeks total on your existing stack, delivered incrementally, versus 4–8 months of migration during which nothing else ships.
+Roughly 14–18 weeks total on your existing stack, delivered incrementally, versus 4–8 months of migration during which nothing else ships.
 
 ---
 
-## 8. Metrics to run the business on
+## 9. Metrics to run the business on
 
 Once Phase 3 lands, these become computable per company and consolidated. Track them monthly.
 
@@ -565,7 +709,7 @@ Once Phase 3 lands, these become computable per company and consolidated. Track 
 
 ---
 
-## 9. Summary
+## 10. Summary
 
 | | |
 |---|---|
@@ -575,7 +719,8 @@ Once Phase 3 lands, these become computable per company and consolidated. Track 
 | **Most urgent security** | F-04, F-05 — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all |
 | **Most damaging to decisions** | F-01 plus F-18 — 6.7% of revenue is booked at 100% margin today, and every historical margin is retroactively mutable |
 | **Biggest blocker to multi-company** | F-07 — no legal entity in the model |
-| **Your three asks** | F-24 subscriptions never deduct · F-25 86% of inventory capital is dead or overstocked · F-26 no owner has ever been paid, and the run rate can't yet say what's safe. All three specified in §6 |
-| **Effort** | ~13–17 weeks phased, versus 4–8 months migrating |
+| **Your three asks** | F-24 subscriptions never deduct · F-25 86% of inventory capital is dead or overstocked · F-26 no owner has ever been paid. Specified in §6 |
+| **What you can pay yourselves** | **SRD 2,500/month** to start, rising to SRD 3,500 once savings reaches the SRD 23,439 reserve floor. But the real constraint is F-28 — SRD 4,508/month is going into stock that doesn't sell. Full derivation in §7 |
+| **Effort** | ~14–18 weeks phased, versus 4–8 months migrating |
 
 Phase 0 and 0.5 are worth starting regardless of which direction you choose — those fixes and that cleanup are needed even if you did migrate to Odoo, because the data you'd carry across has to be trustworthy first.

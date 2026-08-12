@@ -517,12 +517,12 @@
       assessed for what it takes to run several legal entities on it.
     </p>
     <div class="meta-strip">
-      <span><b>27</b> findings</span>
+      <span><b>29</b> findings</span>
       <span><b>6</b> critical</span>
-      <span><b>10</b> high</span>
-      <span><b>10</b> medium</span>
+      <span><b>11</b> high</span>
+      <span><b>11</b> medium</span>
       <span><b>1</b> low</span>
-      <span>Est. remediation <b>13–17 weeks</b></span>
+      <span>Est. remediation <b>14–18 weeks</b></span>
     </div>
   </header>
 
@@ -958,6 +958,24 @@
       </div>
 
       <div class="finding">
+        <div class="f-id"><span>F-28</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>Stock purchasing outruns sell-through by SRD 4,508 a month</h4>
+          <p>Purchases booked to <code>Business Expense</code> average <span class="num">SRD 16,344</span>/month while COGS actually consumed by sales averages <span class="num">SRD 11,836</span>/month. Over seven months that is <strong>SRD 31,552 of cash turned into shelf stock</strong> — reconciling almost exactly with the USD 788.57 (~SRD 29,966) on hand, of which 86% is dead or overstocked (F-25).</p>
+          <p>This is the answer to "can we pay ourselves". The constraint is not earnings — it's that roughly SRD 4,500 a month goes into stock that doesn't sell. Fixing restock discipline releases more cash than any realistic owner draw. Full analysis in §7.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-29</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>"Personal Items" is an unclassifiable dumping ground</h4>
+          <p>Nine transactions, <span class="num">SRD 10,662</span>, containing at least three different kinds of thing: probable inventory (~SRD 6,460 — Anne Klein watches, headlight kits, a dongle and splitter), genuine personal consumption (~SRD 2,546 — Shein, a card game), one subscription (Spotify, SRD 456), and one unlabelled SRD 1,200 entry.</p>
+          <p>Two consequences. The only subscription record in the entire system is filed here, under a personal-spending label. And any attempt to compute an operating run rate — which is what sizes your payout — has to guess at this bucket. It's the concrete case for making classification mandatory at entry (F-20).</p>
+        </div>
+      </div>
+
+      <div class="finding">
         <div class="f-id"><span>F-27</span><span class="chip medium">Medium</span></div>
         <div class="f-body">
           <h4>Expense recording has lapsed</h4>
@@ -1132,7 +1150,205 @@ cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Roadmap</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Month-end close and payout policy</h2></div>
+    <p>
+      You asked how much you can pay yourselves each month, allowing for restocking and savings. Here is
+      the answer the data supports, and the mechanism to run it automatically.
+    </p>
+
+    <h3>Two things the data changed</h3>
+    <p>
+      <strong>You already have a savings wallet, and it holds SRD 17,000.</strong> The <code>purpose</code>
+      field already carries a <code>savings</code> value and one wallet is funded — so the three-way split
+      has somewhere to go, and the real cash picture is not one pot:
+    </p>
+    <div class="tbl-scroll">
+      <table>
+        <tbody>
+          <tr><td style="width:62%">Operational SRD (3 bank + 3 cash wallets)</td><td class="num">25,005.99</td></tr>
+          <tr><td>Operational USD</td><td class="num">USD 534.00</td></tr>
+          <tr><td><strong>Savings SRD</strong> — ring-fenced</td><td class="num"><strong>17,000.00</strong></td></tr>
+          <tr><td>Less: unpaid commissions already owed</td><td class="num fail">(1,431.63)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Working capital is therefore <strong>SRD 25,006</strong>, not the SRD 42,006 headline. That
+      distinction matters for every number below.
+    </p>
+    <p>
+      <strong>"Personal Items" is not owner pay — it's a dumping ground.</strong> Nine transactions,
+      SRD 10,662, and they're three different things wearing one label: probable inventory (~SRD 6,460 —
+      Anne Klein watches, headlight kits, a dongle and splitter), genuine personal consumption
+      (~SRD 2,546 — Shein, a card game), one subscription (<strong>Spotify, SRD 456</strong>), and one
+      unlabelled SRD 1,200 entry. So no, you haven't been quietly paying yourselves — but you have been
+      filing stock purchases and your Spotify bill alongside personal spending, and that Spotify entry is
+      the only subscription record in the entire system.
+    </p>
+
+    <h3>What the business actually generates</h3>
+    <p>Averages across the seven complete months, January to July:</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:56%">Line</th><th>SRD / month</th><th>% of revenue</th></tr></thead>
+        <tbody>
+          <tr><td>Revenue (line-level)</td><td class="num">27,734</td><td class="num">100%</td></tr>
+          <tr><td>Less COGS at actual sell-through</td><td class="num">11,836</td><td class="num">42.7%</td></tr>
+          <tr><td><strong>Gross profit</strong></td><td class="num"><strong>15,897</strong></td><td class="num"><strong>57.3%</strong></td></tr>
+          <tr><td>Less operating — shipping, marketing, Copilot</td><td class="num">4,332</td><td class="num">15.6%</td></tr>
+          <tr><td>Less subscriptions not yet recorded (est.)</td><td class="num fail">~1,970</td><td class="num">7.1%</td></tr>
+          <tr><td>Less commissions earned</td><td class="num">1,511</td><td class="num">5.4%</td></tr>
+          <tr><td><strong>Net cash generated</strong></td><td class="num"><strong style="color:var(--good)">~8,084</strong></td><td class="num"><strong>29.1%</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      A 57.3% gross margin is healthy. The subscription estimate comes from your own data — the misfiled
+      Spotify entry was SRD 456 and Copilot already runs at SRD 752/month — so roughly SRD 2,000/month of
+      real cost is currently invisible. <strong>Recording your subscriptions properly raises operating
+      costs by about 45%.</strong> That isn't a new cost; it's one you already pay.
+    </p>
+
+    <h3>The real leak is restocking, not pay</h3>
+    <div class="tbl-scroll">
+      <table>
+        <tbody>
+          <tr><td style="width:62%">Spent buying stock ("Business Expense")</td><td class="num">SRD 16,344 / mo</td></tr>
+          <tr><td>COGS actually consumed by sales</td><td class="num">SRD 11,836 / mo</td></tr>
+          <tr><td><strong>Overbought</strong></td><td class="num"><strong style="color:var(--crit)">SRD 4,508 / mo</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Over seven months that's <strong>SRD 31,552 of cash converted into shelf stock</strong> — which
+      reconciles almost exactly with the USD 788.57 (~SRD 29,966) of inventory on hand, 86% of it dead or
+      overstocked.
+    </p>
+    <div class="verdict" style="margin-top:22px">
+      <p class="verdict-label">The finding that answers your question</p>
+      <p style="margin-bottom:0">
+        You are not short of money to pay yourselves. You are buying stock faster than you sell it, at
+        roughly <strong>SRD 4,500 a month</strong>. Fixing restocking discipline frees more cash than any
+        draw you would realistically take.
+      </p>
+    </div>
+
+    <h3>The bad-month test</h3>
+    <p>June, re-run with subscriptions properly recorded:</p>
+    <pre>Revenue                10,500
+− COGS                  4,475
+<span class="cm">= Gross profit          6,025</span>
+− operating + subs      6,302
+− commissions             602
+<span class="dr">= net                    −879</span></pre>
+    <p>
+      <strong>A June-like month loses money once subscriptions are on the books.</strong> Any payout
+      policy has to survive that — which rules out sweeping surplus cash, and argues for a modest fixed
+      draw backed by a real reserve.
+    </p>
+
+    <h3>Recommended policy</h3>
+    <p>
+      <strong>Reserve floor: SRD 23,439</strong> — three months of operating, subscriptions and
+      commissions. Savings holds SRD 17,000, so you are <strong>SRD 6,439 short</strong>. Top that up
+      before raising pay. Then allocate the ~SRD 8,084 average monthly net in this order:
+    </p>
+    <div class="phase">
+      <div class="p-tag"><span class="n">First</span><span class="t">a ceiling</span></div>
+      <div>
+        <h4>Restock — capped at trailing-3-month COGS, zero for dead lines</h4>
+        <p>Not a share of profit, a limit. This is the discipline that frees SRD 4,500/month.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="p-tag"><span class="n">Second</span><span class="t">~3 months</span></div>
+      <div>
+        <h4>Savings — 30% of net until the reserve floor, then 15%</h4>
+        <p>At current run rate the SRD 23,439 floor is reached in about three months.</p>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="p-tag"><span class="n">Third</span><span class="t">fixed</span></div>
+      <div>
+        <h4>Owner draw — SRD 2,500/month, rising to SRD 3,500</h4>
+        <p>Increase only once the reserve floor is met and real subscription costs are known.</p>
+      </div>
+    </div>
+    <p style="margin-top:22px">
+      Sizing check: SRD 2,500 is 31% of average net, leaves roughly SRD 3,200/month after the savings
+      transfer, and in a June-type month draws SRD 3,379 from reserve — survivable for many months at a
+      SRD 23,439 floor. Review quarterly, and take any variable top-up as an explicit quarterly decision
+      when operating cash exceeds the floor plus one month, never as an automatic sweep.
+    </p>
+    <p class="correction">
+      <b>Error bars</b>Every figure here inherits the findings in §4. Revenue is inflated by the 6.7%
+      booked with no COGS, expenses are missing SRD 9,458 of commission payouts, and the classification
+      split above is inferred from category names rather than the <code>classification</code> column,
+      because all 83 expenses are unclassified. Treat SRD 2,500 as a defensible opening position to be
+      re-derived after Phase 1 — not a precise entitlement.
+    </p>
+
+    <h3>Mechanism: the month-end run</h3>
+    <p>
+      <strong>Ordering is the whole design.</strong> A payout computed before all costs are posted pays
+      out money that is already spent.
+    </p>
+    <pre>Days 1–28    subscriptions post on their own anchor days (§6.1)
+
+Last day     23:00  month-end close job:
+               1. verify every subscription due this month posted
+               2. verify commissions for the month are recorded
+               3. block if any wallet is unreconciled this month
+               4. compute allocation → restock cap, savings, draw
+               5. create a <span class="cr">DRAFT</span> payout run and notify admins
+
+Next day     admin reviews, adjusts, approves → posts atomically</pre>
+    <p>
+      <strong>Draft, then approve — not blind auto-post.</strong> A cron that moves money out of the
+      business unattended is how a bad month becomes a worse one. The job proposes; a human approves.
+      Optionally allow auto-post when the amount is at or under the policy cap <em>and</em> no warning
+      fired, so a normal month needs one click and an abnormal month needs a decision.
+    </p>
+    <p>Each draft is editable before posting — these are the per-payout options:</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:26%">Option</th><th>Behaviour</th></tr></thead>
+        <tbody>
+          <tr><td>Recipients</td><td>One or more owners, with a split — percentage or fixed amount each</td></tr>
+          <tr><td>Source wallet</td><td>Which operational wallet, per currency; never mixes currencies in one line</td></tr>
+          <tr><td>Method</td><td>Cash or bank, matching the wallet type</td></tr>
+          <tr><td>Amount</td><td>Accept the computed figure, or override with a required reason</td></tr>
+          <tr><td>Defer / skip</td><td>Roll this month's draw forward, recorded as skipped with a reason</td></tr>
+          <tr><td>Savings transfer</td><td>Accept, adjust or skip the transfer to the savings wallet</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Traceability — the requirement you named.</strong> Every posted line reuses the existing
+      expense path, so it inherits guarantees already in the system rather than inventing new ones:
+    </p>
+    <ul class="plain">
+      <li>An <code>expenses</code> row with <code>classification = 'owner_draw'</code>, vendor set to the recipient, and the period key</li>
+      <li>An atomic wallet debit and a <code>wallet_transactions</code> row</li>
+      <li>A <code>finance_ledger_entries</code> row — append-only, immutable, database-enforced</li>
+      <li>An <code>activity_logs</code> entry naming the approving admin</li>
+      <li>All lines of one run sharing a <code>correlation_id</code>, so a month's payout is a single auditable object</li>
+    </ul>
+    <p>
+      The savings transfer posts as a <code>wallet_transfer</code> between the operational and savings
+      wallets — an event type the ledger already supports. Reversal is a contra entry, never a delete.
+    </p>
+    <p>
+      <strong>Guardrails.</strong> Refuse if the wallet would go negative. Refuse above the safe amount
+      without a typed reason. Warn when the exchange rate is stale. Block entirely if the month has
+      unposted subscriptions or an unreconciled wallet — a payout is the reward for closing the month, so
+      it should be gated on the month actually being closed.
+    </p>
+    <p class="f-fix"><b>Done means</b>On the last day of each month a draft run appears with restock cap, savings transfer and draw computed and explained line by line; approving it posts every leg atomically under one correlation ID; running the job twice produces one run, not two; and a year-to-date owner-draw total is visible on <code>/finance</code>.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Roadmap</h2></div>
     <p>Ordered so each phase is independently valuable, and nothing later depends on reopening the Odoo question.</p>
 
     <div class="phase">
@@ -1237,13 +1453,13 @@ cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
     </div>
 
     <p style="margin-top:26px">
-      Roughly <strong>13–17 weeks</strong> on your existing stack, delivered incrementally — against
+      Roughly <strong>14–18 weeks</strong> on your existing stack, delivered incrementally — against
       4–8 months of migration during which nothing else ships.
     </p>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Metrics to run the business on</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 09</span><h2>Metrics to run the business on</h2></div>
     <p>Once Phase 3 lands these become computable per company and consolidated. Track them monthly.</p>
 
     <div class="metrics">
@@ -1297,7 +1513,7 @@ cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 09</span><h2>Summary</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 10</span><h2>Summary</h2></div>
     <div class="tbl-scroll">
       <table>
         <tbody>
@@ -1307,8 +1523,9 @@ cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
           <tr><td>Most urgent security</td><td><span class="num">F-04</span>, <span class="num">F-05</span> — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all.</td></tr>
           <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> + <span class="num">F-18</span> — 6.7% of revenue is booked at 100% margin today, and every historical margin is retroactively mutable.</td></tr>
           <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
-          <tr><td>Your three asks</td><td><span class="num">F-24</span> subscriptions never deduct · <span class="num">F-25</span> 86% of inventory capital is dead or overstocked · <span class="num">F-26</span> no owner has ever been paid, and the run rate can't yet say what's safe. All three specified in §6.</td></tr>
-          <tr><td>Effort</td><td class="num">~13–17 weeks phased, vs. 4–8 months migrating</td></tr>
+          <tr><td>Your three asks</td><td><span class="num">F-24</span> subscriptions never deduct · <span class="num">F-25</span> 86% of inventory capital is dead or overstocked · <span class="num">F-26</span> no owner has ever been paid. Specified in §6.</td></tr>
+          <tr><td>What you can pay yourselves</td><td><strong>SRD 2,500/month</strong> to start, rising to SRD 3,500 once savings reaches the SRD 23,439 reserve floor. But the real constraint is <span class="num">F-28</span> — SRD 4,508/month is going into stock that doesn't sell. Derivation in §7.</td></tr>
+          <tr><td>Effort</td><td class="num">~14–18 weeks phased, vs. 4–8 months migrating</td></tr>
         </tbody>
       </table>
     </div>
