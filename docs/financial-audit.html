@@ -1,0 +1,929 @@
+<title>NextX Financial Audit</title>
+<style>
+  /* ---------- Tokens: complete light palette on bare :root ---------- */
+  :root {
+    --paper:      #F6F8F4;
+    --surface:    #FFFFFF;
+    --surface-2:  #EEF2EB;
+    --rule:       #D3DCD0;
+    --rule-soft:  #E4EAE1;
+    --ink:        #14201C;
+    --ink-2:      #3E4E48;
+    --ink-3:      #6B7A73;
+    --accent:     #0F6E5C;
+    --accent-2:   #0B5548;
+    --accent-wash:#E3EFE9;
+    --brass:      #8A6114;
+    --brass-wash: #F4ECDB;
+    --crit:       #A32118;
+    --crit-wash:  #F7E4E2;
+    --high:       #8A6114;
+    --high-wash:  #F4ECDB;
+    --med:        #3F5C6B;
+    --med-wash:   #E4EDF1;
+    --good:       #0F6E5C;
+    --shadow:     0 1px 2px rgba(20,32,28,.05), 0 8px 24px -12px rgba(20,32,28,.12);
+
+    --serif: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0C1513;
+      --surface:    #121D1A;
+      --surface-2:  #17241F;
+      --rule:       #263733;
+      --rule-soft:  #1D2C28;
+      --ink:        #E7EFEA;
+      --ink-2:      #AFC0B8;
+      --ink-3:      #7E9089;
+      --accent:     #56C4A6;
+      --accent-2:   #7FD8BF;
+      --accent-wash:#122E28;
+      --brass:      #D9A94F;
+      --brass-wash: #2C2413;
+      --crit:       #EF8078;
+      --crit-wash:  #331A18;
+      --high:       #D9A94F;
+      --high-wash:  #2C2413;
+      --med:        #8FB3C4;
+      --med-wash:   #16262D;
+      --good:       #56C4A6;
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0C1513;
+    --surface:    #121D1A;
+    --surface-2:  #17241F;
+    --rule:       #263733;
+    --rule-soft:  #1D2C28;
+    --ink:        #E7EFEA;
+    --ink-2:      #AFC0B8;
+    --ink-3:      #7E9089;
+    --accent:     #56C4A6;
+    --accent-2:   #7FD8BF;
+    --accent-wash:#122E28;
+    --brass:      #D9A94F;
+    --brass-wash: #2C2413;
+    --crit:       #EF8078;
+    --crit-wash:  #331A18;
+    --high:       #D9A94F;
+    --high-wash:  #2C2413;
+    --med:        #8FB3C4;
+    --med-wash:   #16262D;
+    --good:       #56C4A6;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  /* ---------- Base ---------- */
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.62;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+  }
+
+  p { margin: 0 0 1.05em; max-width: 68ch; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  strong { font-weight: 650; color: var(--ink); }
+  code {
+    font-family: var(--mono);
+    font-size: .855em;
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: .1em .36em;
+    word-break: break-word;
+  }
+
+  /* ---------- Masthead ---------- */
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 68px 0 26px;
+    margin-bottom: 4px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(2.4rem, 6.2vw, 3.7rem);
+    line-height: 1.04;
+    letter-spacing: -.021em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+  }
+  .standfirst {
+    font-size: 1.14rem;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 60ch;
+    margin: 0;
+  }
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 26px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .05em;
+    color: var(--ink-3);
+    padding: 14px 0 0;
+  }
+  .meta-strip span b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- Verdict ---------- */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 34px 34px 28px;
+    margin: 42px 0 0;
+    box-shadow: var(--shadow);
+  }
+  .verdict-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  .verdict p.lede {
+    font-family: var(--serif);
+    font-size: clamp(1.4rem, 3.2vw, 1.78rem);
+    line-height: 1.32;
+    letter-spacing: -.012em;
+    color: var(--ink);
+    text-wrap: balance;
+    margin: 0 0 20px;
+    max-width: 30ch;
+  }
+  .verdict p { color: var(--ink-2); margin-bottom: .9em; }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  /* ---------- Sections ---------- */
+  section { padding-top: 62px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+    margin-bottom: 30px;
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .1em;
+    color: var(--accent);
+    flex: none;
+    padding-top: 4px;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.5rem, 3.6vw, 1.95rem);
+    letter-spacing: -.016em;
+    line-height: 1.2;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: .93rem;
+    font-weight: 650;
+    letter-spacing: .01em;
+    margin: 34px 0 12px;
+  }
+
+  /* ---------- Two-column compare ---------- */
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+    gap: 2px;
+    background: var(--rule-soft);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 26px 0;
+  }
+  .cols > div { background: var(--surface); padding: 22px 24px; }
+  .cols h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+    color: var(--ink-3);
+  }
+  .cols .gain h4 { color: var(--good); }
+  .cols .cost h4 { color: var(--crit); }
+  .cols p { font-size: .93rem; margin: 0; color: var(--ink-2); }
+
+  /* ---------- Tables ---------- */
+  .tbl-scroll { overflow-x: auto; margin: 24px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .9rem;
+    min-width: 480px;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-bottom: 10px;
+  }
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+    padding: 0 16px 9px 0;
+    vertical-align: bottom;
+  }
+  td {
+    padding: 13px 16px 13px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+  td:first-child { color: var(--ink); font-weight: 550; }
+  tr:last-child td { border-bottom: none; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Findings ledger ---------- */
+  .ledger { border-top: 1px solid var(--rule); margin: 26px 0 0; }
+  .finding {
+    border-bottom: 1px solid var(--rule-soft);
+    padding: 22px 0;
+    display: grid;
+    grid-template-columns: 108px 1fr;
+    gap: 4px 22px;
+    align-items: start;
+  }
+  .f-id {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    color: var(--ink-3);
+    padding-top: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 2px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .chip.critical { color: var(--crit); background: var(--crit-wash); }
+  .chip.high     { color: var(--high); background: var(--high-wash); }
+  .chip.medium   { color: var(--med);  background: var(--med-wash); }
+  .f-body h4 {
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.35;
+    margin: 0 0 8px;
+    color: var(--ink);
+    text-wrap: balance;
+  }
+  .f-body p { font-size: .93rem; margin: 0 0 .7em; color: var(--ink-2); }
+  .f-body p:last-child { margin-bottom: 0; }
+  .f-fix {
+    font-size: .88rem;
+    color: var(--ink-2);
+    border-left: 2px solid var(--accent);
+    padding-left: 13px;
+    margin-top: 12px;
+  }
+  .f-fix b {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+
+  /* ---------- Code / journal ---------- */
+  pre {
+    font-family: var(--mono);
+    font-size: 12.4px;
+    line-height: 1.72;
+    background: var(--surface-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 18px 0;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  pre .dr { color: var(--crit); }
+  pre .cr { color: var(--good); }
+  pre .cm { color: var(--ink-3); font-style: italic; }
+
+  /* ---------- Good list ---------- */
+  ul.plain { list-style: none; padding: 0; margin: 20px 0; display: grid; gap: 11px; }
+  ul.plain li {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 12px;
+    font-size: .93rem;
+    color: var(--ink-2);
+    max-width: 72ch;
+  }
+  ul.plain li::before {
+    content: "✓";
+    color: var(--good);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  /* ---------- Phases ---------- */
+  .phase {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 6px 24px;
+    padding: 22px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: start;
+  }
+  .phase:first-of-type { border-top: 1px solid var(--rule); }
+  .p-tag { padding-top: 2px; }
+  .p-tag .n {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    font-weight: 600;
+  }
+  .p-tag .t {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .phase h4 {
+    font-size: 1rem;
+    font-weight: 650;
+    margin: 0 0 9px;
+    color: var(--ink);
+  }
+  .phase ul { margin: 0; padding-left: 17px; font-size: .91rem; color: var(--ink-2); }
+  .phase li { margin-bottom: 4px; }
+  .phase li::marker { color: var(--ink-3); }
+  .phase p { font-size: .91rem; margin: 0 0 .6em; }
+
+  /* ---------- Metrics ---------- */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(228px, 1fr));
+    gap: 2px;
+    background: var(--rule-soft);
+    border: 1px solid var(--rule-soft);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 24px 0;
+  }
+  .metrics > div { background: var(--surface); padding: 20px 22px; }
+  .metrics h4 {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 11px;
+  }
+  .metrics ul { margin: 0; padding-left: 16px; font-size: .885rem; color: var(--ink-2); }
+  .metrics li { margin-bottom: 6px; }
+  .metrics li::marker { color: var(--ink-3); }
+
+  .closer {
+    border-top: 2px solid var(--ink);
+    margin-top: 62px;
+    padding-top: 26px;
+    font-size: .95rem;
+    color: var(--ink-2);
+    max-width: 68ch;
+  }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 0 20px 90px; }
+    .finding { grid-template-columns: 1fr; gap: 12px; }
+    .f-id { flex-direction: row; align-items: center; gap: 10px; }
+    .phase { grid-template-columns: 1fr; gap: 12px; }
+    .verdict { padding: 26px 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">
+      <span>NextX Agency</span>
+      <span>Financial Systems Audit</span>
+      <span>12 August 2026</span>
+    </p>
+    <h1>Build the ledger. Don't migrate to Odoo.</h1>
+    <p class="standfirst">
+      A review of the money-handling layer across 47 data models, 53 API routes and every
+      client-side financial write path — and what it takes to run several legal entities on it.
+    </p>
+    <div class="meta-strip">
+      <span><b>14</b> findings</span>
+      <span><b>5</b> critical</span>
+      <span><b>4</b> high</span>
+      <span><b>5</b> medium</span>
+      <span>Est. remediation <b>10–14 weeks</b></span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <p class="verdict-label">The decision</p>
+    <p class="lede">Adopt Odoo's accounting model, not Odoo itself.</p>
+    <p>
+      The instinct is right — Odoo 19's automated bill-processing flow is genuinely good, and real
+      accounting is what you're missing. But your system is not primarily an accounting system. It's an
+      operational system with accounting attached, and the operational half is where your business lives:
+      per-person cash wallets in SRD and USD, per-category seller commissions, location-scoped stock and
+      reservations, dual catalogs, the webshop and CMS.
+    </p>
+    <p>
+      Odoo replaces maybe 30% of that and forces a rewrite of the rest into Python, XML and OWL —
+      4–8 months, Enterprise licensing per user <em>per company</em>, and no operational features shipping
+      throughout. Meanwhile you have already built the part most teams get wrong.
+      <code>finance_ledger_entries</code> is append-only and enforced in the database by
+      <code>prevent_finance_ledger_mutation()</code>, with automatic capture from wallet transactions
+      via trigger. What's missing on top of it — a chart of accounts and balanced debit/credit legs — is
+      weeks of work, not months.
+    </p>
+    <p>
+      One thing worth naming: <strong>a company entity has to be built either way.</strong> Odoo wouldn't
+      spare you the modelling work of deciding what a legal entity means in your business. It would only
+      move that work into an unfamiliar stack.
+    </p>
+  </div>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 01</span><h2>What Odoo trades away</h2></div>
+    <div class="cols">
+      <div class="gain">
+        <h4>What you'd gain</h4>
+        <p>
+          Double-entry general ledger, chart of accounts, native multi-company with consolidation,
+          multi-currency with FX revaluation, AP/AR aging, bank reconciliation, tax and VAT reporting,
+          lock dates, and the automated bill ingestion you're inspired by.
+        </p>
+      </div>
+      <div class="cost">
+        <h4>What you'd give up</h4>
+        <p>
+          The operational layer that is roughly 70% of the system and all of your edge — plus the
+          Next.js and TypeScript stack your team is already productive in.
+        </p>
+      </div>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <caption>Fit assessment by capability</caption>
+        <thead>
+          <tr><th style="width:38%">Your capability</th><th style="width:14%">Odoo fit</th><th>Reality</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Per-person cash wallets, SRD + USD, cash vs bank, purpose-scoped</td>
+            <td>Poor</td>
+            <td>Odoo has journals and analytic accounts, not "cash Kevin is holding." Forcing it into analytic tags loses the accountability model entirely.</td>
+          </tr>
+          <tr>
+            <td>Seller commissions with per-category rates</td>
+            <td>Poor</td>
+            <td>Needs a custom module written from scratch.</td>
+          </tr>
+          <tr>
+            <td>Location stock, reservations, combo pricing, custom price with discount reason</td>
+            <td>Partial</td>
+            <td>Possible, but heavy customization of stock and sales modules.</td>
+          </tr>
+          <tr>
+            <td>Watches + audio dual catalog, webshop, CMS, collections, blog</td>
+            <td>Rebuild</td>
+            <td>Re-implemented in Odoo's own website stack.</td>
+          </tr>
+          <tr>
+            <td>Next.js 16 / React 19 / TypeScript frontend</td>
+            <td>Discarded</td>
+            <td>Odoo is Python, XML and OWL. Different language, different team.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>When to revisit this</h3>
+    <p>
+      If you need statutory audited financials or VAT filings across several legal entities, add Odoo —
+      or any standard package — <em>downstream</em> as the book of record, fed by a nightly journal export
+      from your own ledger. You get compliance and BPA-style automation without surrendering the
+      operational system. Adopt it as a consumer of your data, not a replacement for it.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 02</span><h2>What's already right</h2></div>
+    <p>Worth stating plainly, because it's the reason the build path works at all.</p>
+    <ul class="plain">
+      <li><strong>Immutable ledger.</strong> <code>finance_ledger_entries</code> blocks UPDATE and DELETE at the database layer, with a message directing you to corrective entries. This is correct practice.</li>
+      <li><strong>Automatic ledger capture.</strong> The <code>wallet_transactions_capture_ledger</code> trigger means even client-side writes land in the ledger — the backstop holds despite finding F-02.</li>
+      <li><strong>FX snapshot on sales.</strong> <code>sales.exchange_rate</code> is stored per sale rather than looked up later.</li>
+      <li><strong>Correlation IDs</strong> on every ledger entry — the foundation for grouping the legs of a future double-entry transaction.</li>
+      <li><strong>Expense controls.</strong> Classification, status, vendor, receipt number, reviewer identity, refund tracking. Real internal-control thinking.</li>
+      <li><strong>Wallet reconciliation</strong> with confirmed balance and the identity of who reconciled it.</li>
+      <li><strong>DECIMAL throughout</strong> rather than floating point, and an obligations table with due dates and source tracing.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 03</span><h2>Findings</h2></div>
+
+    <div class="ledger">
+
+      <div class="finding">
+        <div class="f-id"><span>F-01</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Historical gross profit is retroactively mutable</h4>
+          <p><code>sale_items</code> records <code>unit_price</code> but no cost. COGS is computed from live master data in <code>reportCalculations.ts:107</code>, reading <code>item.purchasePriceUsd</code> at report time.</p>
+          <p>Editing an item's purchase price silently rewrites gross profit on <strong>every past sale of that item</strong> — last quarter's margins change when you renegotiate with a supplier. Compounding it, <code>cogsSrd = cogsUsd × exchangeRate</code> applies a <em>current</em> rate to a <em>historical</em> cost, so SRD margins drift with every FX move.</p>
+          <p class="f-fix"><b>Fix</b>Add <code>unit_cost_usd</code> and <code>fx_rate_at_sale</code> to <code>sale_items</code>, written at sale time. Backfill from current values, flagged as estimated.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-02</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Financial writes are client-side, non-atomic, on the anon key</h4>
+          <p><code>sales/page.tsx:467–860</code> performs roughly eight sequential unguarded writes from the browser: sales → sale_items → stock → commissions → wallets → wallet_transactions. Any failure or closed tab mid-sequence leaves partial financial state.</p>
+          <p>The only rollback is a manual delete of the sale header at line 509 — which does not undo stock decrements or wallet credits that happen <em>after</em> it. The existence of <code>create-missing-commissions</code>, <code>recalculate-commissions</code>, <code>check-commission</code>, <code>fix-combo-price</code> and a root-level <code>check-commission-currency.js</code> is direct evidence this path drifts in production.</p>
+          <p class="f-fix"><b>Fix</b>One server route, one <code>prisma.$transaction</code>. The pattern already exists at <code>api/seller/sales/route.ts:89</code>.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-03</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Wallet and stock balances use read-modify-write</h4>
+          <p><code>sales/page.tsx:715</code> writes <code>balance: matchingWallet.balance + total</code>, where the balance was read at page load. Two concurrent sales against the same wallet means the second overwrites the first — and that money vanishes from the balance with no error. Same pattern for stock at line 528.</p>
+          <p class="f-fix"><b>Fix</b>Atomic SQL increments, or derive balances from the ledger and treat <code>wallets.balance</code> as a cache.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-04</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Every authenticated user has full control of all financial data</h4>
+          <p>All 80 RLS policies follow one shape: <code>FOR ALL USING (auth.role() = 'authenticated')</code> — on wallets, expenses, sales, commissions and exchange rates, with no location scoping and no role check.</p>
+          <p>Combined with the anon key shipped to the browser, any user who can log in can rewrite any wallet balance or delete any commission from the browser console. There is no segregation of duties at the data layer, and this gets materially worse the moment two legal entities share a database.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-05</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Unauthenticated endpoints that mutate financial data</h4>
+          <p><code>/api/delete-commissions</code> has no auth guard and hard-deletes commission rows by ID. <code>/api/recalculate-commissions</code>, <code>/api/fix-combo-price</code>, <code>/api/migrate</code> and <code>/api/delete</code> are likewise unguarded. Compare <code>/api/debug-profit</code>, which correctly calls <code>requireAdmin</code>.</p>
+          <p class="f-fix"><b>Fix</b>Guard them or delete them. Repair endpoints shouldn't exist in production once F-02 is fixed.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-06</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>"Undo Sale" hard-deletes financial records</h4>
+          <p>The undo path deletes commissions, then sale items, then the sale. Accounting convention is never to delete — you post a reversing entry. Because the ledger is correctly immutable while the subledger rows are destroyed, ledger and operational tables <strong>permanently diverge</strong> after every undo.</p>
+          <p class="f-fix"><b>Fix</b>A <code>voided</code> status plus contra entries sharing the original <code>correlation_id</code>.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-07</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>No company or legal entity in the data model</h4>
+          <p>The schema has <code>Location</code> and nothing above it; every financial table scopes by <code>location_id</code>. A location is not a legal entity — one company has many locations, and multi-company demands per-entity books, intercompany elimination and separate statements. This is the central blocker for the direction you're heading.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-08</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>The ledger is single-entry</h4>
+          <p><code>finance_ledger_entries</code> has a <code>direction</code> of in or out and a single amount. That's a cash-movement journal, not double-entry. Without a chart of accounts and balanced legs you can produce a cash-flow view but <strong>not a balance sheet or a trial balance</strong> — and no way to prove the books balance. Inventory, receivables, payables and equity are invisible as accounts.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-09</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>Decimal(10,2) will overflow</h4>
+          <p>26 money columns cap at 99,999,999.99. At roughly 40 SRD per USD that ceiling is about USD 2.5M — reachable for cumulative wallet balances or annual revenue aggregates. Rates at <code>Decimal(10,4)</code> are tight too.</p>
+          <p class="f-fix"><b>Fix</b><code>Decimal(18,4)</code> for amounts, <code>Decimal(18,8)</code> for rates.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-10</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>No FX revaluation or gain/loss tracking</h4>
+          <p>USD-denominated wallets are never revalued and there is no FX gain/loss account. Under SRD volatility this misstates results by a material amount.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-11</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>No period close or lock date</h4>
+          <p>Nothing prevents backdating into a reported month or editing last year. Every serious system has a lock date and a close checklist behind it.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-12</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>Commission isn't recognised as a liability when earned</h4>
+          <p>It's inserted client-side alongside the sale, then becomes a wallet movement only when someone manually pays it. Between earning and payment it is an unrecorded obligation — so margins look better than they are.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-13</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>Obligations are disconnected from the ledger</h4>
+          <p><code>finance_obligations</code> tracks receivables and payables in its own table with no AR/AP accounts behind it, so it can't roll into a balance sheet or produce an aging report.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-14</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>Budget spend is an unreconciled counter</h4>
+          <p><code>budgets.amount_spent</code> is denormalised with no visible reconciliation against actual expense records.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 04</span><h2>Target architecture</h2></div>
+    <p>Four additions on top of what already exists.</p>
+
+    <h3>1 — Company, the legal entity</h3>
+    <p>
+      <code>Company</code> carries name, legal name, base currency, tax ID and fiscal year start;
+      <code>Location.company_id</code> points at it. Every financial table gains <code>company_id</code>,
+      denormalised deliberately so RLS and reporting never need a join to enforce isolation. Backfill
+      existing rows to a default company — the migration is mechanical.
+    </p>
+
+    <h3>2 — Account, a chart of accounts per company</h3>
+    <pre>1000  Assets       1010 Cash SRD · 1020 Cash USD · 1200 Receivable · 1400 Inventory
+2000  Liabilities  2100 Payable · 2200 Commissions Payable · 2300 Tax Payable
+3000  Equity       3100 Owner Capital · 3200 Retained Earnings · 3300 Owner Draws
+4000  Income       4100 Product Sales · 4900 FX Gain
+5000  Expenses     5000 COGS · 5100 Payroll · 5200 Marketing · 5900 FX Loss</pre>
+    <p>Each wallet maps to an account; each expense classification maps to an account. That mapping is most of the migration.</p>
+
+    <h3>3 — Journal entries, double-entry above the existing ledger</h3>
+    <p>
+      <code>JournalEntry</code> holds company, date, correlation ID, source, posting metadata and a
+      reversal pointer. <code>JournalLine</code> holds account, debit, credit, currency, FX rate, base
+      amount, location and seller. Enforce that debits equal credits per entry with a trigger — the same
+      approach already proven on <code>finance_ledger_entries</code>. Keep that table as the cash
+      subledger; the journal becomes the book of record above it. A sale then posts as one balanced entry:
+    </p>
+    <pre><span class="dr">Dr</span> 1010 Cash SRD              5,600.00   <span class="cm">— wallet receives</span>
+<span class="dr">Dr</span> 5000 COGS                  3,200.00   <span class="cm">— snapshotted cost, fixes F-01</span>
+   <span class="cr">Cr</span> 4100 Product Sales                 5,600.00
+   <span class="cr">Cr</span> 1400 Inventory                     3,200.00
+<span class="dr">Dr</span> 5300 Commission Expense      280.00
+   <span class="cr">Cr</span> 2200 Commissions Payable             280.00   <span class="cm">— fixes F-12</span></pre>
+
+    <h3>4 — Accounting period, the lock</h3>
+    <p>
+      A period per company with an open, closed or locked status. A trigger rejects any journal line dated
+      inside a locked period — which fixes F-11 and makes F-01 structurally impossible going forward.
+    </p>
+
+    <h3>Intercompany</h3>
+    <p>
+      When company A pays an expense for company B, post two balanced entries linked by
+      <code>correlation_id</code>, hitting <em>Due from Related Party</em> and <em>Due to Related Party</em>.
+      Consolidated reporting sums all entities and eliminates those two accounts against each other.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 05</span><h2>Roadmap</h2></div>
+    <p>Ordered so each phase is independently valuable, and nothing later depends on reopening the Odoo question.</p>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 0</span><span class="t">~1 week</span></div>
+      <div>
+        <h4>Stop the bleeding</h4>
+        <p>The highest risk-to-effort ratio in the whole plan.</p>
+        <ul>
+          <li>Add auth guards to the five unguarded mutation endpoints, or delete them <span class="num">(F-05)</span></li>
+          <li>Replace read-modify-write with atomic increments on wallets and stock <span class="num">(F-03)</span></li>
+          <li>Replace blanket RLS with company, location and role scoping <span class="num">(F-04)</span></li>
+          <li>Widen money columns to <code>Decimal(18,4)</code> <span class="num">(F-09)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 1</span><span class="t">2–3 weeks</span></div>
+      <div>
+        <h4>Trustworthy transactions</h4>
+        <ul>
+          <li>Move sale creation into a server route wrapped in one transaction <span class="num">(F-02)</span></li>
+          <li>Snapshot unit cost and FX rate onto sale items; backfill flagged as estimated <span class="num">(F-01)</span></li>
+          <li>Convert undo-sale to void plus contra entries <span class="num">(F-06)</span></li>
+          <li>Retire the commission repair endpoints once the write path is atomic</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 2</span><span class="t">2–3 weeks</span></div>
+      <div>
+        <h4>Multi-company foundation</h4>
+        <ul>
+          <li>Add <code>Company</code>; add <code>company_id</code> to every financial table; backfill <span class="num">(F-07)</span></li>
+          <li>Company scoping through auth context, RLS and every report</li>
+          <li>Company switcher in the UI, with a consolidated view for owners</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 3</span><span class="t">3–4 weeks</span></div>
+      <div>
+        <h4>Double-entry ledger</h4>
+        <ul>
+          <li>Accounts, journal entries and lines with the balance constraint <span class="num">(F-08)</span></li>
+          <li>Post entries from sales, expenses, commissions, purchase orders and transfers <span class="num">(F-12, F-13)</span></li>
+          <li>Trial balance, P&amp;L and balance sheet — per company and consolidated</li>
+          <li>Accounting periods with lock enforcement <span class="num">(F-11)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-tag"><span class="n">Phase 4</span><span class="t">2–3 weeks</span></div>
+      <div>
+        <h4>Automation — the Odoo-inspired part</h4>
+        <p>The BPA flow you admire, on your own stack.</p>
+        <ul>
+          <li>Bill inbox: upload or email a supplier invoice → OCR extract → draft expense → approval queue → posts on approve. The expense table already has status, vendor, receipt number and reviewer, so the model is largely there.</li>
+          <li>Recurring expenses — rent, salaries, subscriptions — auto-posted on schedule</li>
+          <li>Bank and cash reconciliation UI extending wallet reconciliations</li>
+          <li>Automatic FX revaluation at close, posting to gain/loss <span class="num">(F-10)</span></li>
+          <li>Month-end checklist gating the period lock</li>
+        </ul>
+      </div>
+    </div>
+
+    <p style="margin-top:26px">
+      Roughly <strong>10–14 weeks</strong> on your existing stack, delivered incrementally — against
+      4–8 months of migration during which nothing else ships.
+    </p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 06</span><h2>Metrics to run the business on</h2></div>
+    <p>Once Phase 3 lands these become computable per company and consolidated. Track them monthly.</p>
+
+    <div class="metrics">
+      <div>
+        <h4>Margin</h4>
+        <ul>
+          <li>Gross margin by item, category, location and company — trustworthy only after F-01</li>
+          <li>Contribution margin after commission and location costs: the number that says whether a location deserves more inventory</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Cash</h4>
+        <ul>
+          <li>Net burn and runway in months</li>
+          <li>Cash conversion cycle: DIO + DSO − DPO</li>
+          <li>Inventory turns and dead stock past 90 days — where cash hides in an inventory business</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Growth</h4>
+        <ul>
+          <li>Month-over-month revenue, with same-location growth separated from new-location growth</li>
+          <li>Revenue per location and per seller</li>
+          <li>Average order value and units per transaction</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Working capital</h4>
+        <ul>
+          <li>Receivables aging at 30, 60 and 90 days</li>
+          <li>Payables aging and upcoming obligations against projected cash</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Discipline</h4>
+        <ul>
+          <li>Discount leakage: custom-price sales against list, by seller — already captured, nothing reports on it</li>
+          <li>Expense ratio by classification against revenue</li>
+          <li>Budget variance, actual against plan</li>
+        </ul>
+      </div>
+      <div>
+        <h4>The close</h4>
+        <ul>
+          <li>Monthly close by working day five: reconcile every wallet, review unclassified expenses, revalue FX, lock the period, publish the pack</li>
+          <li>The habit is worth as much as the software</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Summary</h2></div>
+    <div class="tbl-scroll">
+      <table>
+        <tbody>
+          <tr><td style="width:32%">Decision</td><td>Build. Adopt Odoo's model, not Odoo. Revisit it later as a downstream book of record if statutory audit demands it.</td></tr>
+          <tr><td>Why</td><td>The operational layer is 70% of the system and your actual edge; the immutable ledger already exists; a company entity is required either way.</td></tr>
+          <tr><td>Most urgent</td><td><span class="num">F-04</span>, <span class="num">F-05</span> — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all.</td></tr>
+          <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> — every historical margin you have ever looked at is retroactively mutable.</td></tr>
+          <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
+          <tr><td>Effort</td><td class="num">~10–14 weeks phased, vs. 4–8 months migrating</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="closer">
+      Phase 0 is worth starting regardless of which way you go on everything else. Those fixes are needed
+      even if you did migrate to Odoo — because the data you'd carry across has to be trustworthy first.
+    </p>
+  </section>
+
+</div>
