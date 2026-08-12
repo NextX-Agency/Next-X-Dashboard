@@ -3,6 +3,7 @@
 **For:** an AI agent executing this work autonomously, in a fresh session with no prior context
 **Companion:** `docs/FINANCIAL_AUDIT.md` — 34 findings, reconciled against production on 2026-08-12
 **Hard constraint:** no existing data may be lost, and all existing data must end up meaningful under the new workflow
+**Autonomy:** run start to finish without asking anything. Every ambiguity has a defined default; every risk has a mechanical guard
 
 > **Read Parts 0–5 before executing any task.** They contain the conventions, the reference implementations, and the specific anti-patterns in this codebase that caused the findings. A task description assumes you know them.
 
@@ -136,6 +137,8 @@ That last one matters. If the codebase disagrees with this document, the codebas
 
 **R12 — Never invent a financial fact.** If a cost, a reason or an intent is unknown, mark it unknown and exclude it from derived figures. A confident wrong number is worse than a gap. See Part 5.
 
+*One deliberate exception, and only this one:* T-18 seeds subscription amounts from published list prices, flagged `amount_is_estimated`, and includes them in the run rate. This is defensible because the alternative is recording a real recurring cost as **zero**, and because the schedule corrects itself from the first observed charge. The estimate is visible, bounded and self-healing. Do not generalise it — no other task may include an invented figure in a derived total.
+
 ---
 
 ## Part 4 — Anti-patterns already in this codebase
@@ -156,11 +159,13 @@ These are real, in production, and caused the findings. Recognise them and never
 
 ---
 
-## Part 5 — Handling decisions you cannot make
+## Part 5 — Autonomous defaults for unknown facts
 
-Seven items need facts only the business owner has: whether an orphaned sale was real, whether SRD 500 was actually spent, whether "Anne Klein watch" was stock or personal.
+**You never stop to ask. You never guess either.** When a fact is genuinely unknown — whether an orphaned sale was real, whether SRD 500 was spent, whether "Anne Klein watch" was stock or personal — apply the default below and keep going.
 
-**Do not guess, and do not block on them.** Take the non-destructive default below — which preserves every option — and record the item in a review queue. The owner resolves it later without holding up any other task.
+The principle, in one line: **record the unknown as unknown, exclude it from every derived figure, and proceed.** That is not a deferral of the decision; it is the correct accounting treatment of an uncertain item, and it leaves every option open indefinitely.
+
+This is what makes the run fully autonomous without inventing a single number.
 
 **The default protocol, applied by T-09:**
 
@@ -173,17 +178,21 @@ review_reason       TEXT
 
 Then, for each unresolved item: set the flag, write the reason, **exclude the row from derived figures** (margin, run rate, payout base), and surface it on a review page. Change nothing else.
 
-| Item | Size | Automated default | Deferred decision |
-|---|---|---|---|
-| 4 sale headers with no line items | SRD 11,420.02 | Flag; exclude from margin and payout base | Restore lines or void? |
-| 4 header/line mismatches | SRD 1,050.02 | Flag; report both figures | Which is correct? |
-| Commissions paid vs wallet debits | SRD 1,451.38 | Flag; report | Cash paid unrecorded, or flag set wrongly? |
-| Blauwgrond wallet drift | SRD 500.00 | Record as unexplained variance on first reconciliation | Is the cash there? |
-| Missing commission payout expenses | SRD 9,458.05 | **Report only — do not insert** | Backfill as dated corrections? |
-| 5 zero-cost items | 2 sales | Flag; exclude from margin | Real purchase costs |
-| "Personal Items" — 9 rows | SRD 10,662 | Leave `unclassified`, flag; exclude from run rate | Inventory / personal / subscription? |
+| Item | Size | Autonomous default — apply without asking |
+|---|---|---|
+| 4 sale headers with no line items | SRD 11,420.02 | Flag; exclude from margin and payout base |
+| 4 header/line mismatches | SRD 1,050.02 | Flag; treat the line-item sum as authoritative for margin, keep the header for cash |
+| Commissions paid vs wallet debits | SRD 1,451.38 | Flag; exclude from run rate |
+| Blauwgrond wallet drift | SRD 500.00 | Record as an unexplained variance on the baseline reconciliation |
+| Missing commission payout expenses | SRD 9,458.05 | **Report only — do not insert** |
+| 5 zero-cost items | 2 sales | Flag; exclude from margin |
+| "Personal Items" — 9 rows | SRD 10,662 | Leave `unclassified`, flag; exclude from run rate |
 
-**Why "report only" for the SRD 9,458.** Inserting 106 backdated expenses silently rewrites months already reviewed. Generate the proposed rows as a report, let the owner approve, then insert as dated corrections.
+**Why the line-item sum wins on a mismatch.** It is the only figure with a cost attached, so it is the only one that can produce a margin. The header stays authoritative for cash because that is what moved through the wallet. Recording both, and saying which is used where, is more honest than picking one.
+
+**Why "report only" for the SRD 9,458.** Inserting 106 backdated expenses would silently rewrite months already reviewed — an irreversible act on historical reporting, which R1 and R11 forbid. Write the proposed rows to `docs/reports/commission-payout-backfill.csv` and flag the affected commissions. The books stay honest either way: the expense is missing, and it is now *visibly* missing rather than silently missing.
+
+**Nothing in this table blocks a task.** Every row has a default that preserves data and excludes uncertainty from derived figures. The run continues to completion.
 
 ---
 
@@ -345,13 +354,31 @@ Reconciliation has never run because there is one user (admin), zero sellers, an
 - Insert `user_location_access` with `can_manage_wallet = true` for their own location only.
 - This activates the dormant cron and creates the first segregation of duties in the system.
 
-Then prompt the owner for a physical count of all 13 wallets. Record declared vs expected; post variance as an adjustment **through a transaction row**, never a balance edit. The SRD 500 Blauwgrond gap is recorded as an unexplained variance, not silently corrected.
+**Establish the baseline without waiting for a physical count.** A human counting banknotes is the one step no software can perform, so the system must not block on it:
 
-**This count is the cutover baseline for T-21.**
+```sql
+ALTER TABLE public.wallets
+  ADD COLUMN physically_verified_at TIMESTAMPTZ,
+  ADD COLUMN baseline_established_at TIMESTAMPTZ;
+```
 
-**Verify:** `SELECT count(*) FROM user_location_access` returns 3. The reminder cron creates notifications on its next run.
+- Write a baseline reconciliation row per wallet with `expected_balance` from the ledger, `declared_balance` null, and `status = 'system_baseline'`.
+- Set `baseline_established_at = now()`, leave `physically_verified_at` null.
+- Record the SRD 500 Blauwgrond gap as an unexplained variance on its baseline row.
+- **This baseline is the cutover position for T-21.** A later physical count posts a variance adjustment against it — through a transaction row, never a balance edit.
 
-**Commit:** `feat(finance): seller accounts and baseline wallet reconciliation`
+**Enforcement escalates on its own.** Add a `finance.reconciliation_enforcement` setting:
+
+| Value | Behaviour | When |
+|---|---|---|
+| `warn` | Close and payout proceed; unverified wallets flagged | **Default.** Until the first physical count |
+| `block` | Close and payout blocked while any wallet is unverified for over 45 days | Set automatically once every wallet has been physically verified at least once |
+
+The system escalates itself the first time all 13 wallets carry a `physically_verified_at`. Automation runs from day one and tightens as the habit forms, with no one deciding to turn it on.
+
+**Verify:** `SELECT count(*) FROM user_location_access` returns 3. Every wallet has a baseline row. The reminder cron creates notifications on its next run.
+
+**Commit:** `feat(finance): seller accounts and system reconciliation baseline`
 
 ---
 
@@ -509,9 +536,25 @@ Rules: catch-up capped at **3 periods per run**; insufficient balance **skips an
 
 Daily Vercel cron, auth `Bearer ${CRON_SECRET}` following `/api/notifications/wallet-reminders`. Add paths to `PROTECTED_API_PREFIXES` in `src/proxy.ts` **and** call `requireAdmin` in the handlers.
 
-Then prompt the owner for Codex, Claude and Spotify amounts and renewal days against the USD wallet.
+**Seed the three subscriptions automatically.** Do not wait for amounts. Add `amount_is_estimated BOOLEAN NOT NULL DEFAULT false` and `anchor_day_is_estimated BOOLEAN NOT NULL DEFAULT false`, then insert against the USD operational wallet, category `Software & subscriptions`, classification `operating`:
 
-**Verify:** run the cron twice consecutively — the second run posts nothing.
+| Name | Vendor | Amount | Basis |
+|---|---|---|---|
+| Spotify | Spotify | USD 12.00/mo | **Derived from your own data** — the misfiled SRD 456 charge of 2026-01-14 ÷ 38 |
+| Claude | Anthropic | USD 20.00/mo | Published list price, flagged estimated |
+| Codex | OpenAI | USD 20.00/mo | Published list price, flagged estimated |
+
+All three: `anchor_day = 1`, both estimate flags `true`, `auto_post = true`.
+
+**Then let them self-correct.** Estimated schedules learn from reality rather than from a person:
+
+- When a manually entered expense matches a schedule's vendor within ±40% of its amount, update the schedule's amount and anchor day to the observed values and clear the estimate flags.
+- When a posted charge is later corrected, adjust the schedule to the corrected amount.
+- Flag any schedule still estimated after 60 days on the review page — visible, not blocking.
+
+An estimated subscription that is 20% wrong still puts your true operating cost within a few hundred SRD of reality, which is a far smaller error than the current one — where it is recorded as **zero**.
+
+**Verify:** run the cron twice consecutively — the second run posts nothing. Enter a manual Spotify expense at a different amount and confirm the schedule updates itself and clears the flag.
 
 **Commit:** `feat(finance): recurring subscription expenses with exactly-once posting`
 
@@ -525,11 +568,26 @@ A draw is an expense with `classification = 'owner_draw'` — already exists, al
 
 **Base is the trailing three-month average**, not the current month. Negative average pays zero. Draw never exceeds operating cash above the reserve floor. Restock % is a **purchasing ceiling, not a transfer**.
 
-**Month-end sequence:** subscriptions post on their anchor days → last day 23:00 the close job verifies subscriptions posted, commissions recorded and wallets reconciled, computes the allocation, and creates a **DRAFT** run → the owner reviews and approves → posts atomically under one `correlation_id`.
+**Month-end sequence, fully automatic:** subscriptions post on their anchor days → last day 23:00 the close job verifies subscriptions posted and commissions recorded, computes the allocation, evaluates the circuit breakers below, and **posts atomically under one `correlation_id`** — or downgrades itself to a draft.
 
-**Draft, then approve. Never auto-post unattended.** Optionally allow auto-post when the amount is under the policy cap and no warning fired.
+**Auto-post is the default.** The safety is mechanical, not a person clicking approve. Every breaker below is evaluated before posting; **any one that trips downgrades the run to a draft and notifies, rather than posting:**
 
-Per-run options: recipients and split, source wallet, method, amount override with reason, defer/skip, savings transfer adjust. Savings moves as a `wallet_transfer` to the existing savings wallet.
+| Breaker | Condition | Rationale |
+|---|---|---|
+| Negative earnings | Trailing-3 distributable ≤ 0 | Pays zero. A percentage of a loss is zero, not a smaller draw |
+| Reserve floor | Operating cash after the draw < reserve floor | Never fund a draw out of the buffer |
+| Hard cap | Computed draw > policy % of trailing-3 | Arithmetic error guard |
+| Absolute ceiling | Draw > `finance.payout_max_srd` | Blast radius limit, default SRD 10,000 |
+| Anomaly | Draw more than 2× the trailing-3-month average draw | Catches a data error before it becomes a payment |
+| Data integrity | Any wallet variance unexplained, or a subscription due this month unposted | Do not pay out of books known to be wrong |
+| Stale FX | Active exchange rate older than 30 days | A USD leg priced on a stale rate misstates what left |
+| Reconciliation | Under `block` enforcement, any wallet unverified 45+ days | Off by default per T-10, escalates on its own |
+
+**Reversibility is what makes auto-posting safe.** A posted run is never deleted — it is reversed by contra entries sharing its `correlation_id` (T-13). A wrong payout is a correctable event, not a lost one. Combined with the ceiling and the anomaly breaker, the worst case is a bounded, fully traceable, reversible transfer between accounts you own.
+
+Per-run options remain available for manual runs and for editing a draft: recipients and split, source wallet, method, amount override with reason, defer/skip, savings transfer adjust. Savings moves as a `wallet_transfer` to the existing savings wallet.
+
+**Verify each breaker with a synthetic month on a branch** — force a negative trailing average, a reserve breach, a 3× anomaly, and an unposted subscription, and confirm each downgrades to a draft rather than posting.
 
 **Verify against the back-test:** trailing-3 for 2026-07 is SRD 4,789 and 20% is SRD 958. **If your code produces a different number, reconcile before shipping.**
 
@@ -660,9 +718,25 @@ F  T-26 → T-27
 | everything | T-01 | no safe rollback until restore is atomic |
 | T-12 | T-09 | zero costs would freeze into history |
 | T-19 | T-07, T-15 | run rate must come from classified data |
-| T-21 | T-10 | opening balances need a physical count |
+| T-21 | T-10 | the opening journal posts from T-10's reconciliation baseline |
 | T-25, any fork | T-20 | nothing to consolidate on without company identity |
 
 Phases A and B are roughly two weeks and remove most of the risk. Full sequence 14–18 weeks at a steady pace.
 
-**A closing instruction.** This plan encodes decisions made against real production data. Where it states a number — SRD 958, USD 680.92, 490 ledger entries — that number was measured, and your implementation must reproduce it. Where it says stop, stop. The system currently holds SRD 42,006 of other people's money in cash wallets, and the failures in `docs/FINANCIAL_AUDIT.md` all began as small conveniences: an unchecked write, a balance read before it was written, a column nobody filled.
+---
+
+## Part 8 — On running unattended
+
+This plan is built to complete without a human in the loop. Three things make that safe, and they are all mechanical:
+
+**Uncertainty is recorded, never resolved by guessing.** Part 5 gives every unknown a default that preserves data and keeps it out of derived figures. Nothing is invented, so nothing needs approving.
+
+**Risk is bounded by circuit breakers, not by attention.** The only task that moves money outward on its own — T-19 — evaluates eight conditions before posting and downgrades itself to a draft if any trips. Anything it does post is reversible by contra entries under one correlation ID.
+
+**Enforcement escalates by itself.** Reconciliation starts in `warn` so the system runs from day one, and switches to `block` the first time all 13 wallets have been physically verified. No one has to remember to tighten it.
+
+**One thing genuinely cannot be automated**, and it is not a software limit: somebody has to physically count the banknotes in a drawer. The system no longer waits for it — T-10 establishes a ledger baseline and proceeds — but until a person counts, every wallet balance is the system's belief rather than a verified fact. Given F-34, where SRD 232,403 of manual corrections exceeded lifetime revenue, that distinction is worth keeping visible on the dashboard rather than quietly assuming away.
+
+**Two design choices deserve to be understood rather than just followed.** Auto-posting a payout is safe here specifically *because* the ledger is append-only and reversal is a contra entry — remove that property and the breakers alone would not be enough. And estimated subscription amounts are acceptable *because* being 20% wrong on USD 52/month beats the status quo of recording it as zero; that trade would not hold for a larger cost.
+
+**A closing instruction.** This plan encodes decisions made against real production data. Where it states a number — SRD 958, USD 680.92, 490 ledger entries — that number was measured, and your implementation must reproduce it. Where it says stop, stop; the stop conditions in Part 2 are not advisory, and they exist because the system holds SRD 42,006 of real money in cash wallets. Every failure in `docs/FINANCIAL_AUDIT.md` began as a small convenience: an unchecked write, a balance read before it was written, a column nobody filled.
