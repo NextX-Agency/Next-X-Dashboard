@@ -1,11 +1,11 @@
 # NextX Implementation Runbook
 
-**For:** an AI agent executing this work autonomously, in a fresh session with no prior context
+**For:** AI agents (Codex and Claude) executing this work autonomously, in a fresh session with no prior context
 **Companion:** `docs/FINANCIAL_AUDIT.md` — 34 findings, reconciled against production on 2026-08-12
 **Hard constraint:** no existing data may be lost, and all existing data must end up meaningful under the new workflow
 **Autonomy:** run start to finish without asking anything. Every ambiguity has a defined default; every risk has a mechanical guard
 
-> **Read Parts 0–5 before executing any task.** They contain the conventions, the reference implementations, and the specific anti-patterns in this codebase that caused the findings. A task description assumes you know them.
+> **Read Parts 0–5 and Part 8 before executing any task.** They contain the conventions, the reference implementations, and the specific anti-patterns in this codebase that caused the findings. A task description assumes you know them.
 
 ---
 
@@ -85,7 +85,7 @@ pnpm build        # catches type errors the linter misses
 
 For every task, in order, without deviation:
 
-1. **Read the task fully**, plus any task it depends on.
+1. **Claim the task** in `docs/IMPLEMENTATION_LOG.md` and push (Part 8), then read it fully, plus any task it depends on.
 2. **Run the task's "before" verification query.** Record the number.
 3. **Create a Supabase branch** if the task changes schema.
 4. **Make the change** — one task, one migration, one commit.
@@ -725,7 +725,86 @@ Phases A and B are roughly two weeks and remove most of the risk. Full sequence 
 
 ---
 
-## Part 8 — On running unattended
+## Part 8 — Working alongside another agent
+
+This project is executed by **two agents — Codex and Claude**. They share one repository and, more
+importantly, **one production database**. Everything below exists because concurrent schema changes
+against a single Postgres instance holding real money is the one failure mode this plan cannot
+recover from.
+
+### The single writer rule
+
+**Only one agent applies migrations to production. Ever.**
+
+Designate that agent at the start — it must be the one holding Supabase MCP access. The other agent
+does code-only work and **never** calls `apply_migration`, `merge_branch`, or any DDL. If you are
+the code-only agent and a task requires a migration, stop and hand the task over rather than
+finding another route to the database.
+
+Two agents applying DDL concurrently can interleave a schema change with a backfill and leave
+columns half-populated with no error raised. There is no verification query that reliably catches
+this after the fact.
+
+### Claiming a task
+
+`docs/IMPLEMENTATION_LOG.md` is the coordination point. Before starting any task, append a claim and
+**commit and push it before writing any other code**:
+
+```markdown
+## T-07 — claimed by claude — 2026-08-13T09:14Z — in progress
+```
+
+Then on completion:
+
+```markdown
+## T-07 — claude — 2026-08-13T10:02Z — DONE
+Before: 0 commission payout expenses / 106 commissions paid
+After:  1 test payout posted and reverted; route live
+Notes:  deleted check-commission-currency.js as instructed
+```
+
+Rules:
+
+- **Pull before claiming.** If the task is already claimed, take the next unclaimed task whose
+  dependencies are met.
+- **One task in progress per agent.** Never claim ahead.
+- **A claim older than 2 hours with no completion is stale** — note it, and take it over.
+- **Never work on an unclaimed task without claiming it first.** The push is the lock.
+
+### Splitting the work
+
+Play to what each agent is actually good at rather than alternating arbitrarily:
+
+| Task | Suited to |
+|---|---|
+| T-01, T-04, T-05, T-06, T-09, T-12, T-14, T-20, T-21, T-22 | **The migration agent.** Schema, SQL, backfills, verification |
+| T-11 (`sales/page.tsx`, 1,972 lines), T-13, T-16, T-17 | **Either.** Large code refactors with no DDL |
+| T-03, T-07, T-08, T-15 | **Either**, but T-07 and T-15 touch schema — coordinate |
+| T-18, T-19 | **The migration agent** — both add tables and cron routes |
+
+**Phase A is strictly sequential and single-agent.** T-01 through T-08 must be executed by one agent
+in order, with no parallelism at all. Parallel work may only begin at Phase C, and only for tasks
+whose dependencies in Part 7 are already satisfied.
+
+### Merge discipline
+
+- Both agents work on `claude/financial-audit-multicompany-37c5mz` unless told otherwise.
+- **Pull and rebase before every commit.** Two agents editing `prisma/schema.prisma` will conflict;
+  resolve by keeping both sets of model changes, never by discarding one.
+- If a rebase conflicts inside a migration file, **do not merge them.** Migrations are ordered by
+  filename and applied once — keep both files separately and let them run in sequence.
+- Never force-push.
+
+### If the two of you disagree
+
+If your reading of a task contradicts what the other agent already did — or contradicts this
+document — **stop and report rather than "fixing" it.** A financial migration silently reversed by a
+second agent is worse than either version. The audit's numbers in Part 6 are the tiebreaker: whichever
+state reproduces them is correct.
+
+---
+
+## Part 9 — On running unattended
 
 This plan is built to complete without a human in the loop. Three things make that safe, and they are all mechanical:
 
