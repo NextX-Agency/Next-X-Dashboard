@@ -1247,45 +1247,119 @@ cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
       draw backed by a real reserve.
     </p>
 
-    <h3>Recommended policy</h3>
+    <h3>The waterfall — fixed percentages</h3>
     <p>
-      <strong>Reserve floor: SRD 23,439</strong> — three months of operating, subscriptions and
-      commissions. Savings holds SRD 17,000, so you are <strong>SRD 6,439 short</strong>. Top that up
-      before raising pay. Then allocate the ~SRD 8,084 average monthly net in this order:
+      <strong>Resellers are paid before founders, always.</strong> Commission is a cost of making the
+      sale, not a share of the profit. It sits above the line, so a seller earns their commission whether
+      or not the month leaves anything for you. That's both the right convention and the right incentive.
     </p>
-    <div class="phase">
-      <div class="p-tag"><span class="n">First</span><span class="t">a ceiling</span></div>
-      <div>
-        <h4>Restock — capped at trailing-3-month COGS, zero for dead lines</h4>
-        <p>Not a share of profit, a limit. This is the discipline that frees SRD 4,500/month.</p>
-      </div>
-    </div>
-    <div class="phase">
-      <div class="p-tag"><span class="n">Second</span><span class="t">~3 months</span></div>
-      <div>
-        <h4>Savings — 30% of net until the reserve floor, then 15%</h4>
-        <p>At current run rate the SRD 23,439 floor is reached in about three months.</p>
-      </div>
-    </div>
-    <div class="phase">
-      <div class="p-tag"><span class="n">Third</span><span class="t">fixed</span></div>
-      <div>
-        <h4>Owner draw — SRD 2,500/month, rising to SRD 3,500</h4>
-        <p>Increase only once the reserve floor is met and real subscription costs are known.</p>
-      </div>
-    </div>
-    <p style="margin-top:22px">
-      Sizing check: SRD 2,500 is 31% of average net, leaves roughly SRD 3,200/month after the savings
-      transfer, and in a June-type month draws SRD 3,379 from reserve — survivable for many months at a
-      SRD 23,439 floor. Review quarterly, and take any variable top-up as an explicit quarterly decision
-      when operating cash exceeds the floor plus one month, never as an automatic sweep.
+    <pre>  Revenue
+− COGS
+− Operating + subscriptions
+<span class="cm">− Commissions to resellers          ← paid first, every month</span>
+<span class="cr">= Distributable profit</span>
+     ├─ Savings           <span class="cr">65%</span>   →  50%
+     ├─ Founders          <span class="cr">20%</span>   →  30%
+     └─ Restock buffer    <span class="cr">15%</span>   →  20%</pre>
+    <p>
+      Two phases. <strong>Phase A applies now</strong>, while savings sits below the reserve floor.
+      <strong>Phase B</strong> starts once the floor is met. Savings stays the largest share in both,
+      which is what you asked for.
     </p>
+
+    <h3>What that actually pays, month by month</h3>
+    <p>Distributable profit per month, with subscriptions estimated in at SRD 1,970:</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Month</th><th>Revenue</th><th>COGS</th><th>Operating</th><th>Commissions</th><th>Distributable</th></tr></thead>
+        <tbody>
+          <tr><td class="num">2026-01</td><td class="num">42,650</td><td class="num">15,825</td><td class="num">3,105</td><td class="num">2,110</td><td class="num"><strong>19,641</strong></td></tr>
+          <tr><td class="num">2026-02</td><td class="num">31,650</td><td class="num">14,426</td><td class="num">4,396</td><td class="num">2,444</td><td class="num"><strong>8,414</strong></td></tr>
+          <tr><td class="num">2026-03</td><td class="num">28,800</td><td class="num">12,996</td><td class="num">5,380</td><td class="num">1,897</td><td class="num"><strong>6,557</strong></td></tr>
+          <tr><td class="num">2026-04</td><td class="num">23,500</td><td class="num">10,078</td><td class="num">2,648</td><td class="num">1,195</td><td class="num"><strong>7,610</strong></td></tr>
+          <tr><td class="num">2026-05</td><td class="num">21,800</td><td class="num">9,481</td><td class="num">4,270</td><td class="num">861</td><td class="num"><strong>5,218</strong></td></tr>
+          <tr><td class="num">2026-06</td><td class="num">10,500</td><td class="num">4,475</td><td class="num">5,410</td><td class="num">602</td><td class="num fail">−1,957</td></tr>
+          <tr><td class="num">2026-07</td><td class="num">35,235</td><td class="num">15,573</td><td class="num">5,116</td><td class="num">1,469</td><td class="num"><strong>11,107</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Pay on the trailing three-month average, not the single month.</strong> Your months swing
+      from −1,957 to +19,641; a percentage of one month would hand you SRD 3,928 in January and nothing in
+      June. A three-month average smooths that without ever paying out money you haven't earned.
+    </p>
+    <p>Back-tested on Phase A percentages — what you would actually have been paid:</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Month</th><th>Trailing-3 avg</th><th>Founders 20%</th><th>Savings 65%</th><th>Restock cap 15%</th></tr></thead>
+        <tbody>
+          <tr><td class="num">2026-03</td><td class="num">11,537</td><td class="num">2,307</td><td class="num">7,499</td><td class="num">1,731</td></tr>
+          <tr><td class="num">2026-04</td><td class="num">7,527</td><td class="num">1,505</td><td class="num">4,893</td><td class="num">1,129</td></tr>
+          <tr><td class="num">2026-05</td><td class="num">6,462</td><td class="num">1,292</td><td class="num">4,200</td><td class="num">969</td></tr>
+          <tr><td class="num">2026-06</td><td class="num">3,624</td><td class="num">725</td><td class="num">2,356</td><td class="num">544</td></tr>
+          <tr><td class="num">2026-07</td><td class="num">4,789</td><td class="num"><strong>958</strong></td><td class="num">3,113</td><td class="num">718</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Note June: a month that <em>lost</em> SRD 1,957 still paid SRD 725, because the average carried it —
+      and the amount dropped automatically without anyone having to decide. That's the behaviour you want
+      from a policy.
+    </p>
+    <p>
+      <strong>The honest number: at today's trailing average, 20% pays SRD 958 a month across all
+      founders</strong> — about SRD 479 each split two ways. Savings would have grown SRD 22,061 across
+      those five months, roughly consistent with the SRD 17,000 you've actually accumulated.
+    </p>
+    <p>
+      That's lower than a naive read of the seven-month average suggests, and the reason matters:
+      <strong>revenue is down about 40% since January</strong>, so the trailing window is weighted toward
+      the slower months. The percentage is doing its job by telling you the truth.
+    </p>
+
+    <h3>Why it feels like there is no money</h3>
+    <div class="tbl-scroll">
+      <table>
+        <tbody>
+          <tr><td style="width:62%">Distributable profit (trailing 3)</td><td class="num">SRD 4,789 / mo</td></tr>
+          <tr><td>Less cash going into stock beyond what sells <span class="num">(F-28)</span></td><td class="num fail">(4,508)</td></tr>
+          <tr><td><strong>Actual free cash</strong></td><td class="num"><strong style="color:var(--crit)">SRD 281 / mo</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>On paper you make SRD 4,789 a month. In cash you keep SRD 281</strong>, because the rest
+      goes onto shelves that aren't selling. That's why the business feels tight despite a 57.3% gross
+      margin.
+    </p>
+    <p>
+      So the restock buffer is a <strong>cap, not a transfer</strong>. Stock purchases must not exceed
+      trailing-3-month COGS plus the buffer — currently SRD 11,836 + 15% = <strong>SRD 13,611/month</strong>,
+      against the SRD 16,344 you're actually spending. Enforcing that one ceiling frees roughly
+      SRD 2,700 a month immediately, and more as the dead lines clear.
+    </p>
+    <p>Three levers raise founder pay, in order of size:</p>
+    <ul class="plain">
+      <li><strong>Stop overbuying</strong> — worth up to SRD 4,508/month, over four times the current draw.</li>
+      <li><strong>Clear the dead stock</strong> — USD 680.92, about <strong>SRD 25,875</strong> released as a one-off. That alone covers the entire reserve shortfall and then some.</li>
+      <li><strong>Recover revenue</strong> toward January levels — every SRD 1,000 of extra distributable profit adds SRD 200 to founder pay at 20%, SRD 300 at 30%.</li>
+    </ul>
+
+    <h3>The rules around the percentages</h3>
+    <ul class="plain">
+      <li><strong>Base:</strong> trailing three-month average distributable profit.</li>
+      <li><strong>Negative average pays nothing.</strong> No draw, no savings transfer. A percentage of a loss isn't a smaller draw, it's zero.</li>
+      <li><strong>Cap:</strong> the draw never exceeds operating cash above the reserve floor, whatever the percentage says.</li>
+      <li><strong>Reserve floor SRD 23,439</strong> — three months of operating, subscriptions and commissions. Savings holds SRD 17,000, so it's SRD 6,439 short; at Phase A rates that closes in roughly two months, or immediately if you clear dead stock.</li>
+      <li><strong>Founder split</strong> is a fixed percentage of the founder pool, set once per founder and changed only by explicit decision.</li>
+      <li><strong>Review quarterly</strong>, and switch to Phase B only when savings has held above the floor for a full month.</li>
+    </ul>
     <p class="correction">
       <b>Error bars</b>Every figure here inherits the findings in §4. Revenue is inflated by the 6.7%
-      booked with no COGS, expenses are missing SRD 9,458 of commission payouts, and the classification
-      split above is inferred from category names rather than the <code>classification</code> column,
-      because all 83 expenses are unclassified. Treat SRD 2,500 as a defensible opening position to be
-      re-derived after Phase 1 — not a precise entitlement.
+      booked with no COGS, expenses are missing SRD 9,458 of commission payouts, subscriptions are
+      estimated rather than recorded, and the operating/inventory split is inferred from category names
+      because all 83 expenses are unclassified. The <strong>percentages</strong> are sound and can be
+      adopted now; the <strong>amounts</strong> they produce should be re-derived after Phase 1.
     </p>
 
     <h3>Mechanism: the month-end run</h3>
@@ -1299,7 +1373,7 @@ Last day     23:00  month-end close job:
                1. verify every subscription due this month posted
                2. verify commissions for the month are recorded
                3. block if any wallet is unreconciled this month
-               4. compute allocation → restock cap, savings, draw
+               4. compute trailing-3 average → savings, founders, restock cap
                5. create a <span class="cr">DRAFT</span> payout run and notify admins
 
 Next day     admin reviews, adjusts, approves → posts atomically</pre>
@@ -1524,7 +1598,7 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
           <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> + <span class="num">F-18</span> — 6.7% of revenue is booked at 100% margin today, and every historical margin is retroactively mutable.</td></tr>
           <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
           <tr><td>Your three asks</td><td><span class="num">F-24</span> subscriptions never deduct · <span class="num">F-25</span> 86% of inventory capital is dead or overstocked · <span class="num">F-26</span> no owner has ever been paid. Specified in §6.</td></tr>
-          <tr><td>What you can pay yourselves</td><td><strong>SRD 2,500/month</strong> to start, rising to SRD 3,500 once savings reaches the SRD 23,439 reserve floor. But the real constraint is <span class="num">F-28</span> — SRD 4,508/month is going into stock that doesn't sell. Derivation in §7.</td></tr>
+          <tr><td>What you can pay yourselves</td><td><strong>20% of trailing-3-month distributable profit</strong> — savings 65%, restock cap 15% — rising to 30% once savings clears the SRD 23,439 floor. Today that's <strong>SRD 958/month</strong> across all founders. The binding constraint is <span class="num">F-28</span>: SRD 4,508/month goes into stock that doesn't sell, leaving only SRD 281/month genuinely free. Back-test in §7.</td></tr>
           <tr><td>Effort</td><td class="num">~14–18 weeks phased, vs. 4–8 months migrating</td></tr>
         </tbody>
       </table>
