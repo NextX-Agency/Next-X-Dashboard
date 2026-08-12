@@ -357,6 +357,23 @@
     padding-left: 13px;
     margin-top: 12px;
   }
+  .correction {
+    font-size: .875rem !important;
+    background: var(--brass-wash);
+    border-left: 2px solid var(--brass);
+    padding: 10px 13px;
+    border-radius: 0 3px 3px 0;
+  }
+  .correction b {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--brass);
+    display: block;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
   .f-fix b {
     font-family: var(--mono);
     font-size: 10px;
@@ -500,12 +517,12 @@
       assessed for what it takes to run several legal entities on it.
     </p>
     <div class="meta-strip">
-      <span><b>23</b> findings</span>
+      <span><b>27</b> findings</span>
       <span><b>6</b> critical</span>
-      <span><b>7</b> high</span>
-      <span><b>9</b> medium</span>
+      <span><b>10</b> high</span>
+      <span><b>10</b> medium</span>
       <span><b>1</b> low</span>
-      <span>Est. remediation <b>11–15 weeks</b></span>
+      <span>Est. remediation <b>13–17 weeks</b></span>
     </div>
   </header>
 
@@ -730,9 +747,12 @@
       <div class="finding">
         <div class="f-id"><span>F-05</span><span class="chip critical">Critical</span></div>
         <div class="f-body">
-          <h4>Unauthenticated endpoints that mutate financial data</h4>
-          <p><code>/api/delete-commissions</code> has no auth guard and hard-deletes commission rows by ID. <code>/api/recalculate-commissions</code>, <code>/api/fix-combo-price</code>, <code>/api/migrate</code> and <code>/api/delete</code> are likewise unguarded. Compare <code>/api/debug-profit</code>, which correctly calls <code>requireAdmin</code>.</p>
-          <p class="f-fix"><b>Fix</b>Guard them or delete them. Repair endpoints shouldn't exist in production once F-02 is fixed.</p>
+          <h4>Financial mutation endpoints are gated only by an unvalidated cookie</h4>
+          <p class="correction"><b>Corrected</b>The first draft of this audit said these endpoints had no guard at all. They do have one — <code>src/proxy.ts</code>, Next 16's middleware — but it does not do what it looks like it does.</p>
+          <p><code>/api/delete-commissions</code>, <code>/api/recalculate-commissions</code>, <code>/api/fix-combo-price</code>, <code>/api/migrate</code> and <code>/api/delete</code> have no <code>requireAdmin</code> call in their handlers (compare <code>/api/debug-profit</code>, which does). They are matched by the proxy, which rejects requests carrying no <code>nextics_session</code> cookie.</p>
+          <p>But the proxy only checks the cookie <strong>exists</strong>. It never validates it — its own comment says the session is "opaque and verified in route handlers," and these handlers do no verification. So any forged value passes (<code>document.cookie = 'nextics_session=x'</code>), and there is no role check, so a seller account passes too.</p>
+          <p>Net exposure is unchanged for <code>/api/delete-commissions</code>, which hard-deletes commission rows by ID: one unauthenticated request destroys commission history. The guard is real but decorative.</p>
+          <p class="f-fix"><b>Fix</b>Add <code>requireAdmin</code> to each handler, or delete them. Repair endpoints shouldn't exist in production once F-02 is fixed.</p>
         </div>
       </div>
 
@@ -881,6 +901,71 @@
       </div>
 
       <div class="finding">
+        <div class="f-id"><span>F-24</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>No recurring expense mechanism exists, so subscriptions are invisible</h4>
+          <p>No table in the database models a schedule — nothing matching <em>recurring</em>, <em>subscription</em>, <em>payout</em> or <em>schedule</em>. Every expense is entered by hand, one at a time.</p>
+          <p><strong>Production evidence:</strong> across 83 expenses since January, <strong>exactly one</strong> mentions a subscription vendor. Your expense categories are <code>Business Expense · Copilot · Marketing · Personal Items · Shipping</code> — no software or subscription category, and that lone <code>Copilot</code> category suggests one tool was tracked once and the habit lapsed.</p>
+          <p>So Codex, Claude and Spotify have been charging you for months while the books show almost nothing. Operating costs are understated by their full run rate, and because no wallet is ever debited, cash on hand in the system drifts above reality.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-25</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>86% of inventory capital is dead or overstocked</h4>
+          <p>Nothing reports stock against sales velocity, so there has never been a signal for "too much stock." Measured over 90 days across 38 stocked item/location rows holding 96 units:</p>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th style="width:46%"></th><th>Rows</th><th>Units</th><th>Capital</th></tr></thead>
+              <tbody>
+                <tr><td>Total stock on hand</td><td class="num">38</td><td class="num">96</td><td class="num">USD 788.57</td></tr>
+                <tr><td>Dead — zero sales in 90 days</td><td class="num fail">26</td><td class="num">41</td><td class="num">USD 503.02</td></tr>
+                <tr><td>Overstocked — over 120 days cover</td><td class="num fail">5</td><td class="num">—</td><td class="num">USD 177.90</td></tr>
+                <tr><td><strong>Dead + excess combined</strong></td><td></td><td></td><td class="num"><strong style="color:var(--crit)">USD 680.92 — 86%</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>At 38 SRD/USD that is roughly SRD 25,900 sitting still, against SRD 42,006 of cash on hand. Two thirds of your stocked lines have not sold a single unit in three months.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-26</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>No owner has ever been paid, and the books can't say what's safe to draw</h4>
+          <p>The <code>owner_draw</code> classification already exists and is already excluded from operating profit — the accounting thinking is done. <strong>Zero expenses have ever used it.</strong> There is no draw process, so money taken out is either invisible or misfiled as a business cost.</p>
+          <p>Worse, the books can't currently answer the question. Monthly run rate in SRD:</p>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th>Month</th><th>Revenue</th><th>Sales</th><th>Expenses</th><th>Commissions</th></tr></thead>
+              <tbody>
+                <tr><td class="num">2026-01</td><td class="num">41,600.00</td><td class="num">33</td><td class="num">20,315.94</td><td class="num">2,109.50</td></tr>
+                <tr><td class="num">2026-02</td><td class="num">36,750.02</td><td class="num">22</td><td class="num">38,919.00</td><td class="num">2,443.95</td></tr>
+                <tr><td class="num">2026-03</td><td class="num">28,800.00</td><td class="num">22</td><td class="num">15,526.00</td><td class="num">1,897.00</td></tr>
+                <tr><td class="num">2026-04</td><td class="num">29,820.00</td><td class="num">20</td><td class="num">3,522.00</td><td class="num">1,194.60</td></tr>
+                <tr><td class="num">2026-05</td><td class="num">21,800.00</td><td class="num">19</td><td class="num">30,854.00</td><td class="num">861.00</td></tr>
+                <tr><td class="num">2026-06</td><td class="num">10,500.00</td><td class="num">8</td><td class="num">36,950.00</td><td class="num">602.00</td></tr>
+                <tr><td class="num">2026-07</td><td class="num">35,235.00</td><td class="num">20</td><td class="num">9,306.00</td><td class="num">1,468.95</td></tr>
+                <tr><td class="num">2026-08 <span style="color:var(--ink-3)">to 8th</span></td><td class="num">7,471.00</td><td class="num">5</td><td class="num fail">0.00</td><td class="num">312.68</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Expenses swing between SRD 3,522 and SRD 38,919 a month. That isn't volatility in the business — it's inventory purchases and operating costs sharing one undifferentiated bucket, because all 83 expenses are unclassified (F-20). No classification means no operating run rate; no run rate means no defensible reserve; no reserve means no safe draw.</p>
+          <p>Jan–Jul nets to roughly <span class="num">SRD 38,500</span>, about <span class="num">SRD 5,500</span> a month — but that carries an error bar larger than itself: revenue inflated by the 6.7% with no COGS, expenses missing SRD 9,458 of commission payouts, inventory double-counted against COGS. <strong>Treat it as unusable until Phase 1 lands.</strong></p>
+          <p>Revenue is also trending down — 41.6k in January against a 25.1k average since, June collapsing to 10.5k. That argues for a modest fixed draw, not a variable sweep of spare cash.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-27</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>Expense recording has lapsed</h4>
+          <p>Last expense recorded 2026-07-31; last sale 2026-08-08. Twelve days of trading with sales posting and not one cost recorded. Manual entry decays — which is the structural argument for automating the recurring ones.</p>
+        </div>
+      </div>
+
+      <div class="finding">
         <div class="f-id"><span>F-23</span><span class="chip low">Low</span></div>
         <div class="f-body">
           <h4>The purchase order module is unused</h4>
@@ -941,7 +1026,113 @@
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 06</span><h2>Roadmap</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 06</span><h2>Specification: the three gaps</h2></div>
+    <p>
+      Written to be built in one pass, on top of Phase 1. The existing <code>POST /api/expenses</code>
+      handler is the reference for all money movement here — serializable transaction,
+      <code>markFinanceLedgerRecorded</code>, explicit ledger entry, activity log inside the
+      transaction. Nothing below should invent a new pattern.
+    </p>
+
+    <h3>6.1 — Subscriptions that deduct themselves</h3>
+    <p>
+      One new table, <code>recurring_expenses</code>: name and vendor, amount and currency, cadence
+      (weekly / monthly / quarterly / yearly), an anchor day clamped to short months so the 31st bills
+      on Feb 28 rather than rolling into March, the wallet to debit, location, category, classification,
+      <code>next_run_on</code>, and active / auto-post flags. Plus two columns on <code>expenses</code>:
+      <code>recurring_expense_id</code> and <code>period_key</code>.
+    </p>
+    <p>
+      <strong>The idempotency rule is the part that must not be got wrong.</strong> A period key
+      identifies the billing period — <code>2026-08</code>, <code>2026-W33</code>, <code>2026-Q3</code>,
+      <code>2026</code>. A partial unique index on <code>(recurring_expense_id, period_key)</code> makes a
+      second charge for the same period impossible <em>at the database level</em>. A cron firing twice, a
+      retry after timeout, someone pressing "run now" during the scheduled run — none can double-charge,
+      because the second insert violates the index rather than relying on application logic to notice.
+    </p>
+    <p>A daily Vercel cron posts what's due. Four rules carry the weight:</p>
+    <ul class="plain">
+      <li><strong>Catch-up caps at 3 periods per run.</strong> If the cron is down four months, a subscription must not fire four charges at once and drain the wallet.</li>
+      <li><strong>Insufficient balance skips, never fails.</strong> Leave <code>next_run_on</code> untouched so it retries, notify admins once per period, and keep processing the others. One short wallet must never block every subscription.</li>
+      <li><strong>New schedules never back-charge.</strong> <code>next_run_on</code> is the next upcoming occurrence, so adding Spotify today doesn't invent seven months of history.</li>
+      <li><strong>Each schedule posts in its own currency</strong> — no implicit FX at posting time.</li>
+    </ul>
+    <p>
+      Add the new API paths to <code>PROTECTED_API_PREFIXES</code> in <code>src/proxy.ts</code>
+      <em>and</em> call <code>requireAdmin</code> in each handler — F-05 is exactly what happens when only
+      the first is done. Then add a <code>Software &amp; subscriptions</code> category, create Codex,
+      Claude and Spotify against the USD wallet with their real amounts and renewal days, and retire the
+      stray <code>Copilot</code> category into it.
+    </p>
+    <p class="f-fix"><b>Done means</b>Each subscription posts exactly one expense per period with a matching wallet debit and ledger entry; running the job twice produces no second charge; a short wallet notifies instead of failing silently; and <code>/finance</code> shows the next 30 days of scheduled charges.</p>
+
+    <h3>6.2 — A signal for "too much stock"</h3>
+    <p>No schema change. This is a read model computed from stock, sale items and item cost.</p>
+    <pre>dailyVelocity  = unitsSoldInWindow / 90
+daysOfCover    = quantityOnHand / dailyVelocity      <span class="cm">— undefined when velocity is 0</span>
+cashTiedUpUsd  = quantityOnHand × purchasePriceUsd</pre>
+    <p>
+      Status, in order: <code>out</code> when nothing is on hand, <code>dead</code> when velocity is zero
+      but stock is not, <code>overstocked</code> above 120 days of cover, <code>low</code> below 14 days,
+      otherwise <code>healthy</code>.
+    </p>
+    <p>
+      <strong>Excess is not the same as cash tied up</strong>, and conflating them overstates the problem.
+      Dead stock is entirely excess. For overstock only the tail beyond target cover counts — a fast
+      seller holding depth is doing the right thing:
+    </p>
+    <pre>excessUnits = quantityOnHand − ceil(dailyVelocity × 120)</pre>
+    <p>
+      Releasable cash is dead plus excess: the money you'd get back by clearing it. Report zero-cost items
+      separately rather than counting them as free stock. Lead the panel with releasable cash, then a table
+      sorted by excess capital — worst offender first, because that's the reorder decision. Thresholds
+      must be adjustable; 120 and 14 days are defaults, not truths about your business.
+    </p>
+    <p class="f-fix"><b>Done means</b>The figures reconcile against F-25 — USD 503.02 dead, USD 177.90 overstocked, USD 680.92 releasable; selling a dead item moves it out of <code>dead</code> on next load; thresholds change without a deploy.</p>
+
+    <h3>6.3 — Paying yourselves, traceably</h3>
+    <p>
+      No new table. A draw is an expense with <code>classification = 'owner_draw'</code>, which already
+      exists, is already excluded from operating profit, and already flows through the ledger.
+      Traceability comes free by reusing the expense path — that is the entire point. Two settings hold
+      the policy: a reserve floor per currency.
+    </p>
+    <pre>  cashOnHand            <span class="cm">operational wallets, that currency</span>
+− unpaidCommissions     <span class="cm">money already owed to sellers</span>
+− openPayables          <span class="cm">obligations due within 30 days</span>
+− scheduledCharges      <span class="cm">recurring expenses due in the next 30 days</span>
+− reserveFloor          <span class="cm">3 × monthly operating cost</span>
+<span class="cr">= safeToDraw</span></pre>
+    <p>
+      Computed per currency, never mixed across currencies. <strong>Show every line, not just the
+      total</strong> — the value of this screen is that it explains itself, and a number with no
+      derivation gets ignored the first time it looks wrong.
+    </p>
+    <p>
+      Guardrails: refuse a draw above the safe amount unless an admin overrides with a typed reason
+      recorded on the expense; refuse entirely if the wallet would go negative; warn when the exchange
+      rate is stale, since a USD draw priced off a 68-day-old rate misstates what left the business.
+    </p>
+    <p>
+      And make it a policy, not just a button. The convention here is a modest fixed monthly draw reviewed
+      quarterly — not a sweep of whatever is spare. With revenue trending down and June at SRD 10,500, a
+      fixed draw sized off the trailing three months is the right shape. Set the first amount only after
+      Phase 1, when the run rate is real.
+    </p>
+    <div class="verdict" style="margin-top:26px">
+      <p class="verdict-label">One caveat</p>
+      <p style="margin-bottom:0">
+        <strong>Build this last of the three.</strong> The safe-to-draw number is only as honest as the
+        expense classification behind it, and today every expense is unclassified — so the reserve floor
+        would be computed from a run rate that mixes stock purchases with rent. Shipping this before F-20
+        and F-15 are fixed produces a confident, precise, wrong number, which is worse than no number
+        at all.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Roadmap</h2></div>
     <p>Ordered so each phase is independently valuable, and nothing later depends on reopening the Odoo question.</p>
 
     <div class="phase">
@@ -993,6 +1184,19 @@
     </div>
 
     <div class="phase">
+      <div class="p-tag"><span class="n">Phase 1.5</span><span class="t">1.5–2 weeks</span></div>
+      <div>
+        <h4>The three operational gaps</h4>
+        <p>Specified in §6. Sequencing matters here.</p>
+        <ul>
+          <li><strong>Inventory health first</strong> — read-only, no risk, needs nothing else to land. USD 680.92 of releasable capital becomes visible on day one <span class="num">(F-25)</span></li>
+          <li><strong>Recurring subscriptions next</strong> — Codex, Claude and Spotify posting themselves against the USD wallet, with the period-key index making double-charges impossible <span class="num">(F-24)</span>. This also arrests <span class="num">F-27</span>, since recurring costs stop depending on someone remembering</li>
+          <li><strong>Owner payout last</strong>, and only after <span class="num">F-15</span> and <span class="num">F-20</span> are fixed — the safe-to-draw figure derives from the operating run rate, and today every expense is unclassified <span class="num">(F-26)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
       <div class="p-tag"><span class="n">Phase 2</span><span class="t">2–3 weeks</span></div>
       <div>
         <h4>Multi-company foundation</h4>
@@ -1033,13 +1237,13 @@
     </div>
 
     <p style="margin-top:26px">
-      Roughly <strong>11–15 weeks</strong> on your existing stack, delivered incrementally — against
+      Roughly <strong>13–17 weeks</strong> on your existing stack, delivered incrementally — against
       4–8 months of migration during which nothing else ships.
     </p>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 07</span><h2>Metrics to run the business on</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Metrics to run the business on</h2></div>
     <p>Once Phase 3 lands these become computable per company and consolidated. Track them monthly.</p>
 
     <div class="metrics">
@@ -1093,7 +1297,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Summary</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 09</span><h2>Summary</h2></div>
     <div class="tbl-scroll">
       <table>
         <tbody>
@@ -1103,7 +1307,8 @@
           <tr><td>Most urgent security</td><td><span class="num">F-04</span>, <span class="num">F-05</span> — any logged-in user can rewrite wallet balances, and one endpoint deletes commissions with no auth at all.</td></tr>
           <tr><td>Most damaging to decisions</td><td><span class="num">F-01</span> + <span class="num">F-18</span> — 6.7% of revenue is booked at 100% margin today, and every historical margin is retroactively mutable.</td></tr>
           <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
-          <tr><td>Effort</td><td class="num">~11–15 weeks phased, vs. 4–8 months migrating</td></tr>
+          <tr><td>Your three asks</td><td><span class="num">F-24</span> subscriptions never deduct · <span class="num">F-25</span> 86% of inventory capital is dead or overstocked · <span class="num">F-26</span> no owner has ever been paid, and the run rate can't yet say what's safe. All three specified in §6.</td></tr>
+          <tr><td>Effort</td><td class="num">~13–17 weeks phased, vs. 4–8 months migrating</td></tr>
         </tbody>
       </table>
     </div>
