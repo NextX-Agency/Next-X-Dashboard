@@ -315,6 +315,33 @@ Nine transactions, SRD 10,662, containing at least three different kinds of thin
 
 Two consequences. The only subscription record in the entire system is filed here, under a personal-spending label. And any attempt to compute an operating run rate — which is what sizes your payout — has to guess at this bucket. It is the concrete case for making classification mandatory at entry (F-20).
 
+**F-30 (High) — The reconciliation chain is inert end to end**
+
+F-21 reported zero reconciliations. The cause is not neglect — every piece exists and none of them connect:
+
+- The `wallet_reconciliations` table exists, with confirmed balance, note and reconciler identity.
+- A POST route exists at `/api/seller/wallet-reconciliations`, correctly accepting `['admin','seller']`.
+- A daily cron exists at `/api/notifications/wallet-reminders`.
+- The only UI lives in `src/app/seller/page.tsx` — the **seller portal**.
+
+Now the production reality: there is **exactly one user account in the entire system**, role `admin`. There are **zero seller users**, and **zero rows in `user_location_access`**, so nobody holds `can_manage_wallet`.
+
+The cron queries for sellers with wallet access. It matches nothing, every day, and has created **zero notifications ever**. Meanwhile your three sellers — Rico, Aryan Bhaggoe and Leonardo — exist as `sellers` records but **none has a login account**, so none can reach the portal where the feature lives.
+
+The admin, the only person who can log in, has no reconciliation surface on any admin page. So SRD 42,005.99 and USD 534.00 across 13 wallets has never once been counted against the books — not because the control was skipped, but because the chain was never connected.
+
+**F-31 (High) — No segregation of duties: one account does everything**
+
+One user, role `admin`, records every sale, every expense, every wallet movement, and every correction. For a cash-heavy business holding SRD 42,006 across 13 wallets, that is the textbook control gap — there is no second pair of eyes anywhere in the money path, and the activity log records one actor for every entry.
+
+This bears directly on §7. A month-end payout that an admin approves is, today, **the founder approving their own draw**. The approval step is only a control if the approver and the beneficiary can be different people.
+
+**F-32 (Medium) — No asset or investment register**
+
+The database has no table matching *asset*, *investment*, *holding*, *share*, *equity* or *depreciation*. The only things the system knows you own are stock and wallet balances. Equipment, deposits, and equity stakes in other businesses are invisible.
+
+Combined with F-08 — a single-entry ledger with no balance sheet — **the company cannot state its own net worth.** Specified in §8.
+
 **F-27 (Medium) — Expense recording has lapsed**
 
 The last expense was recorded 2026-07-31; the last sale was 2026-08-08. Twelve days of trading with sales posting and not one cost recorded. Manual entry decays, which is the structural argument for automating the recurring ones.
@@ -675,7 +702,181 @@ The savings transfer posts as a `wallet_transfer` between the operational and sa
 
 ---
 
-## 8. Roadmap
+## 8. Assets, investments and group structure
+
+Three different things are easy to conflate here, so to be precise about your setup:
+
+| | What it is | Treatment |
+|---|---|---|
+| Paramaribo-Noord, Commewijne, Thurkowweg | **Branches** of one company — they share stock, sellers and wallets | `location_id`, as today |
+| Stakes you hold in other businesses | **Investments** — you own equity in a company you don't operate | New `investment_holdings` (§8.2) |
+| Your other startups, once forked | **Separate companies** | `Company` (§5) + group consolidation (§8.5) |
+
+Today the system models only the first. There is no asset register and no investment register (F-32).
+
+### 8.1 Chart of accounts additions
+
+Extending §5:
+
+```
+1500  Investments in other businesses
+1600  Property & equipment
+1650  Accumulated depreciation          (contra-asset)
+3400  Unrealised gains on investments   (equity, not profit)
+4950  Realised gain on disposal
+5950  Depreciation expense
+```
+
+### 8.2 Investments in other businesses
+
+```
+InvestmentHolding
+  id, holder_company_id
+  investee_name
+  investee_company_id        null unless the investee is one of your own entities
+  instrument                 equity | convertible_note | safe | loan
+  ownership_percent
+  acquired_on, acquisition_cost, currency
+  carrying_value, valuation_method, valued_on
+  status                     active | exited
+  exited_on, exit_proceeds
+  notes
+```
+
+Acquiring a stake is not an expense — it converts cash into a different asset:
+
+```
+Dr 1500 Investments      25,000
+  Cr 1010 Cash SRD              25,000
+```
+
+This matters for §7: a SRD 25,000 investment must **not** reduce distributable profit, or founder pay would collapse in any month you invest. It is a balance-sheet movement, not a cost.
+
+### 8.3 How much of an investee to recognise
+
+Standard practice keys off how much control the stake gives you:
+
+| Stake | Treatment | What the dashboard shows |
+|---|---|---|
+| Under 20% | Cost, or fair value if there's a reliable mark | One asset line. Their profits are not yours until a dividend is paid |
+| 20–50% | Equity method | Carrying value moves with your share of their profit or loss; dividends reduce it |
+| Over 50% | Full consolidation | Combine their statements line by line, then show the share you don't own as non-controlling interest |
+
+**The guardrail that matters most: never revalue on optimism.** Move carrying value only on a priced round, an actual transaction, or an impairment — and route unrealised gains to equity (3400), never to profit. If an unrealised markup reached the P&L it would inflate distributable profit and therefore founder pay, so you would be paying yourselves cash out of a paper gain. Only realised proceeds on exit (4950) touch profit.
+
+Dividends received from an investee are income; for equity-method holdings they reduce carrying value instead.
+
+### 8.4 Fixed assets and depreciation
+
+```
+FixedAsset
+  id, company_id, name, category      equipment | vehicle | fixture | intangible
+  acquired_on, acquisition_cost, currency
+  depreciation_method                 straight_line | none
+  useful_life_months, salvage_value
+  disposed_on, disposal_proceeds, status
+```
+
+Monthly depreciation is a scheduled posting with no cash movement — `Dr 5950 Depreciation`, `Cr 1650 Accumulated depreciation`. **It reuses the recurring engine from §6.1 directly**, with the wallet debit suppressed. One scheduler, two uses.
+
+Depreciation *is* a real operating cost and belongs in the payout base. An asset purchase is not.
+
+### 8.5 Forking, and the central dashboard
+
+Your plan is to perfect this dashboard, fork it per startup, then connect them centrally. The plan is sound, but the order matters, and one prerequisite is non-negotiable.
+
+**Build `Company` before you fork.** A fork made today carries no notion of which entity it is, so a central dashboard would have nothing stable to consolidate on. Adding `company_id` to every financial row (§5, Phase 2) is not an alternative to forking — **it is what makes a clean fork possible**, because extracting one company's rows into a new instance becomes a filtered dump rather than an archaeology project.
+
+**Then ask whether you still need to fork.** One instance with a company switcher and an "All companies" view gives you group reporting as a SQL query rather than an integration, one codebase to fix, and one bill. Fork only when there's a concrete trigger:
+
+- outside investors or a different cap table on that entity
+- a plan to sell or spin out the business
+- regulatory separation, or genuinely divergent product needs
+
+Forking has a real cost that a small team feels quickly: **schema drift**. Four forks that each evolve independently will not consolidate, and every one of the 29 findings in this audit would need fixing four times. If you fork, you need a shared core package for the finance engine, versioned and upstreamed — that is the price of admission.
+
+**If you do fork, the contract is the design.** Each instance exposes one signed, versioned, read-only endpoint; central pulls nightly and never writes back:
+
+```
+GET /api/consolidation/snapshot?period=2026-08
+Authorization: Bearer <per-instance secret>
+
+{
+  "schema_version": "1.0.0",
+  "company":  { "id", "name", "legal_name", "base_currency", "tax_id" },
+  "period":   { "start", "end", "status": "closed" },
+  "trial_balance": [ { "account_code", "account_name", "type", "debit", "credit" } ],
+  "kpis":     { "revenue", "gross_profit", "operating_expenses", "net_profit",
+                "cash_by_currency", "inventory_at_cost", "receivables", "payables" },
+  "intercompany": [ { "counterparty_company_id", "type", "amount", "currency" } ],
+  "generated_at", "checksum"
+}
+```
+
+Rules that keep it honest:
+
+- **`schema_version` is mandatory** and central refuses a snapshot it doesn't understand, rather than silently misreading it. This is the drift defence.
+- **Only `status: closed` periods count** toward group figures — ties consolidation to the period lock (F-11).
+- **Central is read-only.** Each instance owns its own truth; central aggregates and never writes back.
+- **FX normalised** to a group presentation currency, with the rate stored on the snapshot so a restated group figure can be explained.
+- **Intercompany eliminated** at group level from the declared block, and your own shareholdings eliminated against the subsidiary's equity — otherwise group net worth double-counts.
+- **Snapshots stored historically**, so the group trend survives a fork being retired.
+
+---
+
+## 9. Cash reconciliation
+
+You asked for reconciliation, and it turns out you already paid for it — it just was never wired up.
+
+### 9.1 Why it has never happened
+
+Everything needed exists: the `wallet_reconciliations` table, a POST route accepting both admin and seller, a daily reminder cron, and a UI. But (F-30):
+
+- there is **one user account** in the system, an admin
+- there are **zero seller users** and **zero `user_location_access` rows**
+- the cron looks for sellers holding `can_manage_wallet`, matches nothing, and has created **zero notifications ever**
+- Rico, Aryan Bhaggoe and Leonardo exist as sellers but **none has a login account**
+- the only reconciliation UI is in the **seller portal**, which the admin never opens
+
+So the fix is mostly connection, not construction.
+
+### 9.2 What a reconciliation is
+
+Someone counts the physical cash, declares it, and the system compares:
+
+```
+declared    what was actually counted, entered by the counter
+expected    balance derived from the ledger at the cut-off
+variance    declared − expected
+```
+
+**The variance is the entire point, and it must never be silently absorbed.** Today's `wallet_reconciliations` stores only `confirmed_balance`, with no expected value and no variance — so it records an assertion, not a reconciliation. Add `expected_balance`, `variance`, `variance_reason` and a status.
+
+When variance is non-zero, post an **adjusting entry through the ledger** — `Dr` or `Cr` a cash-over/short account against the wallet — so the correction is a traceable transaction. **Never write the balance directly.** Direct balance edits are almost certainly what produced the SRD 500.00 drift on the Blauwgrond wallet (F-03), and an immutable ledger is worth nothing if a balance can be silently overwritten beside it.
+
+Variance above a threshold requires a typed reason and blocks the month-end close until resolved.
+
+### 9.3 Cadence and who counts
+
+| Wallet type | Cadence | Who |
+|---|---|---|
+| Cash | Weekly, plus month-end | The seller holding the float |
+| Bank | Monthly at close | Admin, against the statement |
+| Savings | Monthly at close | Admin |
+
+**Give the three sellers login accounts** with `user_location_access` and `can_manage_wallet` for their own location only. That does three things at once: it makes the dormant reminder cron start working, it puts counting in the hands of the person actually holding the cash, and it creates the first real segregation of duties in the system (F-31) — the seller counts, the admin reviews and approves.
+
+That last point matters beyond reconciliation. It is also what makes the §7 payout approval a genuine control rather than a founder approving their own draw.
+
+### 9.4 Surfaces
+
+An admin reconciliation page — not only the seller portal — showing every wallet with its last reconciliation date, current expected balance, and days overdue, sorted by staleness. Recording a count takes one screen: declared amount, note, submit. The reminder cron is already written; it starts working the moment users and access rows exist.
+
+**Done means:** every wallet has a reconciliation date and an owner; variance is computed and stored, not just the declared figure; a non-zero variance posts a ledger adjustment rather than editing a balance; the month-end close is blocked while any wallet is unreconciled or carries an unexplained variance; and the SRD 500.00 Blauwgrond drift is explained and cleared as the first entry.
+
+---
+
+## 10. Roadmap
 
 **Phase 0 — Stop the bleeding (about 1 week)**
 
@@ -692,6 +893,9 @@ Highest risk-to-effort ratio in the whole plan.
 **Phase 0.5 — Clean the existing books (a few days, mostly manual)**
 
 Do this before any ledger migration; these numbers cannot be derived later.
+
+- Create login accounts for Rico, Aryan Bhaggoe and Leonardo with wallet access for their own location — this alone activates the dormant reminder cron and creates the first segregation of duties (F-30, F-31)
+- Reconcile all 13 wallets for the first time, starting with the SRD 500.00 Blauwgrond drift (F-21)
 
 - Reconcile the 4 orphaned sale headers (SRD 11,420.02): restore line items or void them properly
 - Reconcile the 4 header/line mismatches (SRD 1,050.02)
@@ -744,7 +948,7 @@ Roughly 14–18 weeks total on your existing stack, delivered incrementally, ver
 
 ---
 
-## 9. Metrics to run the business on
+## 11. Metrics to run the business on
 
 Once Phase 3 lands, these become computable per company and consolidated. Track them monthly.
 
@@ -776,7 +980,7 @@ Once Phase 3 lands, these become computable per company and consolidated. Track 
 
 ---
 
-## 10. Summary
+## 12. Summary
 
 | | |
 |---|---|

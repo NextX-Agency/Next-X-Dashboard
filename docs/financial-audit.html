@@ -517,10 +517,10 @@
       assessed for what it takes to run several legal entities on it.
     </p>
     <div class="meta-strip">
-      <span><b>29</b> findings</span>
+      <span><b>32</b> findings</span>
       <span><b>6</b> critical</span>
-      <span><b>11</b> high</span>
-      <span><b>11</b> medium</span>
+      <span><b>13</b> high</span>
+      <span><b>12</b> medium</span>
       <span><b>1</b> low</span>
       <span>Est. remediation <b>14–18 weeks</b></span>
     </div>
@@ -976,6 +976,35 @@
       </div>
 
       <div class="finding">
+        <div class="f-id"><span>F-30</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>The reconciliation chain is inert end to end</h4>
+          <p>F-21 reported zero reconciliations. The cause isn't neglect — every piece exists and none of them connect. The <code>wallet_reconciliations</code> table exists. A POST route exists, correctly accepting admin and seller. A daily reminder cron exists. And the only UI lives in <code>src/app/seller/page.tsx</code> — the <strong>seller portal</strong>.</p>
+          <p>The production reality: there is <strong>exactly one user account in the entire system</strong>, role <code>admin</code>. <strong>Zero seller users.</strong> <strong>Zero rows in <code>user_location_access</code></strong>, so nobody holds <code>can_manage_wallet</code>.</p>
+          <p>The cron looks for sellers with wallet access. It matches nothing, every day, and has created <strong>zero notifications ever</strong>. Your three sellers — Rico, Aryan Bhaggoe and Leonardo — exist as records but <strong>none has a login account</strong>, so none can reach the portal where the feature lives. The admin, the only person who can log in, has no reconciliation surface on any admin page.</p>
+          <p>So SRD 42,005.99 and USD 534.00 across 13 wallets has never been counted against the books — not because the control was skipped, but because the chain was never connected.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-31</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>No segregation of duties: one account does everything</h4>
+          <p>One user, role <code>admin</code>, records every sale, every expense, every wallet movement and every correction. For a cash-heavy business holding SRD 42,006 across 13 wallets that's the textbook control gap — no second pair of eyes anywhere in the money path, and the activity log shows one actor for every entry.</p>
+          <p>This bears directly on §7. A month-end payout that an admin approves is, today, <strong>the founder approving their own draw</strong>. The approval step is only a control if the approver and the beneficiary can be different people.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-32</span><span class="chip medium">Medium</span></div>
+        <div class="f-body">
+          <h4>No asset or investment register</h4>
+          <p>The database has no table matching <em>asset</em>, <em>investment</em>, <em>holding</em>, <em>share</em>, <em>equity</em> or <em>depreciation</em>. The only things the system knows you own are stock and wallet balances — equipment, deposits and equity stakes in other businesses are invisible.</p>
+          <p>Combined with F-08's single-entry ledger, <strong>the company cannot state its own net worth.</strong> Specified in §8.</p>
+        </div>
+      </div>
+
+      <div class="finding">
         <div class="f-id"><span>F-27</span><span class="chip medium">Medium</span></div>
         <div class="f-body">
           <h4>Expense recording has lapsed</h4>
@@ -1422,7 +1451,183 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Roadmap</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 08</span><h2>Assets, investments and group structure</h2></div>
+    <p>Three different things are easy to conflate, so to be precise about your setup:</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:38%"></th><th style="width:34%">What it is</th><th>Treatment</th></tr></thead>
+        <tbody>
+          <tr><td>Paramaribo-Noord, Commewijne, Thurkowweg</td><td><strong>Branches</strong> of one company — shared stock, sellers and wallets</td><td><code>location_id</code>, as today</td></tr>
+          <tr><td>Stakes you hold in other businesses</td><td><strong>Investments</strong> — equity in a company you don't operate</td><td>New <code>investment_holdings</code></td></tr>
+          <tr><td>Your other startups, once forked</td><td><strong>Separate companies</strong></td><td><code>Company</code> + group consolidation</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Today the system models only the first. There is no asset register and no investment register (F-32).</p>
+
+    <h3>Chart of accounts additions</h3>
+    <pre>1500  Investments in other businesses
+1600  Property &amp; equipment
+1650  Accumulated depreciation          <span class="cm">(contra-asset)</span>
+3400  Unrealised gains on investments   <span class="cm">(equity, not profit)</span>
+4950  Realised gain on disposal
+5950  Depreciation expense</pre>
+
+    <h3>Investments in other businesses</h3>
+    <pre>InvestmentHolding
+  id, holder_company_id
+  investee_name
+  investee_company_id        <span class="cm">null unless the investee is one of your own entities</span>
+  instrument                 <span class="cm">equity | convertible_note | safe | loan</span>
+  ownership_percent
+  acquired_on, acquisition_cost, currency
+  carrying_value, valuation_method, valued_on
+  status                     <span class="cm">active | exited</span>
+  exited_on, exit_proceeds</pre>
+    <p>Acquiring a stake isn't an expense — it converts cash into a different asset:</p>
+    <pre><span class="dr">Dr</span> 1500 Investments          25,000
+   <span class="cr">Cr</span> 1010 Cash SRD                  25,000</pre>
+    <p>
+      This matters for §7: a SRD 25,000 investment must <strong>not</strong> reduce distributable profit,
+      or founder pay would collapse in any month you invest. It's a balance-sheet movement, not a cost.
+    </p>
+
+    <h3>How much of an investee to recognise</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:16%">Stake</th><th style="width:26%">Treatment</th><th>What the dashboard shows</th></tr></thead>
+        <tbody>
+          <tr><td class="num">Under 20%</td><td>Cost, or fair value if there's a reliable mark</td><td>One asset line. Their profits aren't yours until a dividend is paid</td></tr>
+          <tr><td class="num">20–50%</td><td>Equity method</td><td>Carrying value moves with your share of their profit or loss; dividends reduce it</td></tr>
+          <tr><td class="num">Over 50%</td><td>Full consolidation</td><td>Combine their statements line by line, then show the share you don't own as non-controlling interest</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="verdict" style="margin-top:22px">
+      <p class="verdict-label">The guardrail that matters most</p>
+      <p style="margin-bottom:0">
+        <strong>Never revalue on optimism.</strong> Move carrying value only on a priced round, an actual
+        transaction, or an impairment — and route unrealised gains to equity (3400), never to profit. If
+        an unrealised markup reached the P&amp;L it would inflate distributable profit and therefore
+        founder pay, so you'd be paying yourselves cash out of a paper gain. Only realised proceeds on
+        exit touch profit.
+      </p>
+    </div>
+
+    <h3>Fixed assets and depreciation</h3>
+    <p>
+      Monthly depreciation is a scheduled posting with no cash movement — <code>Dr 5950 Depreciation</code>,
+      <code>Cr 1650 Accumulated depreciation</code>. <strong>It reuses the recurring engine from §6.1
+      directly</strong>, with the wallet debit suppressed. One scheduler, two uses. Depreciation <em>is</em>
+      a real operating cost and belongs in the payout base; an asset purchase is not.
+    </p>
+
+    <h3>Forking, and the central dashboard</h3>
+    <p>
+      Your plan is to perfect this dashboard, fork it per startup, then connect them centrally. The plan
+      is sound, but the order matters and one prerequisite is non-negotiable.
+    </p>
+    <p>
+      <strong>Build <code>Company</code> before you fork.</strong> A fork made today carries no notion of
+      which entity it is, so a central dashboard would have nothing stable to consolidate on. Adding
+      <code>company_id</code> to every financial row is not an alternative to forking — <strong>it's what
+      makes a clean fork possible</strong>, because extracting one company's rows into a new instance
+      becomes a filtered dump rather than an archaeology project.
+    </p>
+    <p>
+      <strong>Then ask whether you still need to fork.</strong> One instance with a company switcher and an
+      "All companies" view gives you group reporting as a SQL query rather than an integration, one
+      codebase to fix, and one bill. Fork only on a concrete trigger: outside investors or a different cap
+      table, a plan to sell or spin out, regulatory separation, or genuinely divergent product needs.
+    </p>
+    <p>
+      Forking has a cost a small team feels quickly: <strong>schema drift</strong>. Four forks that evolve
+      independently will not consolidate, and every one of the 32 findings here would need fixing four
+      times. If you fork, you need a shared, versioned core package for the finance engine — that's the
+      price of admission.
+    </p>
+    <p><strong>If you do fork, the contract is the design.</strong> Each instance exposes one signed, versioned, read-only endpoint; central pulls nightly and never writes back:</p>
+    <pre>GET /api/consolidation/snapshot?period=2026-08
+Authorization: Bearer &lt;per-instance secret&gt;
+
+{
+  "schema_version": "1.0.0",
+  "company":  { "id", "name", "legal_name", "base_currency", "tax_id" },
+  "period":   { "start", "end", "status": "closed" },
+  "trial_balance": [ { "account_code", "account_name", "type", "debit", "credit" } ],
+  "kpis":     { "revenue", "gross_profit", "operating_expenses", "net_profit",
+                "cash_by_currency", "inventory_at_cost", "receivables", "payables" },
+  "intercompany": [ { "counterparty_company_id", "type", "amount", "currency" } ],
+  "generated_at", "checksum"
+}</pre>
+    <ul class="plain">
+      <li><strong><code>schema_version</code> is mandatory</strong> and central refuses a snapshot it doesn't understand rather than silently misreading it. This is the drift defence.</li>
+      <li><strong>Only closed periods count</strong> toward group figures — ties consolidation to the period lock.</li>
+      <li><strong>Central is read-only.</strong> Each instance owns its own truth; central aggregates and never writes back.</li>
+      <li><strong>FX normalised</strong> to a group presentation currency, with the rate stored on the snapshot so a restated group figure can be explained.</li>
+      <li><strong>Intercompany eliminated</strong> at group level, and your shareholdings eliminated against the subsidiary's equity — otherwise group net worth double-counts.</li>
+      <li><strong>Snapshots stored historically</strong>, so the group trend survives a fork being retired.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 09</span><h2>Cash reconciliation</h2></div>
+    <p>You asked for reconciliation, and it turns out you already paid for it — it just was never wired up.</p>
+
+    <h3>Why it has never happened</h3>
+    <p>
+      Everything needed exists: the table, a POST route accepting both admin and seller, a daily reminder
+      cron, and a UI. But there is <strong>one user account</strong> (an admin), <strong>zero seller
+      users</strong>, and <strong>zero access rows</strong>. The cron looks for sellers holding wallet
+      access, matches nothing, and has created zero notifications ever. Rico, Aryan Bhaggoe and Leonardo
+      have no login accounts. And the only UI is in the seller portal, which the admin never opens.
+      <strong>So the fix is mostly connection, not construction.</strong>
+    </p>
+
+    <h3>What a reconciliation is</h3>
+    <pre>declared    <span class="cm">what was actually counted, entered by the counter</span>
+expected    <span class="cm">balance derived from the ledger at the cut-off</span>
+variance    <span class="cm">declared − expected</span></pre>
+    <p>
+      <strong>The variance is the entire point, and it must never be silently absorbed.</strong> Today's
+      table stores only <code>confirmed_balance</code> — no expected value, no variance — so it records an
+      assertion, not a reconciliation. Add <code>expected_balance</code>, <code>variance</code>,
+      <code>variance_reason</code> and a status.
+    </p>
+    <p>
+      When variance is non-zero, post an <strong>adjusting entry through the ledger</strong> — a
+      cash-over/short account against the wallet — so the correction is a traceable transaction.
+      <strong>Never write the balance directly.</strong> Direct balance edits are almost certainly what
+      produced the SRD 500.00 drift on the Blauwgrond wallet (F-03), and an immutable ledger is worth
+      nothing if a balance can be silently overwritten beside it.
+    </p>
+
+    <h3>Cadence and who counts</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th style="width:26%">Wallet type</th><th style="width:32%">Cadence</th><th>Who</th></tr></thead>
+        <tbody>
+          <tr><td>Cash</td><td>Weekly, plus month-end</td><td>The seller holding the float</td></tr>
+          <tr><td>Bank</td><td>Monthly at close</td><td>Admin, against the statement</td></tr>
+          <tr><td>Savings</td><td>Monthly at close</td><td>Admin</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>Give the three sellers login accounts</strong> with access to their own location only. That
+      does three things at once: it makes the dormant reminder cron start working, it puts counting in the
+      hands of the person actually holding the cash, and it creates the first real segregation of duties in
+      the system (F-31) — the seller counts, the admin reviews and approves.
+    </p>
+    <p>
+      That last point matters beyond reconciliation. It's also what makes the §7 payout approval a genuine
+      control rather than a founder approving their own draw.
+    </p>
+    <p class="f-fix"><b>Done means</b>Every wallet has a reconciliation date and an owner; variance is computed and stored, not just the declared figure; a non-zero variance posts a ledger adjustment rather than editing a balance; month-end close is blocked while any wallet is unreconciled or carries an unexplained variance; and the SRD 500.00 Blauwgrond drift is explained and cleared as the first entry.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="sec-num">§ 10</span><h2>Roadmap</h2></div>
     <p>Ordered so each phase is independently valuable, and nothing later depends on reopening the Odoo question.</p>
 
     <div class="phase">
@@ -1448,6 +1653,8 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
         <h4>Clean the existing books</h4>
         <p>Mostly manual, and it has to happen before any ledger migration — these numbers cannot be derived later.</p>
         <ul>
+          <li>Create login accounts for Rico, Aryan Bhaggoe and Leonardo with wallet access for their own location — this alone activates the dormant reminder cron and creates the first segregation of duties <span class="num">(F-30, F-31)</span></li>
+          <li>Reconcile all 13 wallets for the first time, starting with the SRD 500.00 Blauwgrond drift <span class="num">(F-21)</span></li>
           <li>Reconcile the 4 orphaned sale headers <span class="num">(SRD 11,420.02)</span> — restore line items or void them properly</li>
           <li>Reconcile the 4 header/line mismatches <span class="num">(SRD 1,050.02)</span></li>
           <li>Explain the <span class="num">SRD 1,451.38</span> commission gap <span class="num">(F-16)</span> and the <span class="num">SRD 500.00</span> wallet drift <span class="num">(F-03)</span></li>
@@ -1493,7 +1700,8 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
         <ul>
           <li>Add <code>Company</code>; add <code>company_id</code> to every financial table; backfill <span class="num">(F-07)</span></li>
           <li>Company scoping through auth context, RLS and every report</li>
-          <li>Company switcher in the UI, with a consolidated view for owners</li>
+          <li>Company switcher with an "All companies" view — this is the central dashboard, before any fork exists <span class="num">(§8)</span></li>
+          <li>Asset and investment registers with their balance-sheet accounts <span class="num">(F-32, §8)</span></li>
         </ul>
       </div>
     </div>
@@ -1533,7 +1741,7 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 09</span><h2>Metrics to run the business on</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 11</span><h2>Metrics to run the business on</h2></div>
     <p>Once Phase 3 lands these become computable per company and consolidated. Track them monthly.</p>
 
     <div class="metrics">
@@ -1587,7 +1795,7 @@ Next day     admin reviews, adjusts, approves → posts atomically</pre>
   </section>
 
   <section>
-    <div class="sec-head"><span class="sec-num">§ 10</span><h2>Summary</h2></div>
+    <div class="sec-head"><span class="sec-num">§ 12</span><h2>Summary</h2></div>
     <div class="tbl-scroll">
       <table>
         <tbody>
