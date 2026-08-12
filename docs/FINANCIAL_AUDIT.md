@@ -315,6 +315,33 @@ Nine transactions, SRD 10,662, containing at least three different kinds of thin
 
 Two consequences. The only subscription record in the entire system is filed here, under a personal-spending label. And any attempt to compute an operating run rate — which is what sizes your payout — has to guess at this bucket. It is the concrete case for making classification mandatory at entry (F-20).
 
+**F-33 (Critical) — Restore wipes atomically but restores non-atomically**
+
+`src/app/api/backup/restore/route.ts` wraps the wipe in a transaction (line 44) and commits it. The inserts that follow are then issued table by table through `prisma.` — **not** through a shared transaction client — from the loop at line 507. There is no transaction covering the restore as a whole.
+
+So a restore that fails partway leaves the database **wiped and partially repopulated, with nothing to roll back to.** The recovery path is itself the largest single data-loss risk in the system, and it is the one mechanism you would reach for if a migration went wrong.
+
+The ledger handling around it is thoughtful — `app.finance_ledger_maintenance` scopes the wipe, and `app.finance_ledger_recorded` prevents the capture trigger from double-posting when a backup carries its own ledger snapshot. That care makes the missing outer transaction more surprising, not less.
+
+*Fix before anything else:* one transaction spanning wipe and all inserts, or restore into a staging schema and swap. **This is the prerequisite for every other change**, because it is the safety net under them.
+
+**F-34 (High) — Wallet balances are driven more by manual correction than by transactions**
+
+Adjustment-type wallet transactions, over seven months:
+
+| Reference | Count | Gross balance moved |
+|---|---|---|
+| `correction` | 81 | SRD 170,452.87 |
+| `wallet_edit` | 7 | SRD 44,950.00 |
+| `opening_balance` | 1 | SRD 17,000.00 |
+| **Total** | **89** | **SRD 232,402.87** |
+
+**Manual balance movement exceeds total lifetime revenue of SRD 211,976.** Eighty-one corrections in seven months is roughly twelve a month — someone is continuously repairing balances by hand, which is exactly what you would expect given F-02 and F-03, and it is where the SRD 500 Blauwgrond drift and the `wallet_edit` path come from.
+
+This has a direct consequence for the migration: **the historical balance trail cannot be trusted or replayed.** Do not attempt to rebuild wallet history from `wallet_transactions`. Establish physically counted, reconciled opening balances at a cutover date and treat everything before it as read-only history (see the implementation plan, T-14).
+
+> A note on a test that looked alarming and was not: 32 wallet transactions fail a naive `balance_after = balance_before ± amount` check. Thirty-one are `adjustment` rows, where the amount *is* the delta and the direction is not implied by a credit/debit flag, so the check does not apply to them. The remaining one is a SRD 0.01 rounding artifact on a commission payout. The arithmetic is sound; the volume in the table above is the actual finding.
+
 **F-30 (High) — The reconciliation chain is inert end to end**
 
 F-21 reported zero reconciliations. The cause is not neglect — every piece exists and none of them connect:

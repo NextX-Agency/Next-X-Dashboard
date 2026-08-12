@@ -517,9 +517,9 @@
       assessed for what it takes to run several legal entities on it.
     </p>
     <div class="meta-strip">
-      <span><b>32</b> findings</span>
-      <span><b>6</b> critical</span>
-      <span><b>13</b> high</span>
+      <span><b>34</b> findings</span>
+      <span><b>7</b> critical</span>
+      <span><b>14</b> high</span>
       <span><b>12</b> medium</span>
       <span><b>1</b> low</span>
       <span>Est. remediation <b>14–18 weeks</b></span>
@@ -972,6 +972,39 @@
           <h4>"Personal Items" is an unclassifiable dumping ground</h4>
           <p>Nine transactions, <span class="num">SRD 10,662</span>, containing at least three different kinds of thing: probable inventory (~SRD 6,460 — Anne Klein watches, headlight kits, a dongle and splitter), genuine personal consumption (~SRD 2,546 — Shein, a card game), one subscription (Spotify, SRD 456), and one unlabelled SRD 1,200 entry.</p>
           <p>Two consequences. The only subscription record in the entire system is filed here, under a personal-spending label. And any attempt to compute an operating run rate — which is what sizes your payout — has to guess at this bucket. It's the concrete case for making classification mandatory at entry (F-20).</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-33</span><span class="chip critical">Critical</span></div>
+        <div class="f-body">
+          <h4>Restore wipes atomically but restores non-atomically</h4>
+          <p><code>backup/restore/route.ts</code> wraps the wipe in a transaction (line 44) and commits it. The inserts that follow are issued table by table through <code>prisma.</code> — <strong>not</strong> a shared transaction client — from the loop at line 507. No transaction covers the restore as a whole.</p>
+          <p>So a restore that fails partway leaves the database <strong>wiped and partially repopulated, with nothing to roll back to.</strong> The recovery path is itself the largest single data-loss risk in the system — and it's the one mechanism you'd reach for if a migration went wrong.</p>
+          <p>The ledger handling around it is thoughtful: <code>app.finance_ledger_maintenance</code> scopes the wipe and <code>app.finance_ledger_recorded</code> stops the capture trigger double-posting when a backup carries its own ledger snapshot. That care makes the missing outer transaction more surprising, not less.</p>
+          <p class="f-fix"><b>Fix first</b>One transaction spanning wipe and all inserts, or restore into a staging schema and swap. This is the prerequisite for every other change, because it's the safety net under them.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="f-id"><span>F-34</span><span class="chip high">High</span></div>
+        <div class="f-body">
+          <h4>Wallet balances are driven more by manual correction than by transactions</h4>
+          <p>Adjustment-type wallet transactions over seven months:</p>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th style="width:46%">Reference</th><th>Count</th><th>Gross balance moved</th></tr></thead>
+              <tbody>
+                <tr><td><code>correction</code></td><td class="num">81</td><td class="num">SRD 170,452.87</td></tr>
+                <tr><td><code>wallet_edit</code></td><td class="num">7</td><td class="num">SRD 44,950.00</td></tr>
+                <tr><td><code>opening_balance</code></td><td class="num">1</td><td class="num">SRD 17,000.00</td></tr>
+                <tr><td><strong>Total</strong></td><td class="num"><strong>89</strong></td><td class="num"><strong style="color:var(--crit)">SRD 232,402.87</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p><strong>Manual balance movement exceeds total lifetime revenue of SRD 211,976.</strong> Eighty-one corrections in seven months is roughly twelve a month — someone is continuously repairing balances by hand, exactly as you'd expect given F-02 and F-03, and it's where the SRD 500 drift and the <code>wallet_edit</code> path come from.</p>
+          <p>Direct consequence for the migration: <strong>the historical balance trail cannot be trusted or replayed.</strong> Don't rebuild wallet history from transactions — establish physically counted opening balances at a cutover date and treat everything before it as read-only history.</p>
+          <p class="correction"><b>A test that looked alarming and wasn't</b>32 wallet transactions fail a naive <code>balance_after = balance_before ± amount</code> check. Thirty-one are <code>adjustment</code> rows, where the amount <em>is</em> the delta and direction isn't implied by a credit/debit flag, so the check doesn't apply. The remaining one is a SRD 0.01 rounding artifact. The arithmetic is sound; the volume above is the actual finding.</p>
         </div>
       </div>
 
@@ -1807,6 +1840,8 @@ variance    <span class="cm">declared − expected</span></pre>
           <tr><td>Biggest multi-company blocker</td><td><span class="num">F-07</span> — no legal entity in the model.</td></tr>
           <tr><td>Your three asks</td><td><span class="num">F-24</span> subscriptions never deduct · <span class="num">F-25</span> 86% of inventory capital is dead or overstocked · <span class="num">F-26</span> no owner has ever been paid. Specified in §6.</td></tr>
           <tr><td>What you can pay yourselves</td><td><strong>20% of trailing-3-month distributable profit</strong> — savings 65%, restock cap 15% — rising to 30% once savings clears the SRD 23,439 floor. Today that's <strong>SRD 958/month</strong> across all founders. The binding constraint is <span class="num">F-28</span>: SRD 4,508/month goes into stock that doesn't sell, leaving only SRD 281/month genuinely free. Back-test in §7.</td></tr>
+          <tr><td>Fix before anything else</td><td><span class="num">F-33</span> — the restore path can itself destroy data, and it's the safety net under every other change.</td></tr>
+          <tr><td>Implementation</td><td>27 sequenced tasks with data-migration and verification steps in <code>docs/IMPLEMENTATION_PLAN.md</code>.</td></tr>
           <tr><td>Effort</td><td class="num">~14–18 weeks phased, vs. 4–8 months migrating</td></tr>
         </tbody>
       </table>
