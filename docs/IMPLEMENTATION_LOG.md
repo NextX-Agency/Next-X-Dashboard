@@ -35,4 +35,10 @@ Part 1 of the runbook. Do not try `create_branch`.
 | wallets SRD | 42,005.99 |
 | wallets USD | 534.00 |
 
+Re-measured 2026-08-13, unchanged. Additional counts recorded for Part 6 (the plan asks for these
+at T-02): `sale_items` 306, `commissions` 122, `wallets` 13, `locations` 3. All five "must be zero"
+invariants are zero.
+
 ---
+
+## T-01 — claimed by claude — 2026-08-13T01:30Z — in progress
