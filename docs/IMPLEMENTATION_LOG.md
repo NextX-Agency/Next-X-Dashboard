@@ -1114,6 +1114,24 @@ Adding a forward-only USD revaluation run, balanced SRD gain/loss journal postin
 fresh-rate gate. The first approved run establishes a carry baseline without rewriting history;
 later runs post only the change.
 
+## T-24 — Codex — 2026-08-13T16:01Z — DONE
+
+Added an RLS-protected, idempotent monthly FX-revaluation register and authenticated serialized
+endpoint. It values company USD wallets in SRD at a rate on or before the selected month-end. The
+first accepted run records a forward-only carrying-value baseline without replaying history; later
+runs post only the change as a balanced SRD debit/credit to FX valuation adjustment and unrealised
+gain or loss. It never mutates a wallet balance. A stale rate (more than seven days before period
+end) blocks the run instead of guessing a rate.
+
+Retained pre-migration dump: `backups/finance-overhaul-pre-t24-20260813T124000Z.dump`
+(`262439F686E415C35D0CB87587A3153AA12BD9B2D1A5D1007EB4DDC91320FD0D`).
+The table has RLS enabled with zero public policies and all three SRD FX accounts are present.
+The latest production rate is still 2026-06-05, so no revaluation was posted; this is the documented
+conservative default. `pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
 ## T-23 — claimed by Codex — 2026-08-13T15:35Z — in progress
 
 Adding RLS-protected investment and fixed-asset registers plus idempotent, non-cash depreciation

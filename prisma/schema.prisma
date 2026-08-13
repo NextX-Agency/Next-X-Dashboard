@@ -633,6 +633,24 @@ model AssetDepreciationRun {
   @@map("asset_depreciation_runs")
 }
 
+model FxRevaluationRun {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId        String   @map("company_id") @db.Uuid
+  periodKey        String   @map("period_key")
+  periodEnd        DateTime @map("period_end") @db.Date
+  exchangeRateId   String   @map("exchange_rate_id") @db.Uuid
+  usdBalance       Decimal  @map("usd_balance") @db.Decimal(18, 4)
+  carryingValueSrd Decimal  @map("carrying_value_srd") @db.Decimal(18, 4)
+  deltaSrd         Decimal  @map("delta_srd") @db.Decimal(18, 4)
+  status           String
+  journalEntryId   String?  @map("journal_entry_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([companyId, periodKey])
+  @@index([companyId, periodEnd(sort: Desc)])
+  @@map("fx_revaluation_runs")
+}
+
 model Seller {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String
