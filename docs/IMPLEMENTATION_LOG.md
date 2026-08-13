@@ -1108,6 +1108,12 @@ public policies. No data was changed by the migration.
 Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
 
+## T-27 — claimed by Codex — 2026-08-13T16:32Z — in progress
+
+Building the visible month-end control center and extending the close route with every gate:
+subscriptions, wallet reconciliation, classification, FX revaluation, and payout draft. This is
+the operator-facing UI for the controls that were previously only schema and API work.
+
 ## T-25 — claimed by Codex — 2026-08-13T16:05Z — in progress
 
 Implementing the all-companies consolidated read model. This remains a query, not an integration;
