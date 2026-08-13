@@ -1127,3 +1127,8 @@ charge was triggered during deployment verification.
 
 `pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed. No production financial
 row was changed; prior Part 6 remains the T-05 baseline.
+
+## T-19 code — claimed by Codex — 2026-08-13T14:40Z — in progress
+
+Implementing the authenticated month-end payout evaluator with conservative draft-on-breaker
+behavior, serializable posting, cron registration, and protected routing.
