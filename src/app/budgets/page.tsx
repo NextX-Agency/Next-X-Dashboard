@@ -1,16 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Plus, Target, TrendingUp, Calendar, Wallet, Edit, Trash2, RefreshCw, PiggyBank, CreditCard, DollarSign, ArrowDownRight, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Badge, Input, Select, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
-import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
-import { useAuth } from '@/lib/AuthContext'
 import type {
   BudgetsPageBudget as Budget,
   BudgetsPageBudgetCategory as BudgetCategory,
@@ -36,7 +33,6 @@ type TabType = 'overview' | 'budgets' | 'goals' | 'categories'
 export default function BudgetsGoalsPage() {
   const { displayCurrency, setDisplayCurrency, exchangeRate, convertToDisplay } = useCurrency()
   const { dialogProps, confirm } = useConfirmDialog()
-  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([])
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
@@ -130,6 +126,17 @@ export default function BudgetsGoalsPage() {
     void loadData(true)
   }, [loadData])
 
+  const saveBudgetAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
+    const response = await fetch('/api/budgets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+    })
+    const result = await response.json().catch(() => null) as { error?: string } | null
+    if (!response.ok) throw new Error(result?.error || 'Unable to save budget data.')
+    return result
+  }, [])
+
   // Reset form functions
   const resetCategoryForm = () => {
     setBudgetCategoryForm({ name: '', type: 'custom', linked_expense_categories: '' })
@@ -159,31 +166,12 @@ export default function BudgetsGoalsPage() {
         type: budgetCategoryForm.type,
         linked_expense_categories: budgetCategoryForm.linked_expense_categories || null
       }
-      if (editingCategory) {
-        await supabase.from('budget_categories').update(catData).eq('id', editingCategory.id)
-        await logActivity({
-          action: 'update',
-          entityType: 'budget_category',
-          entityId: editingCategory.id,
-          entityName: budgetCategoryForm.name,
-          details: buildActivityDetails({ Category: budgetCategoryForm.name, Type: budgetCategoryForm.type }),
-          userId: user?.id
-        })
-      } else {
-        const { data } = await supabase.from('budget_categories').insert(catData).select().single()
-        await logActivity({
-          action: 'create',
-          entityType: 'budget_category',
-          entityId: data?.id,
-          entityName: budgetCategoryForm.name,
-          details: buildActivityDetails({ Category: budgetCategoryForm.name, Type: budgetCategoryForm.type }),
-          userId: user?.id
-        })
-      }
+      await saveBudgetAction('saveCategory', { ...catData, ...(editingCategory ? { id: editingCategory.id } : {}) })
       resetCategoryForm()
       await loadData()
     } catch (error) {
       console.error('Error saving category:', error)
+      alert(error instanceof Error ? error.message : 'Unable to save category.')
     } finally {
       setSubmitting(false)
     }
@@ -197,23 +185,13 @@ export default function BudgetsGoalsPage() {
 
   const handleDeleteCategory = async (category: BudgetCategory) => {
     const ok = await confirm({
-      title: 'Delete Budget Category',
-      message: 'All budgets in this category will also be deleted.',
+      title: 'Keep Budget Category History',
+      message: 'Budget categories are retained for audit. Rename the category instead of deleting it.',
       itemName: category.name,
-      variant: 'danger',
-      confirmLabel: 'Delete',
+      variant: 'warning',
+      confirmLabel: 'Understood',
     })
     if (!ok) return
-    await supabase.from('budget_categories').delete().eq('id', category.id)
-    await logActivity({
-      action: 'delete',
-      entityType: 'budget_category',
-      entityId: category.id,
-      entityName: category.name,
-      details: buildActivityDetails({ Category: category.name }),
-      userId: user?.id
-    })
-    await loadData()
   }
 
   // Budget handlers
@@ -231,33 +209,12 @@ export default function BudgetsGoalsPage() {
         currency: budgetForm.currency
       }
       
-      const categoryName = budgetCategories.find(c => c.id === budgetForm.category_id)?.name || 'Unknown'
-      
-      if (editingBudget) {
-        await supabase.from('budgets').update(data).eq('id', editingBudget.id)
-        await logActivity({
-          action: 'update',
-          entityType: 'budget',
-          entityId: editingBudget.id,
-          entityName: categoryName,
-          details: buildActivityDetails({ Amount: formatCurrency(parseFloat(budgetForm.amount_allowed), budgetForm.currency), Period: budgetForm.period }),
-          userId: user?.id
-        })
-      } else {
-        const { data: newBudget } = await supabase.from('budgets').insert(data).select().single()
-        await logActivity({
-          action: 'create',
-          entityType: 'budget',
-          entityId: newBudget?.id,
-          entityName: categoryName,
-          details: buildActivityDetails({ Amount: formatCurrency(parseFloat(budgetForm.amount_allowed), budgetForm.currency), Period: budgetForm.period }),
-          userId: user?.id
-        })
-      }
+      await saveBudgetAction('saveBudget', { ...data, ...(editingBudget ? { id: editingBudget.id } : {}) })
       resetBudgetForm()
       await loadData()
     } catch (error) {
       console.error('Error saving budget:', error)
+      alert(error instanceof Error ? error.message : 'Unable to save budget.')
     } finally {
       setSubmitting(false)
     }
@@ -287,17 +244,7 @@ export default function BudgetsGoalsPage() {
       confirmLabel: 'Delete',
     })
     if (!ok) return
-    await supabase.from('budgets').delete().eq('id', budget.id)
-    const budgetCurrency = (budget.currency || 'SRD') as Currency
-    await logActivity({
-      action: 'delete',
-      entityType: 'budget',
-      entityId: budget.id,
-      entityName: budget.budget_categories?.name || 'Unknown',
-      details: buildActivityDetails({ Amount: formatCurrency(budget.amount_allowed, budgetCurrency), Period: budget.period }),
-      userId: user?.id
-    })
-    await loadData()
+    alert('Budgets are retained for audit. Edit this budget instead of deleting it.')
   }
 
   // Goal handlers
@@ -314,39 +261,12 @@ export default function BudgetsGoalsPage() {
         wallet_id: goalForm.wallet_id || null
       }
       
-      const walletName = goalForm.wallet_id ? wallets.find(w => w.id === goalForm.wallet_id)?.person_name || 'Unknown' : undefined
-      
-      if (editingGoal) {
-        await supabase.from('goals').update(data).eq('id', editingGoal.id)
-        await logActivity({
-          action: 'update',
-          entityType: 'goal',
-          entityId: editingGoal.id,
-          entityName: goalForm.name,
-          details: buildActivityDetails({
-            Target: formatCurrency(parseFloat(goalForm.target_amount), goalForm.currency),
-            ...(walletName && { Wallet: walletName })
-          }),
-          userId: user?.id
-        })
-      } else {
-        const { data: newGoal } = await supabase.from('goals').insert(data).select().single()
-        await logActivity({
-          action: 'create',
-          entityType: 'goal',
-          entityId: newGoal?.id,
-          entityName: goalForm.name,
-          details: buildActivityDetails({
-            Target: formatCurrency(parseFloat(goalForm.target_amount), goalForm.currency),
-            ...(walletName && { Wallet: walletName })
-          }),
-          userId: user?.id
-        })
-      }
+      await saveBudgetAction('saveGoal', { ...data, ...(editingGoal ? { id: editingGoal.id } : {}) })
       resetGoalForm()
       await loadData()
     } catch (error) {
       console.error('Error saving goal:', error)
+      alert(error instanceof Error ? error.message : 'Unable to save goal.')
     } finally {
       setSubmitting(false)
     }
@@ -375,17 +295,7 @@ export default function BudgetsGoalsPage() {
       confirmLabel: 'Delete',
     })
     if (!ok) return
-    const goalCurrency = (goal.currency || 'SRD') as Currency
-    await supabase.from('goals').delete().eq('id', goal.id)
-    await logActivity({
-      action: 'delete',
-      entityType: 'goal',
-      entityId: goal.id,
-      entityName: goal.name,
-      details: buildActivityDetails({ Target: formatCurrency(goal.target_amount, goalCurrency), Progress: formatCurrency(goal.current_amount, goalCurrency) }),
-      userId: user?.id
-    })
-    await loadData()
+    alert('Goals and progress are retained for audit. Edit the goal instead of deleting it.')
   }
 
   const handleAddGoalProgress = (goal: Goal) => {
@@ -397,17 +307,7 @@ export default function BudgetsGoalsPage() {
     const { goal, amount } = addProgressModal
     const parsed = parseFloat(amount)
     if (isNaN(parsed) || parsed <= 0) return
-    const newAmount = goal.current_amount + parsed
-    const goalCurrency = (goal.currency || 'SRD') as Currency
-    await supabase.from('goals').update({ current_amount: newAmount }).eq('id', goal.id)
-    await logActivity({
-      action: 'update',
-      entityType: 'goal',
-      entityId: goal.id,
-      entityName: goal.name,
-      details: buildActivityDetails({ Added: formatCurrency(parsed, goalCurrency), Total: `${formatCurrency(newAmount, goalCurrency)} / ${formatCurrency(goal.target_amount, goalCurrency)}` }),
-      userId: user?.id
-    })
+    await saveBudgetAction('addGoalProgress', { id: goal.id, amount: parsed })
     setAddProgressModal(null)
     await loadData()
   }
@@ -458,58 +358,11 @@ export default function BudgetsGoalsPage() {
   const handleSyncBudgets = async () => {
     setSyncing(true)
     try {
-      // Compute all new amounts first, then fire DB writes concurrently
-      const updates: { id: string; amount_spent: number }[] = []
-
-      for (const budget of budgets) {
-        const budgetCategory = budgetCategories.find(c => c.id === budget.category_id)
-        const linkedCatIds = budgetCategory?.linked_expense_categories
-          ? budgetCategory.linked_expense_categories.split(',').map((id: string) => id.trim()).filter(Boolean)
-          : []
-
-        const startDate = new Date(budget.start_date)
-        const endDate = budget.end_date ? new Date(budget.end_date) : new Date()
-        const budgetCurrency = (budget.currency || 'SRD') as Currency
-
-        const budgetExpenses = expenses.filter(e => {
-          const expDate = new Date(e.created_at)
-          const inDateRange = expDate >= startDate && expDate <= endDate
-          if (!inDateRange) return false
-          if (linkedCatIds.length === 0) return false
-          return linkedCatIds.includes(e.category_id)
-        })
-
-        // Convert each expense amount into the budget's own currency
-        const totalSpent = budgetExpenses.reduce((sum, e) => {
-          const expCurrency = (e.currency || 'SRD') as Currency
-          if (expCurrency === budgetCurrency) return sum + e.amount
-          if (budgetCurrency === 'SRD' && expCurrency === 'USD') return sum + (e.amount * exchangeRate)
-          if (budgetCurrency === 'USD' && expCurrency === 'SRD') return sum + (e.amount / exchangeRate)
-          return sum + e.amount
-        }, 0)
-
-        const roundedSpent = Math.round(totalSpent * 100) / 100
-        if (roundedSpent !== budget.amount_spent) {
-          updates.push({ id: budget.id, amount_spent: roundedSpent })
-        }
-      }
-
-      // Fire all DB writes concurrently instead of sequentially
-      await Promise.all(
-        updates.map(u => supabase.from('budgets').update({ amount_spent: u.amount_spent }).eq('id', u.id))
-      )
-
+      await saveBudgetAction('sync', {})
       await loadData()
-      await logActivity({
-        action: 'update',
-        entityType: 'budget',
-        entityId: 'sync',
-        entityName: 'Budget Sync',
-        details: buildActivityDetails({ Updated: `${updates.length} of ${budgets.length} budgets`, Source: 'Expense data' }),
-        userId: user?.id
-      })
     } catch (error) {
       console.error('Error syncing budgets:', error)
+      alert(error instanceof Error ? error.message : 'Unable to sync budgets.')
     } finally {
       setSyncing(false)
     }

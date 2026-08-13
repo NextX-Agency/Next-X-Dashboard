@@ -1042,3 +1042,18 @@ returned zero matches; `git diff --check` passed. A read-only Part 6 run confirm
 
 Moving budgets, budget categories, and goals out of browser Supabase mutations and into a
 validated authenticated server route. Budget and goal history will be retained rather than deleted.
+
+## Budgets financial write hardening — Codex — 2026-08-13T13:31Z — DONE
+
+`budgets/page.tsx` has no browser Supabase mutation remaining. Categories, budgets, goals, goal
+progress, and expense-based budget synchronization now use the authenticated budgets API in a
+Serializable transaction with server activity logs. Budget creation carries the active T-20 company
+scope; synchronization recomputes posted expenses from database records using the active FX rate.
+
+Budget, category, and goal deletion has been removed from the live path to preserve audit history;
+the existing controls now direct the operator to edit instead. Goal progress is an atomic increment.
+
+Verification: `pnpm exec tsc --noEmit --pretty false` passed; the budgets browser-write scan
+returned zero matches; `git diff --check` passed. Read-only Part 6: **149 sales / 306 sale_items /
+490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122 commissions /
+SRD 42,005.99 / USD 534.00**; ledger pair and stock invariants remain zero.
