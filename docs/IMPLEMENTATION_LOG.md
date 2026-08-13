@@ -797,3 +797,7 @@ Part 6 suite passed. Pre-migration dump retained:
 `backups/finance-overhaul-pre-t06-20260813T102728Z.dump`
 (`08F49319718D80F672FC6AFEAB8D47ECADF1A739F1CDB60C5E46EF9DE6431CA6`).
 Updated Prisma's 29 matching mappings, then `prisma validate` and `prisma generate` passed.
+
+## T-09 — claimed by Codex — 2026-08-13T10:45Z — in progress
+
+Applying the staged review-queue migration before the cost snapshot backfill.
