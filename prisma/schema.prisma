@@ -167,9 +167,9 @@ model Item {
   name                                    String
   brand                                   String?
   categoryId                              String?             @map("category_id") @db.Uuid
-  purchasePriceUsd                        Decimal             @map("purchase_price_usd") @db.Decimal(10, 2)
-  sellingPriceSrd                         Decimal?            @map("selling_price_srd") @db.Decimal(10, 2)
-  sellingPriceUsd                         Decimal?            @map("selling_price_usd") @db.Decimal(10, 2)
+  purchasePriceUsd                        Decimal             @map("purchase_price_usd") @db.Decimal(18, 4)
+  sellingPriceSrd                         Decimal?            @map("selling_price_srd") @db.Decimal(18, 4)
+  sellingPriceUsd                         Decimal?            @map("selling_price_usd") @db.Decimal(18, 4)
   imageUrl                                String?             @map("image_url")
   createdAt                               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                               DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -257,7 +257,7 @@ model StockTransfer {
 
 model ExchangeRate {
   id       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  usdToSrd Decimal  @map("usd_to_srd") @db.Decimal(10, 4)
+  usdToSrd Decimal  @map("usd_to_srd") @db.Decimal(18, 8)
   setAt    DateTime @default(now()) @map("set_at") @db.Timestamptz(6)
   isActive Boolean  @default(true) @map("is_active")
 
@@ -292,8 +292,8 @@ model Reservation {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   combo_id       String?
-  combo_price    Decimal? @db.Decimal(10, 2)
-  original_price Decimal? @db.Decimal(10, 2)
+  combo_price    Decimal? @db.Decimal(18, 4)
+  original_price Decimal? @db.Decimal(18, 4)
   client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   location       Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
@@ -306,8 +306,8 @@ model Sale {
   locationId          String                @map("location_id") @db.Uuid
   sellerId            String?               @map("seller_id") @db.Uuid
   currency            String
-  exchangeRate        Decimal?              @map("exchange_rate") @db.Decimal(10, 4)
-  totalAmount         Decimal               @map("total_amount") @db.Decimal(10, 2)
+  exchangeRate        Decimal?              @map("exchange_rate") @db.Decimal(18, 8)
+  totalAmount         Decimal               @map("total_amount") @db.Decimal(18, 4)
   paymentMethod       String?               @map("payment_method")
   notes               String?
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -338,11 +338,11 @@ model SaleItem {
   saleId          String   @map("sale_id") @db.Uuid
   itemId          String   @map("item_id") @db.Uuid
   quantity        Int
-  unitPrice       Decimal  @map("unit_price") @db.Decimal(10, 2)
-  subtotal        Decimal  @db.Decimal(10, 2)
+  unitPrice       Decimal  @map("unit_price") @db.Decimal(18, 4)
+  subtotal        Decimal  @db.Decimal(18, 4)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   is_custom_price Boolean? @default(false)
-  original_price  Decimal? @db.Decimal(10, 2)
+  original_price  Decimal? @db.Decimal(18, 4)
   discount_reason String?
   unitCostUsd     Decimal? @map("unit_cost_usd") @db.Decimal(18, 4)
   fxRateAtSale    Decimal? @map("fx_rate_at_sale") @db.Decimal(18, 8)
@@ -358,7 +358,7 @@ model Wallet {
   personName          String                 @map("person_name")
   type                String
   currency            String
-  balance             Decimal                @default(0) @db.Decimal(10, 2)
+  balance             Decimal                @default(0) @db.Decimal(18, 4)
   purpose             String                 @default("operational")
   createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -392,7 +392,7 @@ model Expense {
   id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   categoryId          String?               @map("category_id") @db.Uuid
   walletId            String                @map("wallet_id") @db.Uuid
-  amount              Decimal               @db.Decimal(10, 2)
+  amount              Decimal               @db.Decimal(18, 4)
   currency            String
   description         String?
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -442,7 +442,7 @@ model Commission {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   sellerId         String    @map("seller_id") @db.Uuid
   saleId           String    @map("sale_id") @db.Uuid
-  commissionAmount Decimal   @map("commission_amount") @db.Decimal(10, 2)
+  commissionAmount Decimal   @map("commission_amount") @db.Decimal(18, 4)
   paid             Boolean   @default(false)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   location_id      String?   @db.Uuid
@@ -472,8 +472,8 @@ model BudgetCategory {
 model Budget {
   id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   categoryId    String         @map("category_id") @db.Uuid
-  amountAllowed Decimal        @map("amount_allowed") @db.Decimal(10, 2)
-  amountSpent   Decimal        @default(0) @map("amount_spent") @db.Decimal(10, 2)
+  amountAllowed Decimal        @map("amount_allowed") @db.Decimal(18, 4)
+  amountSpent   Decimal        @default(0) @map("amount_spent") @db.Decimal(18, 4)
   period        String
   startDate     DateTime       @map("start_date") @db.Date
   endDate       DateTime?      @map("end_date") @db.Date
@@ -488,8 +488,8 @@ model Budget {
 model Goal {
   id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name          String
-  targetAmount  Decimal   @map("target_amount") @db.Decimal(10, 2)
-  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(10, 2)
+  targetAmount  Decimal   @map("target_amount") @db.Decimal(18, 4)
+  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(18, 4)
   deadline      DateTime? @db.Date
   currency      String    @default("SRD") @db.VarChar(10)
   walletId      String?   @map("wallet_id") @db.Uuid
@@ -505,8 +505,8 @@ model FinanceObligation {
   counterpartyName String    @map("counterparty_name")
   locationId       String?   @map("location_id") @db.Uuid
   currency         String    @default("SRD") @db.VarChar(10)
-  originalAmount   Decimal   @map("original_amount") @db.Decimal(10, 2)
-  paidAmount       Decimal   @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  originalAmount   Decimal   @map("original_amount") @db.Decimal(18, 4)
+  paidAmount       Decimal   @default(0) @map("paid_amount") @db.Decimal(18, 4)
   status           String    @default("open") @db.VarChar(30)
   dueDate          DateTime? @map("due_date") @db.Date
   issuedAt         DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
@@ -529,9 +529,9 @@ model PurchaseOrder {
   walletId             String?             @map("wallet_id") @db.Uuid
   locationId           String              @map("location_id") @db.Uuid
   supplier_id          String?             @db.Uuid
-  totalAmount          Decimal             @default(0) @map("total_amount") @db.Decimal(10, 2)
+  totalAmount          Decimal             @default(0) @map("total_amount") @db.Decimal(18, 4)
   currency             String              @default("USD") @db.VarChar(10)
-  exchange_rate        Decimal?            @db.Decimal(10, 4)
+  exchange_rate        Decimal?            @db.Decimal(18, 8)
   status               String              @default("pending") @db.VarChar(50)
   notes                String?
   expected_arrival     DateTime?           @db.Timestamptz(6)
@@ -554,8 +554,8 @@ model PurchaseOrderItem {
   order_id          String                    @db.Uuid
   itemId            String                    @map("item_id") @db.Uuid
   quantity          Int                       @default(1)
-  unit_cost         Decimal                   @default(0) @db.Decimal(10, 2)
-  subtotal          Decimal                   @default(0) @db.Decimal(10, 2)
+  unit_cost         Decimal                   @default(0) @db.Decimal(18, 4)
+  subtotal          Decimal                   @default(0) @db.Decimal(18, 4)
   quantity_received Int                       @default(0)
   createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
   allocations       PurchaseOrderAllocation[]
@@ -833,9 +833,9 @@ model wallet_transactions {
   wallet_id      String              @db.Uuid
   sale_id        String?             @db.Uuid
   type           String
-  amount         Decimal             @db.Decimal(10, 2)
-  balance_before Decimal             @db.Decimal(10, 2)
-  balance_after  Decimal             @db.Decimal(10, 2)
+  amount         Decimal             @db.Decimal(18, 4)
+  balance_before Decimal             @db.Decimal(18, 4)
+  balance_after  Decimal             @db.Decimal(18, 4)
   description    String?
   created_at     DateTime?           @default(now()) @db.Timestamptz(6)
   expense_id     String?             @db.Uuid
@@ -858,7 +858,7 @@ model WalletReconciliation {
   id                 String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   walletId           String    @map("wallet_id") @db.Uuid
   locationId         String?   @map("location_id") @db.Uuid
-  confirmedBalance   Decimal   @map("confirmed_balance") @db.Decimal(10, 2)
+  confirmedBalance   Decimal   @map("confirmed_balance") @db.Decimal(18, 4)
   note               String?
   reconciledByUserId String?   @map("reconciled_by_user_id") @db.Uuid
   reconciledAt       DateTime  @default(now()) @map("reconciled_at") @db.Timestamptz(6)
@@ -901,7 +901,7 @@ model FinanceLedgerEntry {
   actorUserId         String?              @map("actor_user_id") @db.Uuid
   eventType           String               @map("event_type")
   direction           String
-  amount              Decimal              @db.Decimal(10, 2)
+  amount              Decimal              @db.Decimal(18, 4)
   currency            String               @db.VarChar(10)
   sourceType          String?              @map("source_type")
   sourceId            String?              @map("source_id") @db.Uuid

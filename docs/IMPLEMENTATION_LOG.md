@@ -787,3 +787,13 @@ full dump is retained.
 ## T-06 — claimed by Codex — 2026-08-13T10:35Z — in progress
 
 Applying the staged money-column widening with the transactional DDL protocol.
+
+## T-06 — Codex — 2026-08-13T10:40Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The migration widened all 26 amount columns to `NUMERIC(18,4)` and all three FX-rate columns to
+`NUMERIC(18,8)` in one committed transaction; its in-transaction assertions and the post-commit
+Part 6 suite passed. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t06-20260813T102728Z.dump`
+(`08F49319718D80F672FC6AFEAB8D47ECADF1A739F1CDB60C5E46EF9DE6431CA6`).
+Updated Prisma's 29 matching mappings, then `prisma validate` and `prisma generate` passed.
