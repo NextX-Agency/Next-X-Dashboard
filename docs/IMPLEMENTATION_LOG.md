@@ -202,3 +202,39 @@ current grants before writing the migration rather than applying all three state
 the free plan (`list_branches` returns `[]`), and the runbook's Part 1 replaces it with the
 transactional DDL protocol. Both files should be corrected together — they are kept verbatim in sync
 — but that is someone's deliberate call, not a silent edit from here.
+
+---
+
+## OUT-OF-BAND — claude — 2026-08-13 — users table locked down
+
+Applied to production outside the task sequence, with the owner's explicit approval, because the
+exposure was live, unauthenticated and remotely reachable.
+
+**Verified the agent's F-04 report against production. It was correct, and understated in the audit.**
+36 tables carry permissive policies to role `public` (which includes `anon`) with `USING (true)`, and
+`anon` holds full DML grants on all of them. `public.users` carried
+`"Allow authenticated access" — ALL, public, USING true, WITH CHECK true`.
+
+Checked before acting: 1 user, 1 admin, 1 password hash — no unauthorised accounts had been created.
+
+Applied `supabase/migrations/20260813090000_close_anon_access_to_users.sql` — dropped all three
+policies on `users`, revoked `anon` and `authenticated`, left RLS enabled with zero policies.
+
+Before: anon SELECT on users = true, 3 policies
+After:  anon SELECT on users = false, 0 policies, 1 user row intact
+Part 6: 149 sales / 490 wallet_tx / 490 ledger / 83 expenses / SRD 42,005.99 / USD 534.00 — all unchanged
+
+Login was unaffected: `src/app/api/auth/login/route.ts` uses Prisma on a direct connection, which is
+not subject to PostgREST grants or RLS.
+
+**The other 35 tables were deliberately left open.** The admin sales, commissions and reservations
+pages write to them directly from the browser using the anon key, so revoking now breaks the
+dashboard. T-11 must move those writes server-side before T-05 can close the tables. Do not attempt
+T-05 before T-11 — the ordering in Part 7 is wrong on this point and this entry supersedes it.
+
+**Doc drift fixed:** `CLAUDE.md` and `AGENTS.md` no longer instruct agents to use `create_branch`;
+both now point at the transactional protocol in Part 1.
+
+**Still open from the agent's report:** T-04 is half-applied — `capture_wallet_transaction_ledger`
+already has `search_path` set, `prevent_finance_ledger_mutation` does not, and the `REVOKE EXECUTE`
+has not been done.

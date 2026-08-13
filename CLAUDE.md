@@ -73,8 +73,10 @@ schema error. Always use `./node_modules/.bin/prisma`. Both commands need `DATAB
 `DIRECT_URL` set.
 
 Database is Supabase (project `ivvhazwjtnyznojeoojs`), Postgres 17. Use the Supabase MCP tools.
-**Test every schema migration on a branch** (`create_branch` → apply → verify → `merge_branch`)
-before production.
+**Branching is unavailable — the org is on the Supabase free plan.** `create_branch` will fail;
+do not try it. Test every schema migration with the transactional protocol in
+`docs/IMPLEMENTATION_PLAN.md` Part 1: `BEGIN`, migrate, backfill, run the verification queries
+**inside the transaction**, then `COMMIT` only if every check passed, else `ROLLBACK`.
 
 ## Conventions
 
