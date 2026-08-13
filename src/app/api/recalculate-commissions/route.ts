@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
 import { supabase } from '@/lib/supabase'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authResult = await requireAdmin(request)
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     console.log('Starting commission recalculation...')
 

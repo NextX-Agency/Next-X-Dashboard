@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
 import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
+  // src/proxy.ts only checks that a session cookie exists — it never validates
+  // it and applies no role check, so the guard has to be here (F-05, R10).
+  const authResult = await requireAdmin(request)
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     const { commissionIds } = await request.json()
 

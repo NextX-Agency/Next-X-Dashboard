@@ -114,4 +114,46 @@ a production database holding SRD 42,006 with no verified restore point. Those a
 T-03 is taken next instead: Part 7 lists T-01 as the only hard dependency for it, and it changes no
 data and no schema, so it carries no rollback requirement.
 
-## T-03 — claimed by claude — 2026-08-13T02:02Z — in progress
+## T-03 — claude — 2026-08-13T02:20Z — DONE
+
+Before: none of the listed routes called `requireAdmin`. The only gate was `src/proxy.ts`, which
+        checks that a `nextics_session` cookie *exists* — it never validates it and applies no role
+        check, so any forged value passed.
+After:  8 routes call `requireAdmin(request)` in the handler. `check-commission-currency.js` deleted
+        from the repo root.
+Production counts unchanged (this task touches no data and no schema):
+        149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00, all zero-invariants zero.
+
+**Verified against the local stack, both directions.** With `Cookie: nextics_session=forged`:
+
+| Route | Method | Before | After |
+|---|---|---|---|
+| `/api/delete-commissions` | POST | 500 | **401** |
+| `/api/recalculate-commissions` | POST | — | **401** |
+| `/api/fix-combo-price` | POST | — | **401** |
+| `/api/migrate` | GET | 500 | **401** |
+| `/api/delete` | DELETE | — | **401** |
+| `/api/create-missing-commissions` | POST | — | **401** |
+| `/api/check-commission` | GET | 404 | **401** |
+| `/api/create-commission` | POST | 500 | **401** |
+
+"Before" values are a control run against the pre-T-03 build: the forged cookie reached the handler
+every time. They are 500/404 only because the local stack has placeholder Supabase credentials —
+against production those handlers would have done their work. A real admin session still passes the
+guard and reaches the handler (checked separately).
+
+Notes:
+- **Guarded `/api/create-commission` as well, which T-03 does not list.** It is the same hole —
+  unguarded, writes commission rows, and already sits in `PROTECTED_API_PREFIXES`. Leaving it open
+  while closing seven neighbours would have missed the point of F-05. Flagging it because it is a
+  deviation from the written task.
+- `/api/delete` declared `export const runtime = 'edge'`. `requireAdmin` resolves the session through
+  Prisma, which needs the Node runtime, so the edge declaration was removed. The route deletes blobs;
+  edge latency is not worth an unguarded delete.
+- `recalculate-commissions` (`POST()`) and `migrate` (`GET()`) took no request argument, and
+  `fix-combo-price` took a plain `Request`. All three now take `NextRequest`.
+- Not done, deliberately: T-03 also says to *mark* `delete-commissions`, `recalculate-commissions`,
+  `create-missing-commissions`, `check-commission` and `fix-combo-price` for deletion once T-11
+  lands. They are marked here in the log rather than in code — deleting them now would remove repair
+  tools while the write path they repair is still the broken one.
+- Lint 289 -> 287 problems; the two that disappeared are the deleted root script. No new ones.

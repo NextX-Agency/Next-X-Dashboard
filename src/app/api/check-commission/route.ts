@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
 import { supabase } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin(request)
+  if (authResult instanceof NextResponse) return authResult
+
   const searchParams = request.nextUrl.searchParams
   const commissionId = searchParams.get('id')
 

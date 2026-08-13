@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
 import { createClient } from '@supabase/supabase-js'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // This route runs DDL with the service role key. It was reachable by anyone
+  // holding a forged session cookie (F-05, R10).
+  const authResult = await requireAdmin(request)
+  if (authResult instanceof NextResponse) return authResult
+
   try {
     // Create admin client with service role key to run DDL
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
