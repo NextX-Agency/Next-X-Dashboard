@@ -207,6 +207,7 @@ model Location {
   clients                  Client[]
   commissions              Commission[]
   expenses                 Expense[]
+  recurringExpenses        RecurringExpense[]
   purchaseOrderAllocations PurchaseOrderAllocation[]
   purchaseOrders           PurchaseOrder[]
   reservations             Reservation[]
@@ -371,6 +372,7 @@ model Wallet {
   wallet_transactions   wallet_transactions[]
   locations             Location?              @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   reconciliations       WalletReconciliation[]
+  recurringExpenses     RecurringExpense[]
   notifications         UserNotification[]
   ledgerEntries         FinanceLedgerEntry[]
 
@@ -381,11 +383,12 @@ model Wallet {
 }
 
 model ExpenseCategory {
-  id            String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name          String
-  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  expenses      Expense[]
-  ledgerEntries FinanceLedgerEntry[]
+  id                String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name              String
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  ledgerEntries     FinanceLedgerEntry[]
 
   @@map("expense_categories")
 }
@@ -410,15 +413,46 @@ model Expense {
   reviewedByUserId    String?               @map("reviewed_by_user_id") @db.Uuid
   needsReview         Boolean               @default(false) @map("needs_review")
   reviewReason        String?               @map("review_reason")
+  recurringExpenseId  String?               @map("recurring_expense_id") @db.Uuid
+  periodKey           String?               @map("period_key")
   category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
   reviewedBy          User?                 @relation("ExpenseReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  recurringExpense    RecurringExpense?     @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
   wallet_transactions wallet_transactions[]
 
   @@index([location_id], map: "idx_expenses_location")
   @@index([status, classification, expenseDate(sort: Desc), createdAt(sort: Desc)], map: "idx_expenses_financial_review")
   @@map("expenses")
+}
+
+model RecurringExpense {
+  id                   String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                 String
+  vendorName           String           @map("vendor_name")
+  amount               Decimal          @db.Decimal(18, 4)
+  currency             String           @default("USD")
+  cadence              String           @default("monthly")
+  anchorDay            Int              @default(1) @map("anchor_day")
+  walletId             String?          @map("wallet_id") @db.Uuid
+  locationId           String?          @map("location_id") @db.Uuid
+  categoryId           String?          @map("category_id") @db.Uuid
+  classification       String           @default("operating")
+  nextRunOn            DateTime         @map("next_run_on") @db.Date
+  lastPostedAt         DateTime?        @map("last_posted_at") @db.Timestamptz(6)
+  isActive             Boolean          @default(true) @map("is_active")
+  autoPost             Boolean          @default(true) @map("auto_post")
+  amountIsEstimated    Boolean          @default(false) @map("amount_is_estimated")
+  anchorDayIsEstimated Boolean          @default(false) @map("anchor_day_is_estimated")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  wallet               Wallet?          @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  location             Location?        @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  category             ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  expenses             Expense[]
+
+  @@map("recurring_expenses")
 }
 
 model Seller {

@@ -909,3 +909,14 @@ remain owner-only actions; no account or balance was invented.
 ## T-18 — claimed by Codex — 2026-08-13T11:35Z — in progress
 
 Applying the staged recurring-expense schema and estimated-subscription seed migration.
+
+## T-18 — Codex — 2026-08-13T11:39Z — DONE (schema and seed)
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction added the recurring-expense relation and period-key uniqueness guard, then seeded
+Spotify (USD 12), Claude (USD 20), and Codex (USD 20) for the next month. All are visibly estimated,
+none back-charge, and no expense or balance was changed. Migration assertions and Part 6 passed.
+Pre-migration dump retained: `backups/finance-overhaul-pre-t18-20260813T104631Z.dump`
+(`850180AAD217248DC146EDCBE993AB3E4AF8241A66DEEC5D42FB97BD7692252D`).
+Prisma models were added and regenerated. The cron implementation remains T-18 code work later in
+this run, after browser financial writes have been removed and RLS can be locked down.
