@@ -801,3 +801,13 @@ Updated Prisma's 29 matching mappings, then `prisma validate` and `prisma genera
 ## T-09 — claimed by Codex — 2026-08-13T10:45Z — in progress
 
 Applying the staged review-queue migration before the cost snapshot backfill.
+
+## T-09 — Codex — 2026-08-13T10:48Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The single transaction added review fields and indexes, flagged exactly 4 no-line sales, 4
+header/line mismatches, 5 zero-cost items, and 9 Personal Items expenses. Its in-transaction
+assertions and the post-commit Part 6 suite passed. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t09-20260813T103111Z.dump`
+(`5A87D514A57A98E7C9891C4DF84E4B52A6BBDD922B59CF8DC23150D0EE355C72`).
+Prisma already represented the six review fields; code was verified against the live schema.
