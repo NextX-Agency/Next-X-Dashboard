@@ -510,6 +510,53 @@ model PayoutRun {
   @@map("payout_runs")
 }
 
+model Account {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  code        String
+  name        String
+  accountType String   @map("account_type")
+  currency    String   @default("SRD")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  journalLines JournalLine[]
+
+  @@unique([companyId, code, currency])
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  entryDate     DateTime @default(dbgenerated("CURRENT_DATE")) @map("entry_date") @db.Date
+  description   String
+  sourceType    String?  @map("source_type")
+  sourceId      String?  @map("source_id") @db.Uuid
+  correlationId String   @default(dbgenerated("uuid_generate_v4()")) @map("correlation_id") @db.Uuid
+  status        String   @default("posted")
+  postedAt      DateTime? @map("posted_at") @db.Timestamptz(6)
+  createdBy     String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lines         JournalLine[]
+
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  journalEntryId      String   @map("journal_entry_id") @db.Uuid
+  accountId           String   @map("account_id") @db.Uuid
+  currency            String
+  debit               Decimal  @default(0) @db.Decimal(18, 4)
+  credit              Decimal  @default(0) @db.Decimal(18, 4)
+  walletTransactionId String?  @map("wallet_transaction_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  journalEntry        JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Restrict)
+  account             Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@map("journal_lines")
+}
+
 model Seller {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String

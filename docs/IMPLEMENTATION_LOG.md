@@ -1150,4 +1150,27 @@ Typecheck and diff checks pass.
 ## T-21 — claimed by Codex — 2026-08-13T15:00Z — in progress
 
 Adding the chart of accounts and forward-only double-entry journal with deferred balanced-entry
-enforcement and opening positions only (no historical replay).
+ enforcement and opening positions only (no historical replay).
+
+## T-21 — Codex — 2026-08-13T15:18Z — DONE
+
+Added the forward-only chart of accounts, journal entries, and journal lines with a deferred
+per-currency balance constraint. The immutable cutover opening position is linked to the current
+wallet position rather than replaying history. During production verification, the initial opening
+migration was found to have duplicated the cutover entry once per currency. It was corrected by a
+new, balanced contra journal entry — no journal, wallet, or financial row was deleted or altered.
+The corrected migration source creates one opening entry per company; the corrective migration is
+a no-op on a clean database and preserves the production audit trail.
+
+Retained pre-correction dump:
+`backups/finance-overhaul-pre-t21-correction-20260813T122000Z.dump`
+(`0424D05B981B1A2204402DC20599C573484F9BB54E883BD262D9C7C8BAA5D684`).
+The journal has 3 entries and 12 lines, all balanced; cash-account balances match wallets exactly:
+SRD 42,005.99 and USD 534.00. Added authenticated read-only journal API and finance workspace
+panel; there is intentionally no browser journal-write path. `pnpm exec tsc --noEmit --pretty false`
+and `git diff --check` passed.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**. Orphan
+sale items, both wallet-transaction/ledger pairing directions, negative stock, and unbalanced
+journal currency groups are zero.
