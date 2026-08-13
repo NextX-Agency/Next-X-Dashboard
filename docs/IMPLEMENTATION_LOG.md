@@ -783,3 +783,7 @@ schemas until its Realtime function was rejected for setting a managed-only para
 successful verification restore included the complete application schemas (`public` and `auth`) and
 their data, after priming the two production extensions. The scratch database was then dropped; the
 full dump is retained.
+
+## T-06 — claimed by Codex — 2026-08-13T10:35Z — in progress
+
+Applying the staged money-column widening with the transactional DDL protocol.
