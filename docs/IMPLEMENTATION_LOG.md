@@ -905,3 +905,7 @@ Its assertions and the post-commit Part 6 suite passed. Pre-migration dump retai
 (`4B04868734F381702939B63990A87F5D517F6BE8B5882A7C5104C4D4CC60DACA`).
 Prisma's wallet timestamps were updated and regenerated. Physical cash counts and seller credentials
 remain owner-only actions; no account or balance was invented.
+
+## T-18 — claimed by Codex — 2026-08-13T11:35Z — in progress
+
+Applying the staged recurring-expense schema and estimated-subscription seed migration.
