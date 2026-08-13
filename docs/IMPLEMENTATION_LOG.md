@@ -1057,3 +1057,8 @@ Verification: `pnpm exec tsc --noEmit --pretty false` passed; the budgets browse
 returned zero matches; `git diff --check` passed. Read-only Part 6: **149 sales / 306 sale_items /
 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122 commissions /
 SRD 42,005.99 / USD 534.00**; ledger pair and stock invariants remain zero.
+
+## Catalog and FX financial write hardening — claimed by Codex — 2026-08-13T13:34Z — in progress
+
+Moving item/catalog pricing and exchange-rate changes out of browser Supabase mutations into
+authenticated server transactions. Item retirement and rate deactivation will retain history.
