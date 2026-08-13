@@ -1,14 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { CheckCircle, MapPin, DollarSign, TrendingUp, Filter, X, Search, Building2, Trash2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Select, EmptyState, LoadingSpinner, Badge, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
 import type {
   CommissionsPageCategory as Category,
@@ -79,17 +77,9 @@ export default function CommissionsPage() {
       return nextSellers
     }
 
-    const { data: newSellers, error } = await supabase
-      .from('sellers')
-      .insert(sellersToCreate as { name: string | null; location_id: string; commission_rate: number }[])
-      .select('id, name, commission_rate, created_at, updated_at, location_id')
-      .order('name')
-
-    if (error) {
-      throw error
-    }
-
-    return [...nextSellers, ...(newSellers ?? [])].sort((left, right) => left.name.localeCompare(right.name))
+    const response = await fetch('/api/commissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ensureSellers', locations: sellersToCreate }) })
+    if (!response.ok) throw new Error('Unable to prepare seller records.')
+    return nextSellers
   }, [])
 
   const loadData = useCallback(async (showLoadingState: boolean = false) => {
@@ -125,14 +115,8 @@ export default function CommissionsPage() {
       setCategories(payload.data.categories)
       setSellerCategoryRates(payload.data.sellerCategoryRates)
 
-      try {
-        const resolvedSellers = await ensureSellersForLocations(payload.data.locations, payload.data.sellers)
-        setSellers(resolvedSellers)
-      } catch (sellerError) {
-        console.error('Error preparing sellers:', sellerError)
-        setSellers(payload.data.sellers)
-        setLoadError('Some seller records could not be prepared automatically. Existing commission data is still available.')
-      }
+      setSellers(payload.data.sellers)
+      void ensureSellersForLocations(payload.data.locations, payload.data.sellers).then(() => undefined).catch((sellerError) => console.error('Error preparing sellers:', sellerError))
     } catch (error) {
       console.error('Error loading data:', error)
       setLoadError(error instanceof Error ? error.message : 'Unable to load commission data right now.')
@@ -262,17 +246,6 @@ export default function CommissionsPage() {
     // outright. A commission is cancelled by voiding the sale it belongs to,
     // which zeroes it and leaves the trail intact (T-13).
     alert('Commissions are no longer deleted. Void the sale instead — that cancels its unpaid commission and keeps the record.')
-    return
-    
-    await logActivity({
-      action: 'delete',
-      entityType: 'commission',
-      entityId: commissionId,
-      entityName: commission?.locations?.name || 'Unknown',
-      details: `Deleted commission: ${formatCurrency(commission?.commission_amount || 0, currency)} for ${commission?.locations?.seller_name || commission?.locations?.name}`
-    })
-    
-    await loadData()
   }
 
   const handlePayAllUnpaid = async () => {
@@ -382,32 +355,15 @@ export default function CommissionsPage() {
       
       if (editingRateId) {
         // Update existing rate
-        await supabase
-          .from('seller_category_rates')
-          .update({ commission_rate: rate })
-          .eq('id', editingRateId)
+        await fetch('/api/commissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'saveRate', id: editingRateId, seller_id: selectedSeller, category_id: selectedCategory, commission_rate: rate }) })
       } else {
         // Create new rate
-        await supabase
-          .from('seller_category_rates')
-          .insert({
-            seller_id: selectedSeller,
-            category_id: selectedCategory,
-            commission_rate: rate
-          })
+        await fetch('/api/commissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'saveRate', seller_id: selectedSeller, category_id: selectedCategory, commission_rate: rate }) })
       }
 
       const seller = sellers.find(s => s.id === selectedSeller)
       const category = categories.find(c => c.id === selectedCategory)
       
-      await logActivity({
-        action: editingRateId ? 'update' : 'create',
-        entityType: 'seller_category_rate',
-        entityId: editingRateId || selectedSeller,
-        entityName: `${seller?.name} - ${category?.name}`,
-        details: `${editingRateId ? 'Updated' : 'Set'} commission rate to ${rate}%`
-      })
-
       closeRateModal()
       await loadData()
     } finally {
@@ -427,18 +383,7 @@ export default function CommissionsPage() {
     })
     if (!ok) return
 
-    await supabase
-      .from('seller_category_rates')
-      .delete()
-      .eq('id', rateId)
-
-    await logActivity({
-      action: 'delete',
-      entityType: 'seller_category_rate',
-      entityId: rateId,
-      entityName: 'Category Rate',
-      details: 'Deleted category-specific commission rate'
-    })
+    await fetch('/api/commissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteRate', id: rateId }) })
 
     await loadData()
   }

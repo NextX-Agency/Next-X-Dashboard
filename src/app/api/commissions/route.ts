@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { runSerializableTransaction } from '@/lib/serializableTransaction'
+import { writeActivityLog } from '@/lib/serverActivityLog'
 import type {
   CommissionsPageCategory,
   CommissionsPageCommission,
@@ -242,4 +245,46 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+export async function POST(request: NextRequest) {
+  const actor = await requireAdmin(request)
+  if (actor instanceof NextResponse) return actor
+  try {
+    const body = await request.json() as Record<string, unknown>
+    const data = await runSerializableTransaction(async (tx) => {
+      if (body.action === 'ensureSellers') {
+        const locations = Array.isArray(body.locations) ? body.locations : []
+        let created = 0
+        for (const entry of locations) {
+          if (!entry || typeof entry !== 'object') continue
+          const value = entry as Record<string, unknown>
+          const locationId = typeof value.location_id === 'string' ? value.location_id : ''
+          const name = typeof value.name === 'string' ? value.name.trim() : ''
+          if (!locationId || !name) continue
+          const existing = await tx.seller.findFirst({ where: { location_id: locationId }, select: { id: true } })
+          if (!existing) { await tx.seller.create({ data: { name, location_id: locationId, commissionRate: Number(value.commission_rate) || 0 } }); created++ }
+        }
+        return { created }
+      }
+      if (body.action === 'saveRate') {
+        const sellerId = typeof body.seller_id === 'string' ? body.seller_id : ''
+        const categoryId = typeof body.category_id === 'string' ? body.category_id : ''
+        const rate = Number(body.commission_rate)
+        if (!sellerId || !categoryId || !Number.isFinite(rate) || rate < 0 || rate > 100) throw new Error('Provide a valid seller, category, and rate.')
+        const id = typeof body.id === 'string' ? body.id : null
+        const record = id ? await tx.seller_category_rates.update({ where: { id }, data: { commission_rate: rate }, select: { id: true } }) : await tx.seller_category_rates.upsert({ where: { seller_id_category_id: { seller_id: sellerId, category_id: categoryId } }, update: { commission_rate: rate }, create: { seller_id: sellerId, category_id: categoryId, commission_rate: rate }, select: { id: true } })
+        await writeActivityLog({ action: id ? 'update' : 'create', entityType: 'seller_category_rate', entityId: record.id, entityName: 'Seller category rate', details: `Set commission rate to ${rate}%.`, user: actor, request, source: 'server', client: tx })
+        return record
+      }
+      if (body.action === 'deleteRate') {
+        const id = typeof body.id === 'string' ? body.id : ''
+        if (!id) throw new Error('Rate is required.')
+        await tx.seller_category_rates.delete({ where: { id } })
+        return { id }
+      }
+      throw new Error('Unsupported commission action.')
+    })
+    return NextResponse.json({ data })
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to save commission settings.' }, { status: 400 }) }
 }

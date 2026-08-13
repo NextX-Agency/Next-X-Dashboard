@@ -221,38 +221,11 @@ export default function SalesPage() {
   }
 
   const ensureSellersForLocation = useCallback(async (locationId: string): Promise<Seller[]> => {
-    const { data, error } = await supabase
-      .from('sellers')
-      .select('*')
-      .eq('location_id', locationId)
-      .order('name')
-
-    if (error) {
-      console.error('Error loading sellers:', error)
-      setLocationSellers([])
-      return []
-    }
-
-    let resolvedSellers = data ?? []
     const location = locations.find(loc => loc.id === locationId)
-
-    if (resolvedSellers.length === 0 && location?.seller_name) {
-      const { data: createdSeller, error: createError } = await supabase
-        .from('sellers')
-        .insert({
-          name: location.seller_name,
-          location_id: location.id,
-          commission_rate: Number(location.commission_rate ?? 0),
-        })
-        .select('*')
-        .single()
-
-      if (createError) {
-        console.error('Error creating seller for location:', createError)
-      } else if (createdSeller) {
-        resolvedSellers = [createdSeller]
-      }
-    }
+    if (location?.seller_name) await fetch('/api/commissions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'ensureSellers', locations: [{ name: location.seller_name, location_id: location.id, commission_rate: Number(location.commission_rate ?? 0) }] }) })
+    const response = await fetch('/api/commissions', { cache: 'no-store' })
+    const payload = await response.json() as { data?: { sellers: Seller[] } }
+    const resolvedSellers = (payload.data?.sellers ?? []).filter((seller) => seller.location_id === locationId)
 
     setLocationSellers(resolvedSellers)
     setSelectedSellerId(current => (

@@ -1,14 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Plus, MapPin, User, Phone, Wallet, ToggleLeft, ToggleRight, Search, X } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
-import { logActivity } from '@/lib/activityLog'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { fetchWalletPurposeMap } from '@/lib/walletPurposeClient'
 import { DEFAULT_WALLET_PURPOSE, WALLET_PURPOSE_LABELS, isWalletPurpose, type WalletPurpose } from '@/types/walletPurpose'
@@ -83,53 +81,27 @@ export default function LocationsPage() {
 
   const loadLocations = async () => {
     try {
-      const [{ data }, purposeMap] = await Promise.all([
-        supabase
-          .from('locations')
-          .select('*')
-          .order('name'),
+      const [response, purposeMap] = await Promise.all([
+        fetch('/api/locations', { cache: 'no-store' }),
         fetchWalletPurposeMap().catch(() => ({} as Record<string, WalletPurpose>)),
       ])
-      
-      if (data) {
-        // Load wallets for each location
-        const locationsWithWallets = await Promise.all(
-          data.map(async (location) => {
-            const { data: wallets } = await supabase
-              .from('wallets')
-              .select('*')
-              .eq('location_id', location.id)
-            return {
-              ...location,
-              wallets: (wallets || []).map((wallet) => ({
-                ...wallet,
-                purpose: isWalletPurpose(wallet.purpose)
-                  ? wallet.purpose
-                  : purposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE,
-              })),
-            }
-          })
-        )
-        setLocations(locationsWithWallets)
-      }
+      const payload = await response.json() as { data?: { locations: LocationWithWallets[]; stock: Stock[] }; error?: string }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to load locations.')
+      setLocations(payload.data.locations.map((location) => ({ ...location, wallets: (location.wallets || []).map((wallet) => ({ ...wallet, purpose: isWalletPurpose(wallet.purpose) ? wallet.purpose : purposeMap[wallet.id] ?? DEFAULT_WALLET_PURPOSE })) })))
+      setStock(payload.data.stock)
     } catch (error) {
       console.error('Error loading locations:', error)
     }
   }
 
   const loadStock = async () => {
-    try {
-      const { data } = await supabase.from('stock').select('*')
-      if (data) setStock(data)
-    } catch (error) {
-      console.error('Error loading stock:', error)
-    }
+    await loadLocations()
   }
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
-      await Promise.all([loadLocations(), loadStock()])
+      await loadLocations()
       setLoading(false)
     }
     loadData()
@@ -209,27 +181,7 @@ export default function LocationsPage() {
         catalog_type: formData.catalog_type
       }
 
-      if (editingLocation) {
-        await supabase.from('locations').update(data).eq('id', editingLocation.id)
-        await logActivity({
-          action: 'update',
-          entityType: 'location',
-          entityId: editingLocation.id,
-          entityName: formData.name,
-          details: `Updated location: ${formData.name}${formData.seller_name ? ` (Seller: ${formData.seller_name})` : ''}`
-        })
-      } else {
-        const { data: newLocation } = await supabase.from('locations').insert(data).select().single()
-        if (newLocation) {
-          await logActivity({
-            action: 'create',
-            entityType: 'location',
-            entityId: newLocation.id,
-            entityName: formData.name,
-            details: `Created location: ${formData.name}${formData.seller_name ? ` with seller ${formData.seller_name}` : ''}`
-          })
-        }
-      }
+      await apiRequest('/api/locations', { method: 'POST', body: JSON.stringify({ action: 'save', ...data, ...(editingLocation ? { id: editingLocation.id } : {}) }) })
 
       resetForm()
       loadLocations()
@@ -264,14 +216,7 @@ export default function LocationsPage() {
       confirmLabel: 'Delete Location',
     })
     if (ok) {
-      await supabase.from('locations').delete().eq('id', id)
-      await logActivity({
-        action: 'delete',
-        entityType: 'location',
-        entityId: id,
-        entityName: location?.name,
-        details: `Deleted location: ${location?.name}`
-      })
+      await apiRequest('/api/locations', { method: 'POST', body: JSON.stringify({ action: 'retire', id }) })
       loadLocations()
     }
   }

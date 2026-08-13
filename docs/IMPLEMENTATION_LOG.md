@@ -1078,3 +1078,15 @@ returned zero matches; `git diff --check` passed. Read-only Part 6: **149 / 306 
 
 Moving the remaining browser-side location, seller, commission-rate, and seller-creation mutations
 behind authenticated server actions before the T-05 RLS readiness check.
+
+## Locations and commissions hardening — Codex — 2026-08-13T14:12Z — DONE
+
+Locations now load and mutate only through the authenticated locations API; a removal retires the
+location instead of cascading stock or wallet deletion. Seller bootstrap and category-rate writes
+now run through authenticated Serializable commission actions. The legacy manual commission
+endpoint is closed (410): commissions are only derived by the serialized sale workflow.
+
+The complete `src/app` browser write scan now has **zero financial-table writes**. Remaining hits
+are non-financial user administration, public-blog view counting, and an example comment. Type
+checking and `git diff --check` passed. Read-only Part 6 remains **149 / 306 / 490 / 490 / 83 /
+122 / SRD 42,005.99 / USD 534.00**, with ledger-pair and negative-stock invariants zero.
