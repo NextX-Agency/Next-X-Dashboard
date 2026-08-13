@@ -16,8 +16,15 @@ export async function POST(request: NextRequest) {
   const actor = isScheduledRun ? null : await requireAdmin(request)
   if (!isScheduledRun && actor instanceof NextResponse) return actor
   try {
-    const body = await request.json().catch(() => ({})) as { sourceWalletId?: string; savingsWalletId?: string; notes?: string }
-    const now = new Date()
+    const body = await request.json().catch(() => ({})) as { sourceWalletId?: string; savingsWalletId?: string; notes?: string; periodEnd?: string }
+    let now = new Date()
+    if (!isScheduledRun && body.periodEnd) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(body.periodEnd)) return NextResponse.json({ error: 'periodEnd must use YYYY-MM-DD.' }, { status: 400 })
+      const end = new Date(`${body.periodEnd}T00:00:00.000Z`)
+      const nextDay = new Date(end); nextDay.setUTCDate(nextDay.getUTCDate() + 1)
+      if (Number.isNaN(end.getTime()) || nextDay.getUTCDate() !== 1 || end >= new Date(new Date().toISOString().slice(0, 10))) return NextResponse.json({ error: 'periodEnd must be the last day of a fully elapsed month.' }, { status: 400 })
+      now = nextDay
+    }
     const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate()
     if (isScheduledRun && now.getUTCDate() !== lastDay) return NextResponse.json({ data: { status: 'skipped', reason: 'not_month_end' } })
     const data = await runSerializableTransaction(async (tx) => {

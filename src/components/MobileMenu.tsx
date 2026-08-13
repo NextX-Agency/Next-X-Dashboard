@@ -21,6 +21,7 @@ import {
   Layers,
   ClipboardList,
   Gauge,
+  FileCheck2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
@@ -52,7 +53,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   const getCurrentSection = useCallback(() => {
     if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
     if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
-    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
+    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/finance') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
     if (pathname.startsWith('/reports') || pathname.startsWith('/performance') || pathname.startsWith('/activity')) return 'Analytics'
     if (pathname.startsWith('/settings')) return 'System'
     return 'Store'
@@ -118,6 +119,8 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       items: [
         { name: 'Exchange', icon: DollarSign, path: '/exchange' },
         { name: 'Wallets', icon: Wallet, path: '/wallets' },
+        { name: 'Money Trail', icon: BarChart3, path: '/finance' },
+        { name: 'Close Center', icon: FileCheck2, path: '/finance/close' },
         { name: 'Expenses', icon: Receipt, path: '/expenses' },
         { name: 'Commissions', icon: Users, path: '/commissions' },
         { name: 'Budgets', icon: Target, path: '/budgets' },

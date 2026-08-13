@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runSerializableTransaction } from '@/lib/serializableTransaction'
-import { getPeriodCloseChecks, periodCloseBlockers } from '@/lib/accountingPeriodChecks'
+import { getMonthEndCloseChecklist } from '@/lib/monthEndClose'
 
 class PeriodInputError extends Error {}
 
@@ -36,10 +36,10 @@ export async function GET(request: NextRequest) {
     const end = parseDate(request.nextUrl.searchParams.get('end') ?? new Date().toISOString().slice(0, 10), 'end')
     const [periods, checks] = await Promise.all([
       prisma.accountingPeriod.findMany({ where: { companyId: company.id }, orderBy: { periodEnd: 'desc' } }),
-      prisma.$transaction((tx) => getPeriodCloseChecks(tx, company.id, start, end)),
+      prisma.$transaction((tx) => getMonthEndCloseChecklist(tx, company.id, start, end)),
     ])
 
-    return NextResponse.json({ data: { periods: periods.map(periodJson), checks, blockers: periodCloseBlockers(checks) } }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ data: { periods: periods.map(periodJson), checklist: checks } }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to load accounting periods.' }, { status: 400 })
   }
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
       })
       if (existing?.status === 'closed') throw new PeriodInputError('This accounting period is already closed.')
 
-      const checks = await getPeriodCloseChecks(tx, company.id, periodStart, periodEnd)
-      const blockers = periodCloseBlockers(checks)
+      const checks = await getMonthEndCloseChecklist(tx, company.id, periodStart, periodEnd)
+      const blockers = checks.blockers
       if (blockers.length) return { checks, blockers, period: null }
 
       const closeData = { status: 'closed', closedAt: new Date(), closedBy: user.id, closeChecks: checks }

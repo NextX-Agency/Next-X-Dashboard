@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, FileCheck2, PackageSearch, RefreshCcw, Wallet } from 'lucide-react'
 
 type Summary = { inflow: number; outflow: number; net: number }
@@ -134,7 +135,7 @@ export default function FinancePage() {
     <main className="mx-auto min-h-screen max-w-7xl space-y-6 p-4 pb-20 sm:p-6 lg:p-10">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div><p className="text-sm font-semibold text-primary">Finance traceability</p><h1 className="mt-1 text-3xl font-bold tracking-tight">Where money is going</h1><p className="mt-2 text-sm text-muted-foreground">Append-only ledger activity from the last 90 days, separated by currency.</p></div>
-        <button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border bg-card px-4 py-2.5 text-sm font-semibold"><RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />Refresh</button>
+        <div className="flex flex-wrap gap-2"><Link href="/finance/close" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><FileCheck2 size={16} />Close center</Link><button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border bg-card px-4 py-2.5 text-sm font-semibold"><RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />Refresh</button></div>
       </header>
       {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-700">{error}</div>}
       {loading && !data ? <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">Loading immutable finance events…</div> : null}

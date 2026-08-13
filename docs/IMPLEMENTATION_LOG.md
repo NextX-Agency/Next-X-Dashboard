@@ -1114,6 +1114,46 @@ Building the visible month-end control center and extending the close route with
 subscriptions, wallet reconciliation, classification, FX revaluation, and payout draft. This is
 the operator-facing UI for the controls that were previously only schema and API work.
 
+## T-27 — Codex — 2026-08-13T17:02Z — DONE
+
+Added the visible `/finance/close` month-end control center, linked from both desktop and mobile
+finance navigation and from the money trail. It shows the five close gates, clear blocker text,
+financial registers, FX/payout/lock controls, and a usable supplier-bill inbox: paste OCR text,
+review and complete a draft, approve it, then explicitly post it. The UI never writes a financial
+table directly; all actions call authenticated server endpoints.
+
+The close route now checks all five requirements within `runSerializableTransaction`, and the
+database independently enforces the same conditions before it allows a closed period. A first
+production trigger version had an ambiguous PL/pgSQL variable; the immediately applied corrective
+migration only replaced that function, with no accounting-data change. A rolled-back probe proves
+an incomplete close is rejected and leaves no period row behind.
+
+Retained pre-migration dump: `backups/finance-overhaul-pre-t27-20260813T130000Z.dump`
+(`79C86E9C8DC759820A4044938CB114F604C6FD6596DD2067CCCF0CCEAD441EFB`).
+The browser financial-write scan is zero; the only remaining browser mutations are public blog
+view counting, user administration, and an example comment. `pnpm exec tsc --noEmit --pretty false`,
+`git diff --check`, and the full production `pnpm build` passed. A browser shell check successfully
+loaded and routed unauthenticated access to the login page with no framework overlay; authenticated
+interactive verification requires an admin session and was not fabricated.
+
+## Finance overhaul completion — Codex — 2026-08-13T17:02Z
+
+Applied: T-02 restore proof; staged safety migrations through T-20; server-side financial writes;
+T-05 RLS lockdown; T-18/T-19 cron and breakers; T-21 through T-27, including the new finance UI.
+Skipped: no live recurring expense, depreciation, FX revaluation, payout, bill, or period close was
+posted because production did not contain a due safe event. FX revaluation remains correctly blocked
+until a fresh rate is recorded; payouts remain draft-only because the FX rate is stale and founders
+are not configured. No company fork exists, so T-25 is a live all-companies query as planned.
+
+What remains for the owner: record a current FX rate, configure founders/split policy and any missing
+wallet reconciliations, complete bill drafts, then use the Close Center to run the eligible period
+controls. Retained dumps remain in `backups/`, including the original verified T-02 restore dump.
+
+Final Part 6: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**. Orphan sale
+items, missing and orphan wallet-ledger pairs, negative stock, and unbalanced journal currency groups
+are all zero.
+
 ## T-25 — claimed by Codex — 2026-08-13T16:05Z — in progress
 
 Implementing the all-companies consolidated read model. This remains a query, not an integration;
