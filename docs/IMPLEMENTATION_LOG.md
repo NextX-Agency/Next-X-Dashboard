@@ -1096,3 +1096,15 @@ checking and `git diff --check` passed. Read-only Part 6 remains **149 / 306 / 4
 The browser-write audit is clean for every financial table named in T-05. Taking a retained
 production dump, setting the explicit readiness flag, then applying the guarded RLS migration in
 one verified transaction.
+
+## T-05 — Codex — 2026-08-13T14:22Z — DONE
+
+Retained pre-migration dump: `backups/finance-overhaul-pre-t05-20260813T120325Z.dump`
+(`116B69155EDDDDC0727687BE7563AD91C89907A4EAF5E0CC8E1E274C756F6A6E`).
+The readiness setting and the entire T-05 migration ran as one transaction. All sixteen protected
+financial tables have RLS enabled and zero remaining policies; catalog tables retain read-only
+public policies. No data was changed by the migration.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+Orphan sale items, both wallet-transaction/ledger pairing directions, and negative stock are zero.
