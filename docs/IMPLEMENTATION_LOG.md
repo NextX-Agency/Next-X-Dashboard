@@ -854,3 +854,13 @@ whose original browser-random numbers were never recorded; tax-sensitive use nee
 ## T-04 — claimed by Codex — 2026-08-13T11:10Z — in progress
 
 Applying the staged ledger-function hardening migration.
+
+## T-04 — Codex — 2026-08-13T11:14Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+Both ledger functions now have a pinned public search path and direct execution is revoked from
+`anon` and `authenticated`; the in-transaction check and post-commit Part 6 suite passed. A separate
+rollback-only Serializable wallet-transaction insert created exactly one trigger ledger row, proving
+the trigger remains live without leaving data behind. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t04-20260813T103831Z.dump`
+(`939F19EA6B7ACE95E26D3A1C69A2239A0B63BA766008C049A240D38B185AC968`).
