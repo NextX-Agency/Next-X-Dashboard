@@ -415,6 +415,7 @@ model Expense {
   reviewReason        String?               @map("review_reason")
   recurringExpenseId  String?               @map("recurring_expense_id") @db.Uuid
   periodKey           String?               @map("period_key")
+  payoutRunId         String?               @map("payout_run_id") @db.Uuid
   category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
@@ -453,6 +454,42 @@ model RecurringExpense {
   expenses             Expense[]
 
   @@map("recurring_expenses")
+}
+
+model Founder {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name         String
+  userId       String?  @map("user_id") @db.Uuid
+  splitPercent Decimal  @map("split_percent") @db.Decimal(5, 2)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("founders")
+}
+
+model PayoutRun {
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  periodKey         String    @map("period_key")
+  status            String    @default("draft")
+  trailingMonths    Int       @default(3) @map("trailing_months")
+  trailingAvgProfit Decimal   @default(0) @map("trailing_avg_profit") @db.Decimal(18, 4)
+  distributable     Decimal   @default(0) @db.Decimal(18, 4)
+  savingsAmount     Decimal   @default(0) @map("savings_amount") @db.Decimal(18, 4)
+  foundersAmount    Decimal   @default(0) @map("founders_amount") @db.Decimal(18, 4)
+  restockCeiling    Decimal   @default(0) @map("restock_ceiling") @db.Decimal(18, 4)
+  currency          String    @default("SRD")
+  sourceWalletId    String?   @map("source_wallet_id") @db.Uuid
+  savingsWalletId   String?   @map("savings_wallet_id") @db.Uuid
+  correlationId     String    @default(dbgenerated("uuid_generate_v4()")) @map("correlation_id") @db.Uuid
+  blockedBy         String?   @map("blocked_by")
+  blockedDetail     String?   @map("blocked_detail")
+  computedAt        DateTime  @default(now()) @map("computed_at") @db.Timestamptz(6)
+  postedAt          DateTime? @map("posted_at") @db.Timestamptz(6)
+  reversedAt        DateTime? @map("reversed_at") @db.Timestamptz(6)
+  createdBy         String?   @map("created_by") @db.Uuid
+  notes             String?
+
+  @@map("payout_runs")
 }
 
 model Seller {

@@ -924,3 +924,14 @@ this run, after browser financial writes have been removed and RLS can be locked
 ## T-19 — claimed by Codex — 2026-08-13T11:42Z — in progress
 
 Applying the staged payout-run schema and conservative policy-default migration.
+
+## T-19 — Codex — 2026-08-13T11:46Z — DONE (schema and policy defaults)
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction added payout runs, founders, the expense link, and twelve conservative policy values.
+No founder or payout was invented: zero payout runs are posted and the 65/20/15 waterfall totals 100.
+Migration assertions and Part 6 passed. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t19-20260813T105018Z.dump`
+(`7CE6464A3E48C6B8B622A68E69C638151BD1CB82DE974DB64627A419CD49660F`).
+Prisma models were added and regenerated. The breaker and cron implementation remains T-19 code work
+later in this run and will use `serializableTransaction`.
