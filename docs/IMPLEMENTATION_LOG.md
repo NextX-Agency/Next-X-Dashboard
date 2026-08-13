@@ -238,3 +238,11 @@ both now point at the transactional protocol in Part 1.
 **Still open from the agent's report:** T-04 is half-applied — `capture_wallet_transaction_ledger`
 already has `search_path` set, `prevent_finance_ledger_mutation` does not, and the `REVOKE EXECUTE`
 has not been done.
+
+---
+
+## T-11 — claimed by claude — 2026-08-13T09:40Z — in progress
+
+Session has no database access — `DATABASE_URL`/`DIRECT_URL` unset, network policy still answers
+403 to CONNECT for `*.supabase.co`. No DDL will be attempted. Code-only path: T-11, then T-17, then
+migration SQL for T-06 / T-09 / T-12 written but **not applied**.
