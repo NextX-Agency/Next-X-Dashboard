@@ -1124,6 +1124,12 @@ integration was created. This task is read-only and made no database change.
 `pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed. Part 6 remains
 **149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00**.
 
+## T-26 — claimed by Codex — 2026-08-13T16:14Z — in progress
+
+Adding a server-only bill inbox: document text is parsed into a reviewable draft, approvals are
+audited, and posting is an explicit Serializable finance transaction. No OCR provider will be
+assumed without credentials; the documented default is deterministic parsing of supplied OCR text.
+
 ## T-24 — claimed by Codex — 2026-08-13T15:50Z — in progress
 
 Adding a forward-only USD revaluation run, balanced SRD gain/loss journal posting, and a strict
