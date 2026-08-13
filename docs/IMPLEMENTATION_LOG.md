@@ -881,3 +881,12 @@ Prisma's reconciliation model was updated and regenerated successfully.
 ## T-15 — claimed by Codex — 2026-08-13T11:23Z — in progress
 
 Applying the staged expense classification controls after T-09.
+
+## T-15 — Codex — 2026-08-13T11:26Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction created Software & subscriptions, classified 74 determinate expenses, moved the
+10 Copilot rows to that category, and removed the now-unused category. Exactly the 9 T-09-flagged
+Personal Items expenses remain unclassified; the migration check and Part 6 suite passed.
+Pre-migration dump retained: `backups/finance-overhaul-pre-t15-20260813T104235Z.dump`
+(`D131A0ABB28403DD6266BE613F9172F056BB7F1A85AA4F7F9B0E24AA331983D5`).
