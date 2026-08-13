@@ -1090,3 +1090,9 @@ The complete `src/app` browser write scan now has **zero financial-table writes*
 are non-financial user administration, public-blog view counting, and an example comment. Type
 checking and `git diff --check` passed. Read-only Part 6 remains **149 / 306 / 490 / 490 / 83 /
 122 / SRD 42,005.99 / USD 534.00**, with ledger-pair and negative-stock invariants zero.
+
+## T-05 — claimed by Codex — 2026-08-13T14:16Z — in progress
+
+The browser-write audit is clean for every financial table named in T-05. Taking a retained
+production dump, setting the explicit readiness flag, then applying the guarded RLS migration in
+one verified transaction.
