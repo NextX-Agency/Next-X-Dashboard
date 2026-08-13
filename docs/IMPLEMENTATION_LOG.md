@@ -824,3 +824,7 @@ the T-09 guard confirmed no zero cost was frozen from an unflagged item. The mig
 checks and the post-commit Part 6 suite passed. Pre-migration dump retained:
 `backups/finance-overhaul-pre-t12-20260813T103340Z.dump`
 (`8351EE2D7FA744C547B688C9978B528A70D389E53636442FE6DC420ED2B46D57`).
+
+## T-13 — claimed by Codex — 2026-08-13T10:58Z — in progress
+
+Applying the staged additive sale-void metadata migration.
