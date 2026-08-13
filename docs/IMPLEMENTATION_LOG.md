@@ -850,3 +850,7 @@ passed. Pre-migration dump retained: `backups/finance-overhaul-pre-t16-20260813T
 (`C5BDC4D6B2C2D1CC6A78CFA9A46AC06B89EAA4C847FC06CC298E8AA2BAA4076A`).
 Limitation carried forward: these reconstruction values cannot be matched to customer invoice copies
 whose original browser-random numbers were never recorded; tax-sensitive use needs accountant review.
+
+## T-04 — claimed by Codex — 2026-08-13T11:10Z — in progress
+
+Applying the staged ledger-function hardening migration.
