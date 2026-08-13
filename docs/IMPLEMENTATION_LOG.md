@@ -811,3 +811,7 @@ assertions and the post-commit Part 6 suite passed. Pre-migration dump retained:
 `backups/finance-overhaul-pre-t09-20260813T103111Z.dump`
 (`5A87D514A57A98E7C9891C4DF84E4B52A6BBDD922B59CF8DC23150D0EE355C72`).
 Prisma already represented the six review fields; code was verified against the live schema.
+
+## T-12 — claimed by Codex — 2026-08-13T10:52Z — in progress
+
+Applying the staged cost and FX snapshot migration after T-09's dependency guard.
