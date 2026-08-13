@@ -1132,3 +1132,17 @@ row was changed; prior Part 6 remains the T-05 baseline.
 
 Implementing the authenticated month-end payout evaluator with conservative draft-on-breaker
 behavior, serializable posting, cron registration, and protected routing.
+
+## T-19 code — Codex — 2026-08-13T14:54Z — DONE
+
+Added `/api/cron/payouts`, a month-end evaluator and poster guarded by `CRON_SECRET` for scheduled
+runs and admin authentication for manual runs. It computes trailing-3 operating profit from
+countable sales/COGS, posted operating expenses, and recorded commissions; calculates the policy
+waterfall; and creates a draft whenever a breaker trips. On the strictly safe path it posts savings
+as paired wallet transfers plus ledger entries and founder draw as a classified expense, wallet
+transaction, and ledger entry under one correlation ID, all in `runSerializableTransaction`.
+
+The job runs at 23:00 on days 28–31 but refuses every non-last day. It is currently guaranteed to
+draft: production has no founders and the active FX rate is stale (2026-06-05). This is the
+documented conservative default; no payout was posted and no production financial row changed.
+Typecheck and diff checks pass.
