@@ -373,3 +373,8 @@ the window configurable via `finance.inventory.cogs_window_months`. Set it to a 
 reproduce the audit's framing. The conclusion is unchanged either way: purchasing exceeds the
 ceiling every month. Reporting rather than reconciling, per Part 2 — no figure was adjusted to hit
 a published number.
+
+## T-06 / T-09 / T-12 — migration SQL WRITTEN BUT NOT APPLIED — claude — 2026-08-13T11:30Z
+
+Not a claim of the tasks themselves. Files are staged in `supabase/migrations/` for a session that
+has database access; **nothing has been applied to production and no DDL was attempted.**
