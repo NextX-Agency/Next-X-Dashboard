@@ -1113,6 +1113,25 @@ finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534
 Adding RLS-protected investment and fixed-asset registers plus idempotent, non-cash depreciation
 posting through the existing serialized cron pattern. Asset and investment records will be retired,
 not deleted.
+
+## T-23 — Codex — 2026-08-13T15:46Z — DONE
+
+Added RLS-protected investment-holding and fixed-asset registers, both server-only and
+Serializable for all writes. Disposals retain the original record and become immutable; there is no
+delete endpoint. Asset fields include cost, carrying/depreciated value, valuation/depreciation
+method, useful life, and disposal data. The daily authenticated depreciation cron processes only
+the prior fully elapsed month and creates an idempotent balanced debit-to-depreciation-expense /
+credit-to-accumulated-depreciation journal pair. It deliberately creates no wallet transaction and
+never changes a wallet balance.
+
+Retained pre-migration dump: `backups/finance-overhaul-pre-t23-20260813T123200Z.dump`
+(`0B3DF0D3CBB8CA5E72FA09A31B3C54C7EAADEAEB95B139E89E435BADD6E70B5B`).
+The three new tables have RLS enabled with zero public policies, and all six required SRD/USD
+asset/depreciation accounts are present. `pnpm exec tsc --noEmit --pretty false` and
+`git diff --check` passed. No assets existed in production, so no scheduled posting was run.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
 Orphan sale items, both wallet-transaction/ledger pairing directions, and negative stock are zero.
 
 ## T-18 code — claimed by Codex — 2026-08-13T14:28Z — in progress

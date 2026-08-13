@@ -42,6 +42,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/backup/download',
   '/api/activity',
   '/api/cron/recurring-expenses',
+  '/api/cron/depreciation',
   '/api/cron/payouts',
   '/api/dev/terminal-history'
 ]
@@ -173,6 +174,7 @@ export const config = {
     '/api/backup/download/:path*',
     '/api/activity/:path*',
     '/api/cron/recurring-expenses/:path*',
+    '/api/cron/depreciation/:path*',
     '/api/cron/payouts/:path*',
     '/api/dev/terminal-history/:path*',
   ],

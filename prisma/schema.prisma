@@ -573,6 +573,66 @@ model AccountingPeriod {
   @@map("accounting_periods")
 }
 
+model InvestmentHolding {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId        String   @map("company_id") @db.Uuid
+  investee         String
+  instrument       String
+  ownershipPercent Decimal? @map("ownership_percent") @db.Decimal(7, 4)
+  cost             Decimal  @db.Decimal(18, 4)
+  carryingValue    Decimal  @map("carrying_value") @db.Decimal(18, 4)
+  currency         String   @default("SRD")
+  valuationMethod  String   @default("cost") @map("valuation_method")
+  valuedOn         DateTime? @map("valued_on") @db.Date
+  status           String   @default("active")
+  disposedOn       DateTime? @map("disposed_on") @db.Date
+  disposalProceeds Decimal? @map("disposal_proceeds") @db.Decimal(18, 4)
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([companyId, status, investee])
+  @@map("investment_holdings")
+}
+
+model FixedAsset {
+  id                      String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId               String                 @map("company_id") @db.Uuid
+  name                    String
+  category                String
+  acquiredOn              DateTime               @map("acquired_on") @db.Date
+  cost                    Decimal                @db.Decimal(18, 4)
+  residualValue           Decimal                @default(0) @map("residual_value") @db.Decimal(18, 4)
+  currency                String                 @default("SRD")
+  depreciationMethod      String                 @default("straight_line") @map("depreciation_method")
+  usefulLifeMonths        Int?                   @map("useful_life_months")
+  accumulatedDepreciation Decimal                @default(0) @map("accumulated_depreciation") @db.Decimal(18, 4)
+  status                  String                 @default("active")
+  disposedOn              DateTime?              @map("disposed_on") @db.Date
+  disposalProceeds        Decimal?               @map("disposal_proceeds") @db.Decimal(18, 4)
+  notes                   String?
+  createdAt               DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  depreciationRuns        AssetDepreciationRun[]
+
+  @@index([companyId, status, acquiredOn])
+  @@map("fixed_assets")
+}
+
+model AssetDepreciationRun {
+  id             String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  fixedAssetId   String     @map("fixed_asset_id") @db.Uuid
+  periodKey      String     @map("period_key")
+  amount         Decimal    @db.Decimal(18, 4)
+  journalEntryId String     @map("journal_entry_id") @db.Uuid
+  postedAt       DateTime   @default(now()) @map("posted_at") @db.Timestamptz(6)
+  fixedAsset     FixedAsset @relation(fields: [fixedAssetId], references: [id], onDelete: Restrict)
+
+  @@unique([fixedAssetId, periodKey])
+  @@index([periodKey, postedAt(sort: Desc)])
+  @@map("asset_depreciation_runs")
+}
+
 model Seller {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String
