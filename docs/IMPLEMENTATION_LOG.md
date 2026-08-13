@@ -41,4 +41,51 @@ invariants are zero.
 
 ---
 
-## T-01 — claimed by claude — 2026-08-13T01:30Z — in progress
+## T-01 — claude — 2026-08-13T01:52Z — DONE
+
+Before: restore wiped in one committed transaction, then inserted table by table through the
+        `prisma` singleton. Nothing covered the restore as a whole.
+After:  one `prisma.$transaction` (Serializable, 120s timeout/maxWait) spans the wipe, all 47 table
+        inserts and the activity log. `wipeAllTables`, `insertTable` and `upsertTable` take a
+        `Prisma.TransactionClient`; no `prisma.<model>` call remains inside them.
+Production counts unchanged — nothing in this task touches production:
+        149 sales / 306 sale_items / 490 wallet_transactions / 490 ledger / 83 expenses /
+        122 commissions / SRD 42,005.99 / USD 534.00. All five zero-invariants zero.
+
+**Verified, both directions.** Supabase branching is unavailable on the free plan, so the test target
+was a throwaway local Postgres 16 cluster with the Prisma schema pushed and the two ledger triggers
+from `20260812111000_finance_traceability_vendor_access.sql` applied, seeded with a sale, a sale
+item, a wallet transaction (trigger-mirrored to a ledger entry), an expense and an admin session.
+Harness committed at `scripts/restore-verification/`.
+
+- Failure path — a backup with one sale item repointed at a nonexistent item id, checksum dropped so
+  validation admits it. The foreign key violation fires during the insert phase, after the wipe:
+  HTTP 500, transaction rolled back, every count identical. PASS.
+- Control — the same test against the pre-fix code: `saleItems 1 -> 0`, the row destroyed for good,
+  and the endpoint still answered **HTTP 200**. So the test detects the bug rather than passing
+  vacuously.
+- Happy path — an untouched backup still commits (`success=true`, 12 rows) and wallet_transactions
+  still pair 1:1 with ledger entries. Merge mode re-checked separately: `success=true`, counts and
+  SRD balance unchanged.
+
+Notes:
+- The payload checksum already rejects a corrupted backup before the wipe. That is a real defence,
+  but it only covers *detectable* corruption — the atomicity gap was reachable by anything that
+  passes validation and fails on insert, which is what the harness exercises.
+- Two nested `prisma.$transaction` calls guarding `app.finance_ledger_recorded` were flattened.
+  Inside one long transaction `set_config(..., true)` stays set for the whole restore, so the flag is
+  now cleared in a `finally` immediately after the wallet-transaction writes — otherwise every later
+  wallet transaction in the same restore would silently skip the ledger. Same reasoning for
+  `app.finance_ledger_maintenance`, now switched off as soon as the deletes finish.
+- Removed the per-record `try/catch` in `upsertTable` and the per-table one in `POST`. Both swallowed
+  failures and let the restore report success over a partial result — with one shared transaction
+  they would also have committed it (R8).
+- A backup containing rows for a table this database does not have is now a hard failure instead of a
+  logged note. Silently dropping them was a successful-looking restore that lost data.
+- A successful wipe restore revokes all sessions by design, so the operator is logged out afterwards.
+  Pre-existing behaviour, worth knowing before someone reports it as a bug.
+- Lint: 289 problems (197 errors, 92 warnings) before and after — byte-identical totals, all
+  pre-existing repo-wide. `prisma validate` passes; `pnpm build` passes.
+- `pnpm build` needs `NEXT_TURBOPACK_EXPERIMENTAL_USE_SYSTEM_TLS_CERTS=1` and
+  `NODE_EXTRA_CA_CERTS` behind this environment's proxy, or next/font fails the build on a TLS error
+  unrelated to the code.

@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Local production database exports. Never commit live data.
 /backups/
+
+# Local restore-verification cluster (scripts/restore-verification)
+/.t01-verify/
