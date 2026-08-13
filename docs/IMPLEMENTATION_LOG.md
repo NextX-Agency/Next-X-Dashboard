@@ -1073,3 +1073,8 @@ and edited rather than deleted. Rate replacement preserves old exchange-rate row
 Verification: `pnpm exec tsc --noEmit --pretty false` passed; browser-write scans for both pages
 returned zero matches; `git diff --check` passed. Read-only Part 6: **149 / 306 / 490 / 490 / 83 /
 122 / SRD 42,005.99 / USD 534.00**, with no broken wallet ledger pair or negative stock.
+
+## Locations and commissions hardening — claimed by Codex — 2026-08-13T13:51Z — in progress
+
+Moving the remaining browser-side location, seller, commission-rate, and seller-creation mutations
+behind authenticated server actions before the T-05 RLS readiness check.
