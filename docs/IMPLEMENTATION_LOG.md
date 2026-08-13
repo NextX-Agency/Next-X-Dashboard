@@ -1062,3 +1062,14 @@ SRD 42,005.99 / USD 534.00**; ledger pair and stock invariants remain zero.
 
 Moving item/catalog pricing and exchange-rate changes out of browser Supabase mutations into
 authenticated server transactions. Item retirement and rate deactivation will retain history.
+
+## Catalog and FX financial write hardening — Codex — 2026-08-13T13:48Z — DONE
+
+`items/page.tsx` and `exchange/page.tsx` now use authenticated server APIs only. Item/category
+creation, revision, combo composition, retirement, rate replacement, repricing, and activity logs
+are Serializable transactions. Retiring an item preserves sales history; categories are retained
+and edited rather than deleted. Rate replacement preserves old exchange-rate rows as inactive.
+
+Verification: `pnpm exec tsc --noEmit --pretty false` passed; browser-write scans for both pages
+returned zero matches; `git diff --check` passed. Read-only Part 6: **149 / 306 / 490 / 490 / 83 /
+122 / SRD 42,005.99 / USD 534.00**, with no broken wallet ledger pair or negative stock.

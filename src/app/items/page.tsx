@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { Plus, Trash2, Package, Tag, Search, Layers, DollarSign, X, Headphones, Watch } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, EmptyState, LoadingSpinner, Badge } from '@/components/UI'
@@ -10,7 +9,6 @@ import { ItemCard, Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { ImageUpload } from '@/components/ImageUpload'
-import { logActivity } from '@/lib/activityLog'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { convertSellingPrice, formatCurrencyInputAmount, getSellingPrice } from '@/lib/pricing'
@@ -73,28 +71,19 @@ export default function ItemsPage() {
 
   const loadData = async () => {
     setLoading(true)
-    const [categoriesRes, itemsRes] = await Promise.all([
-      supabase.from('categories').select('*').order('name'),
-      supabase.from('items').select('*').is('deleted_at', null).order('name')
-    ])
-    if (categoriesRes.data) setCategories(categoriesRes.data)
-    if (itemsRes.data) {
-      // Load combo items for each combo
-      const itemsWithCombos = await Promise.all(
-        itemsRes.data.map(async (item) => {
-          if (item.is_combo) {
-            const { data: comboItemsData } = await supabase
-              .from('combo_items')
-              .select('*, item:items(*)')
-              .eq('combo_id', item.id)
-            return { ...item, combo_items: comboItemsData || [] }
-          }
-          return item
-        })
-      )
-      setItems(itemsWithCombos)
-    }
-    setLoading(false)
+    try {
+      const response = await fetch('/api/items', { cache: 'no-store' })
+      const payload = await response.json() as { data?: { categories: Category[]; items: ItemWithComboItems[] }; error?: string }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to load catalog data.')
+      setCategories(payload.data.categories)
+      setItems(payload.data.items)
+    } finally { setLoading(false) }
+  }
+
+  const saveCatalogAction = async (action: string, payload: Record<string, unknown>) => {
+    const response = await fetch('/api/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...payload }) })
+    const result = await response.json().catch(() => null) as { error?: string } | null
+    if (!response.ok) throw new Error(result?.error || 'Unable to save catalog data.')
   }
 
   useEffect(() => {
@@ -157,42 +146,7 @@ export default function ItemsPage() {
     try {
       const categoryName = categoryForm.name.trim()
 
-      if (editingCategory) {
-        const { error } = await supabase
-          .from('categories')
-          .update({
-            name: categoryName,
-            catalog_type: categoryForm.catalog_type,
-          })
-          .eq('id', editingCategory.id)
-
-        if (error) throw error
-
-        await logActivity({
-          action: 'update',
-          entityType: 'category',
-          entityId: editingCategory.id,
-          entityName: categoryName,
-          details: `Updated category: ${editingCategory.name} to ${categoryName}`
-        })
-      } else {
-        const { data, error } = await supabase.from('categories').insert({
-          name: categoryName,
-          catalog_type: categoryForm.catalog_type,
-        }).select().single()
-
-        if (error) throw error
-
-        if (data) {
-          await logActivity({
-            action: 'create',
-            entityType: 'category',
-            entityId: data.id,
-            entityName: categoryName,
-            details: `Created ${categoryForm.catalog_type} category: ${categoryName}`
-          })
-        }
-      }
+      await saveCatalogAction('saveCategory', { name: categoryName, catalog_type: categoryForm.catalog_type, ...(editingCategory ? { id: editingCategory.id } : {}) })
 
       setEditingCategory(null)
       setCategoryForm({ name: '', catalog_type: defaultCatalog })
@@ -213,15 +167,7 @@ export default function ItemsPage() {
       confirmLabel: 'Delete',
     })
     if (ok) {
-      await supabase.from('categories').delete().eq('id', id)
-      await logActivity({
-        action: 'delete',
-        entityType: 'category',
-        entityId: id,
-        entityName: category?.name,
-        details: `Deleted category: ${category?.name}`
-      })
-      loadData()
+      alert('Categories are retained for audit. Rename this category instead.')
     }
   }
 
@@ -324,59 +270,7 @@ export default function ItemsPage() {
         catalog_type: formForSave.catalog_type || 'audio',
       }
 
-      if (editingItem) {
-        await supabase.from('items').update(data).eq('id', editingItem.id)
-        
-        // Update combo items if this is a combo or was a combo
-        if (itemForm.is_combo || editingItem.is_combo) {
-          // Always delete existing combo items first
-          await supabase.from('combo_items').delete().eq('combo_id', editingItem.id)
-          
-          // Insert new combo items if we still have a combo with items
-          if (itemForm.is_combo && comboItems.length > 0) {
-            const { error: insertError } = await supabase.from('combo_items').insert(
-              comboItems.map(ci => ({
-                combo_id: editingItem.id,
-                item_id: ci.item_id,
-                quantity: ci.quantity
-              }))
-            )
-            if (insertError) {
-              console.error('Failed to insert combo items:', insertError)
-            }
-          }
-        }
-        
-        await logActivity({
-          action: 'update',
-          entityType: 'item',
-          entityId: editingItem.id,
-          entityName: itemForm.name,
-          details: `Updated item: ${itemForm.name}${itemForm.is_combo ? ' (Combo)' : ''}${itemForm.allow_custom_price ? ' (Custom price allowed)' : ''}`
-        })
-      } else {
-        const { data: newItem } = await supabase.from('items').insert(data).select().single()
-        if (newItem) {
-          // Create combo items if this is a combo
-          if (itemForm.is_combo && comboItems.length > 0) {
-            await supabase.from('combo_items').insert(
-              comboItems.map(ci => ({
-                combo_id: newItem.id,
-                item_id: ci.item_id,
-                quantity: ci.quantity
-              }))
-            )
-          }
-          
-          await logActivity({
-            action: 'create',
-            entityType: 'item',
-            entityId: newItem.id,
-            entityName: itemForm.name,
-            details: `Created ${itemForm.is_combo ? 'combo' : 'item'}: ${itemForm.name} - $${itemForm.purchase_price_usd} USD`
-          })
-        }
-      }
+      await saveCatalogAction('saveItem', { ...data, combo_items: comboItems, ...(editingItem ? { id: editingItem.id } : {}) })
 
       resetItemForm()
       loadData()
@@ -428,14 +322,7 @@ export default function ItemsPage() {
       confirmLabel: 'Delete',
     })
     if (ok) {
-      await supabase.from('items').update({ deleted_at: new Date().toISOString() }).eq('id', id)
-      await logActivity({
-        action: 'delete',
-        entityType: 'item',
-        entityId: id,
-        entityName: item?.name,
-        details: `Deleted ${item?.is_combo ? 'combo' : 'item'}: ${item?.name}`
-      })
+      await saveCatalogAction('retireItem', { id })
       loadData()
     }
   }

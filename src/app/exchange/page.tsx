@@ -1,13 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Database } from '@/types/database.types'
 import { DollarSign, TrendingUp, ArrowRightLeft, History, RefreshCw } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, LoadingSpinner, Badge } from '@/components/UI'
 import { useCurrency } from '@/lib/CurrencyContext'
-import { convertSellingPrice } from '@/lib/pricing'
-import { logActivity } from '@/lib/activityLog'
 
 type ExchangeRate = Database['public']['Tables']['exchange_rates']['Row']
 
@@ -25,17 +22,17 @@ export default function ExchangeRatePage() {
 
   const loadRates = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('exchange_rates')
-      .select('*')
-      .order('set_at', { ascending: false })
-    
-    if (data) {
-      setRates(data)
-      const active = data.find(r => r.is_active)
-      setCurrentRate(active || null)
+    try {
+      const response = await fetch('/api/exchange', { cache: 'no-store' })
+      const payload = await response.json() as { data?: ExchangeRate[]; error?: string }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to load exchange rates.')
+      setRates(payload.data)
+      setCurrentRate(payload.data.find(rate => rate.is_active) || null)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to load exchange rates.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -56,60 +53,14 @@ export default function ExchangeRatePage() {
     setErrorMessage('')
     setSyncSummary('')
     try {
-      await supabase
-        .from('exchange_rates')
-        .update({ is_active: false })
-        .eq('is_active', true)
-
-      const { data: newRateData } = await supabase.from('exchange_rates').insert({
-        usd_to_srd: parsedRate,
-        is_active: true
-      }).select().single()
-
-      const { data: pricedItems, error: pricedItemsError } = await supabase
-        .from('items')
-        .select('id, selling_price_srd')
-        .is('deleted_at', null)
-        .not('selling_price_srd', 'is', null)
-
-      if (pricedItemsError) throw pricedItemsError
-
-      const updates = (pricedItems || [])
-        .filter((item) => item.selling_price_srd != null && Number(item.selling_price_srd) > 0)
-        .map((item) => (
-          supabase
-            .from('items')
-            .update({
-              selling_price_usd: convertSellingPrice(Number(item.selling_price_srd), 'SRD', parsedRate),
-            })
-            .eq('id', item.id)
-        ))
-
-      const updateResults = await Promise.all(updates)
-      const updateError = updateResults.find((result) => result.error)?.error
-      if (updateError) throw updateError
-
-      // Log the rate change
-      if (newRateData) {
-        const oldRateText = currentRate ? `${currentRate.usd_to_srd} SRD` : 'none'
-        await logActivity({
-          action: 'update',
-          entityType: 'exchange_rate',
-          entityId: newRateData.id,
-          entityName: `Exchange Rate: 1 USD = ${newRate} SRD`,
-          details: JSON.stringify({
-            old_rate: currentRate?.usd_to_srd || null,
-            new_rate: parsedRate,
-            changed_from: oldRateText,
-            repriced_items: updates.length,
-          })
-        })
-      }
+      const response = await fetch('/api/exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usdToSrd: parsedRate }) })
+      const payload = await response.json() as { data?: { repricedItems: number }; error?: string }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to update exchange rate.')
 
       window.dispatchEvent(new CustomEvent('exchange-rate-updated', { detail: { usdToSrd: parsedRate } }))
       await refreshExchangeRate()
       setNewRate('')
-      setSyncSummary(`${updates.length} product price${updates.length === 1 ? '' : 's'} synced from SRD.`)
+      setSyncSummary(`${payload.data.repricedItems} product price${payload.data.repricedItems === 1 ? '' : 's'} synced from SRD.`)
       await loadRates()
     } catch (error) {
       console.error('Error updating exchange rate:', error)
