@@ -121,11 +121,35 @@ export async function PATCH(request: NextRequest) {
       if (!wallet || wallet.location_id !== current.locationId) throw new BillInputError('Selected wallet must belong to the bill location and currency.')
       const amount = Number(current.amount)
       if (Number(wallet.balance) < amount) throw new BillInputError('Insufficient wallet balance to post this approved bill.')
+      const purchaseOrderId = body.purchaseOrderId == null || body.purchaseOrderId === '' ? null : text(body.purchaseOrderId, 'purchaseOrderId', true)!
+      let purchaseCommitment: { id: string; originalAmount: unknown; paidAmount: unknown } | null = null
+      if (purchaseOrderId) {
+        const order = await tx.purchaseOrder.findUnique({
+          where: { id: purchaseOrderId },
+          select: { id: true, companyId: true, locationId: true, currency: true, status: true },
+        })
+        if (!order || order.companyId !== current.companyId || order.status === 'cancelled') throw new BillInputError('The selected purchase order is unavailable for this bill.')
+        if (order.locationId !== current.locationId || order.currency !== current.currency) throw new BillInputError('The selected purchase order must use the same location and currency as this bill.')
+        purchaseCommitment = await tx.financeObligation.findFirst({
+          where: { companyId: current.companyId, type: 'payable', sourceType: 'purchase_order', sourceId: order.id, status: { in: ['open', 'partial'] } },
+          select: { id: true, originalAmount: true, paidAmount: true },
+        })
+        if (!purchaseCommitment) throw new BillInputError('This purchase order has no open payable commitment. Review it from the order desk before posting the bill.')
+        const outstanding = Math.max(0, Number(purchaseCommitment.originalAmount) - Number(purchaseCommitment.paidAmount))
+        if (amount > outstanding + 0.0001) throw new BillInputError('This bill exceeds the outstanding amount on the selected purchase order. Post a supplier credit or split the bill after review.')
+      }
       await markFinanceLedgerRecorded(tx)
       const expense = await tx.expense.create({ data: { companyId: wallet.companyId, walletId: wallet.id, location_id: current.locationId, categoryId: current.categoryId, amount, currency: current.currency!, description: current.description!, expenseDate: current.invoiceDate!, vendorName: current.vendorName!, receiptNumber: current.invoiceNumber, classification: current.classification } })
       const debited = await tx.wallet.update({ where: { id: wallet.id }, data: { balance: { decrement: amount } }, select: { balance: true } })
       const walletTransaction = await tx.wallet_transactions.create({ data: { companyId: wallet.companyId, wallet_id: wallet.id, expense_id: expense.id, type: 'debit', amount, balance_before: wallet.balance, balance_after: debited.balance, currency: current.currency, description: `Supplier bill ${current.invoiceNumber ?? current.id}: ${current.description}`, reference_type: 'bill_inbox', reference_id: current.id } })
-      await recordFinanceLedgerEntry(tx, { companyId: wallet.companyId, walletTransactionId: walletTransaction.id, walletId: wallet.id, locationId: current.locationId, categoryId: current.categoryId, actorUserId: user.id, eventType: 'expense', direction: 'out', amount, currency: current.currency as 'SRD' | 'USD', sourceType: 'bill_inbox', sourceId: current.id, counterparty: current.vendorName, description: current.description, occurredAt: current.invoiceDate, metadata: { invoiceNumber: current.invoiceNumber, classification: current.classification, billId: current.id } })
+      await recordFinanceLedgerEntry(tx, { companyId: wallet.companyId, walletTransactionId: walletTransaction.id, walletId: wallet.id, locationId: current.locationId, categoryId: current.categoryId, actorUserId: user.id, eventType: 'expense', direction: 'out', amount, currency: current.currency as 'SRD' | 'USD', sourceType: 'bill_inbox', sourceId: current.id, counterparty: current.vendorName, description: current.description, occurredAt: current.invoiceDate, metadata: { invoiceNumber: current.invoiceNumber, classification: current.classification, billId: current.id, purchaseOrderId } })
+      if (purchaseCommitment) {
+        const paidAmount = Number(purchaseCommitment.paidAmount) + amount
+        const originalAmount = Number(purchaseCommitment.originalAmount)
+        const status = paidAmount >= originalAmount - 0.0001 ? 'paid' : 'partial'
+        await tx.financeObligation.update({ where: { id: purchaseCommitment.id }, data: { paidAmount, status } })
+        await writeActivityLog({ action: 'pay', entityType: 'finance_obligation', entityId: purchaseCommitment.id, entityName: `Purchase order #${purchaseOrderId!.slice(0, 8)}`, details: `Settled ${amount.toFixed(2)} ${current.currency} through supplier bill ${current.invoiceNumber ?? current.id}; commitment is now ${status}.`, user, request, source: 'bill-inbox', client: tx })
+      }
       const posted = await tx.billInbox.update({ where: { id }, data: { status: 'posted', expenseId: expense.id, postedAt: new Date() } })
       await writeActivityLog({ action: 'create', entityType: 'expense', entityId: expense.id, entityName: current.vendorName, details: `Posted supplier bill ${current.invoiceNumber ?? current.id} as expense ${expense.id}.`, user, request, source: 'bill-inbox', client: tx })
       return posted

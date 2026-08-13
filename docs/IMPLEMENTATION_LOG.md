@@ -1368,3 +1368,38 @@ was removed from the desktop rail so the top-bar selector is the only global cat
 financial row, API contract, or migration changed. The retained Part 6 baseline remains:
 **149 sales / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses
 / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
+## Purchase-order to Finance workflow — Codex — 2026-08-13T11:00Z — DONE
+
+Applied: confirming a new purchase order now creates its linked payable commitment inside the
+existing `runSerializableTransaction` scope. This is an obligation only: it never debits a wallet,
+creates an expense, or writes a ledger entry. Cancelling an unpaid order retains and cancels the
+commitment for audit; cancellation is blocked once any settlement is recorded. The order API now
+exposes each commitment state and includes a safe, idempotent action for a reviewed legacy order
+that needs its missing Finance link.
+
+Applied: posting an approved supplier bill can explicitly select an eligible purchase commitment.
+The server validates company, location, currency, and remaining amount before it performs the
+existing expense, wallet transaction, and immutable ledger write. In that same Serializable
+transaction it updates the selected commitment to partial or paid and writes activity evidence.
+Unrelated operating bills remain valid without a purchase-order link.
+
+Applied: the order desk, Finance overview, review, and rebuilt close workspace now use one visible
+purchase-to-close route. Admins can see outstanding commitments by currency, orders awaiting
+receipt, and legacy orders needing review; Finance can select the original commitment when posting
+its supplier bill.
+
+Skipped deliberately: no bulk commitment backfill ran against historical orders, because the
+system cannot safely infer whether an old supplier order was paid, credited, or intentionally left
+open. Nothing was deleted or changed in production. Existing confirmed orders are flagged in the
+order desk for explicit review and one-click linking.
+
+What remains for the owner: review each flagged historical confirmed purchase order and use
+**Link Finance** only when its payable is still real. For future purchases the link is automatic
+when the order is confirmed. No migration was required or applied, and no production data was
+changed during this code task.
+
+`npx eslint` on all touched TypeScript files, `npx tsc --noEmit`, `npm run build`, and
+`git diff --check` passed. A final read-only production query confirmed Part 6 remains: **149 sales
+/ 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122
+commissions / SRD 42,005.99 / USD 534.00**.

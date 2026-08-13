@@ -199,6 +199,16 @@ body {
   outline-offset: 2px;
 }
 
+.finance-control-workspace .field {
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 0.75rem;
+  background: #0b111a;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: #e7edf5;
+}
+
 /* The admin is a single control system. Tokens are scoped to the authenticated
  * shell so storefront pages keep their own brands while every admin route gains
  * the same restrained, high-density workspace surface. */

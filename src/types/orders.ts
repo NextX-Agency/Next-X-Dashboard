@@ -43,6 +43,19 @@ export interface OrdersPageOrder extends Pick<
   locations?: OrdersPageLocation | null
   clients?: OrdersPageClient | null
   purchase_order_items?: OrdersPageOrderItem[]
+  /**
+   * A purchase order becomes a payable commitment when it is confirmed. This
+   * is deliberately separate from a supplier-bill payment: linking the order
+   * never changes a wallet balance.
+   */
+  finance_obligation?: {
+    id: string
+    status: 'open' | 'partial' | 'paid' | 'cancelled'
+    original_amount: number
+    paid_amount: number
+    outstanding_amount: number
+    currency: 'SRD' | 'USD'
+  } | null
 }
 
 export interface OrdersPageDataPayload {

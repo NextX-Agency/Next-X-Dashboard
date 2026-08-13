@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw, Headphones, Watch, ImageIcon } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
@@ -59,6 +60,16 @@ interface EditReceiptItemForm {
   quantity_received: number
   new_quantity_received: string
   is_allocation: boolean
+}
+
+function getFinanceStage(order: OrderWithDetails) {
+  const commitment = order.finance_obligation
+  if (order.status === 'cancelled') return { label: 'Commitment cancelled', detail: 'The order and financial history are retained.', tone: 'bg-muted text-muted-foreground' }
+  if (order.status === 'pending') return { label: 'Draft — no payable yet', detail: 'Confirm this order to record its financial commitment.', tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' }
+  if (!commitment) return { label: 'Finance link needed', detail: 'This legacy order is not yet included in payables.', tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' }
+  if (commitment.status === 'paid') return { label: 'Payable settled', detail: 'The commitment is recorded as paid.', tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' }
+  if (commitment.status === 'partial') return { label: 'Partly settled', detail: `${formatCurrency(commitment.outstanding_amount, commitment.currency)} still outstanding.`, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' }
+  return { label: 'Payable recorded', detail: `${formatCurrency(commitment.outstanding_amount, commitment.currency)} reserved for supplier review.`, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' }
 }
 
 export default function OrdersPage() {
@@ -486,10 +497,9 @@ export default function OrdersPage() {
     }
 
     if (newStatus === 'cancelled') {
-      // Cancel only affects the incoming-stock pipeline. Wallet balances are managed separately.
       const ok = await confirm({
         title: 'Cancel Order',
-        message: 'This will remove the remaining incoming stock from planning. Wallet balances will stay unchanged.',
+        message: 'This closes remaining incoming stock. Any unpaid payable commitment is cancelled but retained for audit; wallet balances stay unchanged.',
         itemName: `Order #${order.id.slice(0, 8)}`,
         variant: 'danger',
         confirmLabel: 'Cancel Order',
@@ -505,6 +515,26 @@ export default function OrdersPage() {
     await saveOrderAction('status', { id: order.id, status: newStatus })
     
     await loadData()
+  }
+
+  const handleLinkFinance = async (order: OrderWithDetails) => {
+    const ok = await confirm({
+      title: 'Record financial commitment',
+      message: `Create a payable commitment for ${formatCurrency(order.total_amount, order.currency as Currency)}. This does not pay the supplier or change a wallet balance.`,
+      itemName: `Order #${order.id.slice(0, 8)}`,
+      confirmLabel: 'Record commitment',
+    })
+    if (!ok) return
+    setSubmitting(true)
+    try {
+      await saveOrderAction('linkFinance', { id: order.id })
+      await loadData()
+    } catch (error) {
+      console.error('Error linking order to finance:', error)
+      alert(error instanceof Error ? error.message : 'Unable to record the financial commitment.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // Open receive modal with editable quantities
@@ -884,6 +914,39 @@ export default function OrdersPage() {
     }
   }, [amountInDisplayCurrency, getAllocationRows, getOrderProgress, orders])
 
+  const purchaseFinance = useMemo(() => {
+    const outstandingByCurrency = new Map<string, number>()
+    const unlinkedByCurrency = new Map<string, number>()
+    let payableCount = 0
+    let legacyUnlinkedCount = 0
+    let draftCount = 0
+
+    for (const order of orders) {
+      if (order.status === 'cancelled') continue
+      if (order.status === 'pending') {
+        draftCount += 1
+        continue
+      }
+      const commitment = order.finance_obligation
+      if (!commitment) {
+        legacyUnlinkedCount += 1
+        unlinkedByCurrency.set(order.currency, (unlinkedByCurrency.get(order.currency) ?? 0) + order.total_amount)
+        continue
+      }
+      if (commitment.status === 'cancelled') continue
+      payableCount += 1
+      outstandingByCurrency.set(commitment.currency, (outstandingByCurrency.get(commitment.currency) ?? 0) + commitment.outstanding_amount)
+    }
+
+    return {
+      payableCount,
+      legacyUnlinkedCount,
+      draftCount,
+      outstandingByCurrency: Array.from(outstandingByCurrency.entries()).map(([currency, amount]) => ({ currency: currency as Currency, amount })).sort((a, b) => a.currency.localeCompare(b.currency)),
+      unlinkedByCurrency: Array.from(unlinkedByCurrency.entries()).map(([currency, amount]) => ({ currency: currency as Currency, amount })).sort((a, b) => a.currency.localeCompare(b.currency)),
+    }
+  }, [orders])
+
   const hasLoadedData = orders.length > 0 || items.length > 0 || locations.length > 0 || wallets.length > 0 || clients.length > 0
 
   if (loading) {
@@ -979,6 +1042,42 @@ export default function OrdersPage() {
             icon={<WalletIcon size={20} />}
           />
         </div>
+
+        <section aria-labelledby="purchase-finance-heading" className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
+          <article className="overflow-hidden rounded-2xl border border-primary/20 bg-card">
+            <div className="flex flex-col justify-between gap-4 border-b border-border/70 bg-primary/[0.035] px-5 py-5 sm:flex-row sm:items-end lg:px-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary">Purchase finance control</p>
+                <h2 id="purchase-finance-heading" className="mt-1 text-xl font-bold tracking-tight text-foreground">Orders become commitments before they become payments.</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Confirming a purchase order records an unpaid supplier commitment. Receiving stock changes inventory; posting the supplier bill in Finance is the only step that changes a wallet.</p>
+              </div>
+              <Link href="/finance" className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/75">Open Finance overview <span aria-hidden="true">→</span></Link>
+            </div>
+            <div className="grid divide-y divide-border/70 sm:grid-cols-[1fr_1fr] sm:divide-x sm:divide-y-0">
+              <div className="p-5 lg:p-6">
+                <p className="text-xs font-semibold text-foreground">Supplier commitments</p>
+                <p className="mt-1 text-sm text-muted-foreground">Outstanding amounts stay in their original currency.</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {purchaseFinance.outstandingByCurrency.length ? purchaseFinance.outstandingByCurrency.map(({ currency, amount }) => <span key={currency} className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-bold tabular-nums text-primary">{formatCurrency(amount, currency)}</span>) : <span className="text-sm text-muted-foreground">No unpaid supplier commitments.</span>}
+                </div>
+                <p className="mt-4 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{purchaseFinance.payableCount}</span> order{purchaseFinance.payableCount === 1 ? '' : 's'} linked to Finance · <span className="font-semibold text-foreground">{purchaseFinance.draftCount}</span> draft{purchaseFinance.draftCount === 1 ? '' : 's'} not committed yet</p>
+              </div>
+              <div className="p-5 lg:p-6">
+                <p className="text-xs font-semibold text-foreground">Finance link check</p>
+                {purchaseFinance.legacyUnlinkedCount ? <><p className="mt-1 text-sm leading-6 text-muted-foreground"><span className="font-semibold text-amber-700 dark:text-amber-300">{purchaseFinance.legacyUnlinkedCount} existing order{purchaseFinance.legacyUnlinkedCount === 1 ? '' : 's'} need a payable link.</span> Use the action on the order to record each commitment after review.</p><div className="mt-3 flex flex-wrap gap-2">{purchaseFinance.unlinkedByCurrency.map(({ currency, amount }) => <span key={currency} className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">{formatCurrency(amount, currency)} unchecked</span>)}</div></> : <p className="mt-1 text-sm leading-6 text-emerald-700 dark:text-emerald-300">Every confirmed order on this desk has a Finance commitment.</p>}
+              </div>
+            </div>
+          </article>
+
+          <aside className="rounded-2xl border border-border bg-muted/[0.18] p-5 lg:p-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">The working sequence</p>
+            <ol className="mt-4 space-y-4 text-sm">
+              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">1</span><span><strong className="block text-foreground">Create and check the purchase order</strong><span className="text-muted-foreground">Drafts are operational planning only.</span></span></li>
+              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/12 text-xs font-bold text-primary">2</span><span><strong className="block text-foreground">Mark it ordered</strong><span className="text-muted-foreground">Finance records the supplier commitment automatically.</span></span></li>
+              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/12 text-xs font-bold text-primary">3</span><span><strong className="block text-foreground">Receive stock, then post the bill</strong><span className="text-muted-foreground">The approved supplier bill creates the expense, wallet transaction, and ledger evidence together.</span></span></li>
+            </ol>
+          </aside>
+        </section>
 
         <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
@@ -1158,6 +1257,7 @@ export default function OrdersPage() {
                 <div key={order.id} className="p-4 lg:p-5 hover:bg-muted/50 transition-colors">
                   {(() => {
                     const progress = getOrderProgress(order)
+                    const financeStage = getFinanceStage(order)
                     const destinations = (order.purchase_order_items || [])
                       .flatMap(item => getAllocationRows(order, item))
                       .reduce((map, allocation) => {
@@ -1178,6 +1278,9 @@ export default function OrdersPage() {
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                           {getStatusIcon(order.status)}
                           {getStatusLabel(order.status)}
+                        </span>
+                        <span title={financeStage.detail} className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${financeStage.tone}`}>
+                          {financeStage.label}
                         </span>
                         {order.clients?.name && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -1214,6 +1317,7 @@ export default function OrdersPage() {
                         <span className="text-amber-500 font-medium">{progress.remaining} incoming</span>
                         <span className="text-primary font-medium">{formatCurrency(getOrderRemainingValue(order), displayCurrency)} remaining</span>
                       </div>
+                      <p className="mt-2 text-xs text-muted-foreground">Finance: {financeStage.detail}</p>
                       <div className="mt-3 max-w-2xl">
                         <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                           <span>{progress.received}/{progress.ordered} units received</span>
@@ -1279,6 +1383,18 @@ export default function OrdersPage() {
                           Receive More
                         </Button>
                       )}
+                      {order.status !== 'pending' && order.status !== 'cancelled' && !order.finance_obligation && (
+                        <Button
+                          onClick={() => void handleLinkFinance(order)}
+                          variant="secondary"
+                          size="sm"
+                          className="min-h-10 touch-manipulation"
+                          disabled={submitting}
+                        >
+                          <WalletIcon size={14} />
+                          Link Finance
+                        </Button>
+                      )}
                       {(order.status === 'partially_received' || order.status === 'received') && (
                         <Button
                           onClick={() => openEditReceiptsModal(order)}
@@ -1338,9 +1454,9 @@ export default function OrdersPage() {
                 <PackageCheck size={17} />
               </div>
               <div>
-                <div className="text-sm font-bold text-foreground">Stock order only</div>
+                <div className="text-sm font-bold text-foreground">Start the purchase workflow here</div>
                 <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  Add Audio or Watches to incoming stock planning. Wallet balances stay unchanged.
+                  Creating this order plans incoming stock. Marking it ordered creates a supplier commitment for Finance; wallet balances stay unchanged until an approved supplier bill is posted.
                 </div>
               </div>
             </div>
@@ -1362,7 +1478,7 @@ export default function OrdersPage() {
               </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Funding Reference</label>
+              <label className="block text-sm font-medium mb-1">Planned funding source</label>
               <Select
                 value={orderForm.wallet_id}
                 onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
@@ -1375,7 +1491,7 @@ export default function OrdersPage() {
                   </option>
                 ))}
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">Optional label only. No money is subtracted.</p>
+              <p className="mt-1.5 text-xs leading-5 text-muted-foreground">This helps Finance trace the intended source. It never debits this wallet from the order desk.</p>
             </div>
           </div>
 
@@ -2054,7 +2170,7 @@ export default function OrdersPage() {
                 <AlertTriangle size={15} className="mt-0.5 shrink-0" />
                 <div>
                   <div className="font-semibold">Changing received quantities will adjust stock levels.</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Reducing a qty removes units from that location's stock. Only previously received entries are shown.</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Reducing a qty removes units from that location&apos;s stock. Only previously received entries are shown.</div>
                 </div>
               </div>
             </div>

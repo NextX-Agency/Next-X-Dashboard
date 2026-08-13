@@ -16,7 +16,7 @@ import type {
 } from '@/types/orders'
 
 type OrderStatus = 'pending' | 'ordered' | 'shipped' | 'partially_received' | 'received' | 'cancelled'
-type OrderAction = 'create' | 'update' | 'status' | 'receive' | 'adjustReceipts' | 'cancel'
+type OrderAction = 'create' | 'update' | 'status' | 'receive' | 'adjustReceipts' | 'cancel' | 'linkFinance'
 
 type OrderLineInput = {
   id?: string
@@ -167,6 +167,50 @@ function toNullableNumber(value: unknown): number | null {
   return value == null ? null : Number(value)
 }
 
+type PurchaseOrderCommitmentSource = {
+  id: string
+  companyId: string
+  locationId: string
+  totalAmount: Prisma.Decimal
+  currency: string
+  expected_arrival: Date | null
+  notes: string | null
+  clients: { name: string } | null
+}
+
+/**
+ * A confirmed purchase order is a payable commitment, not a payment. Keeping
+ * the two records distinct gives Finance visibility before money leaves a
+ * wallet and prevents the order desk from ever changing a wallet balance.
+ */
+async function ensurePurchaseOrderCommitment(tx: Prisma.TransactionClient, order: PurchaseOrderCommitmentSource) {
+  const existing = await tx.financeObligation.findFirst({
+    where: { sourceType: 'purchase_order', sourceId: order.id, type: 'payable' },
+    select: { id: true, status: true, paidAmount: true },
+  })
+  if (existing) return { commitment: existing, created: false }
+
+  const commitment = await tx.financeObligation.create({
+    data: {
+      companyId: order.companyId,
+      type: 'payable',
+      counterpartyName: order.clients?.name ?? 'Supplier to confirm',
+      locationId: order.locationId,
+      currency: order.currency,
+      originalAmount: order.totalAmount,
+      paidAmount: 0,
+      status: 'open',
+      dueDate: order.expected_arrival,
+      issuedAt: new Date(),
+      notes: `Purchase order #${order.id.slice(0, 8)}${order.notes ? ` — ${order.notes}` : ''}`,
+      sourceType: 'purchase_order',
+      sourceId: order.id,
+    },
+    select: { id: true, status: true, paidAmount: true },
+  })
+  return { commitment, created: true }
+}
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (authResult instanceof NextResponse) return authResult
@@ -293,6 +337,20 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    const commitments = await prisma.financeObligation.findMany({
+      where: {
+        sourceType: 'purchase_order',
+        sourceId: { in: orders.map((order) => order.id) },
+        type: 'payable',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, sourceId: true, status: true, originalAmount: true, paidAmount: true, currency: true },
+    })
+    const commitmentByOrderId = new Map<string, typeof commitments[number]>()
+    for (const commitment of commitments) {
+      if (commitment.sourceId && !commitmentByOrderId.has(commitment.sourceId)) commitmentByOrderId.set(commitment.sourceId, commitment)
+    }
+
     const data: OrdersPageDataPayload = {
       orders: orders.map<OrdersPageOrder>((order) => ({
         id: order.id,
@@ -328,6 +386,20 @@ export async function GET(request: NextRequest) {
             name: order.clients.name,
           }
           : null,
+        finance_obligation: (() => {
+          const commitment = commitmentByOrderId.get(order.id)
+          if (!commitment) return null
+          const originalAmount = toNumber(commitment.originalAmount)
+          const paidAmount = toNumber(commitment.paidAmount)
+          return {
+            id: commitment.id,
+            status: commitment.status === 'partial' || commitment.status === 'paid' || commitment.status === 'cancelled' ? commitment.status : 'open',
+            original_amount: originalAmount,
+            paid_amount: paidAmount,
+            outstanding_amount: Math.max(0, originalAmount - paidAmount),
+            currency: commitment.currency === 'USD' ? 'USD' : 'SRD',
+          }
+        })(),
         purchase_order_items: order.purchase_order_items.map<OrdersPageOrderItem>((item) => ({
           id: item.id,
           order_id: item.order_id,
@@ -577,7 +649,18 @@ async function updateOrderStatus(
 ) {
   const order = await tx.purchaseOrder.findUnique({
     where: { id: orderId },
-    select: { id: true, status: true, purchase_order_items: { select: { quantity: true, quantity_received: true } } },
+    select: {
+      id: true,
+      companyId: true,
+      locationId: true,
+      totalAmount: true,
+      currency: true,
+      expected_arrival: true,
+      notes: true,
+      status: true,
+      clients: { select: { name: true } },
+      purchase_order_items: { select: { quantity: true, quantity_received: true } },
+    },
   })
   if (!order) throw new ApiError(404, 'Order not found.')
   if (order.status === 'cancelled' || order.status === 'received') throw new ApiError(409, 'This closed order cannot change status.')
@@ -588,15 +671,81 @@ async function updateOrderStatus(
     (requestedStatus === 'cancelled')
   if (!allowed) throw new ApiError(409, 'That status transition is not allowed. Receive stock through the receipt workflow.')
 
+  let commitmentCreated = false
+  if (requestedStatus === 'ordered') {
+    const result = await ensurePurchaseOrderCommitment(tx, order)
+    commitmentCreated = result.created
+    if (result.created) {
+      await writeActivityLog({
+        action: 'create', entityType: 'finance_obligation', entityId: result.commitment.id, entityName: `Purchase order #${order.id.slice(0, 8)}`,
+        details: `Created payable commitment when purchase order was confirmed. No wallet balance or expense was changed.`,
+        user: actor, request, source: 'server', client: tx,
+      })
+    }
+  }
+
+  if (requestedStatus === 'cancelled') {
+    const commitment = await tx.financeObligation.findFirst({
+      where: { sourceType: 'purchase_order', sourceId: order.id, type: 'payable' },
+      select: { id: true, status: true, paidAmount: true },
+    })
+    if (commitment && (commitment.status === 'paid' || commitment.status === 'partial' || Number(commitment.paidAmount) > 0)) {
+      throw new ApiError(409, 'This purchase order has a recorded payable settlement. Record the supplier credit or refund in Finance before cancelling the order.')
+    }
+    if (commitment && commitment.status !== 'cancelled') {
+      await tx.financeObligation.update({ where: { id: commitment.id }, data: { status: 'cancelled' } })
+      await writeActivityLog({
+        action: 'cancel', entityType: 'finance_obligation', entityId: commitment.id, entityName: `Purchase order #${order.id.slice(0, 8)}`,
+        details: 'Cancelled unpaid purchase-order commitment. The commitment record is retained for audit; no wallet balance changed.',
+        user: actor, request, source: 'server', client: tx,
+      })
+    }
+  }
+
   await tx.purchaseOrder.update({ where: { id: orderId }, data: { status: requestedStatus } })
   await writeActivityLog({
     action: requestedStatus === 'cancelled' ? 'cancel' : 'update', entityType: 'purchase_order', entityId: orderId, entityName: `Order #${orderId.slice(0, 8)}`,
     details: requestedStatus === 'cancelled'
-      ? 'Cancelled purchase order. Order, receipt, and stock history were retained; wallet balance is unchanged.'
-      : `Changed purchase order status from ${order.status} to ${requestedStatus}.`,
+      ? 'Cancelled purchase order. Order, receipt, stock, and payable-commitment history were retained; wallet balance is unchanged.'
+      : `Changed purchase order status from ${order.status} to ${requestedStatus}.${commitmentCreated ? ' A payable commitment was created for Finance.' : ''}`,
     user: actor, request, source: 'server', client: tx,
   })
   return { id: orderId, status: requestedStatus }
+}
+
+async function linkFinanceCommitment(
+  tx: Prisma.TransactionClient,
+  request: NextRequest,
+  actor: { id: string; email: string; name: string | null; role: string },
+  orderId: string,
+) {
+  const order = await tx.purchaseOrder.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      companyId: true,
+      locationId: true,
+      totalAmount: true,
+      currency: true,
+      expected_arrival: true,
+      notes: true,
+      status: true,
+      clients: { select: { name: true } },
+    },
+  })
+  if (!order) throw new ApiError(404, 'Order not found.')
+  if (order.status === 'pending') throw new ApiError(409, 'Confirm the purchase order before recording its financial commitment.')
+  if (order.status === 'cancelled') throw new ApiError(409, 'Cancelled orders cannot create a new financial commitment.')
+
+  const result = await ensurePurchaseOrderCommitment(tx, order)
+  if (result.created) {
+    await writeActivityLog({
+      action: 'create', entityType: 'finance_obligation', entityId: result.commitment.id, entityName: `Purchase order #${order.id.slice(0, 8)}`,
+      details: 'Created the missing payable commitment from the order desk. No wallet balance or expense was changed.',
+      user: actor, request, source: 'server', client: tx,
+    })
+  }
+  return { id: order.id, financeObligationId: result.commitment.id, created: result.created }
 }
 
 type ReceiptInput = { orderItemId: string; allocationId: string | null; locationId: string; quantity: number }
@@ -763,6 +912,7 @@ export async function POST(request: NextRequest) {
       if (action === 'update') return updateOrder(tx, request, actor, body)
       if (action === 'receive') return receiveOrder(tx, request, actor, body)
       if (action === 'adjustReceipts') return adjustReceipts(tx, request, actor, body)
+      if (action === 'linkFinance') return linkFinanceCommitment(tx, request, actor, requiredId(body.id, 'id'))
       if (action === 'status' || action === 'cancel') {
         const orderId = requiredId(body.id, 'id')
         return updateOrderStatus(tx, request, actor, orderId, action === 'cancel' ? 'cancelled' : orderStatus(body.status))
