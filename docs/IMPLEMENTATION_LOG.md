@@ -949,3 +949,7 @@ backfill used `app.finance_ledger_maintenance` only for that one statement and r
 no trigger was disabled. All in-transaction null/count checks and Part 6 passed. Pre-migration dump:
 `backups/finance-overhaul-pre-t20-20260813T105306Z.dump`
 (`0690A28D573967377D356B8F377E9ABB86A36FEEC5FABC9FABF3C95896B41046`).
+
+## Reservations financial write hardening — claimed by Codex — 2026-08-13T11:57Z — in progress
+
+Moving reservation completion to a server-side Serializable transaction before RLS lockdown.
