@@ -630,3 +630,107 @@ two are never confused. **If this matters for tax, raise it with the accountant 
 
 One bug caught in testing: naming the PL/pgSQL variable `prefix` collided with
 `invoice_sequences.prefix` and Postgres rejected the ambiguous reference. Renamed `seq_prefix`.
+
+---
+
+# RUN SUMMARY — claude — 2026-08-13T17:00Z
+
+Database access was **never available** this run: `DATABASE_URL`/`DIRECT_URL` unset, network policy
+answering 403 to CONNECT for `*.supabase.co`. Supabase MCP gave **read-only** production access,
+used for verification figures only. **No DDL was applied to production. Nothing was written to it.**
+
+## Final Part 6 verification — production, unchanged
+
+| Metric | Baseline | Now |
+|---|---|---|
+| sales | 149 | **149** |
+| sale_items | 306 | **306** |
+| wallet_transactions | 490 | **490** |
+| finance_ledger_entries | 490 | **490** |
+| expenses | 83 | **83** |
+| commissions | 122 | **122** |
+| wallets SRD | 42,005.99 | **42,005.99** |
+| wallets USD | 534.00 | **534.00** |
+
+All five zero-invariants zero. Ledger pairs 1:1. Confirmed 0 of the staged columns and 0 of the
+staged tables exist in production — the migrations really are unapplied.
+
+## Completed
+
+| Task | State |
+|---|---|
+| T-01 restore atomicity | code DONE, verified with control |
+| T-03 unguarded endpoints | code DONE, verified with control |
+| T-07 commission payout | **code DONE** — had never been started |
+| T-08 stale FX warning | code DONE |
+| T-09 review queue | code DONE (filters, review page, CSV report) · migration staged |
+| T-11 server-side sales | code DONE, verified with control |
+| T-12 cost snapshot | code DONE (COGS reads the snapshot) · migration staged |
+| T-13 void not delete | code DONE, verified with control · migration staged |
+| T-16 invoice numbers | code DONE · migration staged |
+| T-17 inventory health | code DONE, reproduces published figures |
+
+## Migrations written and verified — ALL UNAPPLIED
+
+Twelve files in `supabase/migrations/`, applied in filename order against a local Postgres fixture
+built to the exact production baseline including its anomalies. Every one applies, self-verifies
+inside its transaction, aborts without trace on wrong data, and is idempotent on re-run.
+
+`T-06 · T-09 · T-12 · T-13 · T-16 · T-04 · T-14 · T-15 · T-10 · T-18 · T-19 · T-20`
+
+Two dependency guards were made to fire and then clear: T-12 refuses before T-09, T-15 refuses
+before T-09.
+
+**T-05 is written but deliberately refuses to run** until `finance.rls_lockdown_ready` is set. See
+below.
+
+## Not done, and why
+
+| Task | Why |
+|---|---|
+| **T-02** verified backup | No route to production data. Unchanged from the previous run and still the blocker for applying anything |
+| **T-05** RLS lockdown | Written, gated, must not run yet — see the precondition |
+| T-18 cron code | Table and idempotency index written; the daily posting job, catch-up cap, balance-skip and self-correction are not |
+| T-19 breaker code | Tables and policy settings written; the eight circuit breakers and the month-end job are not |
+| T-21–T-25 | Double-entry journal, period lock, asset/investment registers, FX revaluation, consolidation. Not started |
+| T-26, T-27 | Bill inbox, close checklist. Not started |
+
+## For you — six things only you can decide
+
+1. **Apply the twelve migrations.** They need a session with `DATABASE_URL`/`DIRECT_URL`, and T-02's
+   backup first. Filename order is dependency order.
+2. **⚠️ Invoice numbers (T-16) cannot be reconciled to customers' copies.** The originals were
+   `Math.random()` and were never stored. Every reconstructed number is flagged. **Raise this with
+   your accountant before applying, not after.**
+3. **The SRD 9,458.05 commission gap.** 106 payouts that happened but were never booked as a cost.
+   `docs/reports/commission-payout-backfill.csv` lists them; nothing was inserted. You and your
+   accountant decide whether to post a correction, backdate, or document the gap and start clean.
+4. **Create the three seller logins** (Rico, Aryan Bhaggoe, Leonardo). Passwords are not something
+   an agent should generate.
+5. **Count the banknotes.** Until someone does, every balance is the system's belief. Enforcement
+   escalates itself from `warn` to `block` once all 13 wallets have been counted once.
+6. **Subscription amounts.** Spotify USD 12 is derived from your own misfiled SRD 456 charge; Claude
+   and Codex are list prices. All three are flagged estimated and self-correct from the first real
+   charge. Entering the true amounts takes a minute.
+
+## ⛔ The one thing that must not be rushed
+
+**T-05 must not be applied yet, and the migration enforces that itself.**
+
+36 policies are `FOR ALL USING (true)` to role `public` — which includes `anon`, whose key ships in
+the browser bundle. That is a live, unauthenticated read/write hole on the financial tables and it
+deserves to be closed quickly. But closing it today breaks the dashboard, because these pages still
+write those tables directly from the browser:
+
+- `reservations/page.tsx` — wallets, wallet_transactions, sales, sale_items, commissions, stock
+- `orders/page.tsx` — purchase_orders, purchase_order_items, allocations, stock, items
+- `budgets/page.tsx` · `items/page.tsx` · `exchange/page.tsx` · `locations/page.tsx`
+
+**`reservations/page.tsx` is the significant one**: it writes the same five financial tables the old
+sales page did, by the same read-modify-write pattern, and has never been touched. It needs the
+T-11 treatment — a server-side transactional route — before T-05 can run. The audit only ever
+covered sales, commissions and reservations; orders, budgets, items, exchange and locations were
+never in scope and are equally open.
+
+Recommended order from here: **T-02 → apply the twelve → server-side reservations → server-side
+orders/budgets/items/exchange/locations → set `finance.rls_lockdown_ready` → T-05.**
