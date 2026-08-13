@@ -309,3 +309,5 @@ will break the undo button.
 Other pages were not audited here and almost certainly still write directly: the task named
 `sales/page.tsx` only. **Before T-05, grep for `supabase.from(...)` `.insert/.update/.delete` across
 `src/app/**` and confirm the list is empty.**
+
+## T-17 — claimed by claude — 2026-08-13T10:40Z — in progress
