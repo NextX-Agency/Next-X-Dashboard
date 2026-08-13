@@ -1354,3 +1354,17 @@ altering any existing admin action or route.
 was applied and no production data was read or changed during this UI-only task. The retained Part 6
 baseline remains: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
+## Admin information architecture refresh â€” Codex â€” 2026-08-13T16:45Z â€” DONE
+
+Replaced the main dashboard's equal-weight card grid with an action-first operating overview:
+open work is shown before weekly metrics, sales pace, activity, and direct task links. Navigation
+is now grouped and named by the work an admin performs (catalog & stock, daily operations, money &
+finance, insights, administration), with matching page context in the top bar. The mobile menu now
+contains invoices and team access as well as the full finance flow. The duplicate catalog selector
+was removed from the desktop rail so the top-bar selector is the only global catalog context.
+
+`pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed. No financial behavior,
+financial row, API contract, or migration changed. The retained Part 6 baseline remains:
+**149 sales / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses
+/ 122 commissions / SRD 42,005.99 / USD 534.00**.

@@ -1,7 +1,7 @@
 'use client'
 
+import type { ComponentType } from 'react'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Activity,
@@ -10,58 +10,33 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
+  CheckCircle2,
   DollarSign,
   FileCheck2,
   MapPin,
   Package,
   Receipt,
   RefreshCcw,
-  ShieldCheck,
   ShoppingCart,
   Target,
   TrendingUp,
   Users,
   Wallet,
 } from 'lucide-react'
-import { ActivityItem, ChartCard, QuickActionCard, StatCard } from '@/components/Cards'
-import { LoadingCard } from '@/components/UI'
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import type { DashboardMetrics, DashboardResponse } from '@/types/dashboard'
 
 const EMPTY_DASHBOARD: DashboardMetrics = {
-  totalSalesUSD: 0,
-  totalSalesSRD: 0,
-  weeklySalesUSD: 0,
-  weeklySalesSRD: 0,
-  activeOrders: 0,
-  stockItems: 0,
-  lowStockItems: 0,
-  outOfStockItems: 0,
-  totalRevenue: 0,
-  todaysSalesUSD: 0,
-  todaysSalesSRD: 0,
-  salesTrend: 0,
-  totalSalesTrend: 0,
-  weeklySalesTrend: 0,
-  weeklyGrossProfitUSD: 0,
-  weeklyGrossProfitTrend: 0,
-  weeklyNetProfitUSD: 0,
-  weeklyNetProfitTrend: 0,
-  exchangeRate: 40,
-  exchangeRateSetAt: null,
-  exchangeRateAgeDays: null,
-  exchangeRateIsStale: false,
-  monthlySalesUSD: Array.from({ length: 12 }, () => 0),
+  totalSalesUSD: 0, totalSalesSRD: 0, weeklySalesUSD: 0, weeklySalesSRD: 0,
+  activeOrders: 0, stockItems: 0, lowStockItems: 0, outOfStockItems: 0,
+  totalRevenue: 0, todaysSalesUSD: 0, todaysSalesSRD: 0, salesTrend: 0,
+  totalSalesTrend: 0, weeklySalesTrend: 0, weeklyGrossProfitUSD: 0,
+  weeklyGrossProfitTrend: 0, weeklyNetProfitUSD: 0, weeklyNetProfitTrend: 0,
+  exchangeRate: 40, exchangeRateSetAt: null, exchangeRateAgeDays: null,
+  exchangeRateIsStale: false, monthlySalesUSD: Array.from({ length: 12 }, () => 0),
   recentActivity: [],
 }
-
-const QUICK_ACTIONS = [
-  { name: 'New Sale', icon: ShoppingCart, path: '/sales', color: 'orange' as const },
-  { name: 'Add Stock', icon: Package, path: '/stock', color: 'blue' as const },
-  { name: 'Exchange Rate', icon: DollarSign, path: '/exchange', color: 'green' as const },
-  { name: 'Finance Command', icon: Wallet, path: '/finance', color: 'purple' as const },
-]
 
 const MOBILE_MODULES = [
   { name: 'Items', icon: Package, path: '/items' },
@@ -75,95 +50,72 @@ const MOBILE_MODULES = [
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
 async function fetchDashboardMetrics(signal?: AbortSignal): Promise<DashboardMetrics> {
-  const response = await fetch('/api/dashboard', {
-    cache: 'no-store',
-    signal,
-  })
-
+  const response = await fetch('/api/dashboard', { cache: 'no-store', signal })
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Your session has expired. Please sign in again.')
-    }
-
-    if (response.status === 403) {
-      throw new Error('You no longer have access to this dashboard.')
-    }
-
+    if (response.status === 401) throw new Error('Your session has expired. Please sign in again.')
+    if (response.status === 403) throw new Error('You no longer have access to this dashboard.')
     throw new Error('Unable to load dashboard metrics right now.')
   }
-
-  const payload = await response.json() as DashboardResponse
-  return payload.data
+  return (await response.json() as DashboardResponse).data
 }
 
 function getTimeAgo(dateString: string): string {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
-
+  const diffMins = Math.floor((Date.now() - new Date(dateString).getTime()) / 60000)
   if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`
+  const diffHours = Math.floor(diffMins / 60)
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`
 }
 
-function DashboardHeroCardSkeleton() {
-  return (
-    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-5 text-white shadow-lg">
-      <div className="shimmer h-3 w-24 rounded bg-white/20 mb-3" />
-      <div className="shimmer h-8 w-32 rounded bg-white/20 mb-3" />
-      <div className="shimmer h-3 w-28 rounded bg-white/20" />
-    </div>
-  )
+function Metric({ label, value, note, icon: Icon, tone = 'neutral' }: {
+  label: string
+  value: string
+  note: string
+  icon: ComponentType<{ size?: number; className?: string }>
+  tone?: 'neutral' | 'positive' | 'warning' | 'negative'
+}) {
+  const toneClasses = {
+    neutral: 'border-white/[0.08] bg-[#101620] text-white',
+    positive: 'border-emerald-300/15 bg-emerald-300/[0.055] text-emerald-100',
+    warning: 'border-amber-300/15 bg-amber-300/[0.055] text-amber-100',
+    negative: 'border-rose-300/15 bg-rose-300/[0.055] text-rose-100',
+  }
+  const iconClasses = {
+    neutral: 'bg-white/[0.06] text-slate-300',
+    positive: 'bg-emerald-300/10 text-emerald-300',
+    warning: 'bg-amber-300/10 text-amber-300',
+    negative: 'bg-rose-300/10 text-rose-300',
+  }
+
+  return <article className={`rounded-2xl border p-5 ${toneClasses[tone]}`}>
+    <div className="flex items-start justify-between gap-3"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p><span className={`grid h-8 w-8 place-items-center rounded-xl ${iconClasses[tone]}`}><Icon size={16} /></span></div>
+    <p className="mt-4 text-2xl font-semibold tracking-[-0.035em] tabular-nums">{value}</p>
+    <p className="mt-1.5 text-xs leading-5 text-slate-500">{note}</p>
+  </article>
 }
 
-function DashboardChartSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-1 pb-2 border-b border-border/50">
-        <div className="shimmer h-4 w-20 rounded" />
-        <div className="shimmer h-6 w-28 rounded" />
-      </div>
-      <div className="h-48 lg:h-56 rounded-2xl border border-border/50 bg-muted/10 p-4">
-        <div className="flex h-full items-end gap-2">
-          {Array.from({ length: 12 }, (_, index) => (
-            <div
-              key={index}
-              className="shimmer flex-1 rounded-t-md"
-              style={{ height: `${24 + ((index % 5) * 12)}%` }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center justify-center gap-4 pt-2">
-        <div className="shimmer h-3 w-24 rounded" />
-        <div className="shimmer h-3 w-24 rounded" />
-      </div>
-    </div>
-  )
+function TaskRow({ icon: Icon, title, detail, href, state }: {
+  icon: ComponentType<{ size?: number; className?: string }>
+  title: string
+  detail: string
+  href: string
+  state: 'clear' | 'attention' | 'warning'
+}) {
+  const styles = {
+    clear: 'border-emerald-300/15 bg-emerald-300/[0.045] text-emerald-300',
+    attention: 'border-amber-300/15 bg-amber-300/[0.055] text-amber-300',
+    warning: 'border-rose-300/15 bg-rose-300/[0.055] text-rose-300',
+  }
+  return <Link href={href} className="group flex items-center gap-4 border-b border-white/[0.07] px-5 py-4 last:border-b-0 transition hover:bg-white/[0.03] sm:px-6">
+    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${styles[state]}`}><Icon size={17} /></span>
+    <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-slate-100">{title}</span><span className="mt-0.5 block text-xs text-slate-500">{detail}</span></span>
+    <ArrowUpRight size={17} className="shrink-0 text-slate-600 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-orange-300" />
+  </Link>
 }
 
-function DashboardActivitySkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 4 }, (_, index) => (
-        <div key={index} className="flex items-center gap-3 p-3 rounded-xl border border-border/60 bg-muted/10">
-          <div className="shimmer h-9 w-9 rounded-lg" />
-          <div className="flex-1 space-y-2">
-            <div className="shimmer h-4 w-4/5 rounded" />
-            <div className="shimmer h-3 w-1/3 rounded" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export default function Home() {
-  const router = useRouter()
+export default function DashboardPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const [stats, setStats] = useState<DashboardMetrics>(EMPTY_DASHBOARD)
   const [loading, setLoading] = useState(true)
@@ -172,505 +124,82 @@ export default function Home() {
 
   useEffect(() => {
     const controller = new AbortController()
-    let isMounted = true
-
-    async function loadDashboardData() {
+    let mounted = true
+    const load = async () => {
       try {
-        setLoading(true)
-        setError(null)
-
+        setLoading(true); setError(null)
         const data = await fetchDashboardMetrics(controller.signal)
-        if (!isMounted || controller.signal.aborted) return
-
-        setStats(data)
-        setLastUpdatedAt(new Date().toISOString())
+        if (!mounted || controller.signal.aborted) return
+        setStats(data); setLastUpdatedAt(new Date().toISOString())
       } catch (loadError) {
-        if (!isMounted || controller.signal.aborted) return
-
-        console.error('Error loading dashboard data:', loadError)
+        if (!mounted || controller.signal.aborted) return
         setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard metrics right now.')
       } finally {
-        if (isMounted && !controller.signal.aborted) {
-          setLoading(false)
-        }
+        if (mounted && !controller.signal.aborted) setLoading(false)
       }
     }
-
-    void loadDashboardData()
-
-    return () => {
-      isMounted = false
-      controller.abort()
-    }
+    void load()
+    return () => { mounted = false; controller.abort() }
   }, [])
 
-  async function handleRefresh() {
+  const refresh = async () => {
     try {
-      setLoading(true)
-      setError(null)
-
-      const data = await fetchDashboardMetrics()
-      setStats(data)
+      setLoading(true); setError(null)
+      setStats(await fetchDashboardMetrics())
       setLastUpdatedAt(new Date().toISOString())
     } catch (refreshError) {
-      console.error('Error refreshing dashboard data:', refreshError)
       setError(refreshError instanceof Error ? refreshError.message : 'Unable to refresh dashboard metrics right now.')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const hasData = lastUpdatedAt !== null
-  const isInitialLoad = loading && !hasData
   const activeExchangeRate = exchangeRate || stats.exchangeRate || 40
-  const todaysSalesDisplay = displayCurrency === 'USD'
-    ? stats.todaysSalesUSD + (stats.todaysSalesSRD / activeExchangeRate)
-    : stats.todaysSalesSRD + (stats.todaysSalesUSD * activeExchangeRate)
-  const weeklySalesDisplay = displayCurrency === 'USD'
-    ? stats.weeklySalesUSD + (stats.weeklySalesSRD / activeExchangeRate)
-    : stats.weeklySalesSRD + (stats.weeklySalesUSD * activeExchangeRate)
-  const weeklyGrossProfitDisplay = displayCurrency === 'USD'
-    ? stats.weeklyGrossProfitUSD
-    : stats.weeklyGrossProfitUSD * activeExchangeRate
-  const weeklyNetProfitDisplay = displayCurrency === 'USD'
-    ? stats.weeklyNetProfitUSD
-    : stats.weeklyNetProfitUSD * activeExchangeRate
-  const monthlySalesDisplay = stats.monthlySalesUSD.map((amount) => (
-    displayCurrency === 'USD' ? amount : amount * activeExchangeRate
-  ))
-  const maxMonthlySale = Math.max(...monthlySalesDisplay, 1)
-  const totalYearSales = monthlySalesDisplay.reduce((sum, amount) => sum + amount, 0)
+  const todaysSales = displayCurrency === 'USD' ? stats.todaysSalesUSD + stats.todaysSalesSRD / activeExchangeRate : stats.todaysSalesSRD + stats.todaysSalesUSD * activeExchangeRate
+  const weeklySales = displayCurrency === 'USD' ? stats.weeklySalesUSD + stats.weeklySalesSRD / activeExchangeRate : stats.weeklySalesSRD + stats.weeklySalesUSD * activeExchangeRate
+  const weeklyGrossProfit = displayCurrency === 'USD' ? stats.weeklyGrossProfitUSD : stats.weeklyGrossProfitUSD * activeExchangeRate
+  const weeklyNetProfit = displayCurrency === 'USD' ? stats.weeklyNetProfitUSD : stats.weeklyNetProfitUSD * activeExchangeRate
+  const monthlySales = stats.monthlySalesUSD.map((amount) => displayCurrency === 'USD' ? amount : amount * activeExchangeRate)
+  const maxMonthlySale = Math.max(...monthlySales, 1)
+  const totalYearSales = monthlySales.reduce((sum, amount) => sum + amount, 0)
   const currentMonth = new Date().getMonth()
+  const inventoryIssues = stats.lowStockItems + stats.outOfStockItems
+  const activity = stats.recentActivity.map((item) => ({ ...item, time: getTimeAgo(item.timestamp) }))
 
-  const recentActivity = stats.recentActivity.map((item) => ({
-    icon: item.kind === 'exchange' ? DollarSign : ShoppingCart,
-    title: item.title,
-    time: getTimeAgo(item.timestamp),
-    color: item.color,
-  }))
+  return <main className="min-h-full bg-[#090d13] text-slate-100">
+    {hasData && stats.exchangeRateIsStale ? <div className="border-b border-amber-300/20 bg-amber-300/[0.08] px-4 py-3"><div className="mx-auto flex max-w-[1560px] items-start gap-3 text-sm text-amber-100 sm:px-2"><AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" /><p><strong>Update the exchange rate.</strong> {stats.exchangeRateAgeDays === null ? 'No active rate is set.' : `The current rate was set ${stats.exchangeRateAgeDays} days ago.`} <Link href="/exchange" className="font-semibold text-amber-200 underline underline-offset-4">Open exchange settings</Link></p></div></div> : null}
 
-  const focusCards = [
-    {
-      title: 'Inventory pressure',
-      value: hasData ? (stats.lowStockItems > 0 ? `${stats.lowStockItems} low stock` : 'Inventory healthy') : 'Awaiting data',
-      subtitle: hasData
-        ? (stats.outOfStockItems > 0 ? `${stats.outOfStockItems} items are sold out` : 'No sold out items right now')
-        : 'Checking stock movement',
-      icon: stats.lowStockItems > 0 || stats.outOfStockItems > 0 ? AlertCircle : Package,
-      panelClass: stats.lowStockItems > 0 || stats.outOfStockItems > 0
-        ? 'border-amber-500/20 bg-amber-500/10'
-        : 'border-emerald-500/20 bg-emerald-500/10',
-      iconClass: stats.lowStockItems > 0 || stats.outOfStockItems > 0
-        ? 'bg-amber-500 text-white shadow-amber-500/25'
-        : 'bg-emerald-500 text-white shadow-emerald-500/25',
-    },
-    {
-      title: 'Reservation queue',
-      value: hasData ? `${stats.activeOrders} pending` : 'Awaiting data',
-      subtitle: hasData ? 'Reservations ready to process next' : 'Checking pending reservations',
-      icon: ShoppingCart,
-      panelClass: 'border-blue-500/20 bg-blue-500/10',
-      iconClass: 'bg-blue-500 text-white shadow-blue-500/25',
-    },
-    {
-      title: 'Exchange snapshot',
-      value: hasData ? `1 USD = ${stats.exchangeRate} SRD` : 'Awaiting data',
-      subtitle: hasData ? `Display currency is ${displayCurrency}` : 'Checking active rate',
-      icon: DollarSign,
-      panelClass: 'border-primary/20 bg-primary/10',
-      iconClass: 'bg-primary text-white shadow-primary/25',
-    },
-  ]
+    <div className="mx-auto max-w-[1560px] px-4 pb-24 pt-5 sm:px-6 lg:px-10 lg:pb-10 lg:pt-8">
+      <header className="flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange-300">Store overview</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">What needs your attention today?</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Start with the open items below, then use the workspace navigation to manage sales, stock, money, and reporting.</p></div>
+        <div className="flex flex-wrap items-center gap-2"><Link href="/sales" className="inline-flex items-center gap-2 rounded-xl bg-orange-400 px-4 py-2.5 text-sm font-bold text-[#17100b] transition hover:bg-orange-300 active:translate-y-px"><ShoppingCart size={16} />Record sale</Link><button type="button" onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/[0.11] bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.08] disabled:opacity-50"><RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />Refresh</button></div>
+      </header>
 
-  return (
-    <div className="min-h-screen bg-[#090d13]">
-      {/*
-        F-19: every USD figure below is priced on the active exchange rate, and
-        nothing used to say how old it was. The rate is not fetched
-        automatically — the owner sets it — so the only useful thing software
-        can do is say when it has gone stale.
-      */}
-      {hasData && stats.exchangeRateIsStale && (
-        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 lg:px-8">
-          <div className="mx-auto flex max-w-7xl items-start gap-3 text-sm text-amber-900 dark:text-amber-200">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-            <p>
-              <strong>The exchange rate is out of date.</strong>{' '}
-              {stats.exchangeRateAgeDays === null
-                ? 'No active rate has been set.'
-                : `1 USD = ${stats.exchangeRate} SRD was set ${stats.exchangeRateAgeDays} days ago.`}{' '}
-              Every USD figure here is converted at that rate.{' '}
-              <Link href="/exchange" className="font-semibold underline underline-offset-2">Set a current rate</Link>.
-            </p>
-          </div>
-        </div>
-      )}
-      <div className="relative overflow-hidden border-b border-white/[0.08] bg-[#101620]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_84%_0%,rgba(249,112,21,0.2),transparent_40%)]" />
-        <div className="absolute bottom-0 left-0 h-px w-full bg-linear-to-r from-transparent via-orange-400/50 to-transparent" />
+      {error ? <div role="alert" className="mt-5 flex items-start gap-3 rounded-2xl border border-rose-300/20 bg-rose-300/[0.08] p-4 text-sm text-rose-100"><AlertCircle size={18} className="mt-0.5 shrink-0 text-rose-300" /><div><p className="font-semibold">Dashboard data is unavailable</p><p className="mt-1 text-rose-100/75">{error}</p></div></div> : null}
 
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-6 sm:py-8 lg:py-16">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
-            <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-orange-400/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full mb-3 sm:mb-4 border border-orange-400/25">
-                <Activity size={14} className="text-orange-300 sm:h-4 sm:w-4" />
-                <span className="text-xs sm:text-sm font-bold text-orange-200 tracking-wide">Live operating picture</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4 tracking-tight leading-tight">
-                Run the store.<br />Keep the books clear.
-              </h1>
-              <p className="sm:hidden text-sm text-slate-300 font-medium max-w-xl leading-relaxed">
-                Server-computed metrics for sales, stock risk, profit, and the live exchange rate.
-              </p>
-              <p className="hidden sm:block text-slate-300 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
-                Server-computed metrics keep the dashboard fast, while the summary below highlights sales pace, weekly profit, stock risk, and the live exchange rate without waiting for the browser to crunch raw tables.
-              </p>
+      <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(410px,.9fr)]">
+        <article className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]"><div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Start here</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Open work</h2></div><span className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-400">{hasData ? `Updated ${getTimeAgo(lastUpdatedAt!)}` : 'Loading data'}</span></div>
+          {loading && !hasData ? <div className="space-y-3 p-6">{Array.from({ length: 3 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-xl bg-white/[0.04]" />)}</div> : <div>
+            <TaskRow icon={Package} title={inventoryIssues ? `${inventoryIssues} stock issue${inventoryIssues === 1 ? '' : 's'} to review` : 'Inventory looks healthy'} detail={inventoryIssues ? `${stats.lowStockItems} low stock, ${stats.outOfStockItems} sold out` : 'No low-stock or sold-out products reported'} href="/stock" state={stats.outOfStockItems > 0 ? 'warning' : inventoryIssues > 0 ? 'attention' : 'clear'} />
+            <TaskRow icon={ShoppingCart} title={stats.activeOrders ? `${stats.activeOrders} reservation${stats.activeOrders === 1 ? '' : 's'} waiting` : 'No reservations waiting'} detail={stats.activeOrders ? 'Open the order desk to process or update them' : 'The reservation queue is clear'} href="/orders" state={stats.activeOrders ? 'attention' : 'clear'} />
+            <TaskRow icon={DollarSign} title={stats.exchangeRateIsStale ? 'Exchange rate needs an update' : 'Exchange rate is current'} detail={stats.exchangeRateIsStale ? 'USD pricing and reports use this rate' : `1 USD = ${activeExchangeRate} SRD`} href="/exchange" state={stats.exchangeRateIsStale ? 'attention' : 'clear'} />
+            <TaskRow icon={FileCheck2} title="Review the finance workspace" detail="Check money trail, documentation, and month-end readiness" href="/finance" state="clear" />
+          </div>}
+        </article>
 
-              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
-                <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200">
-                  {hasData ? `Updated ${getTimeAgo(lastUpdatedAt)}` : 'Preparing first sync'}
-                </div>
-                <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200">
-                  {hasData ? `${stats.lowStockItems} low-stock items` : 'Checking inventory alerts'}
-                </div>
-                <div className="hidden sm:block rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-sm font-medium text-slate-200">
-                  {hasData ? `1 USD = ${stats.exchangeRate} SRD` : 'Checking exchange rate'}
-                </div>
-              </div>
-            </div>
+        <section className="grid gap-3 sm:grid-cols-2"><Metric label="Sales today" value={hasData ? formatCurrency(todaysSales, displayCurrency) : '—'} note={hasData ? `${stats.salesTrend >= 0 ? '+' : ''}${stats.salesTrend.toFixed(1)}% compared with yesterday` : 'Waiting for server metrics'} icon={DollarSign} tone={stats.salesTrend < 0 ? 'negative' : 'positive'} /><Metric label="Sales this week" value={hasData ? formatCurrency(weeklySales, displayCurrency) : '—'} note={hasData ? `${stats.weeklySalesTrend >= 0 ? '+' : ''}${stats.weeklySalesTrend.toFixed(1)}% compared with prior week` : 'Waiting for server metrics'} icon={TrendingUp} tone="neutral" /><Metric label="Gross profit" value={hasData ? formatCurrency(weeklyGrossProfit, displayCurrency) : '—'} note="This week, based on the current exchange rate" icon={TrendingUp} tone={weeklyGrossProfit < 0 ? 'negative' : 'positive'} /><Metric label="Net profit" value={hasData ? formatCurrency(weeklyNetProfit, displayCurrency) : '—'} note="Expenses and commissions included" icon={Wallet} tone={weeklyNetProfit < 0 ? 'negative' : 'positive'} /></section>
+      </section>
 
-            <div className="grid grid-cols-2 gap-3 min-w-full lg:min-w-[320px] lg:max-w-[360px]">
-              {isInitialLoad ? (
-                <>
-                  <DashboardHeroCardSkeleton />
-                  <DashboardHeroCardSkeleton />
-                </>
-              ) : (
-                <>
-                  <div className="bg-[#0b111a]/80 border border-white/[0.1] rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-black/20">
-                    <div className="text-xs sm:text-sm font-semibold text-slate-400 mb-1">Today&apos;s Sales</div>
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
-                      {hasData ? formatCurrency(todaysSalesDisplay, displayCurrency) : '—'}
-                    </div>
-                    <div className="text-[11px] sm:text-xs text-slate-400 mt-1.5 sm:mt-2 flex items-center gap-1">
-                      {hasData ? (
-                        <>
-                          {stats.salesTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                          <span className="font-medium">
-                            {stats.salesTrend > 0 ? '+' : ''}{stats.salesTrend.toFixed(1)}% vs yesterday
-                          </span>
-                        </>
-                      ) : (
-                        <span className="font-medium">Sales pulse unavailable</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="bg-[#0b111a]/80 border border-white/[0.1] rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-black/20">
-                    <div className="text-xs sm:text-sm font-semibold text-slate-400 mb-1">Active Orders</div>
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{hasData ? stats.activeOrders : '—'}</div>
-                    <div className="text-[11px] sm:text-xs text-slate-400 mt-1.5 sm:mt-2">
-                      {hasData ? 'Reservations waiting to be handled' : 'Checking queue health'}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)]">
+        <article className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]"><div className="flex items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-4 sm:px-6"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Sales pace</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Monthly sales in {new Date().getFullYear()}</h2></div><div className="text-right"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Year total</p><p className="mt-1 text-lg font-semibold tabular-nums text-white">{hasData ? formatCurrency(totalYearSales, displayCurrency) : '—'}</p></div></div>
+          {loading && !hasData ? <div className="m-6 h-60 animate-pulse rounded-xl bg-white/[0.04]" /> : <div className="p-5 sm:p-6"><div className="flex h-56 items-end gap-1.5 border-b border-white/[0.08] pb-7 sm:gap-2">{monthlySales.map((amount, index) => { const height = maxMonthlySale > 0 ? Math.max((amount / maxMonthlySale) * 100, amount > 0 ? 6 : 1) : 1; const isCurrent = index === currentMonth; return <div key={MONTHS[index]} className="group relative flex h-full flex-1 items-end"><div title={`${MONTHS[index]}: ${formatCurrency(amount, displayCurrency)}`} className={`w-full rounded-t-md transition duration-200 group-hover:brightness-125 ${isCurrent ? 'bg-orange-400' : amount > 0 ? 'bg-slate-500/70' : 'bg-white/[0.06]'}`} style={{ height: `${height}%` }} /><span className={`absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-semibold ${isCurrent ? 'text-orange-300' : 'text-slate-500'}`}>{MONTHS[index].slice(0, 1)}</span></div> })}</div><p className="mt-5 text-xs text-slate-500">Each column shows sales for that month in {displayCurrency}. Hover a column for the exact amount.</p></div>}
+        </article>
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-12 pb-28 sm:pb-32 lg:pb-12">
-        <section className="mb-8 overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#101620] shadow-2xl shadow-black/15 lg:mb-10">
-          <div className="flex flex-col justify-between gap-4 border-b border-white/[0.08] px-5 py-5 sm:flex-row sm:items-end lg:px-6">
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-300"><ShieldCheck size={14} />Finance command</div>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">Money controls, visible from the main dashboard.</h2>
-              <p className="mt-1 text-sm text-slate-400">Use this route for the operating pulse, then move into the finance workspace for evidence and month-end controls.</p>
-            </div>
-            <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stats.exchangeRateIsStale ? 'border-amber-300/20 bg-amber-300/10 text-amber-200' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'}`}><span className={`h-1.5 w-1.5 rounded-full ${stats.exchangeRateIsStale ? 'bg-amber-300' : 'bg-emerald-300'}`} />{stats.exchangeRateIsStale ? 'Exchange rate needs review' : 'Finance controls online'}</div>
-          </div>
-          <div className="grid divide-y divide-white/[0.07] lg:grid-cols-[1.25fr_.75fr] lg:divide-x lg:divide-y-0">
-            <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-white/[0.07]">
-              <div className="p-5 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Weekly sales</p><p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-white">{hasData ? formatCurrency(weeklySalesDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">{hasData ? `${stats.weeklySalesTrend >= 0 ? '+' : ''}${stats.weeklySalesTrend.toFixed(1)}% vs prior week` : 'Awaiting secure data sync'}</p></div>
-              <div className="border-t border-white/[0.07] p-5 sm:border-t-0 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Gross profit</p><p className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${weeklyGrossProfitDisplay >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{hasData ? formatCurrency(weeklyGrossProfitDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">This week, at current exchange rate</p></div>
-              <div className="border-t border-white/[0.07] p-5 sm:border-t-0 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Net profit</p><p className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${weeklyNetProfitDisplay >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{hasData ? formatCurrency(weeklyNetProfitDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">Expenses and commissions included</p></div>
-            </div>
-            <div className="flex flex-col justify-center gap-2 p-5 lg:p-6"><Link href="/finance" className="flex items-center justify-between rounded-xl bg-orange-400 px-4 py-3 text-sm font-bold text-[#17100b] transition hover:bg-orange-300">Open money trail <ArrowUpRight size={16} /></Link><div className="grid grid-cols-2 gap-2"><Link href="/finance/review" className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-2.5 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]">Review queue</Link><Link href="/finance/close" className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-2.5 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"><span className="inline-flex items-center gap-1"><FileCheck2 size={14} />Close center</span></Link></div></div>
-          </div>
-        </section>
+        <aside className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]"><div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Audit trail</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Recent activity</h2></div><Link href="/activity" className="text-xs font-semibold text-orange-300 hover:text-orange-200">View all</Link></div>{loading && !hasData ? <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-11 animate-pulse rounded-xl bg-white/[0.04]" />)}</div> : activity.length === 0 ? <div className="grid min-h-64 place-items-center px-8 text-center"><div><Activity className="mx-auto text-slate-600" size={28} /><p className="mt-3 text-sm font-medium text-slate-300">No recent activity</p><p className="mt-1 text-xs leading-5 text-slate-500">New sales, exchange changes, and operations will appear here.</p></div></div> : <div className="divide-y divide-white/[0.06]">{activity.slice(0, 6).map((item, index) => <div key={`${item.title}-${index}`} className="flex items-center gap-3 px-5 py-3.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.05] text-orange-300"><Activity size={15} /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-200">{item.title}</p><p className="mt-0.5 text-xs text-slate-500">{item.time}</p></div></div>)}</div>}</aside>
+      </section>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-          <div>
-            <h2 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">Store overview</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Weekly profit and stock pressure in one fast server-computed snapshot.
-            </p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/30 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh metrics
-          </button>
-        </div>
+      <section className="mt-5"><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Common actions</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Go directly to your task</h2></div><p className="text-sm text-slate-500">These links do not change data until you confirm an action on the next screen.</p></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Link href="/sales" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><ShoppingCart size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Record a sale</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a sale with its stock, wallet, and commission records.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open sales <ArrowUpRight size={14} /></span></Link><Link href="/stock" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><Package size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Manage stock</h3><p className="mt-1 text-xs leading-5 text-slate-500">Receive inventory, inspect locations, and resolve stock pressure.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open stock <ArrowUpRight size={14} /></span></Link><Link href="/finance" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><Wallet size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Check money trail</h3><p className="mt-1 text-xs leading-5 text-slate-500">Review cash movement, finance documentation, and close controls.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open finance <ArrowUpRight size={14} /></span></Link><Link href="/reports" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><BarChart3 size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">View reports</h3><p className="mt-1 text-xs leading-5 text-slate-500">Compare sales, product performance, and business trends.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open reports <ArrowUpRight size={14} /></span></Link></div></section>
 
-        {error && (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm">
-            <div className="flex items-start gap-3">
-              <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="font-semibold text-foreground">Dashboard data is unavailable</p>
-                <p className="text-muted-foreground mt-1">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          {isInitialLoad ? (
-            Array.from({ length: 4 }, (_, index) => <LoadingCard key={index} />)
-          ) : (
-            <>
-              <StatCard
-                title={`Sales This Week (${displayCurrency})`}
-                value={hasData ? formatCurrency(weeklySalesDisplay, displayCurrency) : '—'}
-                icon={DollarSign}
-                trend={hasData
-                  ? { value: `${stats.weeklySalesTrend > 0 ? '+' : ''}${stats.weeklySalesTrend.toFixed(1)}%`, isPositive: stats.weeklySalesTrend >= 0 }
-                  : undefined}
-                color="orange"
-              />
-              <StatCard
-                title="Stock Items"
-                value={hasData ? stats.stockItems.toString() : '—'}
-                icon={Package}
-                trend={hasData
-                  ? {
-                    value: stats.lowStockItems > 0 ? `${stats.lowStockItems} low stock` : 'In stock',
-                    isPositive: stats.lowStockItems === 0,
-                  }
-                  : undefined}
-                color={stats.lowStockItems > 0 ? 'orange' : 'green'}
-              />
-              <StatCard
-                title={`Gross Profit This Week (${displayCurrency})`}
-                value={hasData ? formatCurrency(weeklyGrossProfitDisplay, displayCurrency) : '—'}
-                icon={TrendingUp}
-                trend={hasData
-                  ? {
-                    value: `${stats.weeklyGrossProfitTrend > 0 ? '+' : ''}${stats.weeklyGrossProfitTrend.toFixed(1)}%`,
-                    isPositive: stats.weeklyGrossProfitTrend >= 0,
-                  }
-                  : undefined}
-                color={stats.weeklyGrossProfitUSD >= 0 ? 'green' : 'red'}
-              />
-              <StatCard
-                title={`Net Profit This Week (${displayCurrency})`}
-                value={hasData ? formatCurrency(weeklyNetProfitDisplay, displayCurrency) : '—'}
-                icon={Wallet}
-                trend={hasData
-                  ? {
-                    value: `${stats.weeklyNetProfitTrend > 0 ? '+' : ''}${stats.weeklyNetProfitTrend.toFixed(1)}%`,
-                    isPositive: stats.weeklyNetProfitTrend >= 0,
-                  }
-                  : undefined}
-                color={stats.weeklyNetProfitUSD >= 0 ? 'green' : 'red'}
-              />
-            </>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-12">
-          {focusCards.map((card) => {
-            const Icon = card.icon
-
-            return (
-              <div key={card.title} className={`rounded-2xl border p-5 shadow-sm transition-all duration-200 ${card.panelClass}`}>
-                <div className="flex items-start gap-4">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-lg ${card.iconClass}`}>
-                    <Icon size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{card.title}</p>
-                    <p className="text-lg font-bold text-foreground mt-1">{card.value}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{card.subtitle}</p>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="mb-8 lg:mb-12">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">Quick Actions</h2>
-              <p className="text-sm text-muted-foreground mt-1">Common tasks and shortcuts</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            {QUICK_ACTIONS.map((action) => (
-              <QuickActionCard
-                key={action.name}
-                title={action.name}
-                icon={action.icon}
-                onClick={() => router.push(action.path)}
-                color={action.color}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          <div className="lg:col-span-2">
-            <ChartCard
-              title={`Monthly Sales ${new Date().getFullYear()} (${displayCurrency})`}
-              subtitle="Sales trends throughout the year"
-              action={
-                <button
-                  onClick={() => router.push('/reports')}
-                  className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium"
-                >
-                  View All <ArrowUpRight size={16} />
-                </button>
-              }
-            >
-              {isInitialLoad ? (
-                <DashboardChartSkeleton />
-              ) : !hasData ? (
-                <div className="flex flex-col items-center justify-center py-14 text-center">
-                  <BarChart3 size={32} className="text-muted-foreground/40 mb-3" />
-                  <p className="text-sm font-medium text-foreground">No chart data yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">Refresh the dashboard once data is available again.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-1 pb-2 border-b border-border/50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                      <span className="text-sm text-muted-foreground">Year Total</span>
-                    </div>
-                    <span className="text-lg font-bold text-foreground">{formatCurrency(totalYearSales, displayCurrency)}</span>
-                  </div>
-
-                  <div className="relative h-48 lg:h-56">
-                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                      {[0, 1, 2, 3].map((step) => (
-                        <div key={step} className="flex items-center gap-2 w-full">
-                          <span className="text-[10px] text-muted-foreground w-12 text-right shrink-0">
-                            {formatCurrency(maxMonthlySale * (1 - (step / 3)), displayCurrency).replace(/\.\d+/, '')}
-                          </span>
-                          <div className="flex-1 border-b border-dashed border-border/40" />
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="absolute inset-0 pl-14 flex items-end gap-1 pb-6">
-                      {monthlySalesDisplay.map((displayAmount, index) => {
-                        const heightPercent = maxMonthlySale > 0 ? (displayAmount / maxMonthlySale) * 100 : 0
-                        const isCurrentMonth = index === currentMonth
-                        const hasSales = displayAmount > 0
-
-                        return (
-                          <div key={MONTHS[index]} className="flex-1 flex flex-col items-center group relative h-full">
-                            <div className="relative w-full h-full flex items-end justify-center">
-                              <div
-                                className={`w-full max-w-8 rounded-t-md transition-all duration-300 cursor-pointer relative overflow-hidden ${
-                                  hasSales
-                                    ? isCurrentMonth
-                                      ? 'bg-linear-to-t from-primary to-primary/80 shadow-lg shadow-primary/20'
-                                      : 'bg-linear-to-t from-primary/70 to-primary/50 hover:from-primary hover:to-primary/80'
-                                    : 'bg-muted/30'
-                                }`}
-                                style={{ height: hasSales ? `${Math.max(heightPercent, 4)}%` : '2px' }}
-                              >
-                                {isCurrentMonth && hasSales && (
-                                  <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent" />
-                                )}
-                              </div>
-
-                              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-card border border-border shadow-xl rounded-lg px-2.5 py-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 pointer-events-none">
-                                <div className="text-[10px] text-muted-foreground text-center">{MONTHS[index]}</div>
-                                <div className="text-xs font-bold text-foreground whitespace-nowrap">
-                                  {formatCurrency(displayAmount, displayCurrency)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div className="absolute bottom-0 left-14 right-0 flex justify-between">
-                      {MONTHS.map((month, index) => (
-                        <div key={month} className="flex-1 text-center">
-                          <span className={`text-[10px] font-medium ${index === currentMonth ? 'text-primary' : 'text-muted-foreground'}`}>
-                            {month.substring(0, 1)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-4 pt-2">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-sm bg-linear-to-t from-primary to-primary/80 shadow-sm" />
-                      <span className="text-xs text-muted-foreground">Current Month</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-sm bg-linear-to-t from-primary/70 to-primary/50" />
-                      <span className="text-xs text-muted-foreground">Other Months</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </ChartCard>
-          </div>
-
-          <div className="lg:col-span-1">
-            <ChartCard title="Recent Activity" subtitle="Latest updates">
-              {isInitialLoad ? (
-                <DashboardActivitySkeleton />
-              ) : recentActivity.length === 0 ? (
-                <div className="text-center py-10">
-                  <Activity size={32} className="mx-auto mb-3 text-muted-foreground/30" />
-                  <p className="text-muted-foreground text-sm">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {recentActivity.map((item, index) => (
-                    <ActivityItem key={`${item.title}-${index}`} {...item} />
-                  ))}
-                </div>
-              )}
-            </ChartCard>
-          </div>
-        </div>
-
-        <div className="lg:hidden mt-8">
-          <h2 className="text-lg font-bold text-foreground mb-4">All Modules</h2>
-          <div className="grid grid-cols-3 gap-3">
-            {MOBILE_MODULES.map((item) => {
-              const Icon = item.icon
-
-              return (
-                <button
-                  key={item.name}
-                  onClick={() => router.push(item.path)}
-                  className="bg-card p-4 rounded-xl shadow-sm border border-border hover:border-primary/30 hover:shadow-md transition-all duration-200 active:scale-95 flex flex-col items-center gap-2.5 group"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                    <Icon size={22} className="text-primary" />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{item.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
+      <section className="mt-6 lg:hidden"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">All workspaces</p><div className="mt-3 grid grid-cols-3 gap-3">{MOBILE_MODULES.map(({ name, icon: Icon, path }) => <Link key={name} href={path} className="flex min-h-25 flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#101620] p-3 text-center transition active:scale-[0.98]"><span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-400/10 text-orange-300"><Icon size={17} /></span><span className="mt-2 text-[11px] font-semibold text-slate-300">{name}</span></Link>)}</div></section>
     </div>
-  )
+  </main>
 }

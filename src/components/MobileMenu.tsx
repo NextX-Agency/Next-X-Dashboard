@@ -51,12 +51,12 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   
   // Auto-expand current section based on path
   const getCurrentSection = useCallback(() => {
-    if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Storefronts'
-    if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations')) return 'Operations'
-    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/finance') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Finance'
-    if (pathname.startsWith('/reports') || pathname.startsWith('/performance') || pathname.startsWith('/activity')) return 'Analytics'
-    if (pathname.startsWith('/settings')) return 'System'
-    return 'Store'
+    if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Public shops'
+    if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations') || pathname.startsWith('/invoices')) return 'Daily operations'
+    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/finance') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Money & finance'
+    if (pathname.startsWith('/reports') || pathname.startsWith('/performance') || pathname.startsWith('/activity')) return 'Insights'
+    if (pathname.startsWith('/settings') || pathname.startsWith('/team')) return 'Administration'
+    return 'Catalog & stock'
   }, [pathname])
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -91,43 +91,44 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
 
   const navSections: NavSection[] = useMemo(() => [
     {
-      title: 'Store',
+      title: 'Catalog & stock',
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'Products', icon: Package, path: '/items' },
-        { name: 'Stock', icon: Layers, path: '/stock' },
-        { name: 'Locations', icon: MapPin, path: '/locations' },
+        { name: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
+        { name: 'Products & pricing', icon: Package, path: '/items' },
+        { name: 'Stock levels', icon: Layers, path: '/stock' },
+        { name: 'Store locations', icon: MapPin, path: '/locations' },
       ],
     },
     {
-      title: 'Storefronts',
+      title: 'Public shops',
       items: [
-        { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
-        { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
+        { name: 'Audio shop', icon: Headphones, path: '/audio', external: true },
+        { name: 'Watch shop', icon: Watch, path: '/watches', external: true },
       ],
     },
     {
-      title: 'Operations',
+      title: 'Daily operations',
       items: [
-        { name: 'Orders', icon: ClipboardList, path: '/orders' },
-        { name: 'Sales', icon: ShoppingCart, path: '/sales' },
+        { name: 'Order desk', icon: ClipboardList, path: '/orders' },
+        { name: 'Record & view sales', icon: ShoppingCart, path: '/sales' },
         { name: 'Reservations', icon: Calendar, path: '/reservations' },
+        { name: 'Invoices', icon: Receipt, path: '/invoices' },
       ],
     },
     {
-      title: 'Finance',
+      title: 'Money & finance',
       items: [
-        { name: 'Exchange', icon: DollarSign, path: '/exchange' },
-        { name: 'Wallets', icon: Wallet, path: '/wallets' },
-        { name: 'Money Trail', icon: BarChart3, path: '/finance' },
-        { name: 'Close Center', icon: FileCheck2, path: '/finance/close' },
+        { name: 'Finance overview', icon: BarChart3, path: '/finance' },
+        { name: 'Wallets & balances', icon: Wallet, path: '/wallets' },
         { name: 'Expenses', icon: Receipt, path: '/expenses' },
         { name: 'Commissions', icon: Users, path: '/commissions' },
         { name: 'Budgets', icon: Target, path: '/budgets' },
+        { name: 'Exchange rate', icon: DollarSign, path: '/exchange' },
+        { name: 'Month-end close', icon: FileCheck2, path: '/finance/close' },
       ],
     },
     {
-      title: 'Analytics',
+      title: 'Insights',
       items: [
         { name: 'Reports', icon: BarChart3, path: '/reports' },
         { name: 'Performance', icon: Gauge, path: '/performance' },
@@ -135,8 +136,9 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       ],
     },
     {
-      title: 'System',
+      title: 'Administration',
       items: [
+        { name: 'Team access', icon: Users, path: '/team' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ],
     },
@@ -176,10 +178,10 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       />
       
       {/* Menu Panel */}
-      <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-gray-950/98 text-white z-80 animate-in slide-in-from-left duration-300 flex flex-col border-r border-gray-800/60 shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="lg:hidden fixed inset-y-0 left-0 h-dvh max-h-dvh w-[88vw] max-w-[360px] bg-[#0b1017] text-white z-80 animate-in slide-in-from-left duration-300 flex flex-col border-r border-white/[0.08] shadow-[0_18px_48px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
         <div className="relative overflow-hidden p-3 sm:p-4 border-b border-gray-800/50 shrink-0">
-          <div className="absolute inset-0 bg-linear-to-br from-orange-500/10 via-transparent to-white/5" />
+          <div className="absolute inset-x-4 top-0 h-px bg-orange-300/40" />
           <div className="relative flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <div className="relative h-9 w-28 shrink-0">
@@ -203,7 +205,7 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
             </button>
           </div>
 
-          <div className="relative mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-gray-800/70 bg-gray-900/80 p-2.5 sm:p-3">
+          <div className="relative mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-white/[0.08] bg-white/[0.03] p-2.5 sm:p-3">
             <div className="hidden sm:block text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Current Workspace</div>
             <div className="flex items-center justify-between gap-3 sm:mt-2">
               <div className="min-w-0">
@@ -223,8 +225,8 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   onClick={() => setCatalog('audio')}
                   className={`inline-flex items-center justify-center gap-1.5 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm font-semibold transition-colors ${
                     catalog === 'audio'
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                      : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white'
                   }`}
                 >
                   <Headphones size={14} />
@@ -235,8 +237,8 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                   onClick={() => setCatalog('watches')}
                   className={`inline-flex items-center justify-center gap-1.5 rounded-lg sm:rounded-xl px-2.5 sm:px-3 py-2 text-[13px] sm:text-sm font-semibold transition-colors ${
                     catalog === 'watches'
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'bg-gray-800/70 text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                      : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white'
                   }`}
                 >
                   <Watch size={14} />
@@ -282,8 +284,8 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
                             aria-current={isActive ? 'page' : undefined}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-150 active:scale-[0.98] ${
                               isActive 
-                                ? 'bg-linear-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                                : 'text-gray-400 hover:bg-gray-800/60 hover:text-white active:bg-gray-700/80'
+                                ? 'border border-orange-400/20 bg-orange-400/10 text-orange-100 shadow-lg shadow-orange-500/10'
+                                : 'text-gray-400 hover:bg-white/[0.06] hover:text-white active:bg-white/[0.09]'
                             }`}
                           >
                             <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-gray-800/50'}`}>

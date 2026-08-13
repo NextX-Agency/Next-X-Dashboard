@@ -29,19 +29,18 @@ import {
   Watch,
   Gauge
 } from 'lucide-react'
-import { useAdminCatalog } from '@/lib/adminCatalog'
 import { useAuth } from '@/lib/AuthContext'
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'nextx:sidebar-collapsed'
 const SIDEBAR_EXPANDED_STORAGE_KEY = 'nextx:sidebar-expanded-sections'
 
 const DEFAULT_EXPANDED_SECTIONS: Record<string, boolean> = {
-  Store: true,
-  Storefronts: true,
-  Operations: true,
-  Finance: true,
-  Analytics: true,
-  System: true,
+  'Catalog & stock': true,
+  'Public shops': false,
+  'Daily operations': true,
+  'Money & finance': true,
+  Insights: false,
+  Administration: false,
 }
 
 interface NavItem {
@@ -59,7 +58,6 @@ interface NavSection {
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { catalog, setCatalog } = useAdminCatalog()
   const { user } = useAuth()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(DEFAULT_EXPANDED_SECTIONS)
@@ -74,40 +72,40 @@ export default function Sidebar() {
     },
   ] : [
     {
-      title: 'Store',
+      title: 'Catalog & stock',
       items: [
-        { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-        { name: 'Products', icon: Package, path: '/items' },
-        { name: 'Stock', icon: Layers, path: '/stock' },
-        { name: 'Locations', icon: MapPin, path: '/locations' },
+        { name: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
+        { name: 'Products & pricing', icon: Package, path: '/items' },
+        { name: 'Stock levels', icon: Layers, path: '/stock' },
+        { name: 'Store locations', icon: MapPin, path: '/locations' },
       ],
     },
     {
-      title: 'Storefronts',
+      title: 'Public shops',
       items: [
-        { name: 'Audio Catalog', icon: Headphones, path: '/audio', external: true },
-        { name: 'Watches Catalog', icon: Watch, path: '/watches', external: true },
+        { name: 'Audio shop', icon: Headphones, path: '/audio', external: true },
+        { name: 'Watch shop', icon: Watch, path: '/watches', external: true },
       ],
     },
     {
-      title: 'Operations',
+      title: 'Daily operations',
       items: [
-        { name: 'Orders', icon: ClipboardList, path: '/orders' },
-        { name: 'Sales', icon: ShoppingCart, path: '/sales' },
+        { name: 'Order desk', icon: ClipboardList, path: '/orders' },
+        { name: 'Record & view sales', icon: ShoppingCart, path: '/sales' },
         { name: 'Reservations', icon: Calendar, path: '/reservations' },
         { name: 'Invoices', icon: Receipt, path: '/invoices' },
       ],
     },
     {
-      title: 'Finance',
+      title: 'Money & finance',
       items: [
-        { name: 'Exchange', icon: DollarSign, path: '/exchange' },
-        { name: 'Wallets', icon: Wallet, path: '/wallets' },
-        { name: 'Money Trail', icon: BarChart3, path: '/finance' },
-        { name: 'Close Center', icon: FileCheck2, path: '/finance/close' },
+        { name: 'Finance overview', icon: BarChart3, path: '/finance' },
+        { name: 'Wallets & balances', icon: Wallet, path: '/wallets' },
         { name: 'Expenses', icon: Receipt, path: '/expenses' },
         { name: 'Commissions', icon: Users, path: '/commissions' },
         { name: 'Budgets', icon: Target, path: '/budgets' },
+        { name: 'Exchange rate', icon: DollarSign, path: '/exchange' },
+        { name: 'Month-end close', icon: FileCheck2, path: '/finance/close' },
       ],
     },
     {
@@ -119,9 +117,9 @@ export default function Sidebar() {
       ],
     },
     {
-      title: 'System',
+      title: 'Administration',
       items: [
-        { name: 'Team Access', icon: Users, path: '/team' },
+        { name: 'Team access', icon: Users, path: '/team' },
         { name: 'Settings', icon: Settings, path: '/settings' },
       ],
     },
@@ -222,40 +220,6 @@ export default function Sidebar() {
 
       {/* Premium Navigation with Sections */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
-        {!isCollapsed && (
-          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gray-500">Catalog focus</div>
-            <div className="mt-2 grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCatalog('audio')}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
-                  catalog === 'audio'
-                    ? 'bg-orange-400 text-[#17100b] shadow-sm'
-                    : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white'
-                }`}
-              >
-                <Headphones size={14} />
-                Audio
-              </button>
-              <button
-                type="button"
-                onClick={() => setCatalog('watches')}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
-                  catalog === 'watches'
-                    ? 'bg-orange-400 text-[#17100b] shadow-sm'
-                    : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white'
-                }`}
-              >
-                <Watch size={14} />
-                Watches
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              Shared pages stay the same. Their data focus follows this selection.
-            </p>
-          </div>
-        )}
         <div className="space-y-2">
           {navSections.map((section) => (
             <div key={section.title} className="mb-2">

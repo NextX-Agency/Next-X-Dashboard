@@ -6,9 +6,33 @@ import Image from 'next/image'
 import MobileMenu from './MobileMenu'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { useAuth } from '@/lib/AuthContext'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAdminCatalog } from '@/lib/adminCatalog'
 import { useOperator } from '@/lib/OperatorContext'
+
+const PAGE_CONTEXT = [
+  { path: '/finance/close', section: 'Money & finance', page: 'Month-end close' },
+  { path: '/finance/review', section: 'Money & finance', page: 'Review queue' },
+  { path: '/finance', section: 'Money & finance', page: 'Finance overview' },
+  { path: '/wallets', section: 'Money & finance', page: 'Wallets & balances' },
+  { path: '/expenses', section: 'Money & finance', page: 'Expenses' },
+  { path: '/commissions', section: 'Money & finance', page: 'Commissions' },
+  { path: '/budgets', section: 'Money & finance', page: 'Budgets' },
+  { path: '/exchange', section: 'Money & finance', page: 'Exchange rate' },
+  { path: '/orders', section: 'Daily operations', page: 'Order desk' },
+  { path: '/sales', section: 'Daily operations', page: 'Record & view sales' },
+  { path: '/reservations', section: 'Daily operations', page: 'Reservations' },
+  { path: '/invoices', section: 'Daily operations', page: 'Invoices' },
+  { path: '/items', section: 'Catalog & stock', page: 'Products & pricing' },
+  { path: '/stock', section: 'Catalog & stock', page: 'Stock levels' },
+  { path: '/locations', section: 'Catalog & stock', page: 'Store locations' },
+  { path: '/reports', section: 'Insights', page: 'Reports' },
+  { path: '/performance', section: 'Insights', page: 'Performance' },
+  { path: '/activity', section: 'Insights', page: 'Activity log' },
+  { path: '/team', section: 'Administration', page: 'Team access' },
+  { path: '/settings', section: 'Administration', page: 'Settings' },
+  { path: '/dashboard', section: 'Today', page: 'Overview' },
+]
 
 function TopBarComponent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -18,6 +42,8 @@ function TopBarComponent() {
   const { catalog, setCatalog } = useAdminCatalog()
   const { profile: operatorProfile, openOperatorDialog } = useOperator()
   const router = useRouter()
+  const pathname = usePathname()
+  const currentPage = useMemo(() => PAGE_CONTEXT.find((item) => pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(`${item.path}/`))) ?? PAGE_CONTEXT[PAGE_CONTEXT.length - 1], [pathname])
 
   const handleLogout = useCallback(async () => {
     await logout()
@@ -65,15 +91,13 @@ function TopBarComponent() {
                   priority
                 />
               </div>
-              <span className="hidden md:inline rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200">
-                Control
-              </span>
+              <div className="hidden min-w-0 lg:block"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{currentPage.section}</p><p className="truncate text-sm font-semibold tracking-tight text-slate-200">{currentPage.page}</p></div>
             </div>
-            <div className="hidden lg:block h-7 w-px bg-white/[0.08]" />
+            <div className="hidden xl:block h-7 w-px bg-white/[0.08]" />
             <button
               type="button"
               onClick={openOperatorDialog}
-              className="hidden min-w-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-sm text-gray-300 transition hover:bg-white/[0.07] lg:flex"
+              className="hidden min-w-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-sm text-gray-300 transition hover:bg-white/[0.07] xl:flex"
               title="Change operator"
             >
               <UserCheck size={14} className="shrink-0 text-orange-400" />
