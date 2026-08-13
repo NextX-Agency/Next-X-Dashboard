@@ -940,3 +940,12 @@ later in this run and will use `serializableTransaction`.
 
 Applying the staged company entity migration, including the single sanctioned ledger-maintenance
 scope for its append-only backfill.
+
+## T-20 — Codex — 2026-08-13T11:54Z — DONE (database)
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+One NextX company now scopes all locations and financial rows. The `finance_ledger_entries`
+backfill used `app.finance_ledger_maintenance` only for that one statement and reset it immediately;
+no trigger was disabled. All in-transaction null/count checks and Part 6 passed. Pre-migration dump:
+`backups/finance-overhaul-pre-t20-20260813T105306Z.dump`
+(`0690A28D573967377D356B8F377E9ABB86A36FEEC5FABC9FABF3C95896B41046`).
