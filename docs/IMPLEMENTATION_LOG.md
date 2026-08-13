@@ -241,8 +241,71 @@ has not been done.
 
 ---
 
-## T-11 — claimed by claude — 2026-08-13T09:40Z — in progress
+## T-11 — claude — 2026-08-13T10:35Z — DONE
 
 Session has no database access — `DATABASE_URL`/`DIRECT_URL` unset, network policy still answers
-403 to CONNECT for `*.supabase.co`. No DDL will be attempted. Code-only path: T-11, then T-17, then
-migration SQL for T-06 / T-09 / T-12 written but **not applied**.
+403 to CONNECT for `*.supabase.co`. **No DDL was attempted and none was needed: T-11 is pure code.**
+
+Before: `src/app/sales/page.tsx` created sales with ~8 sequential browser writes. Rollback deleted
+        only the sale header, leaving stock and wallet changes applied. Wallet credit was
+        `matchingWallet.balance + total` from a balance read at page load.
+After:  `POST /api/sales` does the whole thing in one Serializable transaction — header, lines,
+        stock, commissions, wallet credit, wallet transaction, ledger entry, activity log. The page
+        makes one `fetch` and renders the invoice from what the server stored.
+        `src/app/sales/page.tsx` 1,972 -> 1,712 lines.
+
+**Verified on the local Postgres harness** (`scripts/restore-verification/`, seeded by
+`seed-sales.mjs`, checks in `verify-sales.mjs`). Six checks, all passing:
+
+| Check | Result |
+|---|---|
+| Normal sale written consistently | total 2500 = line sum 2500, wallet 0→2500, stock 100→98, commissions 300 across 2 rows at rates 10%/20% |
+| **CONTROL** — old read-modify-write under concurrency | **loses SRD 100 of 300**, as designed. 2500 + 100 + 200 landed at 2700 |
+| Two concurrent sales through the route | wallet 2500 → 6500, both land in full |
+| Failure injected after the header | HTTP 500, every count identical, wallet unmoved |
+| Combo price splits exactly | combo 1000.01 → line sum 1000.01, header 1000.01 |
+| Invariants | 0 orphan headers, wallet_transactions 4 : ledger 4 |
+
+The control matters: it reproduces the exact anti-pattern at the old `sales/page.tsx:715` and shows
+it losing money, so the concurrency check is testing something real.
+
+**A bug the tests caught, worth knowing about.** The first run of the concurrency check *failed* —
+Serializable did its job and Postgres aborted one of the two sales with `P2034`, so the second
+customer's sale was simply refused. Correct for the data, useless at a till. Added
+`src/lib/serializableTransaction.ts`: a bounded retry (5 attempts, exponential backoff with jitter)
+that retries only on `P2034` / SQLSTATE `40001` / `40P01`. Retrying is safe because an aborted
+transaction commits nothing. **Every later financial write should use this helper** — the same
+conflict will hit T-13 and T-19.
+
+Notes:
+- Prices come from the database, never the request. The one client-supplied figure accepted is a
+  custom price, and only on an item flagged `allow_custom_price`, and only with a reason of 3+
+  characters. The UI already gated custom prices this way; the server now enforces it.
+- Combo splitting is exact: the last line absorbs the rounding remainder, so lines always add back
+  to the agreed combo price. The old per-member arithmetic could drift a cent — one of the ways a
+  header ends up disagreeing with its lines (T-09).
+- Stock is checked and decremented against **total demand per item**, since the same product can
+  appear both loose and inside a combo. Decrements are atomic (`{ decrement }`), not read-then-write.
+- `commissions.commission_rate` is now populated. The browser never set it, so no historical
+  commission can explain its own arithmetic.
+- A requested seller must belong to the sale's location; a commission cannot be credited to someone
+  who does not work there.
+- Removed `locationWallets` state and `loadLocationWallets` from the page — dead once the server
+  picks the wallet, and one less browser-side query against `wallets`.
+- Deleted the five repair endpoints T-03 marked, per T-11: `delete-commissions`,
+  `recalculate-commissions`, `create-missing-commissions`, `check-commission`, `fix-combo-price`,
+  plus the orphaned `/recalculate-commissions` page and their `proxy.ts` / `routes.ts` entries.
+  `delete-commissions` hard-deleted commission rows, which R4 forbids outright.
+- Lint 289 -> 276 problems, entirely from the deleted files. No new warnings. `prisma validate` and
+  `pnpm build` pass.
+
+### ⚠️ T-11 does NOT fully unblock T-05
+
+The **creation** path is server-side now, but `handleUndoSale` in the same page still writes to
+`wallets`, `wallet_transactions`, `commissions`, `sale_items` and `sales` from the browser — it is
+the delete-based undo that **T-13** replaces with voiding. Closing those tables before T-13 lands
+will break the undo button.
+
+Other pages were not audited here and almost certainly still write directly: the task named
+`sales/page.tsx` only. **Before T-05, grep for `supabase.from(...)` `.insert/.update/.delete` across
+`src/app/**` and confirm the list is empty.**

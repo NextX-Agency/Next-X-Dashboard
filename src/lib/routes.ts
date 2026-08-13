@@ -49,7 +49,6 @@ export const ADMIN_ROUTES = [
   '/invoices',
   '/upload-example',
   '/migrate',
-  '/recalculate-commissions',
   '/team',
 ] as const
 
@@ -78,11 +77,6 @@ export const PROTECTED_API_ROUTES = [
   '/api/delete',
   '/api/migrate',
   '/api/create-commission',
-  '/api/delete-commissions',
-  '/api/recalculate-commissions',
-  '/api/create-missing-commissions',
-  '/api/fix-combo-price',
-  '/api/check-commission',
   '/api/get-sale-info',
   '/api/debug-reservations',
   '/api/debug-profit',

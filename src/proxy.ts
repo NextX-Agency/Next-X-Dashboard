@@ -18,7 +18,7 @@ const ADMIN_ROUTES = [
   '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
   '/budgets', '/wallets', '/finance', '/commissions', '/exchange', '/locations',
   '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
-  '/upload-example', '/migrate', '/recalculate-commissions', '/team'
+  '/upload-example', '/migrate', '/team'
 ]
 const ADMIN_PREFIXES = ['/api/']
 
@@ -36,9 +36,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/expenses',
   '/api/reservations',
   '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
-  '/api/delete-commissions', '/api/recalculate-commissions', '/api/fix-combo-price',
-  '/api/check-commission', '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
-  '/api/create-missing-commissions',
+  '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
   '/api/backup/export', '/api/backup/save', '/api/backup/list',
   '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
   '/api/backup/download',
@@ -135,7 +133,6 @@ export const config = {
     '/invoices/:path*',
     '/upload-example/:path*',
     '/migrate/:path*',
-    '/recalculate-commissions/:path*',
     '/team/:path*',
     '/api/commissions/:path*',
     '/api/dashboard/:path*',
@@ -153,11 +150,6 @@ export const config = {
     '/api/delete/:path*',
     '/api/migrate/:path*',
     '/api/create-commission/:path*',
-    '/api/delete-commissions/:path*',
-    '/api/recalculate-commissions/:path*',
-    '/api/create-missing-commissions/:path*',
-    '/api/fix-combo-price/:path*',
-    '/api/check-commission/:path*',
     '/api/get-sale-info/:path*',
     '/api/debug-reservations/:path*',
     '/api/debug-profit/:path*',

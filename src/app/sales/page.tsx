@@ -43,6 +43,31 @@ interface ComboSale {
   originalPrice: number
 }
 
+/** A line as POST /api/sales actually stored it. */
+interface CreatedSaleItem {
+  name: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+  originalPrice: number | null
+  discountReason: string | null
+  comboKey: string | null
+}
+
+interface CreatedSale {
+  saleId: string
+  createdAt: string
+  locationName: string
+  currency: string
+  paymentMethod: string
+  totalAmount: number
+  commissionTotal: number
+  walletName: string
+  balanceAfter: number
+  sellerName: string | null
+  items: CreatedSaleItem[]
+}
+
 interface InvoiceData {
   saleId: string
   date: string
@@ -62,7 +87,6 @@ interface InvoiceData {
   invoiceNumber: string
 }
 
-type WalletType = Database['public']['Tables']['wallets']['Row']
 type CatalogType = 'audio' | 'watches'
 
 function SelectionItemThumbnail({ item }: { item: Item }) {
@@ -139,8 +163,6 @@ export default function SalesPage() {
   const [tempCustomPrice, setTempCustomPrice] = useState<string>('')
   const [tempDiscountReason, setTempDiscountReason] = useState<string>('')
   
-  // Location wallets
-  const [locationWallets, setLocationWallets] = useState<WalletType[]>([])
   const combosAllowed = catalogFilter === 'audio'
   const activeExchangeRate = exchangeRate || currentRate?.usd_to_srd || 0
   const getItemSellingPrice = useCallback((item: Item) => (
@@ -194,16 +216,6 @@ export default function SalesPage() {
       })
       setStockMap(map)
     }
-  }
-
-  const loadLocationWallets = async (locationId: string) => {
-    const { data } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('location_id', locationId)
-      .eq('purpose', 'operational')
-    
-    if (data) setLocationWallets(data)
   }
 
   const ensureSellersForLocation = useCallback(async (locationId: string): Promise<Seller[]> => {
@@ -289,7 +301,6 @@ export default function SalesPage() {
     if (selectedLocation) {
       loadStock(selectedLocation)
       loadReservations(selectedLocation)
-      loadLocationWallets(selectedLocation)
       void ensureSellersForLocation(selectedLocation)
     } else {
       setLocationSellers([])
@@ -447,331 +458,102 @@ export default function SalesPage() {
     }
 
     setSubmitting(true)
-    const total = calculateTotal()
-    const location = locations.find(l => l.id === selectedLocation)
     const invoiceNumber = generateInvoiceNumber()
-    
+
     try {
-      // Find or select the appropriate wallet for this location, currency, and payment method
-      const matchingWallet = locationWallets.find(
-        w => w.currency === currency && w.type === paymentMethod && w.purpose === 'operational'
-      )
-
-      const resolvedSellers = await ensureSellersForLocation(selectedLocation)
-      const selectedSeller = selectedSellerId
-        ? resolvedSellers.find(seller => seller.id === selectedSellerId)
-        : null
-      const commissionSellers = selectedSeller ? [selectedSeller] : resolvedSellers.slice(0, 1)
-      const saleSellerId = commissionSellers[0]?.id ?? null
-      
-      const { data: sale, error: saleError } = await supabase
-        .from('sales')
-        .insert({
-          location_id: selectedLocation,
-          seller_id: saleSellerId,
+      // One server call, one database transaction. This page used to issue
+      // about eight sequential writes from the browser with a rollback that
+      // only deleted the sale header — which is how four sale headers in
+      // production ended up with no line items, and how a concurrent sale could
+      // overwrite a wallet balance read at page load (F-02, F-03).
+      const response = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: selectedLocation,
           currency,
-          exchange_rate: activeExchangeRate || null,
-          total_amount: total,
-          payment_method: paymentMethod,
-          wallet_id: matchingWallet?.id || null
-        })
-        .select()
-        .single()
+          paymentMethod,
+          sellerId: selectedSellerId || null,
+          items: cart.map(cartItem => ({
+            itemId: cartItem.item.id,
+            quantity: cartItem.quantity,
+            customPrice: cartItem.customPrice ?? null,
+            discountReason: cartItem.discountReason ?? null,
+          })),
+          combos: combos.map(combo => ({
+            name: combo.name,
+            comboPrice: combo.comboPrice,
+            items: combo.items.map(comboItem => ({
+              itemId: comboItem.item.id,
+              quantity: comboItem.quantity,
+            })),
+          })),
+        }),
+      })
 
-      if (saleError || !sale) {
-        alert('Error creating sale')
+      const payload = await response.json() as { data?: CreatedSale; error?: string }
+      if (!response.ok || !payload.data) {
+        // Nothing was written. The transaction rolled back server-side, so
+        // there is no partial sale to clean up here.
+        alert(payload.error || 'The sale could not be recorded. Nothing was saved.')
         return
       }
 
-      const saleItems: InvoiceData['items'] = []
+      const created = payload.data
 
-      // Process regular cart items
-      for (const cartItem of cart) {
-        const originalPrice = getItemSellingPrice(cartItem.item)
-        
-        // Use custom price if set
-        const isCustomPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null
-        const finalPrice = isCustomPrice ? cartItem.customPrice! : originalPrice
-        
-        const { error: siError } = await supabase.from('sale_items').insert({
-          sale_id: sale.id,
-          item_id: cartItem.item.id,
-          quantity: cartItem.quantity,
-          unit_price: finalPrice,
-          subtotal: finalPrice * cartItem.quantity,
-          is_custom_price: isCustomPrice,
-          original_price: isCustomPrice ? originalPrice : null,
-          discount_reason: isCustomPrice ? cartItem.discountReason || null : null
-        })
-
-        if (siError) {
-          // Rollback: delete the sale header so it doesn't sit empty in the DB
-          await supabase.from('sales').delete().eq('id', sale.id)
-          alert(`Error saving item "${cartItem.item.name}" to the sale. The sale was cancelled. Please try again.\n\nDetails: ${siError.message}`)
-          setSubmitting(false)
-          return
+      // Rebuild the invoice from what the server actually stored, not from what
+      // this page hoped it would store. Combo members are regrouped for display.
+      const invoiceItems: InvoiceData['items'] = []
+      const comboBuckets = new Map<string, CreatedSaleItem[]>()
+      for (const item of created.items) {
+        if (item.comboKey) {
+          const bucket = comboBuckets.get(item.comboKey) ?? []
+          bucket.push(item)
+          comboBuckets.set(item.comboKey, bucket)
+          continue
         }
-
-        saleItems.push({
-          name: cartItem.item.name,
-          quantity: cartItem.quantity,
-          unitPrice: finalPrice,
-          subtotal: finalPrice * cartItem.quantity,
-          originalPrice: isCustomPrice ? originalPrice : undefined,
-          discountReason: isCustomPrice ? cartItem.discountReason : undefined
+        invoiceItems.push({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+          originalPrice: item.originalPrice ?? undefined,
+          discountReason: item.discountReason ?? undefined,
         })
-
-        const { data: stock } = await supabase
-          .from('stock')
-          .select('*')
-          .eq('item_id', cartItem.item.id)
-          .eq('location_id', selectedLocation)
-          .single()
-
-        if (stock) {
-          await supabase
-            .from('stock')
-            .update({ quantity: stock.quantity - cartItem.quantity })
-            .eq('id', stock.id)
-        }
       }
-
-      // Process combo items
-      for (const combo of combos) {
-        // Add combo as a grouped item on the invoice
-        const comboItemNames = combo.items.map(i => `${i.item.name} x${i.quantity}`).join(', ')
-        saleItems.push({
-          name: `🎁 ${combo.name}: ${comboItemNames}`,
+      for (const [comboKey, members] of comboBuckets) {
+        const comboName = comboKey.slice(comboKey.indexOf(':') + 1)
+        invoiceItems.push({
+          name: `🎁 ${comboName}: ${members.map(m => `${m.name} x${m.quantity}`).join(', ')}`,
           quantity: 1,
-          unitPrice: combo.comboPrice,
-          subtotal: combo.comboPrice,
-          isCombo: true
+          unitPrice: members.reduce((sum, m) => sum + m.subtotal, 0),
+          subtotal: members.reduce((sum, m) => sum + m.subtotal, 0),
+          isCombo: true,
         })
-        
-        // Process each item in the combo for stock and sale_items
-        for (const comboItem of combo.items) {
-          const price = combo.comboPrice / combo.items.reduce((s, i) => s + i.quantity, 0) * comboItem.quantity
-          
-          const { error: siError } = await supabase.from('sale_items').insert({
-            sale_id: sale.id,
-            item_id: comboItem.item.id,
-            quantity: comboItem.quantity,
-            unit_price: price / comboItem.quantity,
-            subtotal: price
-          })
-
-          if (siError) {
-            await supabase.from('sales').delete().eq('id', sale.id)
-            alert(`Error saving combo item "${comboItem.item.name}" to the sale. The sale was cancelled. Please try again.\n\nDetails: ${siError.message}`)
-            setSubmitting(false)
-            return
-          }
-
-          const { data: stock } = await supabase
-            .from('stock')
-            .select('*')
-            .eq('item_id', comboItem.item.id)
-            .eq('location_id', selectedLocation)
-            .single()
-
-          if (stock) {
-            await supabase
-              .from('stock')
-              .update({ quantity: stock.quantity - comboItem.quantity })
-              .eq('id', stock.id)
-          }
-        }
       }
 
-      // Create commission for the seller linked to this sale
-      if (commissionSellers.length > 0) {
-        for (const seller of commissionSellers) {
-          // Process regular cart items - group by category for category-specific rates
-          if (cart.length > 0) {
-            const itemsByCategory = new Map<string, typeof cart>()
-            
-            for (const cartItem of cart) {
-              const categoryId = cartItem.item.category_id || 'uncategorized'
-              if (!itemsByCategory.has(categoryId)) {
-                itemsByCategory.set(categoryId, [])
-              }
-              itemsByCategory.get(categoryId)!.push(cartItem)
-            }
-
-            // Create one commission entry per category for regular items
-            for (const [categoryId, categoryItems] of itemsByCategory) {
-              let categoryCommission = 0
-              let rateToUse = Number(seller.commission_rate || location?.commission_rate || 0) // Default rate
-
-              // Get category-specific rate if available
-              if (categoryId !== 'uncategorized') {
-                const { data: categoryRate } = await supabase
-                  .from('seller_category_rates')
-                  .select('commission_rate')
-                  .eq('seller_id', seller.id)
-                  .eq('category_id', categoryId)
-                  .single()
-
-                if (categoryRate) {
-                  rateToUse = Number(categoryRate.commission_rate)
-                }
-              }
-
-              // Calculate commission for this category
-              for (const cartItem of categoryItems) {
-                const regularPrice = getItemSellingPrice(cartItem.item)
-                const actualPrice = cartItem.customPrice !== undefined && cartItem.customPrice !== null 
-                  ? cartItem.customPrice 
-                  : regularPrice
-                const itemTotal = actualPrice * cartItem.quantity
-                categoryCommission += itemTotal * (rateToUse / 100)
-              }
-
-              // Insert commission record for this category
-              if (categoryCommission > 0) {
-                await supabase.from('commissions').insert({
-                  seller_id: seller.id,
-                  location_id: selectedLocation,
-                  category_id: categoryId !== 'uncategorized' ? categoryId : null,
-                  sale_id: sale.id,
-                  commission_amount: categoryCommission,
-                  paid: false
-                })
-                
-                // Log detailed commission activity
-                const locationName = location?.name || 'Unknown'
-                await logActivity({
-                  action: 'create',
-                  entityType: 'commission',
-                  entityId: sale.id,
-                  entityName: `${seller.name || locationName}`,
-                  details: buildActivityDetails({
-                    Amount: formatCurrency(categoryCommission, currency),
-                    Rate: `${rateToUse}%`,
-                    Location: locationName,
-                    Seller: seller.name || ''
-                  }),
-                  userId: user?.id
-                })
-              }
-            }
-          }
-
-          // Process combo items - create ONE commission per combo based on total combo price
-          for (const combo of combos) {
-            // Determine the rate to use for this combo
-            // Get the first item's category to determine the rate, or use seller's default
-            const firstItem = combo.items[0]?.item
-            let comboRate = Number(seller.commission_rate || location?.commission_rate || 0)
-
-            if (firstItem?.category_id) {
-              const { data: categoryRate } = await supabase
-                .from('seller_category_rates')
-                .select('commission_rate')
-                .eq('seller_id', seller.id)
-                .eq('category_id', firstItem.category_id)
-                .maybeSingle()
-
-              if (categoryRate) {
-                comboRate = Number(categoryRate.commission_rate)
-              }
-            }
-
-            const comboCommission = combo.comboPrice * (comboRate / 100)
-
-            if (comboCommission > 0) {
-              await supabase.from('commissions').insert({
-                seller_id: seller.id,
-                location_id: selectedLocation,
-                category_id: null, // Combos are not tied to a single category
-                sale_id: sale.id,
-                commission_amount: comboCommission,
-                paid: false
-              })
-
-              const locationName = location?.name || 'Unknown'
-              await logActivity({
-                action: 'create',
-                entityType: 'commission',
-                entityId: sale.id,
-                entityName: `${seller.name || locationName}`,
-                details: buildActivityDetails({
-                  Amount: formatCurrency(comboCommission, currency),
-                  Rate: `${comboRate}%`,
-                  Items: `Combo: ${combo.name}`,
-                  Location: locationName,
-                  Seller: seller.name || ''
-                }),
-                userId: user?.id
-              })
-            }
-          }
-        }
-      }
-
-      // Credit the wallet for this sale
-      if (matchingWallet) {
-        // Update wallet balance
-        const { data: updatedWallet } = await supabase
-          .from('wallets')
-          .update({ balance: matchingWallet.balance + total })
-          .eq('id', matchingWallet.id)
-          .select()
-          .single()
-
-        // Create wallet transaction record
-        await supabase.from('wallet_transactions').insert({
-          wallet_id: matchingWallet.id,
-          sale_id: sale.id,
-          amount: total,
-          type: 'credit',
-          description: `Sale ${invoiceNumber}`,
-          balance_before: matchingWallet.balance,
-          balance_after: matchingWallet.balance + total,
-          currency: currency
-        })
-        
-        // Reload wallets to reflect new balance
-        if (selectedLocation) loadLocationWallets(selectedLocation)
-      }
-
-      // Log activity - use saleItems array which has verified item names
-      const itemsLog = saleItems.map(si => `${si.quantity}x ${si.name}`).join(', ')
-      await logActivity({
-        action: 'create',
-        entityType: 'sale',
-        entityId: sale.id,
-        entityName: invoiceNumber,
-        details: buildActivityDetails({
-          Items: itemsLog || `${saleItems.length} items`,
-          Total: formatCurrency(total, currency),
-          Wallet: matchingWallet ? `${matchingWallet.person_name} (${matchingWallet.currency})` : '',
-          Location: location?.name || ''
-        }),
-        userId: user?.id
-      })
-
-      // Create invoice data
       setInvoiceData({
-        saleId: sale.id,
-        date: new Date().toLocaleString(),
-        location: location?.name || 'Unknown Location',
-        items: saleItems,
-        currency: currency,
-        paymentMethod: paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer',
-        total: total,
-        invoiceNumber: invoiceNumber
+        saleId: created.saleId,
+        date: new Date(created.createdAt).toLocaleString(),
+        location: created.locationName,
+        items: invoiceItems,
+        currency: created.currency as Currency,
+        paymentMethod: created.paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer',
+        total: created.totalAmount,
+        invoiceNumber,
       })
 
       setCart([])
       setCombos([])
       loadStock(selectedLocation)
       await loadData(false)
-      
-      // Show success message and invoice
+
       setShowSuccess(true)
       setTimeout(() => setShowSuccess(false), 3000)
       setShowInvoice(true)
+    } catch (error) {
+      console.error('Sale creation failed:', error)
+      alert(error instanceof Error ? error.message : 'The sale could not be recorded. Nothing was saved.')
     } finally {
       setSubmitting(false)
     }
@@ -876,7 +658,6 @@ export default function SalesPage() {
       await loadData(false)
       if (selectedLocation) {
         loadStock(selectedLocation)
-        loadLocationWallets(selectedLocation)
       }
 
       alert('Sale has been undone. Stock restored, wallet refunded, and commissions removed.')
