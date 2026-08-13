@@ -53,6 +53,9 @@ export default function CommissionsPage() {
   const [showPayModal, setShowPayModal] = useState(false)
   const [selectedLocationForPay, setSelectedLocationForPay] = useState<string>('')
   const [selectedWalletForPay, setSelectedWalletForPay] = useState<string>('')
+  // When set, the pay modal pays only these commissions instead of every unpaid
+  // one at the location. Used by the single-commission pay action.
+  const [selectedCommissionIds, setSelectedCommissionIds] = useState<string[] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   
   // Category rate management modal states
@@ -223,25 +226,21 @@ export default function CommissionsPage() {
   const hasLoadedData = commissions.length > 0 || locations.length > 0 || wallets.length > 0 || categories.length > 0 || sellers.length > 0 || sellerCategoryRates.length > 0
 
   const handleMarkPaid = async (commissionId: string) => {
-    setPayingCommission(commissionId)
     const commission = commissions.find(c => c.id === commissionId)
-    const currency = (commission?.sales?.currency || 'USD') as Currency
-    
-    await supabase
-      .from('commissions')
-      .update({ paid: true })
-      .eq('id', commissionId)
-    
-    await logActivity({
-      action: 'pay',
-      entityType: 'commission',
-      entityId: commissionId,
-      entityName: commission?.locations?.name || 'Unknown',
-      details: `Marked commission as paid: ${formatCurrency(commission?.commission_amount || 0, currency)} for ${commission?.locations?.seller_name || commission?.locations?.name}`
-    })
-    
-    await loadData()
-    setPayingCommission(null)
+    if (!commission) return
+
+    // This used to flip `paid` to true and nothing else — no expense, no wallet
+    // debit, no ledger entry. The payment existed only as a boolean, which is
+    // half of why 106 commissions are marked paid in production with no payout
+    // behind them (F-15).
+    //
+    // Paying now needs a wallet to pay from, so it goes through the same modal
+    // and the same transactional route as a bulk payout. Nothing is written
+    // here.
+    setSelectedCommissionIds([commissionId])
+    setSelectedLocationForPay(commission.location_id || '')
+    setSelectedWalletForPay('')
+    setShowPayModal(true)
   }
 
   const handleDeleteCommission = async (commissionId: string) => {
@@ -259,10 +258,11 @@ export default function CommissionsPage() {
     })
     if (!ok) return
     
-    await supabase
-      .from('commissions')
-      .delete()
-      .eq('id', commissionId)
+    // Deleting a financial row is forbidden (R4) and this one used to do it
+    // outright. A commission is cancelled by voiding the sale it belongs to,
+    // which zeroes it and leaves the trail intact (T-13).
+    alert('Commissions are no longer deleted. Void the sale instead — that cancels its unpaid commission and keeps the record.')
+    return
     
     await logActivity({
       action: 'delete',
@@ -311,58 +311,37 @@ export default function CommissionsPage() {
 
     setSubmitting(true)
     try {
-      // Mark all unpaid as paid
-      const commissionIds = unpaidCommissions.map(c => c.id)
-      await supabase
-        .from('commissions')
-        .update({ paid: true })
-        .in('id', commissionIds)
-
-      // Deduct from wallet
-      await supabase
-        .from('wallets')
-        .update({ balance: wallet.balance - totalToPay })
-        .eq('id', wallet.id)
-
-      // Log wallet transaction
-      await supabase.from('wallet_transactions').insert({
-        wallet_id: wallet.id,
-        type: 'debit',
-        amount: totalToPay,
-        currency: wallet.currency,
-        balance_before: wallet.balance,
-        balance_after: wallet.balance - totalToPay,
-        description: `Commission payout for ${locations.find(l => l.id === selectedLocationForPay)?.name}`,
-        reference_type: 'commission_payout',
-        reference_id: selectedLocationForPay
+      // One server call, one transaction. This used to be four unchecked
+      // browser writes: the expense insert targeted columns that do not exist
+      // and omitted the NOT NULL wallet_id, and nobody read the error — which
+      // is why 106 commissions are marked paid in production with no payout
+      // expense behind them (F-15).
+      const response = await fetch('/api/commissions/payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: selectedLocationForPay,
+          walletId: wallet.id,
+          commissionIds: selectedCommissionIds ?? unpaidCommissions.map(c => c.id),
+        }),
       })
-
-      // Record as expense
-      const location = locations.find(l => l.id === selectedLocationForPay)
-      const walletLocation = locations.find(l => l.id === wallet.location_id)
-      await supabase.from('expenses').insert({
-        location_id: wallet.location_id, // Expense is at the wallet's location
-        category: 'Commissions',
-        description: `Commission payout for ${location?.seller_name || location?.name} (${unpaidCommissions.length} sales)`,
-        amount: totalToPay,
-        currency: wallet.currency,
-        payment_method: wallet.type,
-        date: new Date().toISOString()
-      })
-
-      const paymentCurrency = wallet.currency as Currency
-      await logActivity({
-        action: 'pay',
-        entityType: 'commission',
-        entityId: selectedLocationForPay,
-        entityName: location?.name || 'Unknown',
-        details: `Paid all commissions for ${location?.name}: ${formatCurrency(totalToPay, paymentCurrency)} (${unpaidCommissions.length} commissions)`
-      })
+      const payload = await response.json() as {
+        data?: { totalPaid: number; currency: string; commissionsPaid: number; expenseId: string }
+        error?: string
+      }
+      if (!response.ok || !payload.data) {
+        alert(payload.error || 'The payout failed. Nothing was posted.')
+        return
+      }
 
       setShowPayModal(false)
       setSelectedLocationForPay('')
       setSelectedWalletForPay('')
+      setSelectedCommissionIds(null)
       await loadData()
+    } catch (error) {
+      console.error('Commission payout failed:', error)
+      alert(error instanceof Error ? error.message : 'The payout failed. Nothing was posted.')
     } finally {
       setSubmitting(false)
     }
@@ -371,6 +350,7 @@ export default function CommissionsPage() {
   const openPayModal = (locationId: string) => {
     setSelectedLocationForPay(locationId)
     setSelectedWalletForPay('')
+    setSelectedCommissionIds(null)
     setShowPayModal(true)
   }
 

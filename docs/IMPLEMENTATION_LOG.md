@@ -539,3 +539,41 @@ Notes:
 **Cash views deliberately keep voided sales.** A voided sale's money genuinely moved and its reversal
 genuinely moved it back; the ledger shows both. Only *derived* figures — margin, run rate, payout
 base, dashboard revenue — drop it.
+
+## T-07 — claude — 2026-08-13T14:45Z — DONE (code only, no schema change)
+
+**T-07 had never been done.** It was not in the earlier "done" list and the broken insert was still
+live at `src/app/commissions/page.tsx:343`.
+
+Before: four unchecked browser writes. The expense insert targeted `category`, `payment_method` and
+        `date` — none of which exist — and omitted the `NOT NULL` `wallet_id`. Nobody read the error.
+        The wallet was debited by writing `balance - total` from a page-load read.
+After:  `POST /api/commissions/payout`, modelled on `POST /api/expenses`: one Serializable
+        transaction creating the expense with real columns, decrementing the wallet atomically,
+        writing the wallet transaction, recording the ledger entry, logging the activity and
+        flipping `paid`.
+
+**Verified on the local harness** (`verify-payout.mjs`):
+
+| Check | Result |
+|---|---|
+| **CONTROL** — the old insert, byte for byte | **rejected: `column "category" of relation "expenses" does not exist`.** The old code never read this, which is F-15 exactly |
+| Payout posts everything | 300 SRD over 2 commissions: expenses 0→1, wallet 3000→2700, ledger 2→3, unpaid 2→0, `classification=payroll`, `wallet_id` set |
+| Nothing outstanding | refused 409 |
+| Payout exceeding balance | refused 409, **expenses unchanged, commissions still unpaid** |
+| Invariant | wallet_transactions 10 : ledger 10 |
+
+Two further F-15-class bugs found on the same page and fixed:
+
+- **"Mark paid" on a single commission flipped a boolean and nothing else** — no expense, no wallet
+  debit, no ledger entry. The payment existed only as a flag. It now opens the pay modal (a payment
+  needs a wallet to come from) and goes through the same transactional route.
+- **Deleting a commission hard-deleted the row**, which R4 forbids outright. The action now refuses
+  and points at voiding the sale, which cancels the unpaid commission and keeps the trail (T-13).
+
+Balance is checked **inside** the transaction against the committed value, and the commission set is
+read inside it too — paying the same commission from two tabs is no longer possible. If
+`updateMany` marks a different number of rows than were priced, the whole thing rolls back.
+
+**The historical SRD 9,458.05 is deliberately NOT backfilled here.** That is T-09's report; inserting
+106 backdated expenses would rewrite months already reviewed (Part 5, R1, R11).
