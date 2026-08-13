@@ -434,7 +434,7 @@ export async function POST(request: NextRequest) {
       const [location, activeRate] = await Promise.all([
         tx.location.findFirst({
           where: { id: locationId, is_active: true },
-          select: { id: true, name: true, commission_rate: true },
+          select: { id: true, name: true, companyId: true, commission_rate: true },
         }),
         tx.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' }, select: { usdToSrd: true } }),
       ])
@@ -444,12 +444,15 @@ export async function POST(request: NextRequest) {
 
       const wallet = await tx.wallet.findFirst({
         where: { location_id: locationId, currency, type: paymentMethod, purpose: 'operational' },
-        select: { id: true, personName: true, currency: true, type: true },
+        select: { id: true, companyId: true, personName: true, currency: true, type: true },
       })
       if (!wallet) {
         throw new SaleValidationError(
           `No operational ${currency} ${paymentMethod} wallet exists for ${location.name}. Create one before selling.`,
         )
+      }
+      if (wallet.companyId !== location.companyId) {
+        throw new SaleValidationError('The selected location and wallet belong to different companies.')
       }
 
       const { lines, stockByItemId } = await resolveSaleLines(
@@ -485,6 +488,7 @@ export async function POST(request: NextRequest) {
 
       const sale = await tx.sale.create({
         data: {
+          companyId: location.companyId,
           locationId,
           correlationId,
           invoiceNumber,
@@ -497,6 +501,7 @@ export async function POST(request: NextRequest) {
           wallet_id: wallet.id,
           saleItems: {
             create: lines.map((line) => ({
+              companyId: location.companyId,
               itemId: line.itemId,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
@@ -544,6 +549,7 @@ export async function POST(request: NextRequest) {
         for (const draft of drafts) {
           await tx.commission.create({
             data: {
+              companyId: location.companyId,
               sellerId: seller.id,
               saleId: sale.id,
               location_id: locationId,
@@ -572,6 +578,7 @@ export async function POST(request: NextRequest) {
 
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
+          companyId: location.companyId,
           wallet_id: wallet.id,
           sale_id: sale.id,
           type: 'credit',
@@ -586,6 +593,7 @@ export async function POST(request: NextRequest) {
       })
 
       await recordFinanceLedgerEntry(tx, {
+        companyId: location.companyId,
         walletTransactionId: walletTransaction.id,
         walletId: wallet.id,
         locationId,

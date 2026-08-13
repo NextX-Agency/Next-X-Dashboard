@@ -164,6 +164,7 @@ function financeMutationError(error: unknown, fallback: string) {
 
 const obligationSelect = {
   id: true,
+  companyId: true,
   type: true,
   counterpartyName: true,
   locationId: true,
@@ -230,8 +231,14 @@ export async function POST(request: NextRequest) {
     const status = deriveStatus(originalAmount, paidAmount, requestedStatus)
 
     const obligation = await prisma.$transaction(async (tx) => {
+      const scope = locationId
+        ? await tx.location.findUnique({ where: { id: locationId }, select: { companyId: true } })
+        : await tx.company.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true } })
+      if (!scope) throw new ApiError(locationId ? 'The selected location does not exist.' : 'No active company is configured.', 409)
+      const companyId = 'companyId' in scope ? scope.companyId : scope.id
       const created = await tx.financeObligation.create({
         data: {
+          companyId,
           type,
           counterpartyName,
           locationId,
@@ -303,10 +310,16 @@ export async function PATCH(request: NextRequest) {
       if (paidAmount > originalAmount) throw new ApiError('Paid amount cannot exceed the original amount.')
 
       const status = deriveStatus(originalAmount, paidAmount, requestedStatus ?? current.status as FinanceObligationStatus)
+      const scope = locationId
+        ? await tx.location.findUnique({ where: { id: locationId }, select: { companyId: true } })
+        : await tx.company.findUnique({ where: { id: current.companyId }, select: { id: true } })
+      if (!scope) throw new ApiError(locationId ? 'The selected location does not exist.' : 'The obligation company no longer exists.', 409)
+      const companyId = 'companyId' in scope ? scope.companyId : scope.id
 
       const updated = await tx.financeObligation.update({
         where: { id },
         data: {
+          companyId,
           type,
           counterpartyName,
           locationId,
@@ -357,13 +370,16 @@ export async function DELETE(request: NextRequest) {
 
       if (!current) throw new ApiError('Finance obligation not found.', 404)
 
-      await tx.financeObligation.delete({ where: { id } })
+      await tx.financeObligation.update({
+        where: { id },
+        data: { status: 'cancelled' },
+      })
       await writeActivityLog({
-        action: 'delete',
+        action: 'cancel',
         entityType: 'finance_obligation',
         entityId: id,
         entityName: current.counterpartyName,
-        details: `Deleted ${current.type} for ${current.counterpartyName}`,
+        details: `Cancelled ${current.type} for ${current.counterpartyName}; the historical record was retained.`,
         user: authResult,
         request,
         source: 'server',

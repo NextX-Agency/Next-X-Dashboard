@@ -7,6 +7,9 @@ export async function markFinanceLedgerRecorded(client: LedgerClient) {
 }
 
 export interface FinanceLedgerInput {
+  // T-20 scopes new entries without relying on an RLS join. It stays nullable
+  // in the database only for the historical backfill compatibility window.
+  companyId?: string | null
   walletTransactionId?: string | null
   walletId?: string | null
   locationId?: string | null
@@ -29,6 +32,7 @@ export interface FinanceLedgerInput {
 export async function recordFinanceLedgerEntry(client: LedgerClient, input: FinanceLedgerInput) {
   return client.financeLedgerEntry.create({
     data: {
+      companyId: input.companyId ?? null,
       walletTransactionId: input.walletTransactionId ?? null,
       walletId: input.walletId ?? null,
       locationId: input.locationId ?? null,

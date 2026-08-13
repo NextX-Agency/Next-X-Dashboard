@@ -46,15 +46,16 @@ export async function POST(request: NextRequest) {
       await markFinanceLedgerRecorded(tx)
 
       const [location, wallet, activeRate] = await Promise.all([
-        tx.location.findUnique({ where: { id: locationId }, select: { id: true, name: true, seller_name: true } }),
+        tx.location.findUnique({ where: { id: locationId }, select: { id: true, name: true, companyId: true, seller_name: true } }),
         tx.wallet.findUnique({
           where: { id: walletId },
-          select: { id: true, personName: true, currency: true, type: true, balance: true, location_id: true },
+          select: { id: true, companyId: true, personName: true, currency: true, type: true, balance: true, location_id: true },
         }),
         tx.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' }, select: { usdToSrd: true } }),
       ])
       if (!location) throw new PayoutError('That location does not exist.', 404)
       if (!wallet) throw new PayoutError('That wallet does not exist.', 404)
+      if (wallet.companyId !== location.companyId) throw new PayoutError('The selected location and wallet belong to different companies.', 409)
 
       const rate = normalizeExchangeRate(activeRate ? Number(activeRate.usdToSrd) : undefined)
       const walletCurrency = wallet.currency === 'USD' ? 'USD' as const : 'SRD' as const
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
       })
       const expense = await tx.expense.create({
         data: {
+          companyId: location.companyId,
           location_id: wallet.location_id ?? locationId,
           categoryId: category?.id ?? null,
           walletId: wallet.id,
@@ -134,6 +136,7 @@ export async function POST(request: NextRequest) {
 
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
+          companyId: location.companyId,
           wallet_id: wallet.id,
           expense_id: expense.id,
           type: 'debit',
@@ -148,6 +151,7 @@ export async function POST(request: NextRequest) {
       })
 
       await recordFinanceLedgerEntry(tx, {
+        companyId: location.companyId,
         walletTransactionId: walletTransaction.id,
         walletId: wallet.id,
         locationId,

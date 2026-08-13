@@ -269,23 +269,29 @@ export async function POST(request: NextRequest) {
       await markFinanceLedgerRecorded(tx)
       const wallet = await tx.wallet.findFirst({
         where: { id: walletId, location_id: locationId, currency },
-        select: { id: true, balance: true, currency: true, personName: true },
+        select: { id: true, companyId: true, balance: true, currency: true, personName: true },
       })
       if (!wallet) throw new Error('Select a wallet belonging to the chosen location and currency.')
       if (Number(wallet.balance) < amount) throw new Error('Insufficient wallet balance.')
 
       const created = await tx.expense.create({
         data: {
+          companyId: wallet.companyId,
           location_id: locationId, categoryId, walletId, amount, currency, description,
           expenseDate, vendorName, receiptNumber, classification,
         },
         select: { id: true, createdAt: true, expenseDate: true, category: { select: { name: true } } },
       })
-      const before = Number(wallet.balance)
-      const after = Math.round((before - amount) * 100) / 100
-      await tx.wallet.update({ where: { id: walletId }, data: { balance: after } })
+      const debitedWallet = await tx.wallet.update({
+        where: { id: walletId },
+        data: { balance: { decrement: amount } },
+        select: { balance: true },
+      })
+      const after = Math.round(Number(debitedWallet.balance) * 100) / 100
+      const before = Math.round((after + amount) * 100) / 100
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
+          companyId: wallet.companyId,
           wallet_id: walletId, expense_id: created.id, type: 'debit', amount,
           balance_before: before, balance_after: after, currency,
           description: `Expense to ${vendorName}: ${description}`,
@@ -293,6 +299,7 @@ export async function POST(request: NextRequest) {
         },
       })
       await recordFinanceLedgerEntry(tx, {
+        companyId: wallet.companyId,
         walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
         eventType: 'expense', direction: 'out', amount, currency: currency as 'SRD' | 'USD',
         sourceType: 'expense', sourceId: created.id, counterparty: vendorName,
@@ -330,7 +337,7 @@ export async function PATCH(request: NextRequest) {
       const existing = await tx.expense.findUnique({
         where: { id: expenseId },
         select: {
-          id: true, walletId: true, location_id: true, currency: true, amount: true, status: true,
+          id: true, companyId: true, walletId: true, location_id: true, currency: true, amount: true, status: true,
           expenseDate: true, vendorName: true, receiptNumber: true, classification: true,
           category: { select: { name: true } },
         },
@@ -345,8 +352,9 @@ export async function PATCH(request: NextRequest) {
       }
 
       const difference = Math.round((amount - Number(existing.amount)) * 100) / 100
-      const wallet = await tx.wallet.findUnique({ where: { id: walletId }, select: { balance: true, currency: true, personName: true } })
+      const wallet = await tx.wallet.findUnique({ where: { id: walletId }, select: { companyId: true, balance: true, currency: true, personName: true } })
       if (!wallet) throw new Error('Wallet not found.')
+      if (wallet.companyId !== existing.companyId) throw new Error('Expense and wallet company scopes do not match.')
       if (difference > 0 && Number(wallet.balance) < difference) throw new Error('Insufficient wallet balance for this increase.')
 
       const updated = await tx.expense.update({
@@ -358,11 +366,16 @@ export async function PATCH(request: NextRequest) {
         select: { id: true, category: { select: { name: true } } },
       })
       if (difference !== 0) {
-        const before = Number(wallet.balance)
-        const after = Math.round((before - difference) * 100) / 100
-        await tx.wallet.update({ where: { id: walletId }, data: { balance: after } })
+        const adjustedWallet = await tx.wallet.update({
+          where: { id: walletId },
+          data: difference > 0 ? { balance: { decrement: difference } } : { balance: { increment: Math.abs(difference) } },
+          select: { balance: true },
+        })
+        const after = Math.round(Number(adjustedWallet.balance) * 100) / 100
+        const before = Math.round((after + difference) * 100) / 100
         const walletTransaction = await tx.wallet_transactions.create({
           data: {
+            companyId: wallet.companyId,
             wallet_id: walletId, expense_id: expenseId, type: difference > 0 ? 'debit' : 'credit', amount: Math.abs(difference),
             balance_before: before, balance_after: after, currency,
             description: `Expense correction for ${vendorName}: ${description}`,
@@ -370,6 +383,7 @@ export async function PATCH(request: NextRequest) {
           },
         })
         await recordFinanceLedgerEntry(tx, {
+          companyId: wallet.companyId,
           walletTransactionId: walletTransaction.id, walletId, locationId, categoryId, actorUserId: user.id,
           eventType: 'expense', direction: difference > 0 ? 'out' : 'in', amount: Math.abs(difference), currency: currency as 'SRD' | 'USD',
           sourceType: 'expense_correction', sourceId: expenseId, counterparty: vendorName,
@@ -408,7 +422,7 @@ export async function DELETE(request: NextRequest) {
       const expense = await tx.expense.findUnique({
         where: { id: expenseId },
         select: {
-          id: true, amount: true, currency: true, walletId: true, location_id: true,
+          id: true, companyId: true, amount: true, currency: true, walletId: true, location_id: true,
           categoryId: true, description: true, status: true, expenseDate: true, vendorName: true,
           receiptNumber: true, classification: true, category: { select: { name: true } },
         },
@@ -416,11 +430,17 @@ export async function DELETE(request: NextRequest) {
       if (!expense) throw new Error('Expense not found.')
       const amount = Number(expense.amount)
       if (expense.status === 'refunded') throw new Error('This expense has already been refunded.')
-      const wallet = await tx.wallet.findUnique({ where: { id: expense.walletId }, select: { balance: true, currency: true, personName: true } })
+      const wallet = await tx.wallet.findUnique({ where: { id: expense.walletId }, select: { companyId: true, balance: true, currency: true, personName: true } })
       if (!wallet) throw new Error('Expense wallet not found.')
+      if (wallet.companyId !== expense.companyId) throw new Error('Expense and wallet company scopes do not match.')
 
-      const before = Number(wallet.balance)
-      const after = Math.round((before + amount) * 100) / 100
+      const creditedWallet = await tx.wallet.update({
+        where: { id: expense.walletId },
+        data: { balance: { increment: amount } },
+        select: { balance: true },
+      })
+      const after = Math.round(Number(creditedWallet.balance) * 100) / 100
+      const before = Math.round((after - amount) * 100) / 100
       await tx.expense.update({
         where: { id: expenseId },
         data: {
@@ -431,9 +451,9 @@ export async function DELETE(request: NextRequest) {
           reviewedByUserId: user.id,
         },
       })
-      await tx.wallet.update({ where: { id: expense.walletId }, data: { balance: after } })
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
+          companyId: wallet.companyId,
           wallet_id: expense.walletId, expense_id: expenseId, type: 'credit', amount,
           balance_before: before, balance_after: after, currency: wallet.currency,
           description: `Expense refund from ${expense.vendorName || 'unrecorded vendor'}: ${expense.description || 'No description'}`,
@@ -441,6 +461,7 @@ export async function DELETE(request: NextRequest) {
         },
       })
       await recordFinanceLedgerEntry(tx, {
+        companyId: wallet.companyId,
         walletTransactionId: walletTransaction.id, walletId: expense.walletId, locationId: expense.location_id,
         categoryId: expense.categoryId, actorUserId: user.id, eventType: 'expense', direction: 'in', amount,
         currency: wallet.currency as 'SRD' | 'USD', sourceType: 'expense_refund', sourceId: expenseId,

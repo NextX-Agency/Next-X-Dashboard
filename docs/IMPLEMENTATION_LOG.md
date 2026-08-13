@@ -992,3 +992,24 @@ Resuming the stale claim. This task moves every reservation-originated sale, com
 wallet, and wallet-transaction mutation behind an authenticated server route using one
 Serializable transaction, then replaces the browser calls. No production schema change is part of
 this task.
+
+## Reservations financial write hardening — Codex — 2026-08-13T12:36Z — DONE
+
+`reservations/page.tsx` no longer imports the browser Supabase client or issues an insert, update,
+or delete. Its client creation, reservation creation, completion, and cancellation all call the
+authenticated reservations API. The API now derives price and stock from authoritative server data,
+records a paid reservation as a single Serializable sale/stock/commission/wallet/
+wallet-transaction/ledger transaction, and preserves immutable history on cancellation.
+
+The task also completed the application mapping required by T-20: company scope is now carried
+through the affected sales, seller-sales, expense, commission-payout, obligation, and wallet paths.
+Wallet balance corrections are atomic deltas paired with a wallet transaction and ledger entry;
+wallet deletion is explicitly disabled. No migration or production write was performed.
+
+Verification: `pnpm exec tsc --noEmit --pretty false` passed; the reservation browser-write scan
+returned zero matches; `git diff --check` passed. A read-only Part 6 run confirmed **149 sales /
+306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses /
+122 commissions / SRD 42,005.99 / USD 534.00**, with zero orphan sale items, zero broken
+wallet-transaction/ledger links in either direction, zero negative wallets, and zero negative stock.
+`pnpm build` is still blocked before type checking by the existing remote Google Font 404 for
+`src/app/audio/layout.tsx`; no application font or production configuration was changed.

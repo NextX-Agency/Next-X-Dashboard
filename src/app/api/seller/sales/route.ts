@@ -49,17 +49,19 @@ export async function POST(request: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       await markFinanceLedgerRecorded(tx)
       await requireLocationAccess(tx, user, locationId)
-      const [wallet, exchangeRate, seller] = await Promise.all([
+      const [location, wallet, exchangeRate, seller] = await Promise.all([
+        tx.location.findUnique({ where: { id: locationId }, select: { id: true, companyId: true } }),
         tx.wallet.findFirst({
           where: { id: walletId, location_id: locationId, currency, purpose: 'operational' },
-          select: { id: true, balance: true, currency: true, type: true, location_id: true },
+          select: { id: true, companyId: true, balance: true, currency: true, type: true, location_id: true },
         }),
         tx.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' }, select: { usdToSrd: true } }),
         user.role === 'seller'
           ? tx.seller.findUnique({ where: { user_id: user.id }, select: { id: true } })
           : Promise.resolve(null),
       ])
-      if (!wallet) throw new Error('Select an operational wallet for the chosen location and currency.')
+      if (!location || !wallet) throw new Error('Select an operational wallet for the chosen location and currency.')
+      if (wallet.companyId !== location.companyId) throw new Error('The selected location and wallet belong to different companies.')
 
       const itemIds = lines.map((line) => line.itemId)
       const [items, stocks] = await Promise.all([
@@ -88,6 +90,7 @@ export async function POST(request: NextRequest) {
       const totalAmount = Math.round(resolvedLines.reduce((sum, line) => sum + line.subtotal, 0) * 100) / 100
       const sale = await tx.sale.create({
         data: {
+          companyId: location.companyId,
           locationId,
           sellerId: seller?.id ?? null,
           currency,
@@ -97,6 +100,7 @@ export async function POST(request: NextRequest) {
           wallet_id: wallet.id,
           saleItems: {
             create: resolvedLines.map((line) => ({
+              companyId: location.companyId,
               itemId: line.itemId,
               quantity: line.quantity,
               unitPrice: line.unitPrice,
@@ -117,6 +121,7 @@ export async function POST(request: NextRequest) {
       await tx.wallet.update({ where: { id: wallet.id }, data: { balance: balanceAfter } })
       const walletTransaction = await tx.wallet_transactions.create({
         data: {
+          companyId: location.companyId,
           wallet_id: wallet.id,
           sale_id: sale.id,
           type: 'credit',
@@ -130,6 +135,7 @@ export async function POST(request: NextRequest) {
         },
       })
       await recordFinanceLedgerEntry(tx, {
+        companyId: location.companyId,
         walletTransactionId: walletTransaction.id,
         walletId: wallet.id,
         locationId,

@@ -2,16 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
 import { useSyncedAdminCatalogFilter } from '@/lib/adminCatalog'
-import { Database } from '@/types/database.types'
 import { Plus, Check, X, User, Calendar, ClipboardList, MapPin, Package, Minus, CheckCircle, Clock, History, Undo2, ShoppingCart, Receipt, Printer, FileText, Search, Filter, ArrowUpDown, Layers, Sparkles, Eye, RefreshCw, AlertTriangle, Headphones, Watch } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState, CurrencyToggle } from '@/components/UI'
+import { PageHeader, PageContainer, Button, Input, Select, Badge, StatBox, LoadingSpinner, EmptyState } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import { getSellingPrice } from '@/lib/pricing'
-import { logActivity } from '@/lib/activityLog'
 import { printHtmlDocument } from '@/lib/printDocument'
 import type {
   ReservationsPageClient as Client,
@@ -22,7 +19,6 @@ import type {
   ReservationsPageStats as ReservationStats,
 } from '@/types/reservations'
 
-type Stock = Database['public']['Tables']['stock']['Row']
 type CatalogType = 'audio' | 'watches'
 
 function SelectionItemThumbnail({ item }: { item: Item }) {
@@ -92,7 +88,10 @@ export default function ReservationsPage() {
   const [selectedClient, setSelectedClient] = useState<string>('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [combos, setCombos] = useState<ComboReservation[]>([])
-  const [currency, setCurrency] = useState<Currency>('SRD')
+  // Reservation checkout settles through the location's SRD cash wallet.
+  // A display-only currency toggle previously let a USD-looking total post as
+  // an SRD wallet credit, so settlement is intentionally unambiguous here.
+  const currency: Currency = 'SRD'
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map())
   const [reservationsMap, setReservationsMap] = useState<Map<string, number>>(new Map())
   const [showClientForm, setShowClientForm] = useState(false)
@@ -146,7 +145,9 @@ export default function ReservationsPage() {
 
       setLoadError(null)
 
-      const response = await fetch(`/api/reservations?catalogType=${catalogFilter}`, {
+      const searchParams = new URLSearchParams({ catalogType: catalogFilter })
+      if (selectedLocation) searchParams.set('locationId', selectedLocation)
+      const response = await fetch(`/api/reservations?${searchParams.toString()}`, {
         cache: 'no-store',
       })
 
@@ -168,6 +169,8 @@ export default function ReservationsPage() {
       setLocations(payload.data.locations)
       setRecentReservations(payload.data.recentReservations)
       setReservationStats(payload.data.reservationStats)
+      setStockMap(new Map(Object.entries(payload.data.availability.stockByItemId)))
+      setReservationsMap(new Map(Object.entries(payload.data.availability.pendingByItemId)))
     } catch (error) {
       console.error('Error loading data:', error)
       setLoadError(error instanceof Error ? error.message : 'Unable to load reservation data right now.')
@@ -175,39 +178,7 @@ export default function ReservationsPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [catalogFilter])
-
-  const loadStock = async (locationId: string) => {
-    const { data } = await supabase
-      .from('stock')
-      .select('*')
-      .eq('location_id', locationId)
-    
-    if (data) {
-      const map = new Map<string, number>()
-      data.forEach((stock: Stock) => {
-        map.set(stock.item_id, stock.quantity)
-      })
-      setStockMap(map)
-    }
-  }
-
-  const loadReservations = async (locationId: string) => {
-    const { data } = await supabase
-      .from('reservations')
-      .select('*')
-      .eq('location_id', locationId)
-      .eq('status', 'pending')
-    
-    if (data) {
-      const map = new Map<string, number>()
-      data.forEach((reservation) => {
-        const current = map.get(reservation.item_id) || 0
-        map.set(reservation.item_id, current + reservation.quantity)
-      })
-      setReservationsMap(map)
-    }
-  }
+  }, [catalogFilter, selectedLocation])
 
   useEffect(() => {
     void loadData(true)
@@ -223,18 +194,6 @@ export default function ReservationsPage() {
   const handleCatalogFilterChange = useCallback((nextCatalog: CatalogType) => {
     setCatalogFilter(nextCatalog)
   }, [setCatalogFilter])
-
-  // Debounce location change to prevent excessive API calls
-  useEffect(() => {
-    if (!selectedLocation) return
-    
-    const timeoutId = setTimeout(() => {
-      loadStock(selectedLocation)
-      loadReservations(selectedLocation)
-    }, 300)
-    
-    return () => clearTimeout(timeoutId)
-  }, [selectedLocation])
 
   // Memoize filtered reservations for better performance
   const filteredPendingReservations = useMemo(() => {
@@ -519,27 +478,27 @@ export default function ReservationsPage() {
     e.preventDefault()
     try {
       setSubmitting(true)
-      const { data } = await supabase.from('clients').insert({
-        name: clientForm.name,
-        phone: clientForm.phone || null,
-        email: clientForm.email || null,
-        notes: clientForm.notes || null,
-        location_id: clientForm.location_id || null
-      }).select().single()
-      
-      await logActivity({
-        action: 'create',
-        entityType: 'client',
-        entityId: data?.id,
-        entityName: clientForm.name,
-        details: `Created client: ${clientForm.name}${clientForm.phone ? ` (${clientForm.phone})` : ''}`
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createClient',
+          name: clientForm.name,
+          phone: clientForm.phone,
+          email: clientForm.email,
+          notes: clientForm.notes,
+          locationId: clientForm.location_id || null,
+        }),
       })
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to create the client.')
       
       setClientForm({ name: '', phone: '', email: '', notes: '', location_id: '' })
       setShowClientForm(false)
       await loadData()
     } catch (error) {
       console.error('Error creating client:', error)
+      alert(error instanceof Error ? error.message : 'Unable to create the client.')
     } finally {
       setSubmitting(false)
     }
@@ -553,134 +512,58 @@ export default function ReservationsPage() {
     }
 
     setSubmitting(true)
-    const client = clients.find(c => c.id === selectedClient)
-    const location = locations.find(l => l.id === selectedLocation)
-    const invoiceNumber = generateInvoiceNumber()
-    const total = calculateTotal()
-    
     try {
-      const invoiceItems: InvoiceData['items'] = []
-      
-      // Create reservation for each cart item
-      for (const cartItem of cart) {
-        const price = getItemSellingPrice(cartItem.item)
-        
-        await supabase.from('reservations').insert({
-          client_id: selectedClient,
-          item_id: cartItem.item.id,
-          location_id: selectedLocation,
-          quantity: cartItem.quantity,
-          status: paymentStatus === 'paid' ? 'completed' : 'pending'
-        })
-        
-        invoiceItems.push({
-          name: cartItem.item.name,
-          quantity: cartItem.quantity,
-          unitPrice: price,
-          subtotal: price * cartItem.quantity,
-          isCombo: false
-        })
-        
-        // If paid, reduce stock immediately
-        if (paymentStatus === 'paid') {
-          const { data: stock } = await supabase
-            .from('stock')
-            .select('*')
-            .eq('item_id', cartItem.item.id)
-            .eq('location_id', selectedLocation)
-            .single()
-
-          if (stock) {
-            await supabase
-              .from('stock')
-              .update({ quantity: stock.quantity - cartItem.quantity })
-              .eq('id', stock.id)
-          }
-        }
-      }
-
-      // Create reservations for combo items
-      for (const combo of combos) {
-        // Add combo as a grouped item on the invoice
-        const comboItemNames = combo.items.map(i => `${i.item.name} x${i.quantity}`).join(', ')
-        invoiceItems.push({
-          name: `🎁 ${combo.name}: ${comboItemNames}`,
-          quantity: 1,
-          unitPrice: combo.comboPrice,
-          subtotal: combo.comboPrice,
-          isCombo: true
-        })
-        
-        // Create reservations with combo information
-        let isFirstItem = true
-        for (const comboItem of combo.items) {
-          await supabase.from('reservations').insert({
-            client_id: selectedClient,
-            item_id: comboItem.item.id,
-            location_id: selectedLocation,
-            quantity: comboItem.quantity,
-            status: paymentStatus === 'paid' ? 'completed' : 'pending',
-            combo_id: combo.id,
-            combo_price: isFirstItem ? combo.comboPrice : null,
-            original_price: isFirstItem ? combo.originalPrice : null
-          })
-          isFirstItem = false
-          
-          // If paid, reduce stock immediately
-          if (paymentStatus === 'paid') {
-            const { data: stock } = await supabase
-              .from('stock')
-              .select('*')
-              .eq('item_id', comboItem.item.id)
-              .eq('location_id', selectedLocation)
-              .single()
-
-            if (stock) {
-              await supabase
-                .from('stock')
-                .update({ quantity: stock.quantity - comboItem.quantity })
-                .eq('id', stock.id)
-            }
-          }
-        }
-      }
-
-      // Log activity
-      await logActivity({
-        action: 'create',
-        entityType: 'reservation',
-        entityId: invoiceNumber,
-        entityName: invoiceNumber,
-        details: `Reservation created for ${client?.name} at ${location?.name}: ${formatCurrency(total, currency)} (${cart.length + combos.length} items)`
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          locationId: selectedLocation,
+          clientId: selectedClient,
+          paymentStatus,
+          items: cart.map((cartItem) => ({ itemId: cartItem.item.id, quantity: cartItem.quantity })),
+          combos: combos.map((combo) => ({
+            id: combo.id,
+            name: combo.name,
+            comboPrice: combo.comboPrice,
+            items: combo.items.map((item) => ({ itemId: item.item.id, quantity: item.quantity })),
+          })),
+        }),
       })
+      const payload = await response.json() as {
+        data?: {
+          createdAt: string
+          clientName: string
+          locationName: string
+          items: InvoiceData['items']
+          currency: 'SRD'
+          totalAmount: number
+          invoiceNumber: string
+          isPaid: boolean
+        }
+        error?: string
+      }
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to create the reservation.')
 
-      // Create invoice data
       setInvoiceData({
-        date: new Date().toLocaleString(),
-        client: client?.name || 'Unknown Client',
-        location: location?.name || 'Unknown Location',
-        items: invoiceItems,
-        currency: currency,
-        total: total,
-        invoiceNumber: invoiceNumber,
-        isPaid: paymentStatus === 'paid'
+        date: new Date(payload.data.createdAt).toLocaleString(),
+        client: payload.data.clientName,
+        location: payload.data.locationName,
+        items: payload.data.items,
+        currency: payload.data.currency,
+        total: payload.data.totalAmount,
+        invoiceNumber: payload.data.invoiceNumber,
+        isPaid: payload.data.isPaid,
       })
-
       setCart([])
       setCombos([])
       await loadData()
-      if (selectedLocation) {
-        loadStock(selectedLocation)
-        loadReservations(selectedLocation)
-      }
-      
-      // Show success message and invoice
       setShowSuccess(true)
       setTimeout(() => setShowSuccess(false), 3000)
       setShowInvoice(true)
     } catch (error) {
       console.error('Error creating reservation:', error)
-      alert('Error creating reservation')
+      alert(error instanceof Error ? error.message : 'Unable to create the reservation.')
     } finally {
       setSubmitting(false)
     }
@@ -716,351 +599,63 @@ export default function ReservationsPage() {
 
   const executeCancelReservation = async (group: ReservationGroup) => {
     try {
-      // Cancel all reservation items in the group
-      for (const item of group.items) {
-        await supabase
-          .from('reservations')
-          .update({ status: 'cancelled' })
-          .eq('id', item.id)
-      }
-
-      await logActivity({
-        action: 'cancel',
-        entityType: 'reservation',
-        entityId: group.id,
-        entityName: group.client_name,
-        details: `Cancelled reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items, ${formatCurrency(group.total_amount, 'SRD')}`
+      setSubmitting(true)
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', reservationIds: group.items.map((item) => item.id) }),
       })
-
+      const payload = await response.json() as { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Unable to cancel the reservation.')
       await loadData()
-      if (selectedLocation) {
-        loadStock(selectedLocation)
-        loadReservations(selectedLocation)
-      }
     } catch (error) {
       console.error('Error cancelling reservation:', error)
-      alert('Error cancelling reservation')
+      alert(error instanceof Error ? error.message : 'Unable to cancel the reservation.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const executeCompleteReservation = async (group: ReservationGroup) => {
     try {
-      const invoiceNumber = `RES-COMP-${Date.now()}`
-      
-      // Update all reservation items to completed in one batch query
-      const reservationIds = group.items.map(item => item.id)
-      await supabase
-        .from('reservations')
-        .update({ status: 'completed' })
-        .in('id', reservationIds)
-      
-      // Get all stock records for items in this location at once
-      const itemIds = group.items.map(item => item.item_id)
-      const { data: stockRecords } = await supabase
-        .from('stock')
-        .select('*')
-        .eq('location_id', group.location_id)
-        .in('item_id', itemIds)
-      
-      // Build stock updates map
-      const stockUpdates: Array<{ id: string; quantity: number }> = []
-      const stockMap = new Map(stockRecords?.map(s => [s.item_id, s]) || [])
-      
-      for (const item of group.items) {
-        const stock = stockMap.get(item.item_id)
-        if (stock) {
-          stockUpdates.push({
-            id: stock.id,
-            quantity: stock.quantity - item.quantity
-          })
+      setSubmitting(true)
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', reservationIds: group.items.map((item) => item.id) }),
+      })
+      const payload = await response.json() as {
+        data?: {
+          createdAt: string
+          clientName: string
+          locationName: string
+          items: InvoiceData['items']
+          currency: 'SRD'
+          totalAmount: number
+          invoiceNumber: string
+          isPaid: boolean
         }
+        error?: string
       }
-      
-      // Update all stock records (unfortunately Supabase doesn't support batch updates, so we do them in parallel)
-      await Promise.all(
-        stockUpdates.map(update => 
-          supabase.from('stock').update({ quantity: update.quantity }).eq('id', update.id)
-        )
-      )
-
-      // Find matching wallet for this location
-      const { data: wallets } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('location_id', group.location_id)
-        .eq('purpose', 'operational')
-      
-      const matchingWallet = wallets?.find(
-        w => w.currency === 'SRD' && w.type === 'cash' && w.purpose === 'operational'
-      )
-      
-      // Use the group's total_amount which already includes combo pricing
-      // Create sale record for completed reservation
-      const { data: saleData } = await supabase
-        .from('sales')
-        .insert({
-          location_id: group.location_id,
-          total_amount: group.total_amount,
-          currency: 'SRD',
-          payment_method: 'reservation',
-          wallet_id: matchingWallet?.id || null
-        })
-        .select()
-        .single()
-
-      if (saleData) {
-        // Separate items into combo and non-combo
-        const comboItems = group.items.filter(item => item.combo_id)
-        const regularItems = group.items.filter(item => !item.combo_id)
-        const processedCombos = new Set<string>()
-        
-        // Pre-calculate all sale items to insert in batch
-        const saleItemsToInsert = group.items.map(item => {
-          let unitPrice = item.unit_price
-          let subtotal = item.subtotal
-          
-          // If this is a combo item, calculate proportional price from combo total
-          if (item.combo_id && item.combo_price) {
-            const comboItemsForThisCombo = comboItems.filter(i => i.combo_id === item.combo_id)
-            const totalQuantityInCombo = comboItemsForThisCombo.reduce((sum, i) => sum + i.quantity, 0)
-            unitPrice = item.combo_price / totalQuantityInCombo
-            subtotal = unitPrice * item.quantity
-          } else if (item.combo_id && !item.combo_price) {
-            const primaryItem = comboItems.find(i => i.combo_id === item.combo_id && i.combo_price)
-            if (primaryItem) {
-              const comboItemsForThisCombo = comboItems.filter(i => i.combo_id === item.combo_id)
-              const totalQuantityInCombo = comboItemsForThisCombo.reduce((sum, i) => sum + i.quantity, 0)
-              unitPrice = (primaryItem.combo_price || 0) / totalQuantityInCombo
-              subtotal = unitPrice * item.quantity
-            }
-          }
-          
-          return {
-            sale_id: saleData.id,
-            item_id: item.item_id,
-            quantity: item.quantity,
-            unit_price: unitPrice,
-            subtotal: subtotal
-          }
-        })
-        
-        // Insert all sale items in one batch
-        await supabase.from('sale_items').insert(saleItemsToInsert)
-
-        // Get all item category info at once for commission calculation
-        const allItemIds = group.items.map(i => i.item_id)
-        const { data: itemsData } = await supabase
-          .from('items')
-          .select('id, category_id')
-          .in('id', allItemIds)
-        
-        const itemCategoryMap = new Map(itemsData?.map(i => [i.id, i.category_id]) || [])
-
-        // Create commission for sellers at this location
-        const { data: sellers } = await supabase
-          .from('sellers')
-          .select('*')
-          .eq('location_id', group.location_id)
-
-        if (sellers && sellers.length > 0) {
-          for (const seller of sellers) {
-            // Get all category rates for this seller at once
-            const { data: allCategoryRates } = await supabase
-              .from('seller_category_rates')
-              .select('category_id, commission_rate')
-              .eq('seller_id', seller.id)
-            
-            const categoryRateMap = new Map(allCategoryRates?.map(r => [r.category_id, r.commission_rate]) || [])
-            
-            // FIRST: Process regular (non-combo) items - group by category
-            if (regularItems.length > 0) {
-              const itemsByCategory = new Map<string, Array<{ item_id: string; quantity: number; unit_price: number; subtotal: number; category_id?: string }>>()
-              
-              for (const item of regularItems) {
-                const categoryId = itemCategoryMap.get(item.item_id) || 'uncategorized'
-                if (!itemsByCategory.has(categoryId)) {
-                  itemsByCategory.set(categoryId, [])
-                }
-                itemsByCategory.get(categoryId)!.push({ ...item, category_id: categoryId })
-              }
-
-              // Create commission entries for regular items
-              const commissionsToInsert: Array<{
-                seller_id: string
-                location_id: string
-                category_id: string | null
-                sale_id: string
-                commission_amount: number
-                paid: boolean
-              }> = []
-              
-              for (const [categoryId, categoryItems] of itemsByCategory) {
-                const rateToUse = (categoryId !== 'uncategorized' && categoryRateMap.has(categoryId)) 
-                  ? categoryRateMap.get(categoryId)! 
-                  : seller.commission_rate
-
-                let categoryCommission = 0
-                for (const item of categoryItems) {
-                  categoryCommission += item.subtotal * (rateToUse / 100)
-                }
-
-                if (categoryCommission > 0) {
-                  commissionsToInsert.push({
-                    seller_id: seller.id,
-                    location_id: group.location_id,
-                    category_id: categoryId !== 'uncategorized' ? categoryId : null,
-                    sale_id: saleData.id,
-                    commission_amount: categoryCommission,
-                    paid: false
-                  })
-                }
-              }
-              
-              // Insert all regular item commissions in batch
-              if (commissionsToInsert.length > 0) {
-                await supabase.from('commissions').insert(commissionsToInsert)
-              }
-            }
-
-            // SECOND: Process combo items - ONE commission per combo based on combo price
-            const comboCommissionsToInsert: Array<{
-              seller_id: string
-              location_id: string
-              category_id: string | null
-              sale_id: string
-              commission_amount: number
-              paid: boolean
-            }> = []
-            const comboIdsProcessed = new Set<string>()
-            
-            for (const item of comboItems) {
-              if (!item.combo_id || comboIdsProcessed.has(item.combo_id)) continue
-              comboIdsProcessed.add(item.combo_id)
-              
-              // Find the combo price (from the item that has it)
-              const comboItemWithPrice = comboItems.find(i => i.combo_id === item.combo_id && i.combo_price)
-              const comboPrice = comboItemWithPrice?.combo_price || 0
-              
-              if (comboPrice <= 0) continue
-              
-              // Get the first item's category to determine the rate (use pre-fetched data)
-              const firstItemCategoryId = itemCategoryMap.get(item.item_id)
-              
-              let comboRate = seller.commission_rate
-              if (firstItemCategoryId && categoryRateMap.has(firstItemCategoryId)) {
-                comboRate = categoryRateMap.get(firstItemCategoryId)!
-              }
-              
-              const comboCommission = comboPrice * (comboRate / 100)
-              
-              if (comboCommission > 0) {
-                comboCommissionsToInsert.push({
-                  seller_id: seller.id,
-                  location_id: group.location_id,
-                  category_id: null, // Combos are not tied to a single category
-                  sale_id: saleData.id,
-                  commission_amount: comboCommission,
-                  paid: false
-                })
-              }
-            }
-            
-            // Insert all combo commissions in batch
-            if (comboCommissionsToInsert.length > 0) {
-              await supabase.from('commissions').insert(comboCommissionsToInsert)
-            }
-          }
-        }
-
-        // Credit the wallet for this sale
-        if (matchingWallet) {
-          await supabase
-            .from('wallets')
-            .update({ balance: matchingWallet.balance + group.total_amount })
-            .eq('id', matchingWallet.id)
-
-          await supabase.from('wallet_transactions').insert({
-            wallet_id: matchingWallet.id,
-            sale_id: saleData.id,
-            amount: group.total_amount,
-            type: 'credit',
-            description: `Completed reservation for ${group.client_name}`,
-            balance_before: matchingWallet.balance,
-            balance_after: matchingWallet.balance + group.total_amount,
-            currency: 'SRD'
-          })
-        }
-      }
-
-      // Generate receipt - show combos correctly
-      const invoiceItems: InvoiceData['items'] = []
-      const processedComboIds = new Set<string>()
-      
-      // First add regular items
-      for (const item of group.items) {
-        if (!item.combo_id) {
-          invoiceItems.push({
-            name: item.item_name,
-            quantity: item.quantity,
-            unitPrice: item.unit_price,
-            subtotal: item.subtotal,
-            isCombo: false
-          })
-        }
-      }
-      
-      // Then add combos as grouped items
-      for (const item of group.items) {
-        if (item.combo_id && !processedComboIds.has(item.combo_id)) {
-          processedComboIds.add(item.combo_id)
-          
-          // Find all items in this combo
-          const comboGroupItems = group.items.filter(i => i.combo_id === item.combo_id)
-          const comboItemNames = comboGroupItems.map(i => `${i.item_name} x${i.quantity}`).join(', ')
-          const comboPriceItem = comboGroupItems.find(i => i.combo_price)
-          const comboPrice = comboPriceItem?.combo_price || 0
-          
-          invoiceItems.push({
-            name: `🎁 Combo Deal: ${comboItemNames}`,
-            quantity: 1,
-            unitPrice: comboPrice,
-            subtotal: comboPrice,
-            isCombo: true
-          })
-        }
-      }
-      
+      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to complete the reservation.')
       setInvoiceData({
-        date: new Date().toLocaleString(),
-        client: group.client_name,
-        location: group.location_name,
-        items: invoiceItems,
-        currency: 'SRD',
-        total: group.total_amount,
-        invoiceNumber: invoiceNumber,
-        isPaid: true
+        date: new Date(payload.data.createdAt).toLocaleString(),
+        client: payload.data.clientName,
+        location: payload.data.locationName,
+        items: payload.data.items,
+        currency: payload.data.currency,
+        total: payload.data.totalAmount,
+        invoiceNumber: payload.data.invoiceNumber,
+        isPaid: payload.data.isPaid,
       })
-
-      await logActivity({
-        action: 'complete',
-        entityType: 'reservation',
-        entityId: group.id,
-        entityName: group.client_name,
-        details: `Completed reservation for ${group.client_name} at ${group.location_name}: ${group.items.length} items - ${formatCurrency(group.total_amount, 'SRD')}`
-      })
-
       await loadData()
-      if (selectedLocation) {
-        loadStock(selectedLocation)
-        loadReservations(selectedLocation)
-      }
-
-      // Show receipt
       setShowInvoice(true)
       setShowHistory(false)
     } catch (error) {
       console.error('Error completing reservation:', error)
-      alert('Error completing reservation')
+      alert(error instanceof Error ? error.message : 'Unable to complete the reservation.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -1489,10 +1084,12 @@ export default function ReservationsPage() {
 
           {selectedClient && selectedLocation && (
             <>
-              {/* Currency Selection */}
+              {/* Reservations settle only in the selected location's SRD cash wallet. */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-foreground mb-2">Currency</label>
-                <CurrencyToggle value={currency} onChange={setCurrency} />
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                  SRD cash settlement
+                </div>
               </div>
               
               {/* Search Items */}

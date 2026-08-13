@@ -26,6 +26,7 @@ class ApiError extends Error {
 
 const walletSelect = {
   id: true,
+  companyId: true,
   personName: true,
   type: true,
   currency: true,
@@ -283,7 +284,7 @@ export async function POST(request: NextRequest) {
       await markFinanceLedgerRecorded(tx)
       const location = await tx.location.findUnique({
         where: { id: locationId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, companyId: true },
       })
 
       if (!location) throw new ApiError('Location not found.', 404)
@@ -304,6 +305,7 @@ export async function POST(request: NextRequest) {
 
       const created = await tx.wallet.create({
         data: {
+          companyId: location.companyId,
           location_id: locationId,
           personName: location.name,
           type,
@@ -317,6 +319,7 @@ export async function POST(request: NextRequest) {
       if (balance > 0) {
         const transaction = await tx.wallet_transactions.create({
           data: {
+            companyId: location.companyId,
             wallet_id: created.id,
             type: 'adjustment',
             amount: balance,
@@ -328,6 +331,7 @@ export async function POST(request: NextRequest) {
           },
         })
         await recordFinanceLedgerEntry(tx, {
+          companyId: location.companyId,
           walletTransactionId: transaction.id,
           walletId: created.id,
           locationId,
@@ -389,10 +393,14 @@ export async function PATCH(request: NextRequest) {
 
       const location = await tx.location.findUnique({
         where: { id: locationId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, companyId: true },
       })
 
       if (!location) throw new ApiError('Location not found.', 404)
+
+      if (current.companyId !== location.companyId) {
+        throw new ApiError('A wallet cannot be moved between companies.', 409)
+      }
 
       const currentPurpose = normalizePurpose(current.purpose)
       const identityChanged = current.location_id !== locationId ||
@@ -429,34 +437,40 @@ export async function PATCH(request: NextRequest) {
       }
 
       const previousBalance = toNumber(current.balance)
+      const difference = Math.round((balance - previousBalance) * 100) / 100
       const updated = await tx.wallet.update({
         where: { id: walletId },
         data: {
+          companyId: location.companyId,
           location_id: locationId,
           personName: location.name,
           type,
           currency,
           purpose,
-          balance,
+          // Balance corrections are deltas so the wallet row and its immutable
+          // wallet transaction stay coupled inside this Serializable transaction.
+          balance: difference === 0 ? undefined : { increment: difference },
         },
         select: walletSelect,
       })
 
-      const difference = Math.round((balance - previousBalance) * 100) / 100
+      const nextBalance = toNumber(updated.balance)
       if (difference !== 0) {
         const transaction = await tx.wallet_transactions.create({
           data: {
+            companyId: location.companyId,
             wallet_id: walletId,
             type: 'adjustment',
             amount: Math.abs(difference),
             balance_before: previousBalance,
-            balance_after: balance,
-            description: `Balance correction to ${balance.toFixed(2)} ${currency}`,
+            balance_after: nextBalance,
+            description: `Balance correction to ${nextBalance.toFixed(2)} ${currency}`,
             reference_type: 'wallet_edit',
             currency,
           },
         })
         await recordFinanceLedgerEntry(tx, {
+          companyId: location.companyId,
           walletTransactionId: transaction.id,
           walletId,
           locationId,
@@ -467,8 +481,8 @@ export async function PATCH(request: NextRequest) {
           currency,
           sourceType: 'wallet_edit',
           sourceId: walletId,
-          description: `Balance correction to ${balance.toFixed(2)} ${currency}`,
-          metadata: { previousBalance, nextBalance: balance },
+          description: `Balance correction to ${nextBalance.toFixed(2)} ${currency}`,
+          metadata: { previousBalance, nextBalance },
         })
       }
 
@@ -501,53 +515,7 @@ export async function DELETE(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (authResult instanceof NextResponse) return authResult
 
-  try {
-    const walletId = parseUuid(request.nextUrl.searchParams.get('id'), 'id')
-
-    await prisma.$transaction(async (tx) => {
-      await markFinanceLedgerRecorded(tx)
-      const wallet = await tx.wallet.findUnique({
-        where: { id: walletId },
-        select: walletSelect,
-      })
-
-      if (!wallet) throw new ApiError('Wallet not found.', 404)
-
-      const balance = toNumber(wallet.balance)
-      if (Math.abs(balance) >= 0.01) {
-        throw new ApiError('Only zero-balance wallets can be deleted. Transfer or correct the balance first.', 409)
-      }
-
-      const [transactionCount, salesCount, expenseCount, orderCount] = await Promise.all([
-        tx.wallet_transactions.count({ where: { wallet_id: walletId } }),
-        tx.sale.count({ where: { wallet_id: walletId } }),
-        tx.expense.count({ where: { walletId } }),
-        tx.purchaseOrder.count({ where: { walletId } }),
-      ])
-
-      if (transactionCount + salesCount + expenseCount + orderCount > 0) {
-        throw new ApiError('This wallet has financial history and cannot be deleted. Keeping the ledger intact protects reports.', 409)
-      }
-
-      await tx.wallet.delete({ where: { id: walletId } })
-
-      await writeActivityLog({
-        action: 'delete',
-        entityType: 'wallet',
-        entityId: walletId,
-        entityName: walletName(wallet.locations?.name || wallet.personName, normalizePurpose(wallet.purpose), wallet.type, wallet.currency),
-        details: 'Deleted empty wallet with no financial history',
-        user: authResult,
-        request,
-        source: 'server',
-        client: tx,
-      })
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    })
-
-    return NextResponse.json({ data: { id: walletId } })
-  } catch (error) {
-    return walletMutationError(error, 'Failed to delete wallet.')
-  }
+  // Financial rows are immutable. Keep this route as an explicit safe failure
+  // so old clients cannot silently delete an otherwise empty wallet.
+  return jsonError('Wallet deletion is disabled. Retain the wallet and use a zero balance or a documented transfer instead.', 409)
 }

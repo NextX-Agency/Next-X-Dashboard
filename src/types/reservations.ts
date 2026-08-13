@@ -50,12 +50,18 @@ export interface ReservationsPageStats {
   completedCount: number
 }
 
+export interface ReservationsPageAvailability {
+  stockByItemId: Record<string, number>
+  pendingByItemId: Record<string, number>
+}
+
 export interface ReservationsPageDataPayload {
   clients: ReservationsPageClient[]
   items: ReservationsPageItem[]
   locations: ReservationsPageLocation[]
   recentReservations: ReservationsPageReservationGroup[]
   reservationStats: ReservationsPageStats
+  availability: ReservationsPageAvailability
 }
 
 export interface ReservationsPageDataResponse {

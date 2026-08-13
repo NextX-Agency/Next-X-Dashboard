@@ -149,6 +149,19 @@ model StoreSetting {
   @@map("store_settings")
 }
 
+model Company {
+  id                     String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                   String
+  legalName              String?  @map("legal_name")
+  baseCurrency           String   @default("SRD") @map("base_currency")
+  taxId                  String?  @map("tax_id")
+  fiscalYearStartMonth   Int      @default(1) @map("fiscal_year_start_month")
+  isActive               Boolean  @default(true) @map("is_active")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("companies")
+}
+
 model Category {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String
@@ -195,6 +208,7 @@ model Item {
 
 model Location {
   id                       String                    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId                String                    @map("company_id") @db.Uuid
   name                     String
   address                  String?
   createdAt                DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -304,6 +318,7 @@ model Reservation {
 
 model Sale {
   id                     String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId              String                @map("company_id") @db.Uuid
   locationId             String                @map("location_id") @db.Uuid
   sellerId               String?               @map("seller_id") @db.Uuid
   currency               String
@@ -336,6 +351,7 @@ model Sale {
 
 model SaleItem {
   id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId       String?  @map("company_id") @db.Uuid
   saleId          String   @map("sale_id") @db.Uuid
   itemId          String   @map("item_id") @db.Uuid
   quantity        Int
@@ -356,6 +372,7 @@ model SaleItem {
 
 model Wallet {
   id                    String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId             String                 @map("company_id") @db.Uuid
   personName            String                 @map("person_name")
   type                  String
   currency              String
@@ -395,6 +412,7 @@ model ExpenseCategory {
 
 model Expense {
   id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId           String                @map("company_id") @db.Uuid
   categoryId          String?               @map("category_id") @db.Uuid
   walletId            String                @map("wallet_id") @db.Uuid
   amount              Decimal               @db.Decimal(18, 4)
@@ -513,6 +531,7 @@ model Seller {
 
 model Commission {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
   sellerId         String    @map("seller_id") @db.Uuid
   saleId           String    @map("sale_id") @db.Uuid
   commissionAmount Decimal   @map("commission_amount") @db.Decimal(18, 4)
@@ -544,6 +563,7 @@ model BudgetCategory {
 
 model Budget {
   id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId     String         @map("company_id") @db.Uuid
   categoryId    String         @map("category_id") @db.Uuid
   amountAllowed Decimal        @map("amount_allowed") @db.Decimal(18, 4)
   amountSpent   Decimal        @default(0) @map("amount_spent") @db.Decimal(18, 4)
@@ -574,6 +594,7 @@ model Goal {
 
 model FinanceObligation {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
   type             String    @db.VarChar(20)
   counterpartyName String    @map("counterparty_name")
   locationId       String?   @map("location_id") @db.Uuid
@@ -599,6 +620,7 @@ model FinanceObligation {
 
 model PurchaseOrder {
   id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId            String              @map("company_id") @db.Uuid
   walletId             String?             @map("wallet_id") @db.Uuid
   locationId           String              @map("location_id") @db.Uuid
   supplier_id          String?             @db.Uuid
@@ -903,6 +925,7 @@ model seller_category_rates {
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model wallet_transactions {
   id             String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId      String?             @map("company_id") @db.Uuid
   wallet_id      String              @db.Uuid
   sale_id        String?             @db.Uuid
   type           String
@@ -970,6 +993,7 @@ model UserNotification {
 
 model FinanceLedgerEntry {
   id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId           String?              @map("company_id") @db.Uuid
   walletTransactionId String?              @unique @map("wallet_transaction_id") @db.Uuid
   walletId            String?              @map("wallet_id") @db.Uuid
   locationId          String?              @map("location_id") @db.Uuid

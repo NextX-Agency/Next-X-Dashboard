@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
+import type { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/apiAuth'
+import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 import { prisma } from '@/lib/prisma'
+import { roundCurrencyAmount } from '@/lib/pricing'
+import { runSerializableTransaction } from '@/lib/serializableTransaction'
+import { writeActivityLog } from '@/lib/serverActivityLog'
+import {
+  allocateInvoiceNumber,
+  buildCommissions,
+  parsePositiveAmount,
+  parseQuantity,
+  resolveExchangeRate,
+  resolveSaleLines,
+  SaleValidationError,
+  type SaleComboInput,
+  type SaleLineInput,
+} from '@/lib/saleCreation'
 import type {
   ReservationsPageClient,
   ReservationsPageDataPayload,
+  ReservationsPageAvailability,
   ReservationsPageItem,
   ReservationsPageLocation,
   ReservationsPageReservationGroup,
@@ -275,17 +293,293 @@ function buildReservationStats(
   }
 }
 
+type ReservationRequestRecord = Record<string, unknown>
+
+function asRecord(value: unknown): ReservationRequestRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as ReservationRequestRecord
+    : null
+}
+
+function requiredString(value: unknown, label: string): string {
+  const result = typeof value === 'string' ? value.trim() : ''
+  if (!result) throw new SaleValidationError(`${label} is required.`)
+  return result
+}
+
+function parseReservationIds(value: unknown): string[] {
+  const ids = Array.isArray(value)
+    ? value.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    : []
+  const uniqueIds = [...new Set(ids)]
+  if (uniqueIds.length === 0) throw new SaleValidationError('Choose at least one reservation item.')
+  if (uniqueIds.length > 100) throw new SaleValidationError('A reservation checkout cannot exceed 100 items.')
+  return uniqueIds
+}
+
+function parseReservationLines(value: unknown): SaleLineInput[] {
+  if (!Array.isArray(value)) return []
+  return value.map((line) => {
+    const record = asRecord(line)
+    if (!record) throw new SaleValidationError('Each reservation line must be valid.')
+    return {
+      itemId: requiredString(record.itemId, 'Product'),
+      quantity: parseQuantity(record.quantity, 'reservation quantity'),
+      customPrice: null,
+      discountReason: null,
+    }
+  })
+}
+
+function parseReservationCombos(value: unknown): Array<SaleComboInput & { reservationComboId: string }> {
+  if (!Array.isArray(value)) return []
+  return value.map((combo) => {
+    const record = asRecord(combo)
+    if (!record) throw new SaleValidationError('Each reservation combo must be valid.')
+    const members = Array.isArray(record.items) ? record.items : []
+    if (members.length === 0) throw new SaleValidationError('A reservation combo needs at least one product.')
+
+    return {
+      reservationComboId: requiredString(record.id, 'Reservation combo'),
+      name: typeof record.name === 'string' && record.name.trim() ? record.name.trim().slice(0, 120) : 'Reservation combo',
+      comboPrice: parsePositiveAmount(record.comboPrice, 'Reservation combo price'),
+      items: members.map((member) => {
+        const item = asRecord(member)
+        if (!item) throw new SaleValidationError('Each reservation combo line must be valid.')
+        return {
+          itemId: requiredString(item.itemId, 'Combo product'),
+          quantity: parseQuantity(item.quantity, 'combo quantity'),
+        }
+      }),
+    }
+  })
+}
+
+async function completeReservationSale(
+  tx: Prisma.TransactionClient,
+  request: NextRequest,
+  user: { id: string; email: string; name: string | null; role: string },
+  reservationIds: string[],
+  clientName: string,
+  locationId: string,
+  items: SaleLineInput[],
+  combos: SaleComboInput[],
+) {
+  const [location, activeRate] = await Promise.all([
+    tx.location.findFirst({
+      where: { id: locationId, is_active: true },
+      select: { id: true, name: true, companyId: true, commission_rate: true },
+    }),
+    tx.exchangeRate.findFirst({
+      where: { isActive: true },
+      orderBy: { setAt: 'desc' },
+      select: { usdToSrd: true },
+    }),
+  ])
+  if (!location) throw new SaleValidationError('That reservation location is no longer active.')
+
+  const exchangeRate = resolveExchangeRate(activeRate?.usdToSrd)
+  const wallet = await tx.wallet.findFirst({
+    where: { location_id: locationId, currency: 'SRD', type: 'cash', purpose: 'operational' },
+    select: { id: true, companyId: true, personName: true },
+  })
+  if (!wallet) {
+    throw new SaleValidationError(`No operational SRD cash wallet exists for ${location.name}.`)
+  }
+  if (wallet.companyId !== location.companyId) {
+    throw new SaleValidationError('The reservation location and its cash wallet belong to different companies.')
+  }
+
+  const { lines, stockByItemId } = await resolveSaleLines(
+    tx,
+    { locationId, currency: 'SRD', paymentMethod: 'cash', items, combos },
+    exchangeRate,
+  )
+  const totalAmount = roundCurrencyAmount(lines.reduce((sum, line) => sum + line.subtotal, 0))
+  if (totalAmount <= 0) throw new SaleValidationError('A completed reservation must have a positive total.')
+
+  const seller = await tx.seller.findFirst({
+    where: { location_id: locationId },
+    orderBy: { name: 'asc' },
+    select: { id: true, name: true, commissionRate: true },
+  })
+  const correlationId = randomUUID()
+  const invoiceNumber = await allocateInvoiceNumber(tx)
+  const sale = await tx.sale.create({
+    data: {
+      companyId: location.companyId,
+      locationId,
+      sellerId: seller?.id ?? null,
+      currency: 'SRD',
+      exchangeRate: null,
+      totalAmount,
+      paymentMethod: 'reservation',
+      wallet_id: wallet.id,
+      correlationId,
+      invoiceNumber,
+      invoiceIsReconstructed: false,
+      saleItems: {
+        create: lines.map((line) => ({
+          companyId: location.companyId,
+          itemId: line.itemId,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          subtotal: line.subtotal,
+          is_custom_price: line.isCustomPrice,
+          original_price: line.originalPrice,
+          discount_reason: line.discountReason,
+          unitCostUsd: line.unitCostUsd,
+          fxRateAtSale: exchangeRate,
+          costIsEstimated: false,
+        })),
+      },
+    },
+    select: { id: true, createdAt: true },
+  })
+
+  const demandByItemId = new Map<string, number>()
+  for (const line of lines) {
+    demandByItemId.set(line.itemId, (demandByItemId.get(line.itemId) ?? 0) + line.quantity)
+  }
+  for (const [itemId, demand] of demandByItemId) {
+    const stock = stockByItemId.get(itemId)
+    if (!stock) throw new SaleValidationError('The reservation stock record no longer exists.')
+    await tx.stock.update({ where: { id: stock.id }, data: { quantity: { decrement: demand } } })
+  }
+
+  let commissionTotal = 0
+  if (seller) {
+    const categoryRateRows = await tx.seller_category_rates.findMany({
+      where: { seller_id: seller.id },
+      select: { category_id: true, commission_rate: true },
+    })
+    const categoryRates = new Map(categoryRateRows.map((row) => [row.category_id, Number(row.commission_rate)]))
+    const drafts = buildCommissions(
+      lines,
+      categoryRates,
+      Number(seller.commissionRate ?? 0),
+      Number(location.commission_rate ?? 0),
+    )
+    for (const draft of drafts) {
+      await tx.commission.create({
+        data: {
+          companyId: location.companyId,
+          sellerId: seller.id,
+          saleId: sale.id,
+          location_id: locationId,
+          category_id: draft.categoryId,
+          commissionAmount: draft.amount,
+          commission_rate: draft.rate,
+          paid: false,
+        },
+      })
+      commissionTotal = roundCurrencyAmount(commissionTotal + draft.amount)
+    }
+  }
+
+  await markFinanceLedgerRecorded(tx)
+  const creditedWallet = await tx.wallet.update({
+    where: { id: wallet.id },
+    data: { balance: { increment: totalAmount } },
+    select: { balance: true },
+  })
+  const balanceAfter = roundCurrencyAmount(Number(creditedWallet.balance))
+  const balanceBefore = roundCurrencyAmount(balanceAfter - totalAmount)
+  const walletTransaction = await tx.wallet_transactions.create({
+    data: {
+      companyId: location.companyId,
+      wallet_id: wallet.id,
+      sale_id: sale.id,
+      type: 'credit',
+      amount: totalAmount,
+      balance_before: balanceBefore,
+      balance_after: balanceAfter,
+      currency: 'SRD',
+      description: `Completed reservation ${invoiceNumber}`,
+      reference_type: 'sale',
+      reference_id: sale.id,
+    },
+  })
+  await recordFinanceLedgerEntry(tx, {
+    companyId: location.companyId,
+    walletTransactionId: walletTransaction.id,
+    walletId: wallet.id,
+    locationId,
+    sellerId: seller?.id ?? null,
+    actorUserId: user.id,
+    eventType: 'sale',
+    direction: 'in',
+    amount: totalAmount,
+    currency: 'SRD',
+    sourceType: 'sale',
+    sourceId: sale.id,
+    correlationId,
+    description: `Completed reservation for ${clientName} at ${location.name}`,
+    occurredAt: sale.createdAt,
+    metadata: { reservationIds, invoiceNumber, commissionTotal, paymentMethod: 'reservation' },
+  })
+
+  const statusUpdate = await tx.reservation.updateMany({
+    where: { id: { in: reservationIds }, status: 'pending' },
+    data: { status: 'completed' },
+  })
+  if (statusUpdate.count !== reservationIds.length) {
+    throw new SaleValidationError('One or more reservation items were already changed. Nothing was posted.')
+  }
+
+  await writeActivityLog({
+    action: 'create',
+    entityType: 'sale',
+    entityId: sale.id,
+    entityName: invoiceNumber,
+    details: `Recorded completed reservation for ${clientName}: ${totalAmount.toFixed(2)} SRD at ${location.name}.`,
+    user,
+    request,
+    source: 'reservations-api',
+    client: tx,
+  })
+  await writeActivityLog({
+    action: 'complete',
+    entityType: 'reservation',
+    entityId: reservationIds[0],
+    entityName: clientName,
+    details: `Completed ${reservationIds.length} reservation item(s) as ${invoiceNumber}.`,
+    user,
+    request,
+    source: 'reservations-api',
+    client: tx,
+  })
+
+  return {
+    invoiceNumber,
+    createdAt: sale.createdAt.toISOString(),
+    totalAmount,
+    currency: 'SRD' as const,
+    locationName: location.name,
+    clientName,
+    isPaid: true,
+    items: lines.map((line) => ({
+      name: line.itemName,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      subtotal: line.subtotal,
+      isCombo: line.comboKey !== null,
+    })),
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAdmin(request)
   if (authResult instanceof NextResponse) return authResult
 
   try {
     const catalogType = request.nextUrl.searchParams.get('catalogType') === 'watches' ? 'watches' : 'audio'
+    const selectedLocationId = request.nextUrl.searchParams.get('locationId') || null
     const now = new Date()
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
 
-    const [clients, items, locations, currentRate, recentReservationsRaw, statsReservations, pendingCount, completedCount] = await Promise.all([
+    const [clients, items, locations, currentRate, recentReservationsRaw, statsReservations, pendingCount, completedCount, locationStocks, locationReservations] = await Promise.all([
       prisma.client.findMany({
         select: {
           id: true,
@@ -414,7 +708,27 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
+      selectedLocationId
+        ? prisma.stock.findMany({
+            where: { locationId: selectedLocationId },
+            select: { itemId: true, quantity: true },
+          })
+        : Promise.resolve([]),
+      selectedLocationId
+        ? prisma.reservation.findMany({
+            where: { locationId: selectedLocationId, status: 'pending' },
+            select: { itemId: true, quantity: true },
+          })
+        : Promise.resolve([]),
     ])
+
+    const availability: ReservationsPageAvailability = {
+      stockByItemId: Object.fromEntries(locationStocks.map((stock) => [stock.itemId, stock.quantity])),
+      pendingByItemId: locationReservations.reduce<Record<string, number>>((totals, reservation) => {
+        totals[reservation.itemId] = (totals[reservation.itemId] ?? 0) + reservation.quantity
+        return totals
+      }, {}),
+    }
 
     const data: ReservationsPageDataPayload = {
       clients: clients.map(mapClient),
@@ -428,6 +742,7 @@ export async function GET(request: NextRequest) {
         todayStart,
         currentRate ? toNumber(currentRate.usdToSrd) : null,
       ),
+      availability,
     }
 
     return NextResponse.json({ data }, {
@@ -441,5 +756,244 @@ export async function GET(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Reservation mutations deliberately share one endpoint. The browser only
+ * submits an intent; stock, sales, commissions, wallet movements, the ledger,
+ * and activity records are calculated and committed on the server.
+ */
+export async function POST(request: NextRequest) {
+  const user = await requireAdmin(request)
+  if (user instanceof NextResponse) return user
+
+  try {
+    const body = await request.json() as ReservationRequestRecord
+    const action = typeof body.action === 'string' ? body.action : ''
+
+    if (action === 'createClient') {
+      const name = requiredString(body.name, 'Client name').slice(0, 160)
+      const locationId = typeof body.locationId === 'string' && body.locationId ? body.locationId : null
+      const phone = typeof body.phone === 'string' && body.phone.trim() ? body.phone.trim().slice(0, 80) : null
+      const email = typeof body.email === 'string' && body.email.trim() ? body.email.trim().slice(0, 255) : null
+      const notes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 2000) : null
+
+      const client = await runSerializableTransaction(async (tx) => {
+        if (locationId) {
+          const location = await tx.location.findFirst({ where: { id: locationId, is_active: true }, select: { id: true } })
+          if (!location) throw new SaleValidationError('Choose an active location for this client.')
+        }
+        const created = await tx.client.create({
+          data: { name, phone, email, notes, location_id: locationId },
+          select: { id: true, name: true },
+        })
+        await writeActivityLog({
+          action: 'create',
+          entityType: 'client',
+          entityId: created.id,
+          entityName: created.name,
+          details: `Created client ${created.name}.`,
+          user,
+          request,
+          source: 'reservations-api',
+          client: tx,
+        })
+        return created
+      })
+      return NextResponse.json({ data: { client } }, { status: 201 })
+    }
+
+    if (action === 'create') {
+      const locationId = requiredString(body.locationId, 'Location')
+      const clientId = requiredString(body.clientId, 'Client')
+      const items = parseReservationLines(body.items)
+      const combos = parseReservationCombos(body.combos)
+      const paid = body.paymentStatus === 'paid'
+      if (items.length === 0 && combos.length === 0) {
+        throw new SaleValidationError('Add at least one product to the reservation.')
+      }
+
+      const result = await runSerializableTransaction(async (tx) => {
+        const [location, client, activeRate] = await Promise.all([
+          tx.location.findFirst({ where: { id: locationId, is_active: true }, select: { id: true, name: true, companyId: true } }),
+          tx.client.findUnique({ where: { id: clientId }, select: { id: true, name: true } }),
+          tx.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' }, select: { usdToSrd: true } }),
+        ])
+        if (!location) throw new SaleValidationError('Choose an active reservation location.')
+        if (!client) throw new SaleValidationError('Choose a valid client.')
+
+        const { lines } = await resolveSaleLines(
+          tx,
+          { locationId, currency: 'SRD', paymentMethod: 'cash', items, combos },
+          resolveExchangeRate(activeRate?.usdToSrd),
+        )
+        const combosByKey = new Map(combos.map((combo, index) => [`${index + 1}:${combo.name}`, combo]))
+        const originalTotalsByCombo = new Map<string, number>()
+        for (const line of lines) {
+          if (!line.comboKey) continue
+          originalTotalsByCombo.set(
+            line.comboKey,
+            roundCurrencyAmount((originalTotalsByCombo.get(line.comboKey) ?? 0) + (line.originalPrice ?? 0) * line.quantity),
+          )
+        }
+
+        const createdReservations = [] as Array<{ id: string }>
+        const writtenComboKeys = new Set<string>()
+        for (const line of lines) {
+          const combo = line.comboKey ? combosByKey.get(line.comboKey) : null
+          const isFirstComboLine = Boolean(line.comboKey && !writtenComboKeys.has(line.comboKey))
+          if (line.comboKey) writtenComboKeys.add(line.comboKey)
+          const created = await tx.reservation.create({
+            data: {
+              clientId,
+              itemId: line.itemId,
+              locationId,
+              quantity: line.quantity,
+              status: 'pending',
+              combo_id: combo?.reservationComboId ?? null,
+              combo_price: isFirstComboLine ? combo?.comboPrice ?? null : null,
+              original_price: isFirstComboLine && line.comboKey ? originalTotalsByCombo.get(line.comboKey) ?? null : null,
+            },
+            select: { id: true },
+          })
+          createdReservations.push(created)
+        }
+
+        const reservationIds = createdReservations.map((reservation) => reservation.id)
+        if (paid) {
+          return completeReservationSale(tx, request, user, reservationIds, client.name, locationId, items, combos)
+        }
+
+        const totalAmount = roundCurrencyAmount(lines.reduce((sum, line) => sum + line.subtotal, 0))
+        await writeActivityLog({
+          action: 'create',
+          entityType: 'reservation',
+          entityId: reservationIds[0],
+          entityName: client.name,
+          details: `Created ${reservationIds.length} pending reservation item(s) at ${location.name} for ${totalAmount.toFixed(2)} SRD.`,
+          user,
+          request,
+          source: 'reservations-api',
+          client: tx,
+        })
+        return {
+          invoiceNumber: `RES-${reservationIds[0]?.slice(0, 8) ?? 'PENDING'}`,
+          createdAt: new Date().toISOString(),
+          totalAmount,
+          currency: 'SRD' as const,
+          locationName: location.name,
+          clientName: client.name,
+          isPaid: false,
+          items: lines.map((line) => ({
+            name: line.itemName,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            subtotal: line.subtotal,
+            isCombo: line.comboKey !== null,
+          })),
+        }
+      })
+      return NextResponse.json({ data: result }, { status: 201 })
+    }
+
+    if (action === 'complete') {
+      const reservationIds = parseReservationIds(body.reservationIds)
+      const result = await runSerializableTransaction(async (tx) => {
+        const reservations = await tx.reservation.findMany({
+          where: { id: { in: reservationIds } },
+          include: {
+            client: { select: { id: true, name: true } },
+            location: { select: { id: true, name: true } },
+          },
+        })
+        if (reservations.length !== reservationIds.length) throw new SaleValidationError('One or more reservation items no longer exist.')
+        if (reservations.some((reservation) => reservation.status !== 'pending')) {
+          throw new SaleValidationError('Only pending reservations can be completed.')
+        }
+        const clientId = reservations[0]?.clientId
+        const locationId = reservations[0]?.locationId
+        if (!clientId || !locationId || reservations.some((reservation) => reservation.clientId !== clientId || reservation.locationId !== locationId)) {
+          throw new SaleValidationError('Reservation items must belong to one client and one location.')
+        }
+
+        const items = reservations
+          .filter((reservation) => !reservation.combo_id)
+          .map((reservation) => ({ itemId: reservation.itemId, quantity: reservation.quantity, customPrice: null, discountReason: null }))
+        const comboRows = new Map<string, typeof reservations>()
+        for (const reservation of reservations) {
+          if (!reservation.combo_id) continue
+          comboRows.set(reservation.combo_id, [...(comboRows.get(reservation.combo_id) ?? []), reservation])
+        }
+        const combos = Array.from(comboRows.entries()).map(([reservationComboId, rows]) => {
+          const pricedRow = rows.find((row) => row.combo_price !== null)
+          if (!pricedRow || Number(pricedRow.combo_price) <= 0) {
+            throw new SaleValidationError('A reservation combo is missing its recorded price.')
+          }
+          return {
+            name: `Reservation combo ${reservationComboId.slice(0, 8)}`,
+            comboPrice: Number(pricedRow.combo_price),
+            items: rows.map((row) => ({ itemId: row.itemId, quantity: row.quantity })),
+          }
+        })
+
+        return completeReservationSale(
+          tx,
+          request,
+          user,
+          reservationIds,
+          reservations[0].client.name,
+          locationId,
+          items,
+          combos,
+        )
+      })
+      return NextResponse.json({ data: result })
+    }
+
+    if (action === 'cancel') {
+      const reservationIds = parseReservationIds(body.reservationIds)
+      const result = await runSerializableTransaction(async (tx) => {
+        const reservations = await tx.reservation.findMany({
+          where: { id: { in: reservationIds } },
+          include: { client: { select: { name: true } }, location: { select: { name: true } } },
+        })
+        if (reservations.length !== reservationIds.length) throw new SaleValidationError('One or more reservation items no longer exist.')
+        if (reservations.some((reservation) => reservation.status !== 'pending')) {
+          throw new SaleValidationError('Only pending reservations can be cancelled. Void a completed sale instead.')
+        }
+        const clientId = reservations[0]?.clientId
+        const locationId = reservations[0]?.locationId
+        if (!clientId || !locationId || reservations.some((reservation) => reservation.clientId !== clientId || reservation.locationId !== locationId)) {
+          throw new SaleValidationError('Reservation items must belong to one client and one location.')
+        }
+        const update = await tx.reservation.updateMany({
+          where: { id: { in: reservationIds }, status: 'pending' },
+          data: { status: 'cancelled' },
+        })
+        if (update.count !== reservationIds.length) throw new SaleValidationError('A reservation changed while it was being cancelled.')
+        await writeActivityLog({
+          action: 'cancel',
+          entityType: 'reservation',
+          entityId: reservationIds[0],
+          entityName: reservations[0].client.name,
+          details: `Cancelled ${reservationIds.length} pending reservation item(s) at ${reservations[0].location.name}.`,
+          user,
+          request,
+          source: 'reservations-api',
+          client: tx,
+        })
+        return { cancelled: update.count }
+      })
+      return NextResponse.json({ data: result })
+    }
+
+    return NextResponse.json({ error: 'Unknown reservation action.' }, { status: 400 })
+  } catch (error) {
+    if (error instanceof SaleValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+    console.error('Reservation mutation error:', error)
+    return NextResponse.json({ error: 'Unable to save the reservation. Nothing was changed.' }, { status: 500 })
   }
 }
