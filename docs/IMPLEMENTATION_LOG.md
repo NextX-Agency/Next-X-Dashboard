@@ -1130,6 +1130,24 @@ Adding a server-only bill inbox: document text is parsed into a reviewable draft
 audited, and posting is an explicit Serializable finance transaction. No OCR provider will be
 assumed without credentials; the documented default is deterministic parsing of supplied OCR text.
 
+## T-26 — Codex — 2026-08-13T16:28Z — DONE
+
+Added an RLS-protected supplier-bill inbox and an authenticated three-stage workflow: supplied OCR
+text is deterministically parsed into a retained draft, an admin approves a complete classified
+draft, then an explicit post performs one Serializable expense, wallet debit, wallet transaction,
+and finance-ledger transaction. Rejection and posting retain the bill permanently; there is no delete
+path. The original OCR text and document label are retained as audit evidence. No OCR vendor
+credentials are configured, so the documented default is a deterministic parser for text supplied
+by the document/OCR client rather than a guessed external integration.
+
+Retained pre-migration dump: `backups/finance-overhaul-pre-t26-20260813T125000Z.dump`
+(`36FDA97A66FF562BBF72537357CE8FC3DAD6344EF774F36F74623FF03AF4F08E`).
+The inbox has RLS enabled with zero public policies and production contains zero supplier bills;
+no financial event was posted. `pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
 ## T-24 — claimed by Codex — 2026-08-13T15:50Z — in progress
 
 Adding a forward-only USD revaluation run, balanced SRD gain/loss journal posting, and a strict

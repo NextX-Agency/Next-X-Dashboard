@@ -651,6 +651,37 @@ model FxRevaluationRun {
   @@map("fx_revaluation_runs")
 }
 
+model BillInbox {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId          String   @map("company_id") @db.Uuid
+  sourceDocumentName String   @map("source_document_name")
+  sourceText         String   @map("source_text")
+  ocrProvider        String   @default("supplied_text") @map("ocr_provider")
+  vendorName         String?  @map("vendor_name")
+  invoiceNumber      String?  @map("invoice_number")
+  invoiceDate        DateTime? @map("invoice_date") @db.Date
+  dueDate            DateTime? @map("due_date") @db.Date
+  description        String?
+  amount             Decimal? @db.Decimal(18, 4)
+  currency           String?
+  classification     String   @default("unclassified")
+  categoryId         String?  @map("category_id") @db.Uuid
+  walletId           String?  @map("wallet_id") @db.Uuid
+  locationId         String?  @map("location_id") @db.Uuid
+  status             String   @default("draft")
+  rejectionReason    String?  @map("rejection_reason")
+  expenseId          String?  @map("expense_id") @db.Uuid
+  uploadedBy         String?  @map("uploaded_by") @db.Uuid
+  approvedBy         String?  @map("approved_by") @db.Uuid
+  approvedAt         DateTime? @map("approved_at") @db.Timestamptz(6)
+  postedAt           DateTime? @map("posted_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([companyId, status, createdAt(sort: Desc)])
+  @@map("bill_inbox")
+}
+
 model Seller {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String
