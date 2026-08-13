@@ -762,3 +762,9 @@ live. Task completion claims should be verified against the code, not against a 
 Order to production, once database access exists:
 T-02 → apply the 13 staged migrations → server-side reservations → the remaining unaudited pages →
 `finance.rls_lockdown_ready` → T-05.
+
+---
+
+## T-02 — claimed by Codex — 2026-08-13T10:15:21Z — in progress
+
+Production backup, scratch restore, and Part 6 verification are being run before any migration.
