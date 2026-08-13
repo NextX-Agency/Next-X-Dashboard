@@ -157,3 +157,48 @@ Notes:
   lands. They are marked here in the log rather than in code — deleting them now would remove repair
   tools while the write path they repair is still the broken one.
 - Lint 289 -> 287 problems; the two that disappeared are the deleted root script. No new ones.
+
+---
+
+## Findings for whoever takes T-04 and T-05 — claude — 2026-08-13T02:30Z
+
+Two things measured while working Phase A that change what those tasks have to do.
+
+### F-04 is materially worse than the audit records — raise the priority of T-05
+
+The audit and the plan both describe the 80 RLS policies as
+`FOR ALL USING (auth.role() = 'authenticated')`, i.e. "any logged-in user". Production disagrees:
+
+| Policies | Role | Command | `USING` |
+|---|---|---|---|
+| **36** | `public` | ALL | **`true`** |
+| 18 | `public` | SELECT | `true` |
+| 10 | `public` | INSERT | (no check) |
+| 8 | `public` | DELETE | `auth.role() = 'authenticated'` |
+| 8 | `public` | UPDATE | `auth.role() = 'authenticated'` |
+| 5 | `public` | ALL | `auth.role() = 'authenticated'` |
+
+`public` includes **`anon`**. So the 36 `ALL USING (true)` policies — `sales` and `wallets` among
+them — are open to **anyone holding the publishable key**, which is by definition shipped in the
+browser bundle. No login required, contrary to the audit's wording. Read *and* write.
+
+T-05 should be treated as the most urgent item in Phase A rather than the fifth. It was not started
+here: it is exactly the kind of change that needs T-02's restore point behind it.
+
+*(Not reachable from this session — the environment's network policy blocks `*.supabase.co` — but
+that is a property of this container, not of the deployed site.)*
+
+### T-04 is already half-applied
+
+`capture_wallet_transaction_ledger()` already carries `SET search_path TO 'public'` and is
+`SECURITY DEFINER`. Only `prevent_finance_ledger_mutation()` still lacks the setting, and it is not
+`SECURITY DEFINER`. So T-04 reduces to that one `ALTER FUNCTION` plus the two `REVOKE`s — check the
+current grants before writing the migration rather than applying all three statements blind.
+
+### Docs disagree with the environment (reporting, not fixing — Part 2)
+
+`AGENTS.md` and `CLAUDE.md` both still say "**Test every schema migration on a branch**
+(`create_branch` → apply → verify → `merge_branch`) before production." Branching is unavailable on
+the free plan (`list_branches` returns `[]`), and the runbook's Part 1 replaces it with the
+transactional DDL protocol. Both files should be corrected together — they are kept verbatim in sync
+— but that is someone's deliberate call, not a silent edit from here.
