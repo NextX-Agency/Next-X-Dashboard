@@ -1146,3 +1146,8 @@ The job runs at 23:00 on days 28–31 but refuses every non-last day. It is curr
 draft: production has no founders and the active FX rate is stale (2026-06-05). This is the
 documented conservative default; no payout was posted and no production financial row changed.
 Typecheck and diff checks pass.
+
+## T-21 — claimed by Codex — 2026-08-13T15:00Z — in progress
+
+Adding the chart of accounts and forward-only double-entry journal with deferred balanced-entry
+enforcement and opening positions only (no historical replay).
