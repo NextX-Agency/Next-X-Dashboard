@@ -890,3 +890,7 @@ The transaction created Software & subscriptions, classified 74 determinate expe
 Personal Items expenses remain unclassified; the migration check and Part 6 suite passed.
 Pre-migration dump retained: `backups/finance-overhaul-pre-t15-20260813T104235Z.dump`
 (`D131A0ABB28403DD6266BE613F9172F056BB7F1A85AA4F7F9B0E24AA331983D5`).
+
+## T-10 — claimed by Codex — 2026-08-13T11:29Z — in progress
+
+Applying the staged wallet-baseline and reconciliation-enforcement migration.
