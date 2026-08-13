@@ -1107,6 +1107,12 @@ public policies. No data was changed by the migration.
 
 Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
+## T-23 — claimed by Codex — 2026-08-13T15:35Z — in progress
+
+Adding RLS-protected investment and fixed-asset registers plus idempotent, non-cash depreciation
+posting through the existing serialized cron pattern. Asset and investment records will be retired,
+not deleted.
 Orphan sale items, both wallet-transaction/ledger pairing directions, and negative stock are zero.
 
 ## T-18 code — claimed by Codex — 2026-08-13T14:28Z — in progress
