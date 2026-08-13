@@ -1013,3 +1013,9 @@ returned zero matches; `git diff --check` passed. A read-only Part 6 run confirm
 wallet-transaction/ledger links in either direction, zero negative wallets, and zero negative stock.
 `pnpm build` is still blocked before type checking by the existing remote Google Font 404 for
 `src/app/audio/layout.tsx`; no application font or production configuration was changed.
+
+## Orders financial write hardening — claimed by Codex — 2026-08-13T12:39Z — in progress
+
+Moving purchase-order creation, edits, receiving, cancellation, and stock/allocation changes out
+of the browser and into an authenticated server route with Serializable transactions. This is the
+next live browser financial-write surface found by the full `src/app` audit.
