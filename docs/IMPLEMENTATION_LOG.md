@@ -920,3 +920,7 @@ Pre-migration dump retained: `backups/finance-overhaul-pre-t18-20260813T104631Z.
 (`850180AAD217248DC146EDCBE993AB3E4AF8241A66DEEC5D42FB97BD7692252D`).
 Prisma models were added and regenerated. The cron implementation remains T-18 code work later in
 this run, after browser financial writes have been removed and RLS can be locked down.
+
+## T-19 — claimed by Codex — 2026-08-13T11:42Z — in progress
+
+Applying the staged payout-run schema and conservative policy-default migration.
