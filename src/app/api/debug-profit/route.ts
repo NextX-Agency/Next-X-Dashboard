@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { countableSaleWhere } from '@/lib/financialFilters'
 import {
   calculateSaleFinancials,
   calculateScaledLineAmount,
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const [sales, allCategories] = await Promise.all([
     prisma.sale.findMany({
-      where: { createdAt: { gte: startDate, lte: endDate } },
+      where: countableSaleWhere({ createdAt: { gte: startDate, lte: endDate } }),
       include: {
         saleItems: {
           include: {

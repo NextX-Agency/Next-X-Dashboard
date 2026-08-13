@@ -7,7 +7,7 @@ import { createHash } from 'crypto'
 
 const prisma = new PrismaClient()
 const hash = (v) => createHash('sha256').update(v).digest('hex')
-export const SESSION_TOKEN = 't11-verification-token'
+export const SESSION_TOKEN = 't13-verification-token'
 
 async function main() {
   const location = await prisma.location.create({

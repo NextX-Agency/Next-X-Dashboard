@@ -6,7 +6,20 @@ export const REPORT_ROUNDING_TOLERANCE = 0.05
 export interface SaleFinancialItemInput {
   subtotal: unknown
   quantity: number
+  /**
+   * The item's cost *today*. Only a fallback — see `unitCostUsd`.
+   */
   purchasePriceUsd?: unknown
+  /**
+   * The cost captured onto the line when the sale happened (T-12).
+   *
+   * This is what COGS must use. Reading `purchasePriceUsd` instead means the
+   * item's current price decides the margin on every sale ever made, so
+   * re-pricing a product silently rewrites history (F-01). Null only for lines
+   * written before the T-12 backfill.
+   */
+  unitCostUsd?: unknown
+  costIsEstimated?: boolean
 }
 
 export interface SaleFinancialInput {
@@ -31,9 +44,33 @@ export interface SaleFinancials {
   grossProfitUsd: number
   grossProfitSrd: number
   unitCount: number
+  /**
+   * True when any line's cost is a backfilled estimate rather than a cost
+   * recorded at the time of sale. Reports covering these periods must say so
+   * rather than presenting the margin as measured (R3, R7 of the audit rules).
+   */
+  usesEstimatedCost: boolean
   missingSaleItems: boolean
   hasMaterialTotalMismatch: boolean
   hasRoundingTotalMismatch: boolean
+}
+
+/**
+ * The cost of one unit on a sale line, in USD.
+ *
+ * `unit_cost_usd` is the cost as it was when the sale was made. Once T-12 has
+ * run, every line has one. Until then some lines fall back to the item's
+ * current purchase price, which is the old (wrong) behaviour but is better than
+ * reporting zero cost and a 100% margin.
+ */
+export function resolveUnitCostUsd(item: {
+  unitCostUsd?: unknown
+  purchasePriceUsd?: unknown
+  item?: { purchasePriceUsd?: unknown } | null
+}): number {
+  if (item.unitCostUsd != null) return toReportNumber(item.unitCostUsd)
+  if (item.purchasePriceUsd != null) return toReportNumber(item.purchasePriceUsd)
+  return toReportNumber(item.item?.purchasePriceUsd)
 }
 
 export function toReportNumber(value: unknown): number {
@@ -104,10 +141,16 @@ export function calculateSaleFinancials(input: SaleFinancialInput): SaleFinancia
   const revenueScale = itemSubtotalInSaleCurrency !== 0
     ? revenueInSaleCurrency / itemSubtotalInSaleCurrency
     : 0
+  // Prefer the cost snapshotted onto the line. Fall back to the item's current
+  // price only when the snapshot is absent, which means the T-12 backfill has
+  // not run yet.
   const cogsUsd = items.reduce(
-    (sum, item) => sum + (toReportNumber(item.purchasePriceUsd) * item.quantity),
+    (sum, item) => sum + (resolveUnitCostUsd(item) * item.quantity),
     0,
   )
+  const usesEstimatedCost = items.some((item) => (
+    item.unitCostUsd == null || item.costIsEstimated === true
+  ))
   const revenueUsd = toReportUsd(revenueInSaleCurrency, currency, exchangeRate)
   const revenueSrd = toReportSrd(revenueInSaleCurrency, currency, exchangeRate)
   const cogsSrd = cogsUsd * exchangeRate
@@ -123,6 +166,7 @@ export function calculateSaleFinancials(input: SaleFinancialInput): SaleFinancia
     revenueScale,
     revenueUsd,
     revenueSrd,
+    usesEstimatedCost,
     cogsUsd,
     cogsSrd,
     grossProfitUsd: revenueUsd - cogsUsd,

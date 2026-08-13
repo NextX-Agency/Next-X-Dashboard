@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { DEFAULT_EXCHANGE_RATE, normalizeExchangeRate } from '@/lib/pricing'
 import { prisma } from '@/lib/prisma'
+import { resolveUnitCostUsd } from '@/lib/reportCalculations'
+import { countableSaleWhere } from '@/lib/financialFilters'
 import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import type {
   FinanceMoneyTotals,
@@ -28,6 +30,8 @@ type ProfitSale = {
   createdAt: Date
   saleItems: Array<{
     quantity: number
+    unitCostUsd: unknown
+    costIsEstimated: boolean
     item: {
       purchasePriceUsd: unknown
     } | null
@@ -264,7 +268,7 @@ function buildPeriodSummary(
     const saleRate = normalizeExchangeRate(toNumber(sale.exchangeRate) || exchangeRate)
     addMoney(revenue, { amount: sale.totalAmount, currency: sale.currency, exchangeRate: saleRate }, exchangeRate)
     cogsUsd += sale.saleItems.reduce((sum, saleItem) => (
-      sum + (toNumber(saleItem.item?.purchasePriceUsd) * saleItem.quantity)
+      sum + (resolveUnitCostUsd(saleItem) * saleItem.quantity)
     ), 0)
   }
 
@@ -534,7 +538,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
       prisma.sale.findMany({
-        where: { createdAt: { gte: thisMonthStart, lt: nextMonthStart } },
+        where: countableSaleWhere({ createdAt: { gte: thisMonthStart, lt: nextMonthStart } }),
         select: {
           id: true,
           currency: true,
@@ -544,13 +548,15 @@ export async function GET(request: NextRequest) {
           saleItems: {
             select: {
               quantity: true,
+              unitCostUsd: true,
+              costIsEstimated: true,
               item: { select: { purchasePriceUsd: true } },
             },
           },
         },
       }),
       prisma.sale.findMany({
-        where: { createdAt: { gte: yearStart, lt: nextYearStart } },
+        where: countableSaleWhere({ createdAt: { gte: yearStart, lt: nextYearStart } }),
         select: {
           id: true,
           currency: true,
@@ -560,6 +566,8 @@ export async function GET(request: NextRequest) {
           saleItems: {
             select: {
               quantity: true,
+              unitCostUsd: true,
+              costIsEstimated: true,
               item: { select: { purchasePriceUsd: true } },
             },
           },
@@ -606,7 +614,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.sale.findMany({
-        where: { createdAt: { gte: forecastStart, lt: nextMonthStart } },
+        where: countableSaleWhere({ createdAt: { gte: forecastStart, lt: nextMonthStart } }),
         select: {
           id: true,
           currency: true,
@@ -616,6 +624,8 @@ export async function GET(request: NextRequest) {
           saleItems: {
             select: {
               quantity: true,
+              unitCostUsd: true,
+              costIsEstimated: true,
               item: { select: { purchasePriceUsd: true } },
             },
           },

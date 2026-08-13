@@ -561,109 +561,47 @@ export default function SalesPage() {
 
   const handleUndoSale = async (sale: SaleWithDetails) => {
     const ok = await confirm({
-      title: 'Undo Sale',
-      message: 'Stock will be restored, the wallet will be refunded, and commissions will be removed. This cannot be undone.',
+      title: 'Void Sale',
+      message: 'Stock will be returned, the wallet will be debited by a reversing transaction, and unpaid commissions will be cancelled. The sale is kept and marked voided — nothing is deleted.',
       itemName: `${formatCurrency(sale.total_amount, sale.currency as Currency)} • ${sale.locations?.name || 'Unknown'}`,
       itemDetails: `Sale ID: ${sale.id.slice(0, 8)}`,
       variant: 'warning',
-      confirmLabel: 'Undo Sale',
+      confirmLabel: 'Void Sale',
     })
     if (!ok) return
 
+    const reason = typeof window === 'undefined'
+      ? ''
+      : (window.prompt('Why is this sale being voided?') || '').trim()
+    if (reason.length < 3) {
+      alert('A void needs a reason of at least 3 characters. Nothing was changed.')
+      return
+    }
+
     try {
-      // Restore stock for each item
-      if (sale.sale_items) {
-        for (const saleItem of sale.sale_items) {
-          const { data: stock } = await supabase
-            .from('stock')
-            .select('*')
-            .eq('item_id', saleItem.item_id)
-            .eq('location_id', sale.location_id)
-            .single()
-
-          if (stock) {
-            await supabase
-              .from('stock')
-              .update({ quantity: stock.quantity + saleItem.quantity })
-              .eq('id', stock.id)
-          } else {
-            // If stock record doesn't exist, create it
-            await supabase
-              .from('stock')
-              .insert({
-                item_id: saleItem.item_id,
-                location_id: sale.location_id,
-                quantity: saleItem.quantity
-              })
-          }
-        }
-      }
-
-      // Refund the wallet if sale was linked to one
-      if (sale.wallet_id) {
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('*')
-          .eq('id', sale.wallet_id)
-          .single()
-
-        if (wallet) {
-          const newBalance = wallet.balance - sale.total_amount
-          
-          // Update wallet balance (subtract the sale amount)
-          await supabase
-            .from('wallets')
-            .update({ balance: newBalance })
-            .eq('id', wallet.id)
-
-          // Create refund transaction record
-          await supabase.from('wallet_transactions').insert({
-            wallet_id: wallet.id,
-            sale_id: sale.id,
-            type: 'debit',
-            amount: sale.total_amount,
-            balance_before: wallet.balance,
-            balance_after: newBalance,
-            description: `Sale refund (undo)`,
-            reference_type: 'sale_refund',
-            currency: wallet.currency
-          })
-        }
-      }
-
-      // Delete commissions associated with this sale
-      await supabase.from('commissions').delete().eq('sale_id', sale.id)
-
-      // Delete sale items first (due to foreign key constraint)
-      await supabase.from('sale_items').delete().eq('sale_id', sale.id)
-      
-      // Delete the sale
-      await supabase.from('sales').delete().eq('id', sale.id)
-
-      // Log the undo action
-      await logActivity({
-        action: 'delete',
-        entityType: 'sale',
-        entityId: sale.id,
-        entityName: 'Sale Undo',
-        details: buildActivityDetails({
-          Total: formatCurrency(sale.total_amount, sale.currency as Currency),
-          Location: sale.locations?.name || 'Unknown',
-          Items: `${sale.sale_items?.map((i) => `${i.quantity}x ${i.items?.name || '?'}`).join(', ') || 'N/A'}`
-        }),
-        userId: user?.id
+      // One server call, one transaction. This used to delete commissions, then
+      // sale items, then the sale — while finance_ledger_entries refuses DELETE,
+      // so the ledger kept a movement for a sale that no longer existed (F-06).
+      const response = await fetch('/api/sales/void', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleId: sale.id, reason }),
       })
-
-      // Reload data
-      await loadData(false)
-      if (selectedLocation) {
-        loadStock(selectedLocation)
+      const payload = await response.json() as { data?: { reversedAmount: number; paidCommissionsNeedingReview: number }; error?: string }
+      if (!response.ok || !payload.data) {
+        alert(payload.error || 'The sale could not be voided. Nothing was changed.')
+        return
       }
 
-      alert('Sale has been undone. Stock restored, wallet refunded, and commissions removed.')
+      if (payload.data.paidCommissionsNeedingReview > 0) {
+        alert(`Sale voided. ${payload.data.paidCommissionsNeedingReview} commission(s) on it were already paid out — those payouts were left alone and need a separate decision.`)
+      }
+
+      await loadData(false)
+      if (selectedLocation) loadStock(selectedLocation)
     } catch (error) {
-      console.error('Error undoing sale:', error)
-      alert('Error undoing sale')
+      console.error('Void sale failed:', error)
+      alert(error instanceof Error ? error.message : 'The sale could not be voided. Nothing was changed.')
     }
   }
 

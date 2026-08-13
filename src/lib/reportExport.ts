@@ -1,12 +1,14 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import { calculateFinancialHealthScore } from '@/lib/financialHealth'
 import { prisma } from '@/lib/prisma'
+import { COUNTABLE_SALE } from '@/lib/financialFilters'
 import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassification'
 import {
   calculateSaleFinancials,
   calculateScaledLineAmount,
   convertReportCurrency,
   getReportExchangeRate,
+  resolveUnitCostUsd,
 } from '@/lib/reportCalculations'
 
 export type ReportExportPeriod = 'monthly' | 'yearly'
@@ -239,6 +241,7 @@ export async function buildReportExportData(
   const isCatalogScoped = catalogType !== 'all'
   const activeCatalogLabel = catalogLabel(catalogType)
   const salesWhere = {
+    ...COUNTABLE_SALE,
     createdAt: {
       gte: bounds.start,
       lte: bounds.end,
@@ -262,6 +265,8 @@ export async function buildReportExportData(
           select: {
             quantity: true,
             subtotal: true,
+            unitCostUsd: true,
+            costIsEstimated: true,
             item: {
               select: {
                 id: true,
@@ -615,6 +620,8 @@ export async function buildReportExportData(
         subtotal: saleItem.subtotal,
         quantity: saleItem.quantity,
         purchasePriceUsd: saleItem.item?.purchasePriceUsd ?? 0,
+        unitCostUsd: saleItem.unitCostUsd,
+        costIsEstimated: saleItem.costIsEstimated,
       })),
     })
     const saleRate = saleFinancials.exchangeRate
@@ -680,7 +687,10 @@ export async function buildReportExportData(
       currentItemRow.revenueUsd += revenueUsd
       itemRows.set(rowKey, currentItemRow)
 
-      const itemCostUsd = toNumber(saleItem.item?.purchasePriceUsd) * saleItem.quantity
+      const itemCostUsd = resolveUnitCostUsd({
+        purchasePriceUsd: saleItem.item?.purchasePriceUsd,
+        unitCostUsd: saleItem.unitCostUsd,
+      }) * saleItem.quantity
       totalCogsUsd += itemCostUsd
       totalCogsSrd += itemCostUsd * saleRate
 

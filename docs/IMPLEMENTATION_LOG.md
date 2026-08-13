@@ -490,3 +490,52 @@ T-04 → T-20 → T-21 → T-22 → T-23 → T-24 → T-25 → T-26 → T-27`
 **Note for T-17, correcting my own entry.** The reviewer is right: my SRD 8,771/month COGS is a
 rolling-90-day window, not calendar trailing-3. The route computes `now() - 3 months`, which is
 rolling. It is a legitimate basis but was unlabelled. Fixed as part of this run.
+
+## T-13 — claude — 2026-08-13T14:10Z — DONE (code) · migration staged, NOT APPLIED
+
+Before: undo deleted commissions, then sale_items, then the sale.
+        `finance_ledger_entries` refuses DELETE, so every undo left the ledger holding a movement
+        for a sale that no longer existed — books and ledger diverged permanently and silently.
+After:  `POST /api/sales/void` keeps every row, marks the sale `voided`, returns stock, debits the
+        wallet through a real `wallet_transactions` row, and posts the contra ledger entry under the
+        sale's `correlation_id`.
+
+Migration: `supabase/migrations/20260814000300_t13_void_sales.sql` — **NOT APPLIED**.
+Adds `status`, `voided_at`, `voided_by`, `void_reason`, `correlation_id` to `sales`.
+
+**Verified on the local harness** (`verify-void.mjs`), control first:
+
+| Check | Result |
+|---|---|
+| **CONTROL** — the old delete path | **3 financial rows destroyed; ledger unchanged at 1; 1 ledger entry left pointing at a sale that no longer exists.** Exactly F-06 |
+| Void keeps every row | status=voided, sales/items/commissions counts unchanged, wallet 3000 → 1000, stock 97 → 99, 2 ledger entries under one correlation_id **netting to 0** |
+| Second void | refused 409, wallet unchanged — no double debit |
+| Void without a reason | refused 400 |
+| Invariant | wallet_transactions 6 : ledger 6 |
+
+Notes:
+- A void needs a typed reason of 3+ characters. It moves real money back out of a wallet; that
+  deserves the same standard as an expense.
+- **Paid commissions are not clawed back.** Unpaid ones are zeroed; paid ones are left and reported
+  in the response and the activity log. The money already left, and reversing a payout is a separate
+  decision (Part 5, R11). The UI surfaces the count.
+- Nothing is deleted anywhere in the path — `deleteMany` appears only in the control test.
+
+### Also landed here: the T-12 and T-09 code the migrations were waiting on
+
+- `src/lib/financialFilters.ts` — one place deciding what counts toward a derived figure.
+  `COUNTABLE_SALE` excludes both voided sales (T-13) and `needs_review` rows (T-09). Applied at
+  **every** sale aggregation site: dashboard (11 queries), reports, finance summary, debug-profit,
+  reportExport, inventory-health. Hand-writing `status: 'posted'` at 20+ call sites is how one gets
+  forgotten and a voided sale is quietly reported as revenue.
+- `reportCalculations.resolveUnitCostUsd` — COGS now reads `sale_items.unit_cost_usd`, falling back
+  to the item's current price only where the T-12 backfill has not run. This is the fix for F-01:
+  re-pricing a product no longer rewrites the margin on every past sale.
+- `SaleFinancials.usesEstimatedCost` — true when any line's cost is a backfilled estimate, so a
+  report covering pre-cutover periods can say so instead of presenting it as measured.
+- `POST /api/sales` now writes `unitCostUsd` and `fxRateAtSale` with **`costIsEstimated: false`** —
+  recorded facts, not inferences — and stamps a `correlation_id` the void path reuses.
+
+**Cash views deliberately keep voided sales.** A voided sale's money genuinely moved and its reversal
+genuinely moved it back; the ledger shows both. Only *derived* figures — margin, run rate, payout
+base, dashboard revenue — drop it.

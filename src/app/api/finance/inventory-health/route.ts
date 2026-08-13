@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { countableSaleItemWhere } from '@/lib/financialFilters'
 import { normalizeExchangeRate } from '@/lib/pricing'
 import {
   buildPurchasingCeiling,
@@ -44,14 +45,15 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.saleItem.findMany({
-        where: { sale: { createdAt: { gte: windowStart } } },
+        where: countableSaleItemWhere({ sale: { createdAt: { gte: windowStart } } }),
         select: { itemId: true, quantity: true, sale: { select: { locationId: true } } },
       }),
       prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' }, select: { usdToSrd: true } }),
       prisma.saleItem.findMany({
-        where: { sale: { createdAt: { gte: cogsWindowStart } } },
+        where: countableSaleItemWhere({ sale: { createdAt: { gte: cogsWindowStart } } }),
         select: {
           quantity: true,
+          unitCostUsd: true,
           item: { select: { purchasePriceUsd: true } },
           sale: { select: { exchangeRate: true } },
         },
@@ -99,7 +101,8 @@ export async function GET(request: NextRequest) {
     const fallbackRate = normalizeExchangeRate(activeRate ? Number(activeRate.usdToSrd) : undefined)
     const cogsSrd = cogsSaleItems.reduce((sum, line) => {
       const rate = line.sale.exchangeRate === null ? fallbackRate : normalizeExchangeRate(Number(line.sale.exchangeRate))
-      return sum + line.quantity * Number(line.item.purchasePriceUsd) * rate
+      const unitCostUsd = line.unitCostUsd == null ? Number(line.item.purchasePriceUsd) : Number(line.unitCostUsd)
+      return sum + line.quantity * unitCostUsd * rate
     }, 0)
     const spendSrd = inventorySpend.reduce((sum, expense) => (
       sum + (expense.currency === 'USD' ? Number(expense.amount) * fallbackRate : Number(expense.amount))

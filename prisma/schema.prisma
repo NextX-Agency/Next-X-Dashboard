@@ -25,6 +25,7 @@ model User {
   notifications    UserNotification[]
   ledgerEntries    FinanceLedgerEntry[]   @relation("LedgerActor")
   reviewedExpenses Expense[]              @relation("ExpenseReviewedBy")
+  voidedSales      Sale[]                 @relation("SaleVoidedBy")
 
   @@index([email], map: "idx_users_email")
   @@map("users")
@@ -170,6 +171,8 @@ model Item {
   allow_custom_price                      Boolean?            @default(false)
   deletedAt                               DateTime?           @map("deleted_at") @db.Timestamptz(6)
   catalogType                             String              @default("audio") @map("catalog_type")
+  needsReview                             Boolean             @default(false) @map("needs_review")
+  reviewReason                            String?             @map("review_reason")
   combo_items_combo_items_combo_idToitems combo_items[]       @relation("combo_items_combo_idToitems")
   combo_items_combo_items_item_idToitems  combo_items[]       @relation("combo_items_item_idToitems")
   category                                Category?           @relation(fields: [categoryId], references: [id])
@@ -301,13 +304,22 @@ model Sale {
   notes               String?
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   wallet_id           String?               @db.Uuid
+  status              String                @default("posted")
+  voidedAt            DateTime?             @map("voided_at") @db.Timestamptz(6)
+  voidedBy            String?               @map("voided_by") @db.Uuid
+  voidReason          String?               @map("void_reason")
+  correlationId       String?               @map("correlation_id") @db.Uuid
+  needsReview         Boolean               @default(false) @map("needs_review")
+  reviewReason        String?               @map("review_reason")
   commissions         Commission[]
   saleItems           SaleItem[]
   location            Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
   seller              Seller?               @relation(fields: [sellerId], references: [id])
   wallets             Wallet?               @relation(fields: [wallet_id], references: [id], onUpdate: NoAction)
+  voidedByUser        User?                 @relation("SaleVoidedBy", fields: [voidedBy], references: [id], onDelete: SetNull)
   wallet_transactions wallet_transactions[]
 
+  @@index([status])
   @@map("sales")
 }
 
@@ -322,6 +334,9 @@ model SaleItem {
   is_custom_price Boolean? @default(false)
   original_price  Decimal? @db.Decimal(10, 2)
   discount_reason String?
+  unitCostUsd     Decimal? @map("unit_cost_usd") @db.Decimal(18, 4)
+  fxRateAtSale    Decimal? @map("fx_rate_at_sale") @db.Decimal(18, 8)
+  costIsEstimated Boolean  @default(true) @map("cost_is_estimated")
   item            Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   sale            Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
@@ -381,6 +396,8 @@ model Expense {
   refundReason        String?               @map("refund_reason")
   reviewedAt          DateTime?             @map("reviewed_at") @db.Timestamptz(6)
   reviewedByUserId    String?               @map("reviewed_by_user_id") @db.Uuid
+  needsReview         Boolean               @default(false) @map("needs_review")
+  reviewReason        String?               @map("review_reason")
   category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)

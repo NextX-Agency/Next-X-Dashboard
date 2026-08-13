@@ -46,6 +46,8 @@ export interface ResolvedSaleLine {
   itemId: string
   itemName: string
   categoryId: string | null
+  /** Cost at the moment of sale, frozen onto the line (T-12). */
+  unitCostUsd: number
   quantity: number
   unitPrice: number
   subtotal: number
@@ -181,6 +183,7 @@ interface ItemRecord {
   id: string
   name: string
   categoryId: string | null
+  purchasePriceUsd: Prisma.Decimal
   sellingPriceSrd: Prisma.Decimal | null
   sellingPriceUsd: Prisma.Decimal | null
   allow_custom_price: boolean | null
@@ -212,6 +215,7 @@ export async function resolveSaleLines(
       select: {
         id: true, name: true, categoryId: true, sellingPriceSrd: true,
         sellingPriceUsd: true, allow_custom_price: true, is_combo: true,
+        purchasePriceUsd: true,
       },
     }),
     tx.stock.findMany({
@@ -255,6 +259,7 @@ export async function resolveSaleLines(
       itemId: item.id,
       itemName: item.name,
       categoryId: item.categoryId,
+      unitCostUsd: Number(item.purchasePriceUsd),
       quantity: requested.quantity,
       unitPrice,
       subtotal: roundCurrencyAmount(unitPrice * requested.quantity),
@@ -278,6 +283,7 @@ export async function resolveSaleLines(
         itemId: item.id,
         itemName: item.name,
         categoryId: item.categoryId,
+        unitCostUsd: Number(item.purchasePriceUsd),
         quantity: member.quantity,
         unitPrice: roundCurrencyAmount(subtotal / member.quantity),
         subtotal,

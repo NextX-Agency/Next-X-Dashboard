@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { COUNTABLE_SALE } from '@/lib/financialFilters'
 import type {
   ReportCategory,
   ReportComboItem,
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
   try {
     const [sales, items, stocks, locations, expenses, commissions, wallets, walletTransactions, reservations, comboItems, sellers, categories, purchaseOrders] = await Promise.all([
       prisma.sale.findMany({
+        where: COUNTABLE_SALE,
         select: {
           id: true,
           locationId: true,
@@ -81,6 +83,8 @@ export async function GET(request: NextRequest) {
               quantity: true,
               unitPrice: true,
               subtotal: true,
+              unitCostUsd: true,
+              costIsEstimated: true,
               is_custom_price: true,
               original_price: true,
               discount_reason: true,

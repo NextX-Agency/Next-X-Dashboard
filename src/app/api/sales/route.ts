@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/apiAuth'
 import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/financeLedger'
 import { prisma } from '@/lib/prisma'
@@ -474,9 +475,14 @@ export async function POST(request: NextRequest) {
         throw new SaleValidationError('That seller does not belong to the selected location.')
       }
 
+      // One id ties the sale to its ledger entries, so a later void can post
+      // its contra entries under the same correlation (T-13).
+      const correlationId = randomUUID()
+
       const sale = await tx.sale.create({
         data: {
           locationId,
+          correlationId,
           sellerId: seller?.id ?? null,
           currency,
           exchangeRate: currency === 'USD' ? exchangeRate : null,
@@ -492,6 +498,12 @@ export async function POST(request: NextRequest) {
               is_custom_price: line.isCustomPrice,
               original_price: line.originalPrice,
               discount_reason: line.discountReason,
+              // Freeze the cost and the rate onto the line as it is now (T-12).
+              // These are recorded facts, not the backfill's inference, so they
+              // are NOT flagged estimated.
+              unitCostUsd: line.unitCostUsd,
+              fxRateAtSale: exchangeRate,
+              costIsEstimated: false,
             })),
           },
         },
@@ -579,6 +591,7 @@ export async function POST(request: NextRequest) {
         currency,
         sourceType: 'sale',
         sourceId: sale.id,
+        correlationId,
         description: `Sale of ${lines.length} line${lines.length === 1 ? '' : 's'} at ${location.name}`,
         occurredAt: sale.createdAt,
         metadata: {
