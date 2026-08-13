@@ -142,9 +142,44 @@ src/app/sales/page.tsx:715
 
 *Fix:* atomic SQL increments (`balance = balance + $1`), or derive balances from the ledger and treat `wallets.balance` as a cache.
 
-**F-04 — RLS grants every authenticated user full control of all financial data**
+**F-04 — RLS grants *anonymous* users full control of all financial data**
 
-All 80 policies in `20260127000000_enable_rls_policies.sql` follow:
+> **Corrected 2026-08-13, and the correction is severe.** This finding originally described the
+> exposure as "any logged-in user", read from the migration file
+> `20260127000000_enable_rls_policies.sql`. **That file is not what is deployed.** Production was
+> queried directly and carries different, far weaker policies. The credit for spotting this belongs
+> to the implementing agent, which flagged the discrepancy rather than trusting the audit.
+
+Production carries **36 tables** with permissive policies to role `public` — which includes `anon` —
+with a `USING` expression of literal `true`, and `anon` holds `SELECT/INSERT/UPDATE/DELETE` grants on
+all of them:
+
+```
+wallets · wallet_transactions · sales · sale_items · expenses · commissions
+stock · stock_transfers · exchange_rates · budgets · goals · sellers · clients
+purchase_orders · reservations · activity_logs · store_settings · users  … and 18 more
+```
+
+The anon key ships in the browser bundle of the **public webshop** (`src/lib/supabase.ts`), so this
+required no login at all. Anyone who viewed page source could read or rewrite wallet balances, sales
+and commissions.
+
+**`users` was the worst of it.** It carried `"Allow authenticated access" — ALL, public, USING true,
+WITH CHECK true`, meaning any visitor could read every `password_hash`, insert their own admin
+account, or overwrite the existing admin's credentials.
+
+**Status: `users` closed on 2026-08-13** (`supabase/migrations/20260813090000_close_anon_access_to_users.sql`)
+— policies dropped, `anon` and `authenticated` revoked, RLS left on with zero policies. Verified: 1 user
+intact, all Part 6 baseline counts unchanged. Authentication was unaffected because login runs through
+Prisma on a direct connection.
+
+**The remaining 35 tables are still open.** They cannot be closed yet: the admin sales, commissions and
+reservations pages write to them *directly from the browser using the anon key*, so revoking access
+breaks the dashboard. That dependency is the real finding — **the application currently works because
+the database is open to anonymous users.** T-11 moves those writes server-side; T-05 closes the tables
+immediately afterwards. Until then this is the single largest risk in the system.
+
+For reference, the migration file that was believed to be deployed reads:
 
 ```sql
 CREATE POLICY "Allow authenticated users" ON public.wallets
