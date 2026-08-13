@@ -2,16 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
 import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw, Headphones, Watch, ImageIcon } from 'lucide-react'
 import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
 import { Modal } from '@/components/PageCards'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { useConfirmDialog } from '@/lib/useConfirmDialog'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { logActivity, buildActivityDetails } from '@/lib/activityLog'
 import { useCurrency } from '@/lib/CurrencyContext'
-import { useAuth } from '@/lib/AuthContext'
 import { cn } from '@/lib/utils'
 import type {
   OrdersPageClient as Client,
@@ -28,6 +25,7 @@ type SortOrder = 'asc' | 'desc'
 type ItemCatalogFilter = 'audio' | 'watches'
 
 interface OrderItemForm {
+  id?: string
   item_id: string
   quantity: string
   unit_cost: string
@@ -63,22 +61,8 @@ interface EditReceiptItemForm {
   is_allocation: boolean
 }
 
-interface DeleteStockReversalPreview {
-  canReverseStock: boolean
-  totalUnits: number
-  receivedItems: Array<{
-    itemId: string
-    itemName: string
-    locationId: string
-    locationName: string
-    quantity: number
-  }>
-  reason: string
-}
-
 export default function OrdersPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
-  const { user } = useAuth()
   const { dialogProps, confirm } = useConfirmDialog()
   const [orders, setOrders] = useState<OrderWithDetails[]>([])
   const [items, setItems] = useState<Item[]>([])
@@ -99,7 +83,6 @@ export default function OrdersPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
-  const [deleteReverseStock, setDeleteReverseStock] = useState(false)
   const [shipmentNote, setShipmentNote] = useState('')
   const [showEditReceiptsModal, setShowEditReceiptsModal] = useState(false)
   const [editingReceiptOrder, setEditingReceiptOrder] = useState<OrderWithDetails | null>(null)
@@ -171,6 +154,17 @@ export default function OrdersPage() {
   useEffect(() => {
     void loadData(true)
   }, [loadData])
+
+  const saveOrderAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload }),
+    })
+    const result = await response.json().catch(() => null) as { error?: string } | null
+    if (!response.ok) throw new Error(result?.error || 'Unable to save the purchase order.')
+    return result
+  }, [])
 
   const resetOrderForm = () => {
     setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
@@ -416,7 +410,7 @@ export default function OrdersPage() {
         }
 
         return {
-          id: crypto.randomUUID(),
+          id: item.id,
           item_id: item.item_id,
           quantity,
           unit_cost: unitCost,
@@ -454,161 +448,31 @@ export default function OrdersPage() {
       return
     }
 
-    const totalAmount = validItems.reduce((sum, item) => sum + item.subtotal, 0)
-    const wallet = orderForm.wallet_id ? wallets.find(w => w.id === orderForm.wallet_id) : null
-
     if (validItems.length === 0) {
       alert('Add at least one item to the order')
       return
     }
 
-    // Build items summary for logging
-    const itemsSummary = validItems.map(oi => {
-      const item = items.find(i => i.id === oi.item_id)
-      return `${oi.quantity}x ${item?.name || 'Unknown'}`
-    }).join(', ')
-
-    const locationName = locations.find(l => l.id === orderForm.location_id)?.name || ''
-    const sourceContactName = clients.find(c => c.id === orderForm.supplier_id)?.name || ''
-
     setSubmitting(true)
     try {
-      if (editingOrder) {
-        // Update order
-        await supabase.from('purchase_orders').update({
-          wallet_id: orderForm.wallet_id || null,
-          location_id: orderForm.location_id,
-          supplier_id: orderForm.supplier_id || null,
-          total_amount: totalAmount,
-          currency: orderForm.currency,
-          exchange_rate: exchangeRate,
-          notes: orderForm.notes || null,
-          expected_arrival: orderForm.expected_arrival || null
-        }).eq('id', editingOrder.id)
-
-        // Delete old items and insert new ones. Allocation rows cascade from the line items.
-        await supabase.from('purchase_order_items').delete().eq('order_id', editingOrder.id)
-        
-        const { error: itemInsertError } = await supabase.from('purchase_order_items').insert(
-          validItems.map(item => ({
-            id: item.id,
-            order_id: editingOrder.id,
-            item_id: item.item_id,
-            quantity: item.quantity,
-            unit_cost: item.unit_cost,
-            subtotal: item.subtotal,
-          }))
-        )
-
-        if (itemInsertError) throw itemInsertError
-
-        const allocationRows = validItems.flatMap(item => item.allocations.map(allocation => ({
-          order_item_id: item.id,
-          location_id: allocation.location_id,
-          quantity: allocation.quantity,
-        })))
-
-        if (allocationRows.length > 0) {
-          const { error: allocationInsertError } = await supabase
-            .from('purchase_order_allocations')
-            .insert(allocationRows)
-          if (allocationInsertError) throw allocationInsertError
-        }
-
-        // Also update item purchase prices to latest values
-        for (const oi of validItems) {
-          if (oi.unit_cost > 0) {
-            await supabase.from('items').update({ purchase_price_usd: oi.unit_cost }).eq('id', oi.item_id)
-          }
-        }
-
-        await logActivity({
-          action: 'update',
-          entityType: 'purchase_order',
-          entityId: editingOrder.id,
-          entityName: `Order #${editingOrder.id.slice(0, 8)}`,
-          details: buildActivityDetails({
-            Items: itemsSummary,
-            Total: formatCurrency(totalAmount, orderForm.currency),
-            Location: locationName,
-            Source: sourceContactName,
-            Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
-            Wallet: 'Unchanged'
-          }),
-          userId: user?.id
-        })
-      } else {
-        // Create new order
-        const { data: newOrder, error: orderError } = await supabase.from('purchase_orders').insert({
-          wallet_id: orderForm.wallet_id || null,
-          location_id: orderForm.location_id,
-          supplier_id: orderForm.supplier_id || null,
-          total_amount: totalAmount,
-          currency: orderForm.currency,
-          exchange_rate: exchangeRate,
-          status: 'pending',
-          notes: orderForm.notes || null,
-          expected_arrival: orderForm.expected_arrival || null
-        }).select().single()
-
-        if (orderError) throw orderError
-
-        // Insert order items
-        const { error: itemInsertError } = await supabase.from('purchase_order_items').insert(
-          validItems.map(item => ({
-            id: item.id,
-            order_id: newOrder.id,
-            item_id: item.item_id,
-            quantity: item.quantity,
-            unit_cost: item.unit_cost,
-            subtotal: item.subtotal,
-          }))
-        )
-
-        if (itemInsertError) throw itemInsertError
-
-        const allocationRows = validItems.flatMap(item => item.allocations.map(allocation => ({
-          order_item_id: item.id,
-          location_id: allocation.location_id,
-          quantity: allocation.quantity,
-        })))
-
-        if (allocationRows.length > 0) {
-          const { error: allocationInsertError } = await supabase
-            .from('purchase_order_allocations')
-            .insert(allocationRows)
-          if (allocationInsertError) throw allocationInsertError
-        }
-
-        // Update item purchase prices to latest values
-        for (const oi of validItems) {
-          if (oi.unit_cost > 0) {
-            await supabase.from('items').update({ purchase_price_usd: oi.unit_cost }).eq('id', oi.item_id)
-          }
-        }
-
-        await logActivity({
-          action: 'create',
-          entityType: 'purchase_order',
-          entityId: newOrder.id,
-          entityName: `Order #${newOrder.id.slice(0, 8)}`,
-          details: buildActivityDetails({
-            Items: itemsSummary,
-            Total: formatCurrency(totalAmount, orderForm.currency),
-            Funding: wallet ? `${wallet.person_name} ${wallet.type} (reference only)` : 'No wallet linked',
-            Wallet: 'Unchanged',
-            Location: locationName,
-            Source: sourceContactName
-          }),
-          userId: user?.id
-        })
-      }
+      await saveOrderAction(editingOrder ? 'update' : 'create', {
+        ...(editingOrder ? { id: editingOrder.id } : {}),
+        ...orderForm,
+        exchange_rate: exchangeRate,
+        items: validItems.map((item) => ({
+          id: item.id,
+          item_id: item.item_id,
+          quantity: item.quantity,
+          unit_cost: item.unit_cost,
+          allocations: item.allocations,
+        })),
+      })
 
       resetOrderForm()
       await loadData()
     } catch (error) {
       console.error('Error saving order:', error)
-      alert('Error saving order')
+      alert(error instanceof Error ? error.message : 'Error saving order')
     } finally {
       setSubmitting(false)
     }
@@ -632,38 +496,13 @@ export default function OrdersPage() {
       })
       if (!ok) return
 
-      await supabase.from('purchase_orders').update({ status: 'cancelled' }).eq('id', order.id)
-      await logActivity({
-        action: 'cancel',
-        entityType: 'purchase_order',
-        entityId: order.id,
-        entityName: `Order #${order.id.slice(0, 8)}`,
-        details: buildActivityDetails({
-          Location: order.locations?.name || '',
-          Items: order.purchase_order_items?.map(i => `${i.items?.name}`).join(', ') || '',
-          Wallet: 'Unchanged'
-        }),
-        userId: user?.id
-      })
+      await saveOrderAction('cancel', { id: order.id })
       await loadData()
       return
     }
 
     // Simple status transitions (pending→ordered, ordered→shipped)
-    await supabase.from('purchase_orders').update({ status: newStatus }).eq('id', order.id)
-    
-    await logActivity({
-      action: 'update',
-      entityType: 'purchase_order',
-      entityId: order.id,
-      entityName: `Order #${order.id.slice(0, 8)}`,
-      details: buildActivityDetails({
-        Status: `${order.status} → ${newStatus}`,
-        Location: order.locations?.name || '',
-        Items: order.purchase_order_items?.map(i => `${i.quantity}x ${i.items?.name}`).join(', ') || ''
-      }),
-      userId: user?.id
-    })
+    await saveOrderAction('status', { id: order.id, status: newStatus })
     
     await loadData()
   }
@@ -715,92 +554,16 @@ export default function OrdersPage() {
     setSubmitting(true)
 
     try {
-      const receivedSummary: string[] = []
-      const receivedByOrderItem = new Map<string, number>()
-
-      for (const ri of receiveItems) {
-        const qty = parseInt(ri.receiving) || 0
-        if (qty <= 0) continue
-        if (qty > ri.remaining) {
-          throw new Error(`Cannot receive more than the remaining ${ri.remaining} unit(s) for ${ri.item_name} at ${ri.location_name}.`)
-        }
-
-        const orderItem = receivingOrder.purchase_order_items?.find(oi => oi.id === ri.order_item_id)
-        if (!orderItem) continue
-
-        // Update stock
-        const { data: existingStock } = await supabase
-          .from('stock')
-          .select('*')
-          .eq('item_id', orderItem.item_id)
-          .eq('location_id', ri.location_id)
-          .single()
-
-        if (existingStock) {
-          await supabase
-            .from('stock')
-            .update({ quantity: existingStock.quantity + qty })
-            .eq('id', existingStock.id)
-        } else {
-          await supabase
-            .from('stock')
-            .insert({
-              item_id: orderItem.item_id,
-              location_id: ri.location_id,
-              quantity: qty
-            })
-        }
-
-        // Update destination allocation and aggregate line receipt.
-        const allocation = orderItem.purchase_order_allocations?.find(entry => entry.id === ri.id)
-        if (allocation) {
-          await supabase
-            .from('purchase_order_allocations')
-            .update({ quantity_received: (allocation.quantity_received || 0) + qty })
-            .eq('id', allocation.id)
-        }
-
-        receivedByOrderItem.set(orderItem.id, (receivedByOrderItem.get(orderItem.id) || 0) + qty)
-        receivedSummary.push(`${qty}x ${ri.item_name} to ${ri.location_name}`)
-      }
-
-      for (const [orderItemId, receivedQuantity] of receivedByOrderItem) {
-        const orderItem = receivingOrder.purchase_order_items?.find(oi => oi.id === orderItemId)
-        if (!orderItem) continue
-
-        await supabase
-          .from('purchase_order_items')
-          .update({ quantity_received: (orderItem.quantity_received || 0) + receivedQuantity })
-          .eq('id', orderItemId)
-      }
-
-      // Determine new status
-      const allItems = receivingOrder.purchase_order_items || []
-      const allFullyReceived = allItems.every(oi => {
-        const receivingForItem = receivedByOrderItem.get(oi.id) || 0
-        const totalReceived = (oi.quantity_received || 0) + receivingForItem
-        return totalReceived >= oi.quantity
-      })
-
-      const anyReceived = receivedByOrderItem.size > 0
-      const newStatus: OrderStatus = allFullyReceived ? 'received' : (anyReceived ? 'partially_received' : receivingOrder.status as OrderStatus)
-
-      await supabase.from('purchase_orders').update({ status: newStatus }).eq('id', receivingOrder.id)
-
-      await logActivity({
-        action: 'receive',
-        entityType: 'purchase_order',
-        entityId: receivingOrder.id,
-        entityName: `Order #${receivingOrder.id.slice(0, 8)}`,
-        details: buildActivityDetails({
-          Received: receivedSummary.join(', '),
-          Status: newStatus === 'received' ? 'Fully received' : 'Partially received',
-          Location: receivingOrder.locations?.name || '',
-          Stock: 'Updated',
-          ...(shipmentNote ? { Note: shipmentNote } : {}),
-        }),
-        userId: user?.id
-      })
+      const receiptLines = receiveItems
+        .map((item) => ({
+          order_item_id: item.order_item_id,
+          allocation_id: item.id === item.order_item_id ? null : item.id,
+          location_id: item.location_id,
+          quantity: Number.parseInt(item.receiving, 10) || 0,
+        }))
+        .filter((item) => item.quantity > 0)
+      if (receiptLines.length === 0) throw new Error('Enter a quantity to receive.')
+      await saveOrderAction('receive', { id: receivingOrder.id, items: receiptLines, shipment_note: shipmentNote || null })
 
       setShowReceiveModal(false)
       setReceivingOrder(null)
@@ -808,7 +571,7 @@ export default function OrdersPage() {
       await loadData()
     } catch (error) {
       console.error('Error receiving shipment:', error)
-      alert('Error processing receipt')
+      alert(error instanceof Error ? error.message : 'Error processing receipt')
     } finally {
       setSubmitting(false)
     }
@@ -819,56 +582,8 @@ export default function OrdersPage() {
     setShowViewOrder(true)
   }
 
-  const getDeleteStockReversalPreview = useCallback((order: OrderWithDetails): DeleteStockReversalPreview => {
-    const receivedItems = (order.purchase_order_items || []).flatMap((item) => {
-      const allocations = item.purchase_order_allocations || []
-
-      if (allocations.length === 0) {
-        if ((item.quantity_received || 0) <= 0) return []
-        return [{
-          itemId: item.item_id,
-          itemName: item.items?.name || 'Unknown item',
-          locationId: order.location_id,
-          locationName: order.locations?.name || 'Default destination',
-          quantity: item.quantity_received || 0,
-        }]
-      }
-
-      return allocations
-        .filter((allocation) => (allocation.quantity_received || 0) > 0)
-        .map((allocation) => ({
-          itemId: item.item_id,
-          itemName: item.items?.name || 'Unknown item',
-          locationId: allocation.location_id,
-          locationName: allocation.locations?.name || 'Unknown location',
-          quantity: allocation.quantity_received || 0,
-        }))
-    })
-
-    const totalUnits = receivedItems.reduce((sum, item) => sum + item.quantity, 0)
-
-    if (receivedItems.length === 0) {
-      return {
-        canReverseStock: false,
-        totalUnits: 0,
-        receivedItems: [],
-        reason: 'No received stock is linked to this order yet.',
-      }
-    }
-
-    return {
-      canReverseStock: true,
-      totalUnits,
-      receivedItems,
-      reason: order.status === 'received'
-        ? 'This will remove all received units from their actual destination locations.'
-        : 'This will remove the units already received into stock while leaving never-received units untouched.',
-    }
-  }, [])
-
   const openDeleteOrderModal = (order: OrderWithDetails) => {
     setDeletingOrder(order)
-    setDeleteReverseStock(false)
     setShowDeleteOrderModal(true)
   }
 
@@ -876,7 +591,6 @@ export default function OrdersPage() {
     if (submitting && !force) return
     setShowDeleteOrderModal(false)
     setDeletingOrder(null)
-    setDeleteReverseStock(false)
   }
 
   const handleEditOrder = (order: OrderWithDetails) => {
@@ -906,6 +620,7 @@ export default function OrdersPage() {
       }
 
       return {
+        id: oItem.id,
         item_id: oItem.item_id,
         quantity: oItem.quantity.toString(),
         unit_cost: currentPrice.toString(), // auto-sync to latest price
@@ -929,80 +644,9 @@ export default function OrdersPage() {
   const handleDeleteOrder = async () => {
     if (!deletingOrder || submitting) return
 
-    const order = deletingOrder
-    const stockReversalPreview = getDeleteStockReversalPreview(order)
-
     setSubmitting(true)
     try {
-      if (deleteReverseStock && stockReversalPreview.canReverseStock) {
-        const stockRows = new Map<string, { id: string; quantity: number }>()
-
-        for (const receivedItem of stockReversalPreview.receivedItems) {
-          const { data: existingStock } = await supabase
-            .from('stock')
-            .select('id, quantity')
-            .eq('item_id', receivedItem.itemId)
-            .eq('location_id', receivedItem.locationId)
-            .single()
-
-          if (!existingStock) {
-            throw new Error(`Cannot reverse stock for ${receivedItem.itemName} because no stock record was found at ${receivedItem.locationName}.`)
-          }
-
-          if (existingStock.quantity < receivedItem.quantity) {
-            throw new Error(`Cannot reverse ${receivedItem.quantity} unit(s) of ${receivedItem.itemName} at ${receivedItem.locationName} because only ${existingStock.quantity} remain in stock.`)
-          }
-
-          stockRows.set(`${receivedItem.itemId}:${receivedItem.locationId}`, {
-            id: existingStock.id,
-            quantity: existingStock.quantity,
-          })
-        }
-
-        for (const receivedItem of stockReversalPreview.receivedItems) {
-          const currentStock = stockRows.get(`${receivedItem.itemId}:${receivedItem.locationId}`)
-          if (!currentStock) continue
-
-          const nextQuantity = currentStock.quantity - receivedItem.quantity
-          if (nextQuantity > 0) {
-            await supabase
-              .from('stock')
-              .update({ quantity: nextQuantity })
-              .eq('id', currentStock.id)
-          } else {
-            await supabase
-              .from('stock')
-              .delete()
-              .eq('id', currentStock.id)
-          }
-        }
-      }
-
-      await supabase.from('purchase_order_items').delete().eq('order_id', order.id)
-      await supabase.from('purchase_orders').delete().eq('id', order.id)
-
-      await logActivity({
-        action: 'delete',
-        entityType: 'purchase_order',
-        entityId: order.id,
-        entityName: `Order #${order.id.slice(0, 8)}`,
-        details: buildActivityDetails({
-          Items: order.purchase_order_items?.map(i => `${i.quantity}x ${i.items?.name}`).join(', ') || '',
-          Total: formatCurrency(order.total_amount, order.currency as Currency),
-          Location: order.locations?.name || '',
-          Status: order.status,
-          StockReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? 'Yes' : 'No',
-          StockUnitsReversed: deleteReverseStock && stockReversalPreview.canReverseStock ? String(stockReversalPreview.totalUnits) : '',
-          Wallet: 'Unchanged',
-          StockNote: deleteReverseStock && stockReversalPreview.canReverseStock
-            ? 'Received stock was removed from inventory'
-            : order.status === 'partially_received' || order.status === 'received'
-              ? 'Received stock was left unchanged'
-              : '',
-        }),
-        userId: user?.id
-      })
-
+      await saveOrderAction('cancel', { id: deletingOrder.id })
       closeDeleteOrderModal(true)
       await loadData()
     } catch (error) {
@@ -1055,65 +699,15 @@ export default function OrdersPage() {
     if (!editingReceiptOrder || submitting) return
     setSubmitting(true)
     try {
-      for (const item of editReceiptItems) {
-        const newQty = parseInt(item.new_quantity_received) || 0
-        const diff = newQty - item.quantity_received
-        if (diff === 0) continue
-
-        const { data: existingStock } = await supabase
-          .from('stock')
-          .select('id, quantity')
-          .eq('item_id', item.item_id)
-          .eq('location_id', item.location_id)
-          .single()
-
-        if (diff > 0) {
-          if (existingStock) {
-            await supabase.from('stock').update({ quantity: existingStock.quantity + diff }).eq('id', existingStock.id)
-          } else {
-            await supabase.from('stock').insert({ item_id: item.item_id, location_id: item.location_id, quantity: diff })
-          }
-        } else {
-          if (!existingStock || existingStock.quantity < Math.abs(diff)) {
-            throw new Error(`Cannot reduce ${item.item_name} at ${item.location_name}: only ${existingStock?.quantity ?? 0} in stock.`)
-          }
-          const newStockQty = existingStock.quantity + diff
-          if (newStockQty > 0) {
-            await supabase.from('stock').update({ quantity: newStockQty }).eq('id', existingStock.id)
-          } else {
-            await supabase.from('stock').delete().eq('id', existingStock.id)
-          }
-        }
-
-        if (item.is_allocation) {
-          await supabase.from('purchase_order_allocations').update({ quantity_received: newQty }).eq('id', item.id)
-        }
-      }
-
-      // Recalculate order_item.quantity_received
-      const receivedByOrderItem = new Map<string, number>()
-      for (const item of editReceiptItems) {
-        const newQty = parseInt(item.new_quantity_received) || 0
-        receivedByOrderItem.set(item.order_item_id, (receivedByOrderItem.get(item.order_item_id) || 0) + newQty)
-      }
-      for (const [orderItemId, totalReceived] of receivedByOrderItem) {
-        await supabase.from('purchase_order_items').update({ quantity_received: totalReceived }).eq('id', orderItemId)
-      }
-
-      // Recalculate order status
-      const allItems = editingReceiptOrder.purchase_order_items || []
-      const allFullyReceived = allItems.every(oi => (receivedByOrderItem.get(oi.id) || 0) >= oi.quantity)
-      const anyReceived = Array.from(receivedByOrderItem.values()).some(v => v > 0)
-      const newStatus: OrderStatus = allFullyReceived ? 'received' : (anyReceived ? 'partially_received' : editingReceiptOrder.status as OrderStatus)
-      await supabase.from('purchase_orders').update({ status: newStatus }).eq('id', editingReceiptOrder.id)
-
-      await logActivity({
-        action: 'update',
-        entityType: 'purchase_order',
-        entityId: editingReceiptOrder.id,
-        entityName: `Order #${editingReceiptOrder.id.slice(0, 8)}`,
-        details: buildActivityDetails({ Action: 'Receipt quantities adjusted', Status: newStatus }),
-        userId: user?.id
+      if (editReceiptItems.length === 0) throw new Error('There are no received quantities to adjust.')
+      await saveOrderAction('adjustReceipts', {
+        id: editingReceiptOrder.id,
+        items: editReceiptItems.map((item) => ({
+          order_item_id: item.order_item_id,
+          allocation_id: item.is_allocation ? item.id : null,
+          location_id: item.location_id,
+          new_quantity_received: Number.parseInt(item.new_quantity_received, 10) || 0,
+        })),
       })
 
       setShowEditReceiptsModal(false)
@@ -2388,17 +1982,13 @@ export default function OrdersPage() {
         )}
       </Modal>
 
-      {/* Delete Order Modal */}
+      {/* Cancel Order Modal */}
       <Modal
         isOpen={showDeleteOrderModal}
         onClose={() => closeDeleteOrderModal()}
-        title={`Delete Order${deletingOrder ? ` — #${deletingOrder.id.slice(0, 8)}` : ''}`}
+        title={`Cancel Order${deletingOrder ? ` — #${deletingOrder.id.slice(0, 8)}` : ''}`}
       >
-        {deletingOrder && (() => {
-          const stockReversalPreview = getDeleteStockReversalPreview(deletingOrder)
-          const hasReceivedStock = stockReversalPreview.canReverseStock
-
-          return (
+        {deletingOrder && (
             <div className="space-y-4">
               <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
                 <div className="flex items-start gap-3">
@@ -2406,17 +1996,10 @@ export default function OrdersPage() {
                     <AlertTriangle size={18} />
                   </div>
                   <div className="space-y-1 text-sm">
-                    <div className="font-semibold text-foreground">Delete this order record</div>
+                    <div className="font-semibold text-foreground">Cancel this order</div>
                     <div className="text-muted-foreground">
-                      Use this for invalid or duplicate orders. This removes the order and its line items from the system.
+                      The order and any receipt history remain available for audit. Wallet balances and received stock are unchanged.
                     </div>
-                    {hasReceivedStock && (
-                      <div className="text-amber-500">
-                        {deleteReverseStock
-                          ? 'Received stock will be removed from inventory as part of this rollback.'
-                          : 'Received stock is not changed by this delete action unless you enable stock reversal below.'}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -2440,35 +2023,10 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <label className={cn(
-                'flex items-start gap-3 rounded-xl border p-4 transition-colors',
-                stockReversalPreview.canReverseStock
-                  ? 'border-orange-500/20 bg-orange-500/5 cursor-pointer hover:bg-orange-500/10'
-                  : 'border-border/60 bg-muted/20 opacity-80 cursor-not-allowed'
-              )}>
-                <input
-                  type="checkbox"
-                  checked={deleteReverseStock}
-                  onChange={(e) => setDeleteReverseStock(e.target.checked)}
-                  disabled={!stockReversalPreview.canReverseStock || submitting}
-                  className="mt-1 h-4 w-4 rounded border-border accent-orange-500"
-                />
-                <div className="space-y-1 text-sm">
-                  <div className="font-semibold text-foreground">Also reverse received stock</div>
-                  <div className="text-muted-foreground">{stockReversalPreview.reason}</div>
-                  <div className="text-xs font-medium text-foreground">
-                    Stock change:{' '}
-                    {stockReversalPreview.canReverseStock
-                      ? `${stockReversalPreview.totalUnits} received unit(s) removed`
-                      : 'No stock change'}
-                  </div>
-                </div>
-              </label>
-
               <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
-                <div>Delete only: removes the order record and keeps the current wallet balance as-is.</div>
-                <div>Delete + reverse stock: removes the order record and also removes the received units from inventory.</div>
-                <div>Wallet balances are never changed by order delete actions.</div>
+                <div>Cancellation does not delete the order, order lines, allocation history, stock records, or wallet records.</div>
+                <div>Use receipt adjustments for a documented stock correction; this action only closes incoming-stock planning.</div>
+                <div>Wallet balances are never changed by purchase-order cancellation.</div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
@@ -2476,16 +2034,11 @@ export default function OrdersPage() {
                   Cancel
                 </Button>
                 <Button type="button" onClick={() => void handleDeleteOrder()} variant="primary" className="min-h-12 touch-manipulation order-1 sm:order-2" disabled={submitting}>
-                  {submitting
-                    ? 'Deleting...'
-                    : deleteReverseStock && stockReversalPreview.canReverseStock
-                        ? 'Delete & Reverse Stock'
-                        : 'Delete Order'}
+                  {submitting ? 'Cancelling...' : 'Cancel Order'}
                 </Button>
               </div>
             </div>
-          )
-        })()}
+        )}
       </Modal>
 
       {/* Edit Receipts Modal */}

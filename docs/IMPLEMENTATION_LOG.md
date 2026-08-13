@@ -1019,3 +1019,21 @@ wallet-transaction/ledger links in either direction, zero negative wallets, and 
 Moving purchase-order creation, edits, receiving, cancellation, and stock/allocation changes out
 of the browser and into an authenticated server route with Serializable transactions. This is the
 next live browser financial-write surface found by the full `src/app` audit.
+
+## Orders financial write hardening — Codex — 2026-08-13T13:12Z — DONE
+
+`orders/page.tsx` no longer imports the browser Supabase client or writes purchase orders, order
+lines, allocations, stock, or item purchase prices. The authenticated orders API now owns create,
+pending-order revision, status transitions, receiving, receipt corrections, and cancellation via
+`runSerializableTransaction` with server-side company/wallet/location/item validation and an
+in-transaction activity log. Receipt stock changes use atomic increments/decrements and cannot go
+negative.
+
+Purchase orders and their lines are no longer physically deleted. The prior destructive UI now
+cancels an order while retaining order, allocation, stock, and wallet history. Existing lines and
+allocations are retained on pending-order revisions rather than being deleted and reinserted.
+
+Verification: `pnpm exec tsc --noEmit --pretty false` passed; the orders browser-write scan
+returned zero matches; `git diff --check` passed. A read-only Part 6 run confirmed **149 sales /
+306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses /
+122 commissions / SRD 42,005.99 / USD 534.00**, with all six financial/stock invariants zero.
