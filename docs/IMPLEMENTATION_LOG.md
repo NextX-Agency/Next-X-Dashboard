@@ -840,3 +840,13 @@ passed. Pre-migration dump retained: `backups/finance-overhaul-pre-t13-20260813T
 ## T-16 — claimed by Codex — 2026-08-13T11:04Z — in progress
 
 Applying the staged deterministic invoice-number backfill.
+
+## T-16 — Codex — 2026-08-13T11:07Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+All 149 historical sales now have deterministic, unique `INV-000001` through `INV-000149` numbers
+and are correctly marked reconstructed; the transactional migration and post-commit Part 6 suite
+passed. Pre-migration dump retained: `backups/finance-overhaul-pre-t16-20260813T103651Z.dump`
+(`C5BDC4D6B2C2D1CC6A78CFA9A46AC06B89EAA4C847FC06CC298E8AA2BAA4076A`).
+Limitation carried forward: these reconstruction values cannot be matched to customer invoice copies
+whose original browser-random numbers were never recorded; tax-sensitive use needs accountant review.
