@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, FileCheck2, RefreshCcw, Wallet } from 'lucide-react'
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, FileCheck2, PackageSearch, RefreshCcw, Wallet } from 'lucide-react'
 
 type Summary = { inflow: number; outflow: number; net: number }
 type FinanceData = {
@@ -27,12 +27,58 @@ type FinanceData = {
   }>
 }
 
+type InventoryStatus = 'out' | 'dead' | 'overstocked' | 'low' | 'healthy'
+
+type InventoryHealth = {
+  generatedAt: string
+  thresholds: { windowDays: number; overstockDays: number; lowDays: number; restockBufferPct: number; cogsWindowMonths: number }
+  totals: {
+    rows: number
+    cashTiedUpUsd: number
+    deadCashUsd: number
+    overstockedCashUsd: number
+    releasableCashUsd: number
+    excessCashUsd: number
+    byStatus: Record<InventoryStatus, { rows: number; cashTiedUpUsd: number; excessCashUsd: number }>
+  }
+  purchasingCeiling: {
+    windowMonths: number
+    bufferPct: number
+    monthlyCogsSrd: number
+    monthlyCeilingSrd: number
+    monthlySpendSrd: number
+    monthlyOverspendSrd: number
+  }
+  rows: Array<{
+    itemId: string
+    itemName: string
+    locationId: string
+    locationName: string
+    quantityOnHand: number
+    dailyVelocity: number
+    daysOfCover: number | null
+    cashTiedUpUsd: number
+    excessUnits: number
+    excessCashUsd: number
+    status: InventoryStatus
+  }>
+}
+
 function money(value: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
 }
 
+const STATUS_STYLE: Record<InventoryStatus, string> = {
+  dead: 'bg-red-500/15 text-red-800',
+  overstocked: 'bg-amber-500/15 text-amber-800',
+  low: 'bg-blue-500/15 text-blue-800',
+  healthy: 'bg-emerald-500/15 text-emerald-800',
+  out: 'bg-muted text-muted-foreground',
+}
+
 export default function FinancePage() {
   const [data, setData] = useState<FinanceData | null>(null)
+  const [inventory, setInventory] = useState<InventoryHealth | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,10 +86,18 @@ export default function FinancePage() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/finance/ledger', { cache: 'no-store' })
-      const payload = await response.json() as { data?: FinanceData; error?: string }
-      if (!response.ok || !payload.data) throw new Error(payload.error || 'Unable to load finance data.')
+      const [ledgerRes, inventoryRes] = await Promise.all([
+        fetch('/api/finance/ledger', { cache: 'no-store' }),
+        fetch('/api/finance/inventory-health', { cache: 'no-store' }),
+      ])
+      const payload = await ledgerRes.json() as { data?: FinanceData; error?: string }
+      if (!ledgerRes.ok || !payload.data) throw new Error(payload.error || 'Unable to load finance data.')
       setData(payload.data)
+
+      // Inventory health is a read model. If it fails, the ledger view is still
+      // worth showing rather than blanking the whole page.
+      const inventoryPayload = await inventoryRes.json() as { data?: InventoryHealth }
+      setInventory(inventoryRes.ok && inventoryPayload.data ? inventoryPayload.data : null)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load finance data.')
     } finally {
@@ -66,6 +120,82 @@ export default function FinancePage() {
       </header>
       {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-700">{error}</div>}
       {loading && !data ? <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">Loading immutable finance events…</div> : null}
+      {inventory ? (
+        <section className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold"><PackageSearch size={19} className="text-primary" />Inventory health</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Velocity over the last {inventory.thresholds.windowDays} days, per product and location.
+                Overstocked is more than {inventory.thresholds.overstockDays} days of cover; low is under {inventory.thresholds.lowDays}.
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">{inventory.totals.rows} stocked lines</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Cash tied up in stock</p>
+              <p className="mt-1 text-xl font-bold">{money(inventory.totals.cashTiedUpUsd, 'USD')}</p>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Dead ({inventory.totals.byStatus.dead.rows} lines)</p>
+              <p className="mt-1 text-xl font-bold text-red-700">{money(inventory.totals.deadCashUsd, 'USD')}</p>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Overstocked ({inventory.totals.byStatus.overstocked.rows} lines)</p>
+              <p className="mt-1 text-xl font-bold text-amber-700">{money(inventory.totals.overstockedCashUsd, 'USD')}</p>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <p className="text-xs text-muted-foreground">Releasable if cleared</p>
+              <p className="mt-1 text-xl font-bold">{money(inventory.totals.releasableCashUsd, 'USD')}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{money(inventory.totals.excessCashUsd, 'USD')} is excess beyond a sensible cover</p>
+            </div>
+          </div>
+
+          <div className={`rounded-xl border p-4 ${inventory.purchasingCeiling.monthlyOverspendSrd > 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-emerald-500/20 bg-emerald-500/5'}`}>
+            <p className="text-sm font-semibold">Purchasing ceiling</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Trailing {inventory.purchasingCeiling.windowMonths}-month COGS averages SRD {inventory.purchasingCeiling.monthlyCogsSrd.toLocaleString()}/month.
+              With a {inventory.purchasingCeiling.bufferPct}% buffer, stock purchases should stay under{' '}
+              <strong>SRD {inventory.purchasingCeiling.monthlyCeilingSrd.toLocaleString()}/month</strong>; actual spend is
+              SRD {inventory.purchasingCeiling.monthlySpendSrd.toLocaleString()}.
+            </p>
+            {inventory.purchasingCeiling.monthlyOverspendSrd > 0 && (
+              <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <AlertTriangle size={16} />
+                Over the ceiling by SRD {inventory.purchasingCeiling.monthlyOverspendSrd.toLocaleString()} a month.
+              </p>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Product</th><th className="px-4 py-3">Location</th>
+                  <th className="px-4 py-3 text-right">On hand</th><th className="px-4 py-3 text-right">Days cover</th>
+                  <th className="px-4 py-3 text-right">Cash tied up</th><th className="px-4 py-3 text-right">Excess</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.rows.map((row) => (
+                  <tr key={`${row.itemId}:${row.locationId}`} className="border-t">
+                    <td className="px-4 py-3 font-medium">{row.itemName}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{row.locationName}</td>
+                    <td className="px-4 py-3 text-right">{row.quantityOnHand}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{row.daysOfCover === null ? 'never sold' : Math.round(row.daysOfCover).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right">{money(row.cashTiedUpUsd, 'USD')}</td>
+                    <td className="px-4 py-3 text-right">{row.excessUnits > 0 ? `${row.excessUnits} · ${money(row.excessCashUsd, 'USD')}` : '—'}</td>
+                    <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-bold capitalize ${STATUS_STYLE[row.status]}`}>{row.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
       {data ? <>
         <section className="grid gap-4 md:grid-cols-2">
           {Object.entries(data.byCurrency).map(([currency, summary]) => <div key={currency} className="rounded-2xl border bg-card p-5 shadow-sm"><div className="flex items-center justify-between"><p className="font-bold">{currency} flow</p><Wallet size={19} className="text-primary" /></div><div className="mt-4 grid grid-cols-3 gap-3 text-sm"><div><p className="text-muted-foreground">In</p><p className="mt-1 font-bold text-emerald-600">{money(summary.inflow, currency)}</p></div><div><p className="text-muted-foreground">Out</p><p className="mt-1 font-bold text-red-600">{money(summary.outflow, currency)}</p></div><div><p className="text-muted-foreground">Net</p><p className={`mt-1 font-bold ${summary.net >= 0 ? 'text-foreground' : 'text-red-600'}`}>{money(summary.net, currency)}</p></div></div></div>)}

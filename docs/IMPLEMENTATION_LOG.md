@@ -310,4 +310,66 @@ Other pages were not audited here and almost certainly still write directly: the
 `sales/page.tsx` only. **Before T-05, grep for `supabase.from(...)` `.insert/.update/.delete` across
 `src/app/**` and confirm the list is empty.**
 
-## T-17 — claimed by claude — 2026-08-13T10:40Z — in progress
+## T-17 — claude — 2026-08-13T11:20Z — DONE
+
+Read-only. No schema change, no writes, no DDL. `GET /api/finance/inventory-health` plus a panel on
+`/finance`, with the calculation in `src/lib/inventoryHealth.ts` as pure functions.
+
+**Reproduces the plan's production figures exactly.** Verified by pulling the 38 stocked
+item/location rows out of production read-only (quantity, purchase price, units sold in 90 days),
+loading them into the local Postgres as a fixture, and asserting against the live endpoint:
+
+| Figure | Plan | Measured |
+|---|---|---|
+| stocked lines | 38 | **38** |
+| dead lines | 26 | **26** |
+| dead cash | USD 503.02 | **503.02** |
+| overstocked cash | USD 177.90 | **177.90** |
+| releasable cash | USD 680.92 | **680.92** |
+| total cash tied up | USD 788.57 (audit) | **788.57** |
+
+Fixture and check committed: `seed-inventory.mjs`, `verify-inventory.mjs`.
+
+**The grain matters, and it caught a mistake.** My first implementation measured velocity per item
+across all branches. That gives 23 dead / USD 415.82 — wrong. The plan says "per item and location",
+and only that grain reproduces 26 / 503.02. Aggregating across branches credits a slow branch with
+another branch's turnover and hides dead stock sitting in it.
+
+Notes:
+- Thresholds are in `store_settings` and tunable without a deploy: `finance.inventory.window_days`
+  (90), `.overstock_days` (120), `.low_days` (14), `.restock_buffer_pct` (15),
+  `.cogs_window_months` (3). Defaults apply when a key is absent.
+- **Releasable and excess are different numbers and both are reported.** Releasable (USD 680.92) is
+  the full carrying value of dead + overstocked lines. Excess (USD 558.42) is dead stock in full plus
+  only the tail of overstock beyond 120 days of cover. The plan defines excess one way and publishes
+  a releasable figure computed the other way; rather than pick one, the panel shows both and labels
+  them.
+- Stock purchase spend counts `classification = 'inventory'` **or** the legacy `Business Expense`
+  category, because `classification` is still 100% unused (F-20) until T-15 backfills it. The two
+  agree once T-15 lands.
+
+### ⚠️ The purchasing ceiling does not reproduce the plan's SRD 13,611 / 16,344
+
+Measured against production with the plan's own formula (trailing-3-month COGS + 15%):
+
+| | Plan | Measured (trailing 3 months) |
+|---|---|---|
+| monthly COGS | SRD 11,836 | **SRD 8,771.36** |
+| ceiling at +15% | SRD 13,611 | **SRD 10,087.06** |
+| monthly stock spend | SRD 16,344 | **SRD 11,276.67** |
+| overspend | ~SRD 2,700 | **SRD 1,189.60** |
+
+The gap is a window mismatch in the source documents, not a data problem. The audit's figures are
+**lifetime monthly averages** — `Business Expense` totals SRD 114,406 over 7 distinct months, which
+is SRD 16,343.71/month, matching its 16,344 exactly. The plan then asks for **trailing-3-month**
+COGS. Those are different windows over a business whose volume has changed.
+
+Also worth flagging: the audit's SRD 11,836/month COGS does not reproduce on either window —
+lifetime COGS is SRD 85,624.58 over 8 sale months (SRD 10,703/month) or 7 months (SRD 12,232/month).
+Its exact basis is not recoverable from the current data.
+
+**Implemented the formula the plan specifies (trailing 3 months), not the audit's snapshot**, with
+the window configurable via `finance.inventory.cogs_window_months`. Set it to a longer window to
+reproduce the audit's framing. The conclusion is unchanged either way: purchasing exceeds the
+ceiling every month. Reporting rather than reconciling, per Part 2 — no figure was adjusted to hit
+a published number.
