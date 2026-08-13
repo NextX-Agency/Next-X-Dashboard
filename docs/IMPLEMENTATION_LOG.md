@@ -836,3 +836,7 @@ The transaction added status, void timestamps/actor/reason, and correlation meta
 historical sales are confirmed `posted`. The migration's assertions and the post-commit Part 6 suite
 passed. Pre-migration dump retained: `backups/finance-overhaul-pre-t13-20260813T103517Z.dump`
 (`64978DA6637E8C079BBD15A499075D9D99F03E377286E2A82DDCD6FDDEFDEF47`).
+
+## T-16 — claimed by Codex — 2026-08-13T11:04Z — in progress
+
+Applying the staged deterministic invoice-number backfill.
