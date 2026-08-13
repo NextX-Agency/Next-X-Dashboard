@@ -868,3 +868,12 @@ the trigger remains live without leaving data behind. Pre-migration dump retaine
 ## T-14 — claimed by Codex — 2026-08-13T11:17Z — in progress
 
 Applying the staged additive reconciliation-variance migration.
+
+## T-14 — Codex — 2026-08-13T11:20Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction added expected balance, variance, variance reason, and status fields without
+inventing any historical expectation; its assertions and the post-commit Part 6 suite passed.
+Pre-migration dump retained: `backups/finance-overhaul-pre-t14-20260813T104032Z.dump`
+(`F0AFEE3FFEE6DB3BD63980876A4AAE278B45452CCA9FA525BB52AD7921C39F3C`).
+Prisma's reconciliation model was updated and regenerated successfully.

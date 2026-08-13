@@ -859,6 +859,10 @@ model WalletReconciliation {
   walletId           String    @map("wallet_id") @db.Uuid
   locationId         String?   @map("location_id") @db.Uuid
   confirmedBalance   Decimal   @map("confirmed_balance") @db.Decimal(18, 4)
+  expectedBalance    Decimal?  @map("expected_balance") @db.Decimal(18, 4)
+  variance           Decimal?  @db.Decimal(18, 4)
+  varianceReason     String?   @map("variance_reason")
+  status             String    @default("confirmed")
   note               String?
   reconciledByUserId String?   @map("reconciled_by_user_id") @db.Uuid
   reconciledAt       DateTime  @default(now()) @map("reconciled_at") @db.Timestamptz(6)
