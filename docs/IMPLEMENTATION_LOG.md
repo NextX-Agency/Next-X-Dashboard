@@ -1113,3 +1113,17 @@ Orphan sale items, both wallet-transaction/ledger pairing directions, and negati
 
 Implementing the authenticated daily recurring-expense cron with per-schedule Serializable posting,
 idempotency, short-month scheduling, insufficient-funds skip behavior, and protected routing.
+
+## T-18 code — Codex — 2026-08-13T14:37Z — DONE
+
+Added the authenticated daily Vercel cron at `/api/cron/recurring-expenses`; it is protected by
+`CRON_SECRET` for scheduled runs and `requireAdmin` for a manual run. Every schedule is evaluated
+in its own `runSerializableTransaction`; posting creates an expense, atomic wallet debit,
+wallet-transaction, and ledger entry together, advances only on success, and relies on the unique
+schedule/period index for exactly-once behavior. Insufficient funds skips without advancing.
+The cron is registered in `vercel.json` and explicitly allowed through proxy only with the cron
+Bearer secret. The three seeded schedules are correctly future-dated to 2026-09-01, so no live
+charge was triggered during deployment verification.
+
+`pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed. No production financial
+row was changed; prior Part 6 remains the T-05 baseline.

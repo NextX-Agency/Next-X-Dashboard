@@ -41,6 +41,7 @@ const PROTECTED_API_PREFIXES = [
   '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
   '/api/backup/download',
   '/api/activity',
+  '/api/cron/recurring-expenses',
   '/api/dev/terminal-history'
 ]
 
@@ -56,6 +57,11 @@ function isAdminRoute(pathname: string): boolean {
 
 function isProtectedApiRoute(pathname: string): boolean {
   return PROTECTED_API_PREFIXES.some(prefix => pathname.startsWith(prefix))
+}
+
+function hasCronAuthorization(request: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET
+  return Boolean(secret && request.headers.get('authorization') === `Bearer ${secret}`)
 }
 
 export function proxy(request: NextRequest) {
@@ -83,6 +89,9 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     // Check if it's a protected API route
     if (isProtectedApiRoute(pathname)) {
+      if (pathname.startsWith('/api/cron/') && hasCronAuthorization(request)) {
+        return NextResponse.next()
+      }
       // For API routes, we'll let the API handler do the full validation
       // The proxy just checks for basic auth presence
       if (!sessionCookie) {
@@ -162,6 +171,7 @@ export const config = {
     '/api/backup/self-check/:path*',
     '/api/backup/download/:path*',
     '/api/activity/:path*',
+    '/api/cron/recurring-expenses/:path*',
     '/api/dev/terminal-history/:path*',
   ],
 }
