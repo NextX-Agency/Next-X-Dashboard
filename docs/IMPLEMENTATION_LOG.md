@@ -828,3 +828,11 @@ checks and the post-commit Part 6 suite passed. Pre-migration dump retained:
 ## T-13 — claimed by Codex — 2026-08-13T10:58Z — in progress
 
 Applying the staged additive sale-void metadata migration.
+
+## T-13 — Codex — 2026-08-13T11:01Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction added status, void timestamps/actor/reason, and correlation metadata; all 149
+historical sales are confirmed `posted`. The migration's assertions and the post-commit Part 6 suite
+passed. Pre-migration dump retained: `backups/finance-overhaul-pre-t13-20260813T103517Z.dump`
+(`64978DA6637E8C079BBD15A499075D9D99F03E377286E2A82DDCD6FDDEFDEF47`).
