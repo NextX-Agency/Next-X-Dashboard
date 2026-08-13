@@ -1174,3 +1174,9 @@ Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**. Orphan
 sale items, both wallet-transaction/ledger pairing directions, negative stock, and unbalanced
 journal currency groups are zero.
+
+## T-22 — claimed by Codex — 2026-08-13T15:22Z — in progress
+
+Adding accounting periods and server-side close enforcement. A period may close only after the
+existing wallet-reconciliation, recurring-expense, expense-classification, FX, and payout gates
+are clean; journal posting into a closed date will be rejected by the database.
