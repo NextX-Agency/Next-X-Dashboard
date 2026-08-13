@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
@@ -45,6 +47,9 @@ const EMPTY_DASHBOARD: DashboardMetrics = {
   weeklyNetProfitUSD: 0,
   weeklyNetProfitTrend: 0,
   exchangeRate: 40,
+  exchangeRateSetAt: null,
+  exchangeRateAgeDays: null,
+  exchangeRateIsStale: false,
   monthlySalesUSD: Array.from({ length: 12 }, () => 0),
   recentActivity: [],
 }
@@ -277,6 +282,27 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      {/*
+        F-19: every USD figure below is priced on the active exchange rate, and
+        nothing used to say how old it was. The rate is not fetched
+        automatically — the owner sets it — so the only useful thing software
+        can do is say when it has gone stale.
+      */}
+      {hasData && stats.exchangeRateIsStale && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 lg:px-8">
+          <div className="mx-auto flex max-w-7xl items-start gap-3 text-sm text-amber-900 dark:text-amber-200">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+            <p>
+              <strong>The exchange rate is out of date.</strong>{' '}
+              {stats.exchangeRateAgeDays === null
+                ? 'No active rate has been set.'
+                : `1 USD = ${stats.exchangeRate} SRD was set ${stats.exchangeRateAgeDays} days ago.`}{' '}
+              Every USD figure here is converted at that rate.{' '}
+              <Link href="/exchange" className="font-semibold underline underline-offset-2">Set a current rate</Link>.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-linear-to-br from-orange-600 via-orange-700 to-orange-900" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />

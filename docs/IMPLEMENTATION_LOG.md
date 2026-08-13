@@ -577,3 +577,31 @@ read inside it too — paying the same commission from two tabs is no longer pos
 
 **The historical SRD 9,458.05 is deliberately NOT backfilled here.** That is T-09's report; inserting
 106 backdated expenses would rewrite months already reviewed (Part 5, R1, R11).
+
+## T-08 — claude — 2026-08-13T15:05Z — DONE (code only, no schema change)
+
+The active rate is 38.0000, set 2026-06-05, and nothing said so. Every USD figure on the dashboard
+is converted at it. `/api/dashboard` now returns `exchangeRateSetAt`, `exchangeRateAgeDays` and
+`exchangeRateIsStale` (threshold 7 days), and the dashboard shows a banner above the fold naming the
+rate, its age, and a link to set a new one. **No auto-fetch** — the owner sets the rate; software
+only says when it has gone stale.
+
+## T-09 — claude — 2026-08-13T15:05Z — code DONE · migration staged, NOT APPLIED
+
+The migration (`20260814000100_t09_review_queue.sql`) was already staged. The code it owed is done:
+
+- **Exclusion from derived figures** — `src/lib/financialFilters.ts`, applied at every sale
+  aggregation site (see the T-13 entry). `needs_review` rows and voided sales drop out of margin,
+  run rate, COGS and payout base; cash views keep them, because the cash genuinely moved.
+- **Review page** — `GET /api/finance/review` and `/finance/review`, listing every flagged sale,
+  expense and product with its reason, plus the commission payout gap.
+- **The report, not inserts** — `docs/reports/commission-payout-backfill.csv`, 106 rows totalling
+  **exactly SRD 9,458.05**, every row marked `PROPOSED - NOT INSERTED`, with
+  `docs/reports/README.md` explaining why it is a report and what to do with it.
+
+Re-measured against production read-only while writing it: **106 paid commissions, SRD 9,458.05,
+zero payout expenses recorded** — matching the audit exactly.
+
+One detail worth noting: the location name is `Paramaribo - Noord, Blauwgrond`, which contains a
+comma. The CSV quotes fields properly; a naive join would have silently shifted every column right
+of it.

@@ -38,6 +38,7 @@ export const ADMIN_ROUTES = [
   '/budgets',
   '/wallets',
   '/finance',
+  '/finance/review',
   '/commissions',
   '/exchange',
   '/locations',

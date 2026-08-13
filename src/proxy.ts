@@ -16,7 +16,7 @@ const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
 // Admin routes that require admin role
 const ADMIN_ROUTES = [
   '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
-  '/budgets', '/wallets', '/finance', '/commissions', '/exchange', '/locations',
+  '/budgets', '/wallets', '/finance', '/finance/review', '/commissions', '/exchange', '/locations',
   '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
   '/upload-example', '/migrate', '/team'
 ]

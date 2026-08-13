@@ -29,6 +29,10 @@ export interface DashboardMetrics {
   weeklyNetProfitUSD: number
   weeklyNetProfitTrend: number
   exchangeRate: number
+  /** When the active rate was set, so the UI can warn once it goes stale (T-08, F-19). */
+  exchangeRateSetAt: string | null
+  exchangeRateAgeDays: number | null
+  exchangeRateIsStale: boolean
   monthlySalesUSD: number[]
   recentActivity: DashboardActivity[]
 }

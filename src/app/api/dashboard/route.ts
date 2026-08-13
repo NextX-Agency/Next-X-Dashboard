@@ -10,6 +10,9 @@ import type { DashboardActivity, DashboardMetrics } from '@/types/dashboard'
 
 const DEFAULT_EXCHANGE_RATE = 40
 
+/** An exchange rate older than this is called out on the dashboard (T-08, F-19). */
+const EXCHANGE_RATE_STALE_AFTER_DAYS = 7
+
 type SalesGroup = {
   currency: string
   _sum: {
@@ -330,6 +333,16 @@ export async function GET(request: NextRequest) {
     ])
 
     const exchangeRate = toNumber(currentRate?.usdToSrd) || DEFAULT_EXCHANGE_RATE
+    // F-19: the active rate was set 2026-06-05 and nothing tells anyone. Every
+    // USD figure on the dashboard is priced on it, so its age is reported and
+    // the UI warns past the threshold. The rate is never auto-fetched — the
+    // owner sets it.
+    const exchangeRateSetAt = currentRate?.setAt ?? null
+    const exchangeRateAgeDays = exchangeRateSetAt
+      ? Math.floor((now.getTime() - exchangeRateSetAt.getTime()) / (24 * 60 * 60 * 1000))
+      : null
+    const exchangeRateIsStale = exchangeRateAgeDays === null
+      || exchangeRateAgeDays > EXCHANGE_RATE_STALE_AFTER_DAYS
     const totalSales = getCurrencyTotals(totalSalesByCurrency)
     const todaysSales = getCurrencyTotals(todaysSalesByCurrency)
     const yesterdaysSales = getCurrencyTotals(yesterdaysSalesByCurrency)
@@ -446,6 +459,9 @@ export async function GET(request: NextRequest) {
       weeklyNetProfitUSD,
       weeklyNetProfitTrend: getTrend(weeklyNetProfitUSD, lastWeekNetProfitUSD),
       exchangeRate,
+      exchangeRateSetAt: exchangeRateSetAt?.toISOString() ?? null,
+      exchangeRateAgeDays,
+      exchangeRateIsStale,
       monthlySalesUSD,
       recentActivity: activity,
     }
