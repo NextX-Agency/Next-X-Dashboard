@@ -470,3 +470,23 @@ before closing any table.
 
 **Not reviewed and still owed:** the T-11 route and the three staged migrations have been read but
 not executed against production, since database access is still unavailable here.
+
+---
+
+## RUN CLAIM — claude — 2026-08-13T13:00Z — remaining sequence, single agent
+
+Database access is **still unavailable** (`DATABASE_URL`/`DIRECT_URL` unset, network policy answers
+403 to CONNECT for `*.supabase.co`). Read-only production queries via Supabase MCP still work and are
+used for verification figures only. **No DDL will be attempted against production.**
+
+Claiming the whole remaining sequence in one entry rather than 15 round trips — this is a single-agent
+run with no concurrent writer. Each task still gets its own commit and its own DONE entry below.
+
+Planned order, honouring the ordering corrections (T-05 after T-13; T-04 idempotent; T-06 = 29 cols):
+
+`T-13 → T-07 → T-08 → T-12(code) → T-09(code) → T-16 → T-14 → T-15 → T-18 → T-19 → T-05 → T-10 →
+T-04 → T-20 → T-21 → T-22 → T-23 → T-24 → T-25 → T-26 → T-27`
+
+**Note for T-17, correcting my own entry.** The reviewer is right: my SRD 8,771/month COGS is a
+rolling-90-day window, not calendar trailing-3. The route computes `now() - 3 months`, which is
+rolling. It is a legitimate basis but was unlabelled. Fixed as part of this run.
