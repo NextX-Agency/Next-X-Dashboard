@@ -864,3 +864,7 @@ rollback-only Serializable wallet-transaction insert created exactly one trigger
 the trigger remains live without leaving data behind. Pre-migration dump retained:
 `backups/finance-overhaul-pre-t04-20260813T103831Z.dump`
 (`939F19EA6B7ACE95E26D3A1C69A2239A0B63BA766008C049A240D38B185AC968`).
+
+## T-14 — claimed by Codex — 2026-08-13T11:17Z — in progress
+
+Applying the staged additive reconciliation-variance migration.
