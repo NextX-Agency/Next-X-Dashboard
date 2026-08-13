@@ -89,3 +89,29 @@ Notes:
 - `pnpm build` needs `NEXT_TURBOPACK_EXPERIMENTAL_USE_SYSTEM_TLS_CERTS=1` and
   `NODE_EXTRA_CA_CERTS` behind this environment's proxy, or next/font fails the build on a TLS error
   unrelated to the code.
+
+## T-02 — claude — 2026-08-13T02:00Z — BLOCKED (cannot be completed in this environment)
+
+T-02 wants a real production backup exported, kept for the whole project, restored, and checked
+against the Part 6 suite. None of the three routes to production data are open from this session:
+
+| Route | State |
+|---|---|
+| Prisma against production | `DATABASE_URL` / `DIRECT_URL` are unset. START_HERE lists them as required before the first run |
+| `/api/backup/export` on the deployed app, or PostgREST | The environment's network policy answers **403 to CONNECT** for `ivvhazwjtnyznojeoojs.supabase.co`. Confirmed via the agent proxy status endpoint |
+| Supabase MCP `execute_sql` | Works, but every byte returns through the agent's context. The database is **9.1 MB** (8,294 `site_analytics_events` + 1,112 `activity_logs` dominate). Not viable, and this container is ephemeral so the file could not be "kept for the whole project" regardless |
+
+`create_branch` was not attempted — `list_branches` returns `[]`, consistent with the free plan.
+
+**To unblock, one of:** set `DATABASE_URL` and `DIRECT_URL` for the session; or allow the network
+policy to reach `*.supabase.co` and provide `SUPABASE_SERVICE_ROLE_KEY`; or run
+`/api/backup/export` against the deployed app and place the file somewhere the agent can read.
+
+**Consequence, and why the run stops short of T-04.** T-02 is the rollback for everything after it,
+and Part 1 says to take a backup immediately before each migration. T-04, T-05 and T-06 apply DDL to
+a production database holding SRD 42,006 with no verified restore point. Those are not being started.
+
+T-03 is taken next instead: Part 7 lists T-01 as the only hard dependency for it, and it changes no
+data and no schema, so it carries no rollback requirement.
+
+## T-03 — claimed by claude — 2026-08-13T02:02Z — in progress
