@@ -935,3 +935,8 @@ Migration assertions and Part 6 passed. Pre-migration dump retained:
 (`7CE6464A3E48C6B8B622A68E69C638151BD1CB82DE974DB64627A419CD49660F`).
 Prisma models were added and regenerated. The breaker and cron implementation remains T-19 code work
 later in this run and will use `serializableTransaction`.
+
+## T-20 — claimed by Codex — 2026-08-13T11:49Z — in progress
+
+Applying the staged company entity migration, including the single sanctioned ledger-maintenance
+scope for its append-only backfill.
