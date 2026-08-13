@@ -768,3 +768,18 @@ T-02 → apply the 13 staged migrations → server-side reservations → the rem
 ## T-02 — claimed by Codex — 2026-08-13T10:15:21Z — in progress
 
 Production backup, scratch restore, and Part 6 verification are being run before any migration.
+
+## T-02 — Codex — 2026-08-13T10:30Z — DONE
+
+Before and after: 149 sales / 306 sale_items / 490 wallet_transactions / 490 ledger entries /
+83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00. All six checked zero-invariants are
+zero, including both directions of the wallet-transaction/ledger pairing.
+
+Kept the full custom-format production dump at `backups/finance-overhaul-t02-20260813T101717Z.dump`
+(SHA-256 `BA7EDF5DB2F2D85C2B9D2CDFCF3C349A9CBC5A0A03582DAF9BD2B35381DA2993`; ignored by Git).
+Restored it into a newly created production-host scratch database and ran Part 6 there; every value
+matched production exactly. The first all-schema pass correctly restored through the Supabase managed
+schemas until its Realtime function was rejected for setting a managed-only parameter; the clean
+successful verification restore included the complete application schemas (`public` and `auth`) and
+their data, after priming the two production extensions. The scratch database was then dropped; the
+full dump is retained.
