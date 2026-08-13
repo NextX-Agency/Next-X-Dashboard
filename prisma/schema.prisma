@@ -557,6 +557,22 @@ model JournalLine {
   @@map("journal_lines")
 }
 
+model AccountingPeriod {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  status       String   @default("open")
+  closedAt     DateTime? @map("closed_at") @db.Timestamptz(6)
+  closedBy     String?  @map("closed_by") @db.Uuid
+  closeChecks  Json     @default("{}") @map("close_checks")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([companyId, status, periodStart(sort: Desc)])
+  @@map("accounting_periods")
+}
+
 model Seller {
   id                    String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name                  String

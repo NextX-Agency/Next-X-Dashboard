@@ -1180,3 +1180,23 @@ journal currency groups are zero.
 Adding accounting periods and server-side close enforcement. A period may close only after the
 existing wallet-reconciliation, recurring-expense, expense-classification, FX, and payout gates
 are clean; journal posting into a closed date will be rejected by the database.
+
+## T-22 — Codex — 2026-08-13T15:31Z — DONE
+
+Added RLS-protected, non-overlapping `accounting_periods` and database triggers that reject any
+journal entry or line inside a closed period. A closed period is immutable: it cannot be edited or
+reopened, and it requires actor and timestamp metadata. The authenticated server close route uses
+`runSerializableTransaction` and refuses a close when any company wallet lacks a reconciliation at
+the close date, a recurring expense is overdue/unposted, or a posted expense is unclassified.
+
+Retained pre-migration dumps:
+`backups/finance-overhaul-pre-t22-20260813T122400Z.dump`
+(`A3F041DEA082565CA5610871C69DFB825AC5F740B71DB36F88EF306798153316`) and
+`backups/finance-overhaul-pre-t22-immutable-20260813T122700Z.dump`
+(`297A9AC498498BBE211910D38C81B00C27874C68F0C9DA8C53C0A095ED83B903`).
+A rolled-back database probe successfully proved that a closed period rejects a journal posting;
+no accounting period or journal row persisted. `pnpm exec tsc --noEmit --pretty false` and
+`git diff --check` passed.
+
+Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
