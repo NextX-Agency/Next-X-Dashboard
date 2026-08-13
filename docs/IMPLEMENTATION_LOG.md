@@ -1113,6 +1113,17 @@ finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534
 Implementing the all-companies consolidated read model. This remains a query, not an integration;
 the signed versioned snapshot contract will remain uncreated unless an actual company fork exists.
 
+## T-25 — Codex — 2026-08-13T16:10Z — DONE
+
+Added the authenticated all-companies consolidation read model. It reports per-company wallet cash,
+cash-journal agreement, asset and investment carrying values, and latest FX revaluation, then
+aggregates live currency totals. Production has one active company (NextX), so this correctly runs
+as a `single_company_live` query. No fork exists; per plan, no signed snapshot or intercompany
+integration was created. This task is read-only and made no database change.
+
+`pnpm exec tsc --noEmit --pretty false` and `git diff --check` passed. Part 6 remains
+**149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00**.
+
 ## T-24 — claimed by Codex — 2026-08-13T15:50Z — in progress
 
 Adding a forward-only USD revaluation run, balanced SRD gain/loss journal posting, and a strict
