@@ -429,3 +429,44 @@ T-09 still owes the exclusion of `needs_review` rows from margin / run-rate / pa
 review page, and the SRD 9,458.05 commission-payout **report** (report only — never insert).
 T-12 still owes `reportCalculations.ts:107` reading `si.unit_cost_usd`, and `POST /api/sales`
 writing real costs with `cost_is_estimated = false`. Both are noted at the foot of their files.
+
+---
+
+## REVIEW — claude — 2026-08-13 — overnight work checked, three plan errors corrected
+
+Reviewed T-11, T-17 and the three staged migrations. Verified the agent's challenges against
+production rather than accepting them. **Two of three were correct; one was half correct.**
+
+**1. Column count — agent correct, plan corrected.** Production has 26 columns at `numeric(10,2)`
+and 3 at `numeric(10,4)`, so 29 in total. The audit's "26" counted money columns only and was right
+about those; T-06 now states both groups explicitly and confirms the four `commission_rate`
+percentage columns are deliberately excluded.
+
+**2. Table rewrite — agent correct, plan was wrong.** T-06 claimed widening "does not rewrite rows."
+Postgres can skip a rewrite when only precision increases, but changing scale from 2 to 4 alters each
+value's stored `dscale` and forces a rewrite under `ACCESS EXCLUSIVE`. Immaterial at this row count,
+wrong as a general claim, now corrected in place.
+
+**3. Purchasing ceiling — agent right about the inconsistency, wrong about one number.**
+
+The inconsistency is real and is mine: the audit quotes lifetime Jan–Jul averages, T-17 asks for a
+trailing-3 ceiling, and the two documents did not agree. T-17 now states both windows and requires a
+configurable one.
+
+But the report claimed the audit's SRD 11,836/month COGS "doesn't reproduce on either window." It
+reproduces **exactly** on the window the audit states — SRD 82,854.38 ÷ 7 = SRD 11,836.34, confirmed
+against production. Trailing-3 May–Jul is SRD 9,843.03 and Jun–Aug is SRD 7,606.03; the reported
+SRD 8,771 matches neither calendar window, so it is presumably a rolling-90-day basis. That is a
+legitimate choice but it is a third window, and it should be labelled rather than compared against
+figures derived from a different one.
+
+**The judgement was right even where a number was wrong: refusing to adjust the maths to hit a target
+was the correct call.** Recompute and report; never reverse-engineer a figure to match a document.
+
+**Correcting my own earlier entry:** I wrote that T-11 unblocks T-05. It does not. `handleUndoSale`
+still writes to wallets, wallet_transactions, commissions, sale_items and sales from the browser —
+that is T-13. Other pages remain unaudited; grep for browser-side `.insert`/`.update`/`.delete`
+before closing any table.
+
+**Not reviewed and still owed:** the T-11 route and the three staged migrations have been read but
+not executed against production, since database access is still unavailable here.

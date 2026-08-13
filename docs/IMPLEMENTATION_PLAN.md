@@ -314,9 +314,24 @@ The correct pattern already exists in this database: `finance_ledger_entries` an
 
 ### T-06 — Widen money columns
 
-**Fixes:** F-09 · 26 columns cap at 99,999,999.99.
+**Fixes:** F-09 · **29 columns in total**, verified against production:
 
-Amounts → `NUMERIC(18,4)`, rates → `NUMERIC(18,8)`. Widening is lossless and does not rewrite rows. Update `prisma/schema.prisma` to `@db.Decimal(18, 4)` / `@db.Decimal(18, 8)` and regenerate.
+- **26 at `numeric(10,2)`** — money, capping at 99,999,999.99. These are what F-09 counts.
+- **3 at `numeric(10,4)`** — FX rates: `exchange_rates.usd_to_srd`, `sales.exchange_rate`,
+  `purchase_orders.exchange_rate`.
+
+**Leave the four `commission_rate` columns alone.** They are percentages, not money, and widening
+them serves nothing.
+
+Amounts → `NUMERIC(18,4)`, rates → `NUMERIC(18,8)`. Update `prisma/schema.prisma` to
+`@db.Decimal(18, 4)` / `@db.Decimal(18, 8)` and regenerate.
+
+> **Correction.** An earlier version of this task claimed widening "does not rewrite rows." That is
+> wrong. Postgres can skip the rewrite when only *precision* increases, but **changing the scale**
+> (2 → 4) alters each value's stored `dscale`, so the table is rewritten under an `ACCESS EXCLUSIVE`
+> lock. At 490 wallet transactions and 149 sales this completes instantly and the distinction is
+> academic here — but it is not metadata-only, and on a larger table it would block writes for the
+> duration. Do not carry the wrong version of this claim into another project.
 
 **Verify:** `SELECT round(sum(balance),2) FROM wallets` is unchanged at SRD 42,005.99 / USD 534.00.
 
@@ -555,7 +570,30 @@ Status: `out` (nothing on hand) → `dead` (velocity 0, stock > 0) → `overstoc
 
 **Excess ≠ cash tied up.** Dead stock is entirely excess; overstock counts only the tail: `excessUnits = quantityOnHand − ceil(dailyVelocity × 120)`. Thresholds configurable without a deploy.
 
-Add the purchasing ceiling: trailing-3-month COGS + buffer %, currently **SRD 13,611/month against SRD 16,344 being spent**.
+**The purchasing ceiling — and a window inconsistency in these documents.**
+
+The audit (F-28, §7.3) quotes **SRD 16,344 spent vs SRD 11,836 COGS**, giving a ceiling of
+SRD 13,611 at a 15% buffer. Those are **lifetime monthly averages over January–July**. This task then
+asks for a **trailing-three-month** ceiling. Different windows, different numbers — the two documents
+did not agree, and the audit's figures should not be used as the target for a trailing-3 calculation.
+
+Verified against production, so the implementer does not have to re-derive it:
+
+| Window | COGS / month |
+|---|---|
+| Jan–Jul average — the audit's basis | **SRD 11,836.34** (SRD 82,854.38 ÷ 7) |
+| Trailing 3, May–Jul | SRD 9,843.03 |
+| Trailing 3, Jun–Aug | SRD 7,606.03 |
+
+The audit's SRD 11,836 is correct **on its own stated window** and reproduces exactly. It is simply
+not a trailing-3 figure.
+
+**Implement the ceiling on a configurable window, defaulting to trailing 3 months**, and label which
+window a displayed figure uses. Do not hard-code any number above, and **do not adjust the maths to
+make a target reproduce** — recompute and report what the data says.
+
+The conclusion is unchanged on every window tested: **purchasing exceeds the ceiling every month.**
+That is the finding; the exact gap depends on the window and should be shown, not asserted.
 
 **Verify against known production values:** USD 503.02 dead, USD 177.90 overstocked, USD 680.92 releasable, 26 of 38 rows dead. **If your numbers differ, your query is wrong.**
 
