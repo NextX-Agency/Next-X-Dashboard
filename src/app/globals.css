@@ -171,6 +171,71 @@ body {
   overflow-x: clip;
 }
 
+/* Finance control screens are dedicated operational workspaces, rather than
+ * card collections inside the general dashboard. These local tokens keep the
+ * dense control surface coherent without changing the storefront or other pages. */
+.finance-control-workspace {
+  --background: 220 29% 6%;
+  --background-elevated: 220 26% 10%;
+  --card: 220 26% 10%;
+  --card-hover: 220 25% 13%;
+  --muted: 220 22% 14%;
+  --muted-foreground: 217 14% 59%;
+  --border: 220 18% 19%;
+  --input: 220 28% 8%;
+  --foreground: 214 26% 94%;
+}
+
+.finance-control-workspace input,
+.finance-control-workspace textarea,
+.finance-control-workspace select {
+  color: #e7edf5;
+}
+
+.finance-control-workspace input:focus,
+.finance-control-workspace textarea:focus,
+.finance-control-workspace select:focus {
+  outline: 2px solid rgb(251 146 60 / 0.7);
+  outline-offset: 2px;
+}
+
+/* The admin is a single control system. Tokens are scoped to the authenticated
+ * shell so storefront pages keep their own brands while every admin route gains
+ * the same restrained, high-density workspace surface. */
+.admin-shell {
+  --background: 220 29% 6%;
+  --background-elevated: 220 25% 9%;
+  --foreground: 214 26% 94%;
+  --card: 220 25% 10%;
+  --card-foreground: 214 26% 94%;
+  --card-hover: 220 24% 13%;
+  --popover: 220 26% 9%;
+  --popover-foreground: 214 26% 94%;
+  --secondary: 220 20% 15%;
+  --secondary-hover: 220 20% 18%;
+  --muted: 220 19% 14%;
+  --muted-foreground: 217 14% 60%;
+  --border: 220 17% 19%;
+  --border-hover: 220 17% 29%;
+  --input: 220 27% 8%;
+  --input-focus: 220 24% 12%;
+  --primary-muted: 20 48% 16%;
+}
+
+.admin-shell .input-field,
+.admin-shell .select-field {
+  background: hsl(var(--input));
+  border-color: hsl(var(--border));
+}
+
+.admin-scrollbar {
+  background: radial-gradient(circle at 100% 0%, rgb(249 112 21 / 0.055), transparent 28rem), hsl(var(--background));
+}
+
+.admin-scrollbar::selection {
+  background: rgb(249 112 21 / 0.3);
+}
+
 /* Clean Scrollbar - Dark Theme */
 ::-webkit-scrollbar {
   width: 8px;

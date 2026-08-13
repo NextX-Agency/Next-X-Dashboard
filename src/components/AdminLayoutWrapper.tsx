@@ -30,13 +30,13 @@ export function AdminLayoutWrapper({ children }: { children: React.ReactNode }) 
     return (
       <AuthGuard>
         <OperatorProvider>
-          <div className="flex h-dvh overflow-hidden bg-gray-900">
+          <div className="admin-shell flex h-dvh overflow-hidden bg-[#090d13] text-slate-100">
             <Sidebar />
 
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <TopBar />
 
-              <main className="flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8">
+              <main className="admin-scrollbar flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)] sm:pb-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:pb-8">
                 <div className="h-full">{children}</div>
               </main>
             </div>

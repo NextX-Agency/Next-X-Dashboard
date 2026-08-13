@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, FileWarning, Package, Receipt, RefreshCcw, ShoppingCart } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileWarning, Package, Receipt, RefreshCcw, ShoppingCart } from 'lucide-react'
 
 type ReviewData = {
   generatedAt: string
@@ -14,6 +15,13 @@ type ReviewData = {
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
+}
+
+function Stat({ label, value, warning = false }: { label: string; value: number; warning?: boolean }) {
+  return <div className={`rounded-2xl border p-5 ${warning ? 'border-amber-300/15 bg-[#171411]' : 'border-white/[0.08] bg-[#101620]'}`}>
+    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+    <p className={`mt-2 text-3xl font-semibold tracking-tight tabular-nums ${warning && value > 0 ? 'text-amber-200' : value === 0 ? 'text-emerald-200' : 'text-white'}`}>{value}</p>
+  </div>
 }
 
 export default function FinanceReviewPage() {
@@ -41,139 +49,48 @@ export default function FinanceReviewPage() {
   const totalFlagged = (data?.sales.length ?? 0) + (data?.expenses.length ?? 0) + (data?.items.length ?? 0)
 
   return (
-    <main className="mx-auto min-h-screen max-w-7xl space-y-6 p-4 pb-20 sm:p-6 lg:p-10">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-semibold text-primary">Finance review</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">Records the system will not guess about</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Every row here is excluded from margin, run rate and payout calculations. Nothing has been
-            deleted or altered — these are questions only you can answer, kept visible rather than
-            quietly averaged into a number that looks right.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border bg-card px-4 py-2.5 text-sm font-semibold"
-        >
-          <RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />Refresh
-        </button>
-      </header>
+    <main className="finance-control-workspace min-h-screen bg-[#090d13] text-slate-100">
+      <div className="mx-auto max-w-[1560px] space-y-6 px-4 pb-20 pt-4 sm:px-6 lg:px-10 lg:pt-7">
+        <header className="flex flex-col justify-between gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end">
+          <div>
+            <Link href="/finance" className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:text-orange-200"><ArrowLeft size={14} />Finance command</Link>
+            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300/75">Controlled exception queue</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">Records the system<br className="hidden sm:block" /> will not guess about.</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">Every row here is excluded from margin, run rate, and payout calculations. Nothing has been deleted or altered. These questions stay visible until a person resolves them.</p>
+          </div>
+          <button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.1]"><RefreshCcw size={16} className={loading ? 'animate-spin' : ''} />Refresh queue</button>
+        </header>
 
-      {error && <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-700">{error}</div>}
-      {loading && !data ? <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">Loading…</div> : null}
+        {error ? <div role="alert" className="rounded-2xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-100">{error}</div> : null}
+        {loading && !data ? <div className="grid min-h-64 place-items-center rounded-2xl border border-white/[0.08] bg-[#101620] text-sm text-slate-400"><span className="inline-flex items-center gap-2"><RefreshCcw size={17} className="animate-spin text-orange-300" />Loading review evidence</span></div> : null}
 
-      {data ? (
-        <>
+        {data ? <>
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Flagged records</p>
-              <p className={`mt-1 text-2xl font-bold ${totalFlagged > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>{totalFlagged}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Sales needing review</p>
-              <p className="mt-1 text-2xl font-bold">{data.sales.length}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Expenses needing review</p>
-              <p className="mt-1 text-2xl font-bold">{data.expenses.length}</p>
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <p className="text-xs text-muted-foreground">Voided sales</p>
-              <p className="mt-1 text-2xl font-bold">{data.voidedSales}</p>
-            </div>
+            <Stat label="Flagged records" value={totalFlagged} warning />
+            <Stat label="Sales needing review" value={data.sales.length} />
+            <Stat label="Expenses needing review" value={data.expenses.length} />
+            <Stat label="Voided sales" value={data.voidedSales} />
           </section>
 
-          {/* The single largest known gap in the books. */}
-          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
-            <h2 className="flex items-center gap-2 text-lg font-bold"><FileWarning size={19} className="text-amber-700" />Commission payouts with no expense behind them</h2>
-            <p className="mt-2 text-sm text-amber-900 dark:text-amber-200">
-              <strong>{data.commissionPayoutGap.paidCommissions} commissions</strong> are marked paid,
-              totalling <strong>{money(data.commissionPayoutGap.totalSrd, 'SRD')}</strong>, against{' '}
-              <strong>{data.commissionPayoutGap.payoutExpensesRecorded}</strong> payout expenses recorded.
-              The old payout wrote to columns that do not exist and never checked the error, so the
-              money left without ever being booked as a cost (F-15).
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              These are <strong>not</strong> inserted automatically — backdating 106 expenses would rewrite
-              months already reviewed. The proposed rows are listed in{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{data.commissionPayoutGap.reportPath}</code>{' '}
-              for you and your accountant to decide on.
-            </p>
+          <section className="overflow-hidden rounded-2xl border border-amber-300/20 bg-[#171411]">
+            <div className="flex flex-col justify-between gap-4 border-b border-amber-100/10 px-5 py-4 sm:flex-row sm:items-center"><div className="flex items-center gap-2 text-amber-100"><FileWarning size={19} className="text-amber-300" /><h2 className="text-lg font-semibold">Commission payouts with no expense behind them</h2></div><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-200"><AlertTriangle size={13} />Accountant decision</span></div>
+            <div className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_320px]"><div><p className="text-sm leading-6 text-amber-100/90"><strong>{data.commissionPayoutGap.paidCommissions} commissions</strong> are marked paid, totalling <strong>{money(data.commissionPayoutGap.totalSrd, 'SRD')}</strong>, against <strong>{data.commissionPayoutGap.payoutExpensesRecorded}</strong> payout expenses recorded. The previous payout path did not record the cost.</p><p className="mt-3 text-sm leading-6 text-slate-400">No historical expenses are inserted automatically. Backdating them would rewrite periods that may already have been reviewed.</p></div><div className="rounded-xl border border-amber-100/10 bg-black/10 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Decision file</p><code className="mt-2 block break-all text-xs text-amber-200">{data.commissionPayoutGap.reportPath}</code></div></div>
           </section>
 
-          <ReviewTable
-            title="Sales"
-            icon={<ShoppingCart size={19} className="text-primary" />}
-            empty="No sales are flagged."
-            rows={data.sales.map((sale) => ({
-              key: sale.id,
-              primary: `${money(sale.totalAmount, sale.currency)} · ${sale.locationName}`,
-              secondary: `${new Date(sale.createdAt).toLocaleDateString()} · ${sale.lineItemCount} line item${sale.lineItemCount === 1 ? '' : 's'} · ${sale.id.slice(0, 8)}`,
-              reason: sale.reason,
-            }))}
-          />
+          <ReviewTable title="Sales" icon={<ShoppingCart size={18} className="text-orange-300" />} empty="No sales are flagged." rows={data.sales.map((sale) => ({ key: sale.id, primary: `${money(sale.totalAmount, sale.currency)} · ${sale.locationName}`, secondary: `${new Date(sale.createdAt).toLocaleDateString()} · ${sale.lineItemCount} line item${sale.lineItemCount === 1 ? '' : 's'} · ${sale.id.slice(0, 8)}`, reason: sale.reason }))} />
+          <ReviewTable title="Expenses" icon={<Receipt size={18} className="text-orange-300" />} empty="No expenses are flagged." rows={data.expenses.map((expense) => ({ key: expense.id, primary: `${money(expense.amount, expense.currency)} · ${expense.categoryName ?? 'Uncategorised'}`, secondary: `${new Date(expense.createdAt).toLocaleDateString()} · ${expense.classification} · ${expense.description ?? 'No description'}`, reason: expense.reason }))} />
+          <ReviewTable title="Products" icon={<Package size={18} className="text-orange-300" />} empty="No products are flagged." rows={data.items.map((item) => ({ key: item.id, primary: item.name, secondary: `Purchase cost ${money(item.purchasePriceUsd, 'USD')}`, reason: item.reason }))} />
 
-          <ReviewTable
-            title="Expenses"
-            icon={<Receipt size={19} className="text-primary" />}
-            empty="No expenses are flagged."
-            rows={data.expenses.map((expense) => ({
-              key: expense.id,
-              primary: `${money(expense.amount, expense.currency)} · ${expense.categoryName ?? 'Uncategorised'}`,
-              secondary: `${new Date(expense.createdAt).toLocaleDateString()} · ${expense.classification} · ${expense.description ?? 'No description'}`,
-              reason: expense.reason,
-            }))}
-          />
-
-          <ReviewTable
-            title="Products"
-            icon={<Package size={19} className="text-primary" />}
-            empty="No products are flagged."
-            rows={data.items.map((item) => ({
-              key: item.id,
-              primary: item.name,
-              secondary: `Purchase cost ${money(item.purchasePriceUsd, 'USD')}`,
-              reason: item.reason,
-            }))}
-          />
-        </>
-      ) : null}
+          {totalFlagged === 0 ? <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.07] px-5 py-4 text-sm text-emerald-100"><CheckCircle2 size={18} className="text-emerald-300" />No open exceptions are currently excluded from finance calculations.</div> : null}
+        </> : null}
+      </div>
     </main>
   )
 }
 
-function ReviewTable({ title, icon, rows, empty }: {
-  title: string
-  icon: React.ReactNode
-  empty: string
-  rows: Array<{ key: string; primary: string; secondary: string; reason: string | null }>
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b p-5">
-        <h2 className="flex items-center gap-2 text-lg font-bold">{icon}{title}</h2>
-        <span className="text-sm text-muted-foreground">{rows.length}</span>
-      </div>
-      {rows.length === 0 ? (
-        <p className="p-6 text-center text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <ul className="divide-y">
-          {rows.map((row) => (
-            <li key={row.key} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="font-semibold">{row.primary}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{row.secondary}</p>
-              </div>
-              <p className="flex max-w-xl items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                {row.reason ?? 'Flagged for review.'}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
+function ReviewTable({ title, icon, rows, empty }: { title: string; icon: React.ReactNode; empty: string; rows: Array<{ key: string; primary: string; secondary: string; reason: string | null }> }) {
+  return <section className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]">
+    <div className="flex items-center justify-between border-b border-white/[0.08] p-5"><h2 className="flex items-center gap-2 text-lg font-semibold text-white">{icon}{title}</h2><span className="rounded-full bg-white/[0.07] px-2.5 py-1 text-xs font-bold tabular-nums text-slate-300">{rows.length}</span></div>
+    {rows.length === 0 ? <p className="p-8 text-center text-sm text-slate-500">{empty}</p> : <ul className="divide-y divide-white/[0.06]">{rows.map((row) => <li key={row.key} className="flex flex-col gap-2 p-4 transition hover:bg-white/[0.025] sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="font-semibold text-slate-100">{row.primary}</p><p className="mt-0.5 text-xs text-slate-500">{row.secondary}</p></div><p className="flex max-w-xl items-start gap-2 rounded-lg border border-amber-300/15 bg-amber-300/[0.08] px-3 py-2 text-xs text-amber-100"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-300" />{row.reason ?? 'Flagged for review.'}</p></li>)}</ul>}
+  </section>
 }

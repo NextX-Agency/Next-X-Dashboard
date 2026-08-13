@@ -43,8 +43,8 @@ function TopBarComponent() {
 
   return (
     <>
-      <header className="bg-gray-900/98 border-b border-gray-800/80 lg:sticky lg:top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between gap-3 px-3 lg:px-5 py-1.5 lg:py-2.5">
+      <header className="border-b border-white/[0.08] bg-[#0c1119]/95 lg:sticky lg:top-0 z-40 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-3 px-4 lg:px-6 py-2 lg:py-3">
           <div className="flex items-center gap-2 lg:gap-3 flex-1 min-w-0">
             <button 
               onClick={openMobileMenu}
@@ -65,15 +65,15 @@ function TopBarComponent() {
                   priority
                 />
               </div>
-              <span className="hidden md:inline rounded-full border border-gray-700/70 bg-gray-800/60 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-300">
-                Admin
+              <span className="hidden md:inline rounded-full border border-orange-400/20 bg-orange-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-orange-200">
+                Control
               </span>
             </div>
-            <div className="hidden lg:block h-7 w-px bg-gray-800/80" />
+            <div className="hidden lg:block h-7 w-px bg-white/[0.08]" />
             <button
               type="button"
               onClick={openOperatorDialog}
-              className="hidden min-w-0 items-center gap-2 rounded-xl border border-gray-700/60 bg-gray-800/40 px-2.5 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 lg:flex"
+              className="hidden min-w-0 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-sm text-gray-300 transition hover:bg-white/[0.07] lg:flex"
               title="Change operator"
             >
               <UserCheck size={14} className="shrink-0 text-orange-400" />
@@ -83,15 +83,15 @@ function TopBarComponent() {
           </div>
 
           <div className="flex items-center gap-1.5 lg:gap-2">
-            <div className="hidden xl:flex items-center gap-2 rounded-xl border border-gray-700/50 bg-gray-800/30 px-2 py-1.5">
+            <div className="hidden xl:flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.025] px-2 py-1.5">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Catalog</span>
-              <div className="flex items-center gap-0.5 rounded-lg bg-gray-800/70 p-0.5">
+              <div className="flex items-center gap-0.5 rounded-lg bg-black/20 p-0.5">
                 <button
                   onClick={setAudioCatalog}
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     catalog === 'audio'
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'text-gray-400 hover:text-white active:bg-gray-700'
+                      ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                      : 'text-gray-400 hover:text-white active:bg-white/[0.08]'
                   }`}
                 >
                   <Headphones size={14} />
@@ -101,8 +101,8 @@ function TopBarComponent() {
                   onClick={setWatchesCatalog}
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                     catalog === 'watches'
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'text-gray-400 hover:text-white active:bg-gray-700'
+                      ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                      : 'text-gray-400 hover:text-white active:bg-white/[0.08]'
                   }`}
                 >
                   <Watch size={14} />
@@ -111,13 +111,13 @@ function TopBarComponent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-0.5 bg-gray-800/50 rounded-xl p-0.5 border border-gray-700/50">
+            <div className="flex items-center gap-0.5 bg-white/[0.03] rounded-xl p-0.5 border border-white/[0.08]">
               <button
                 onClick={setUSD}
                   className={`flex min-h-10 min-w-10 items-center justify-center gap-1 px-2 py-1.5 sm:min-w-[3.25rem] lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'USD'
-                    ? 'bg-orange-500 text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white active:bg-gray-700'
+                    ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                    : 'text-gray-400 hover:text-white active:bg-white/[0.08]'
                 }`}
               >
                 <DollarSign size={14} />
@@ -127,8 +127,8 @@ function TopBarComponent() {
                 onClick={setSRD}
                   className={`flex min-h-10 min-w-10 items-center justify-center gap-1 px-2 py-1.5 sm:min-w-[3.25rem] lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all ${
                   displayCurrency === 'SRD'
-                    ? 'bg-orange-500 text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white active:bg-gray-700'
+                    ? 'bg-orange-400 text-[#17100b] shadow-sm'
+                    : 'text-gray-400 hover:text-white active:bg-white/[0.08]'
                 }`}
               >
                 <span className="hidden sm:inline">SRD</span>
@@ -136,7 +136,7 @@ function TopBarComponent() {
               </button>
             </div>
 
-            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-800/30 rounded-xl border border-gray-700/50 text-xs text-gray-400">
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-white/[0.025] rounded-xl border border-white/[0.08] text-xs text-gray-400">
               <span>1 USD = {exchangeRate} SRD</span>
             </div>
 
@@ -153,7 +153,7 @@ function TopBarComponent() {
                 <div className="hidden xl:flex items-center">
                   <span className="text-sm font-semibold text-white truncate max-w-[140px]">{userName}</span>
                 </div>
-                <div className="w-8 h-8 lg:w-9 lg:h-9 bg-linear-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/25">
+                <div className="w-8 h-8 lg:w-9 lg:h-9 bg-orange-400 rounded-xl flex items-center justify-center text-[#17100b] font-bold text-xs lg:text-sm shadow-lg shadow-orange-500/20">
                   {userInitial}
                 </div>
               </button>

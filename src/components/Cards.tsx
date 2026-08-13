@@ -14,25 +14,24 @@ interface StatCardProps {
 
 function StatCardComponent({ title, value, icon: Icon, trend, color = 'orange' }: StatCardProps) {
   const iconBgClasses = {
-    orange: 'bg-gradient-to-br from-orange-500/15 to-orange-600/10 border border-orange-500/25',
-    blue: 'bg-gradient-to-br from-blue-500/15 to-blue-600/10 border border-blue-500/25',
-    green: 'bg-gradient-to-br from-green-500/15 to-green-600/10 border border-green-500/25',
-    purple: 'bg-gradient-to-br from-purple-500/15 to-purple-600/10 border border-purple-500/25',
-    red: 'bg-gradient-to-br from-red-500/15 to-red-600/10 border border-red-500/25',
+    orange: 'bg-orange-400/10 border border-orange-400/20',
+    blue: 'bg-sky-400/10 border border-sky-400/20',
+    green: 'bg-emerald-400/10 border border-emerald-400/20',
+    purple: 'bg-violet-400/10 border border-violet-400/20',
+    red: 'bg-rose-400/10 border border-rose-400/20',
   }
 
   const iconColorClasses = {
-    orange: 'text-orange-500',
-    blue: 'text-blue-500',
-    green: 'text-green-500',
-    purple: 'text-purple-500',
-    red: 'text-red-500',
+    orange: 'text-orange-300',
+    blue: 'text-sky-300',
+    green: 'text-emerald-300',
+    purple: 'text-violet-300',
+    red: 'text-rose-300',
   }
 
   return (
-    <div className="group relative bg-card rounded-lg p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
-      {/* Subtle gradient overlay on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300 bg-gradient-to-br from-orange-500 to-transparent" />
+    <div className="group relative bg-card rounded-2xl p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition-all duration-300 overflow-hidden">
+      <div className="absolute inset-x-5 top-0 h-px bg-white/0 transition group-hover:bg-orange-300/40" />
       
       <div className="relative flex items-start justify-between">
         <div className="flex-1 min-w-0">
@@ -67,7 +66,7 @@ interface ChartCardProps {
 
 function ChartCardComponent({ title, subtitle, children, action, icon }: ChartCardProps) {
   return (
-    <div className="bg-card rounded-lg p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-sm hover:shadow-lg transition-all duration-300">
+    <div className="bg-card rounded-2xl p-4 lg:p-5 border border-border hover:border-[hsl(var(--border-hover))] shadow-[0_12px_30px_rgba(0,0,0,0.12)] transition-all duration-300">
       <div className="flex items-start justify-between mb-4 lg:mb-5">
         <div className="flex items-center gap-3">
           {icon && (
@@ -98,22 +97,22 @@ interface QuickActionCardProps {
 
 function QuickActionCardComponent({ title, icon: Icon, onClick, color = 'orange' }: QuickActionCardProps) {
   const colorClasses = {
-    orange: 'from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 shadow-orange-500/25 hover:shadow-orange-500/40',
-    blue: 'from-blue-500 via-blue-600 to-blue-700 hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 shadow-blue-500/25 hover:shadow-blue-500/40',
-    green: 'from-green-500 via-green-600 to-green-700 hover:from-green-600 hover:via-green-700 hover:to-green-800 shadow-green-500/25 hover:shadow-green-500/40',
-    purple: 'from-purple-500 via-purple-600 to-purple-700 hover:from-purple-600 hover:via-purple-700 hover:to-purple-800 shadow-purple-500/25 hover:shadow-purple-500/40',
-    red: 'from-red-500 via-red-600 to-red-700 hover:from-red-600 hover:via-red-700 hover:to-red-800 shadow-red-500/25 hover:shadow-red-500/40',
-    teal: 'from-teal-500 via-teal-600 to-teal-700 hover:from-teal-600 hover:via-teal-700 hover:to-teal-800 shadow-teal-500/25 hover:shadow-teal-500/40',
-    indigo: 'from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-600 hover:via-indigo-700 hover:to-indigo-800 shadow-indigo-500/25 hover:shadow-indigo-500/40',
+    orange: 'bg-orange-400 hover:bg-orange-300 text-[#17100b] shadow-orange-500/15 hover:shadow-orange-500/25',
+    blue: 'bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/15 hover:shadow-sky-500/25',
+    green: 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/15 hover:shadow-emerald-500/25',
+    purple: 'bg-violet-500 hover:bg-violet-400 text-white shadow-violet-500/15 hover:shadow-violet-500/25',
+    red: 'bg-rose-500 hover:bg-rose-400 text-white shadow-rose-500/15 hover:shadow-rose-500/25',
+    teal: 'bg-teal-500 hover:bg-teal-400 text-white shadow-teal-500/15 hover:shadow-teal-500/25',
+    indigo: 'bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/15 hover:shadow-indigo-500/25',
   }
 
   return (
     <button
       onClick={onClick}
-      className={`relative overflow-hidden bg-gradient-to-br ${colorClasses[color]} text-white rounded-lg p-4 lg:p-5 shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97] w-full text-left group border border-white/10`}
+      className={`relative overflow-hidden ${colorClasses[color]} rounded-2xl p-4 lg:p-5 shadow-lg hover:shadow-xl transition-all duration-300 active:scale-[0.97] w-full text-left group border border-white/10`}
     >
       {/* Shine effect */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700" />
+      <div className="absolute inset-x-5 top-0 h-px bg-white/40" />
       
       <div className="relative flex flex-col gap-3">
         <div className="w-11 h-11 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200 border border-white/25">

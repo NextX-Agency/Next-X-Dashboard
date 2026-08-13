@@ -13,17 +13,18 @@ function PageHeaderComponent({
   icon?: React.ReactNode 
 }) {
   return (
-    <div className="bg-card/95 border-b border-border">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 lg:py-4">
+    <div className="border-b border-white/[0.08] bg-[#0c1119]/95 backdrop-blur-xl">
+      <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-10 py-4 lg:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
             {icon && (
-              <div className="flex w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[hsl(var(--primary-muted))] items-center justify-center shrink-0">
-                <div className="text-primary">{icon}</div>
+              <div className="flex w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-orange-400/25 bg-orange-400/10 items-center justify-center shrink-0">
+                <div className="text-orange-300">{icon}</div>
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-lg lg:text-2xl font-bold text-foreground tracking-tight truncate">{title}</h1>
+              <p className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 sm:block">Admin workspace</p>
+              <h1 className="mt-0.5 text-base sm:text-lg lg:text-2xl font-semibold text-foreground tracking-[-0.025em] truncate">{title}</h1>
               {subtitle && (
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed sm:truncate">{subtitle}</p>
               )}
@@ -40,7 +41,7 @@ export const PageHeader = memo(PageHeaderComponent)
 
 function PageContainerComponent({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-5 lg:py-6 ${className}`}>
+    <div className={`max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-10 py-4 sm:py-6 lg:py-7 ${className}`}>
       {children}
     </div>
   )
@@ -427,7 +428,7 @@ function CardComponent({
   padding?: boolean
 }) {
   return (
-    <div className={`bg-card rounded-lg border border-border ${padding ? 'p-3 sm:p-4 lg:p-5' : ''} ${className}`}>
+    <div className={`bg-card rounded-2xl border border-border shadow-[0_12px_30px_rgba(0,0,0,0.12)] ${padding ? 'p-4 sm:p-5 lg:p-6' : ''} ${className}`}>
       {children}
     </div>
   )

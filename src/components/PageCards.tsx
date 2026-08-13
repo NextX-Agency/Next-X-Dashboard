@@ -17,7 +17,7 @@ function WalletCardComponent({ personName, type, currency, balance, onClick }: W
   return (
     <button
       onClick={onClick}
-      className="w-full bg-card rounded-lg p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 text-left group"
+      className="w-full bg-card rounded-2xl p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 text-left group"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -75,7 +75,7 @@ function ItemCardComponent({
   const CatalogIcon = isWatch ? Watch : Headphones
 
   return (
-    <div className="bg-card rounded-lg border border-border overflow-hidden hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
+    <div className="bg-card rounded-2xl border border-border overflow-hidden hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
       {imageUrl ? (
         <div className="h-44 bg-muted relative overflow-hidden">
           <Image src={imageUrl} alt={name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
@@ -158,7 +158,7 @@ interface LocationCardProps {
 
 function LocationCardComponent({ name, address, itemCount = 0, onEdit, onDelete }: LocationCardProps) {
   return (
-    <div className="bg-card rounded-lg p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
+    <div className="bg-card rounded-2xl p-4 border border-border hover:border-[hsl(var(--border-hover))] hover:shadow-lg transition-all duration-200 group">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-[hsl(var(--primary-muted))] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -231,7 +231,7 @@ function StockCardComponent({
   const locationCount = locations?.length ?? 0
   
   return (
-    <div className={`bg-card rounded-lg p-3.5 sm:p-4 border transition-all duration-200 group ${
+    <div className={`bg-card rounded-2xl p-3.5 sm:p-4 border transition-all duration-200 group ${
       isOutOfStock 
         ? 'border-destructive/30 bg-destructive/5' 
         : isLowStock 

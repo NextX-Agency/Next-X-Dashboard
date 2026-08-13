@@ -17,7 +17,7 @@ const DEFAULT_NAV_ITEMS = [
   { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { name: 'Sales', icon: ShoppingCart, path: '/sales' },
   { name: 'Stock', icon: Package, path: '/stock' },
-  { name: 'Reports', icon: BarChart3, path: '/reports' },
+  { name: 'Finance', icon: BarChart3, path: '/finance' },
   { name: 'Settings', icon: Settings, path: '/settings' },
 ]
 

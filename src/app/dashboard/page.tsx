@@ -11,10 +11,12 @@ import {
   ArrowUpRight,
   BarChart3,
   DollarSign,
+  FileCheck2,
   MapPin,
   Package,
   Receipt,
   RefreshCcw,
+  ShieldCheck,
   ShoppingCart,
   Target,
   TrendingUp,
@@ -58,7 +60,7 @@ const QUICK_ACTIONS = [
   { name: 'New Sale', icon: ShoppingCart, path: '/sales', color: 'orange' as const },
   { name: 'Add Stock', icon: Package, path: '/stock', color: 'blue' as const },
   { name: 'Exchange Rate', icon: DollarSign, path: '/exchange', color: 'green' as const },
-  { name: 'View Reports', icon: BarChart3, path: '/reports', color: 'purple' as const },
+  { name: 'Finance Command', icon: Wallet, path: '/finance', color: 'purple' as const },
 ]
 
 const MOBILE_MODULES = [
@@ -281,7 +283,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#090d13]">
       {/*
         F-19: every USD figure below is priced on the active exchange rate, and
         nothing used to say how old it was. The rate is not fetched
@@ -303,36 +305,35 @@ export default function Home() {
           </div>
         </div>
       )}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-br from-orange-600 via-orange-700 to-orange-900" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-900/30 rounded-full blur-3xl" />
+      <div className="relative overflow-hidden border-b border-white/[0.08] bg-[#101620]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_84%_0%,rgba(249,112,21,0.2),transparent_40%)]" />
+        <div className="absolute bottom-0 left-0 h-px w-full bg-linear-to-r from-transparent via-orange-400/50 to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-6 sm:py-8 lg:py-16">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
             <div className="flex-1">
-              <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3 py-1.5 sm:px-4 sm:py-2 rounded-full mb-3 sm:mb-4 border border-white/25 shadow-sm">
-                <Activity size={14} className="text-white sm:h-4 sm:w-4" />
-                <span className="text-xs sm:text-sm font-bold text-white tracking-wide">Operations Pulse</span>
+              <div className="inline-flex items-center gap-2 bg-orange-400/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full mb-3 sm:mb-4 border border-orange-400/25">
+                <Activity size={14} className="text-orange-300 sm:h-4 sm:w-4" />
+                <span className="text-xs sm:text-sm font-bold text-orange-200 tracking-wide">Live operating picture</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-white mb-3 sm:mb-4 tracking-tight leading-tight">
-                A cleaner view of what needs attention today.
+                Run the store.<br />Keep the books clear.
               </h1>
-              <p className="sm:hidden text-sm text-orange-100/90 font-medium max-w-xl leading-relaxed">
+              <p className="sm:hidden text-sm text-slate-300 font-medium max-w-xl leading-relaxed">
                 Server-computed metrics for sales, stock risk, profit, and the live exchange rate.
               </p>
-              <p className="hidden sm:block text-orange-100/90 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
+              <p className="hidden sm:block text-slate-300 text-base lg:text-lg font-medium max-w-2xl leading-relaxed">
                 Server-computed metrics keep the dashboard fast, while the summary below highlights sales pace, weekly profit, stock risk, and the live exchange rate without waiting for the browser to crunch raw tables.
               </p>
 
               <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs sm:text-sm font-medium text-white/90 backdrop-blur-md">
+                <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200">
                   {hasData ? `Updated ${getTimeAgo(lastUpdatedAt)}` : 'Preparing first sync'}
                 </div>
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs sm:text-sm font-medium text-white/90 backdrop-blur-md">
+                <div className="rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200">
                   {hasData ? `${stats.lowStockItems} low-stock items` : 'Checking inventory alerts'}
                 </div>
-                <div className="hidden sm:block rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-medium text-white/90 backdrop-blur-md">
+                <div className="hidden sm:block rounded-full border border-white/15 bg-white/[0.05] px-3 py-1.5 text-sm font-medium text-slate-200">
                   {hasData ? `1 USD = ${stats.exchangeRate} SRD` : 'Checking exchange rate'}
                 </div>
               </div>
@@ -346,12 +347,12 @@ export default function Home() {
                 </>
               ) : (
                 <>
-                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 text-white shadow-lg">
-                    <div className="text-xs sm:text-sm font-semibold text-orange-100 mb-1">Today&apos;s Sales</div>
+                  <div className="bg-[#0b111a]/80 border border-white/[0.1] rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-black/20">
+                    <div className="text-xs sm:text-sm font-semibold text-slate-400 mb-1">Today&apos;s Sales</div>
                     <div className="text-xl sm:text-2xl lg:text-3xl font-bold">
                       {hasData ? formatCurrency(todaysSalesDisplay, displayCurrency) : '—'}
                     </div>
-                    <div className="text-[11px] sm:text-xs text-orange-200 mt-1.5 sm:mt-2 flex items-center gap-1">
+                    <div className="text-[11px] sm:text-xs text-slate-400 mt-1.5 sm:mt-2 flex items-center gap-1">
                       {hasData ? (
                         <>
                           {stats.salesTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -364,10 +365,10 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                  <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 text-white shadow-lg">
-                    <div className="text-xs sm:text-sm font-semibold text-orange-100 mb-1">Active Orders</div>
+                  <div className="bg-[#0b111a]/80 border border-white/[0.1] rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-black/20">
+                    <div className="text-xs sm:text-sm font-semibold text-slate-400 mb-1">Active Orders</div>
                     <div className="text-xl sm:text-2xl lg:text-3xl font-bold">{hasData ? stats.activeOrders : '—'}</div>
-                    <div className="text-[11px] sm:text-xs text-orange-200 mt-1.5 sm:mt-2">
+                    <div className="text-[11px] sm:text-xs text-slate-400 mt-1.5 sm:mt-2">
                       {hasData ? 'Reservations waiting to be handled' : 'Checking queue health'}
                     </div>
                   </div>
@@ -379,6 +380,25 @@ export default function Home() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 lg:pt-12 pb-28 sm:pb-32 lg:pb-12">
+        <section className="mb-8 overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#101620] shadow-2xl shadow-black/15 lg:mb-10">
+          <div className="flex flex-col justify-between gap-4 border-b border-white/[0.08] px-5 py-5 sm:flex-row sm:items-end lg:px-6">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-orange-300"><ShieldCheck size={14} />Finance command</div>
+              <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">Money controls, visible from the main dashboard.</h2>
+              <p className="mt-1 text-sm text-slate-400">Use this route for the operating pulse, then move into the finance workspace for evidence and month-end controls.</p>
+            </div>
+            <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${stats.exchangeRateIsStale ? 'border-amber-300/20 bg-amber-300/10 text-amber-200' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'}`}><span className={`h-1.5 w-1.5 rounded-full ${stats.exchangeRateIsStale ? 'bg-amber-300' : 'bg-emerald-300'}`} />{stats.exchangeRateIsStale ? 'Exchange rate needs review' : 'Finance controls online'}</div>
+          </div>
+          <div className="grid divide-y divide-white/[0.07] lg:grid-cols-[1.25fr_.75fr] lg:divide-x lg:divide-y-0">
+            <div className="grid sm:grid-cols-3 sm:divide-x sm:divide-white/[0.07]">
+              <div className="p-5 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Weekly sales</p><p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-white">{hasData ? formatCurrency(weeklySalesDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">{hasData ? `${stats.weeklySalesTrend >= 0 ? '+' : ''}${stats.weeklySalesTrend.toFixed(1)}% vs prior week` : 'Awaiting secure data sync'}</p></div>
+              <div className="border-t border-white/[0.07] p-5 sm:border-t-0 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Gross profit</p><p className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${weeklyGrossProfitDisplay >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{hasData ? formatCurrency(weeklyGrossProfitDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">This week, at current exchange rate</p></div>
+              <div className="border-t border-white/[0.07] p-5 sm:border-t-0 lg:p-6"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Net profit</p><p className={`mt-2 text-2xl font-semibold tracking-tight tabular-nums ${weeklyNetProfitDisplay >= 0 ? 'text-emerald-200' : 'text-rose-200'}`}>{hasData ? formatCurrency(weeklyNetProfitDisplay, displayCurrency) : '—'}</p><p className="mt-1 text-xs text-slate-500">Expenses and commissions included</p></div>
+            </div>
+            <div className="flex flex-col justify-center gap-2 p-5 lg:p-6"><Link href="/finance" className="flex items-center justify-between rounded-xl bg-orange-400 px-4 py-3 text-sm font-bold text-[#17100b] transition hover:bg-orange-300">Open money trail <ArrowUpRight size={16} /></Link><div className="grid grid-cols-2 gap-2"><Link href="/finance/review" className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-2.5 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]">Review queue</Link><Link href="/finance/close" className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-2.5 text-center text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08]"><span className="inline-flex items-center gap-1"><FileCheck2 size={14} />Close center</span></Link></div></div>
+          </div>
+        </section>
+
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
           <div>
             <h2 className="text-xl lg:text-2xl font-bold text-foreground tracking-tight">Store overview</h2>

@@ -1335,3 +1335,22 @@ no accounting period or journal row persisted. `pnpm exec tsc --noEmit --pretty 
 
 Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
+
+## Finance and admin workspace UI â€” Codex â€” 2026-08-13T16:20Z â€” DONE
+
+Redesigned the read-only finance control surfaces without changing a financial API, database row,
+or financial-write path. `/finance` is now a dense money-trail command screen with real cash-flow,
+review, inventory, journal, expense-allocation, and ledger data. `/finance/review` and
+`/finance/close` share the same operational visual language, state hierarchy, and accessible input
+focus treatment. The main `/dashboard` now includes a Finance Command panel with real weekly sales,
+gross/net profit, exchange-rate status, and direct routes into the money trail, review queue, and
+close center; its header and action rail were refreshed to match. The work now expands the same
+design system through the shared admin shell, navigation, and reusable management components.
+Every authenticated admin route now inherits the same workspace surface; shared page headers,
+containers, management cards, top bar, desktop rail, and mobile navigation were updated without
+altering any existing admin action or route.
+
+`pnpm exec tsc --noEmit --pretty false`, `pnpm build`, and `git diff --check` passed. No migration
+was applied and no production data was read or changed during this UI-only task. The retained Part 6
+baseline remains: **149 sales / 306 sale_items / 490 wallet_transactions / 490
+finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
