@@ -983,3 +983,12 @@ T-19 (schema/defaults), T-20` all committed in filename order, each with a retai
 All six zero invariants are zero (including both directions of the wallet-transaction/ledger pairing):
 **149 sales / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses /
 122 commissions / SRD 42,005.99 / USD 534.00.**
+
+---
+
+## Reservations financial write hardening — claimed by Codex — 2026-08-13T12:17Z — in progress
+
+Resuming the stale claim. This task moves every reservation-originated sale, commission, stock,
+wallet, and wallet-transaction mutation behind an authenticated server route using one
+Serializable transaction, then replaces the browser calls. No production schema change is part of
+this task.
