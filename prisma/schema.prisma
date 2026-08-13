@@ -302,32 +302,32 @@ model Reservation {
 }
 
 model Sale {
-  id                  String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  locationId          String                @map("location_id") @db.Uuid
-  sellerId            String?               @map("seller_id") @db.Uuid
-  currency            String
-  exchangeRate        Decimal?              @map("exchange_rate") @db.Decimal(18, 8)
-  totalAmount         Decimal               @map("total_amount") @db.Decimal(18, 4)
-  paymentMethod       String?               @map("payment_method")
-  notes               String?
-  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  wallet_id           String?               @db.Uuid
-  status              String                @default("posted")
-  voidedAt            DateTime?             @map("voided_at") @db.Timestamptz(6)
-  voidedBy            String?               @map("voided_by") @db.Uuid
-  voidReason          String?               @map("void_reason")
-  correlationId       String?               @map("correlation_id") @db.Uuid
-  needsReview         Boolean               @default(false) @map("needs_review")
-  reviewReason        String?               @map("review_reason")
-  invoiceNumber       String?               @unique @map("invoice_number")
-  invoiceIsReconstructed Boolean            @default(false) @map("invoice_is_reconstructed")
-  commissions         Commission[]
-  saleItems           SaleItem[]
-  location            Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  seller              Seller?               @relation(fields: [sellerId], references: [id])
-  wallets             Wallet?               @relation(fields: [wallet_id], references: [id], onUpdate: NoAction)
-  voidedByUser        User?                 @relation("SaleVoidedBy", fields: [voidedBy], references: [id], onDelete: SetNull)
-  wallet_transactions wallet_transactions[]
+  id                     String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  locationId             String                @map("location_id") @db.Uuid
+  sellerId               String?               @map("seller_id") @db.Uuid
+  currency               String
+  exchangeRate           Decimal?              @map("exchange_rate") @db.Decimal(18, 8)
+  totalAmount            Decimal               @map("total_amount") @db.Decimal(18, 4)
+  paymentMethod          String?               @map("payment_method")
+  notes                  String?
+  createdAt              DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  wallet_id              String?               @db.Uuid
+  status                 String                @default("posted")
+  voidedAt               DateTime?             @map("voided_at") @db.Timestamptz(6)
+  voidedBy               String?               @map("voided_by") @db.Uuid
+  voidReason             String?               @map("void_reason")
+  correlationId          String?               @map("correlation_id") @db.Uuid
+  needsReview            Boolean               @default(false) @map("needs_review")
+  reviewReason           String?               @map("review_reason")
+  invoiceNumber          String?               @unique @map("invoice_number")
+  invoiceIsReconstructed Boolean               @default(false) @map("invoice_is_reconstructed")
+  commissions            Commission[]
+  saleItems              SaleItem[]
+  location               Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  seller                 Seller?               @relation(fields: [sellerId], references: [id])
+  wallets                Wallet?               @relation(fields: [wallet_id], references: [id], onUpdate: NoAction)
+  voidedByUser           User?                 @relation("SaleVoidedBy", fields: [voidedBy], references: [id], onDelete: SetNull)
+  wallet_transactions    wallet_transactions[]
 
   @@index([status])
   @@map("sales")
@@ -354,23 +354,25 @@ model SaleItem {
 }
 
 model Wallet {
-  id                  String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  personName          String                 @map("person_name")
-  type                String
-  currency            String
-  balance             Decimal                @default(0) @db.Decimal(18, 4)
-  purpose             String                 @default("operational")
-  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  location_id         String?                @db.Uuid
-  expenses            Expense[]
-  purchaseOrders      PurchaseOrder[]
-  sales               Sale[]
-  wallet_transactions wallet_transactions[]
-  locations           Location?              @relation(fields: [location_id], references: [id], onUpdate: NoAction)
-  reconciliations     WalletReconciliation[]
-  notifications       UserNotification[]
-  ledgerEntries       FinanceLedgerEntry[]
+  id                    String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  personName            String                 @map("person_name")
+  type                  String
+  currency              String
+  balance               Decimal                @default(0) @db.Decimal(18, 4)
+  purpose               String                 @default("operational")
+  physicallyVerifiedAt  DateTime?              @map("physically_verified_at") @db.Timestamptz(6)
+  baselineEstablishedAt DateTime?              @map("baseline_established_at") @db.Timestamptz(6)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location_id           String?                @db.Uuid
+  expenses              Expense[]
+  purchaseOrders        PurchaseOrder[]
+  sales                 Sale[]
+  wallet_transactions   wallet_transactions[]
+  locations             Location?              @relation(fields: [location_id], references: [id], onUpdate: NoAction)
+  reconciliations       WalletReconciliation[]
+  notifications         UserNotification[]
+  ledgerEntries         FinanceLedgerEntry[]
 
   @@unique([location_id, type, currency, purpose], map: "wallets_location_type_currency_purpose_key")
   @@index([location_id], map: "idx_wallets_location")

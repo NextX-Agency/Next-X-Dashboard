@@ -894,3 +894,14 @@ Pre-migration dump retained: `backups/finance-overhaul-pre-t15-20260813T104235Z.
 ## T-10 — claimed by Codex — 2026-08-13T11:29Z — in progress
 
 Applying the staged wallet-baseline and reconciliation-enforcement migration.
+
+## T-10 — Codex — 2026-08-13T11:32Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+The transaction created one unverified `system_baseline` reconciliation per each of the 13 wallets,
+recorded the documented Blauwgrond variance note without an adjustment, and set enforcement to `warn`.
+Its assertions and the post-commit Part 6 suite passed. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t10-20260813T104420Z.dump`
+(`4B04868734F381702939B63990A87F5D517F6BE8B5882A7C5104C4D4CC60DACA`).
+Prisma's wallet timestamps were updated and regenerated. Physical cash counts and seller credentials
+remain owner-only actions; no account or balance was invented.
