@@ -697,7 +697,16 @@ UPDATE public.locations SET company_id = (SELECT id FROM public.companies LIMIT 
 ALTER TABLE public.locations ALTER COLUMN company_id SET NOT NULL;
 ```
 
-Then `company_id` on every financial table, backfilled via `location_id`, then `NOT NULL`. Denormalised deliberately so RLS never needs a join.
+Then `company_id` on every financial table, backfilled via `location_id`, then `NOT NULL`.
+Denormalised deliberately so RLS never needs a join.
+
+> **This task as originally written would have aborted on production.** Backfilling `company_id`
+> onto `finance_ledger_entries` is an `UPDATE`, and `prevent_finance_ledger_mutation()` rejects
+> UPDATE on that table at the database level — correctly, since that guard is the reason the ledger
+> is trustworthy. The backfill for that one table must run inside the sanctioned
+> `app.finance_ledger_maintenance` scope, the same escape hatch the restore path uses, and **only for
+> that statement.** Do not widen the scope, do not disable the trigger, and do not use this route for
+> any other table. Credit to the implementing agent for catching it before it ran.
 
 **The three locations are branches of one company, not three companies.** All map to NextX.
 

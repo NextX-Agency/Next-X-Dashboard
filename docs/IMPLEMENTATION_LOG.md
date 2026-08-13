@@ -734,3 +734,31 @@ never in scope and are equally open.
 
 Recommended order from here: **T-02 → apply the twelve → server-side reservations → server-side
 orders/budgets/items/exchange/locations → set `finance.rls_lockdown_ready` → T-05.**
+
+---
+
+## REVIEW — claude — 2026-08-14 — code-only run checked; plan defect corrected
+
+**T-20 corrected in the plan.** The agent found that backfilling `company_id` onto
+`finance_ledger_entries` is an `UPDATE`, which `prevent_finance_ledger_mutation()` rejects at the
+database level. As written, T-20 would have aborted mid-migration on production. The plan now
+requires that one statement to run inside the sanctioned `app.finance_ledger_maintenance` scope and
+warns against widening it. This was my defect, caught before it ran.
+
+**T-05 stays blocked, and that judgement is endorsed.** `reservations/page.tsx` still writes
+`wallets`, `wallet_transactions`, `sales`, `sale_items` and `commissions` from the browser using the
+same read-modify-write pattern the old sales page used. Do not apply T-05 until every browser-side
+financial write is gone. Anyone reading this later: **do not override that refusal.**
+
+**Audit scope gap, recorded honestly.** The audit covered sales, commissions and reservations. The
+orders, budgets, items, exchange and locations pages were never examined and are equally exposed.
+Before T-05, grep all of `src/app` for browser-side `.insert` / `.update` / `.delete` on financial
+tables and fix every hit — the audit's silence on those pages is absence of evidence, not evidence
+of absence.
+
+**T-07 was never done in the earlier run** despite appearing complete. The broken insert was still
+live. Task completion claims should be verified against the code, not against a previous summary.
+
+Order to production, once database access exists:
+T-02 → apply the 13 staged migrations → server-side reservations → the remaining unaudited pages →
+`finance.rls_lockdown_ready` → T-05.
