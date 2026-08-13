@@ -1037,3 +1037,8 @@ Verification: `pnpm exec tsc --noEmit --pretty false` passed; the orders browser
 returned zero matches; `git diff --check` passed. A read-only Part 6 run confirmed **149 sales /
 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses /
 122 commissions / SRD 42,005.99 / USD 534.00**, with all six financial/stock invariants zero.
+
+## Budgets financial write hardening — claimed by Codex — 2026-08-13T13:15Z — in progress
+
+Moving budgets, budget categories, and goals out of browser Supabase mutations and into a
+validated authenticated server route. Budget and goal history will be retained rather than deleted.
