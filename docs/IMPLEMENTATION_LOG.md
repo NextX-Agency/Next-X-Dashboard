@@ -374,7 +374,58 @@ reproduce the audit's framing. The conclusion is unchanged either way: purchasin
 ceiling every month. Reporting rather than reconciling, per Part 2 — no figure was adjusted to hit
 a published number.
 
-## T-06 / T-09 / T-12 — migration SQL WRITTEN BUT NOT APPLIED — claude — 2026-08-13T11:30Z
+## T-06 / T-09 / T-12 — migration SQL WRITTEN BUT ⚠️ NOT APPLIED — claude — 2026-08-13T12:05Z
 
-Not a claim of the tasks themselves. Files are staged in `supabase/migrations/` for a session that
-has database access; **nothing has been applied to production and no DDL was attempted.**
+Not a claim of the tasks themselves. **Nothing has been applied to production and no DDL was
+attempted against it.** These are files staged for a session that has database access.
+
+| File | Task |
+|---|---|
+| `supabase/migrations/20260814000000_t06_widen_money_columns.sql` | T-06 |
+| `supabase/migrations/20260814000100_t09_review_queue.sql` | T-09 |
+| `supabase/migrations/20260814000200_t12_snapshot_sale_cost.sql` | T-12 |
+
+Apply in that order, one per transaction, **each behind a backup** — T-02 is still blocked.
+T-09 must precede T-12; the guard below enforces it rather than trusting the order.
+
+### Tested on a production-shaped local fixture, not on production
+
+`scripts/restore-verification/seed-production-shape.mjs` builds a local database matching the Part 6
+baseline exactly — 149 sales / 306 sale_items / 490 wallet_transactions / 490 ledger / 83 expenses /
+SRD 42,005.99 / USD 534.00 — including the Part 5 anomalies: 4 sales with no lines, 4 header/line
+mismatches, 5 zero-cost items, 9 "Personal Items" expenses.
+
+Four things were checked, and each was made to fail before being made to pass:
+
+1. **They apply and self-verify.** All three commit against the fixture, each printing its own
+   assertion: T-06 widened 29 columns (26 amounts, 3 rates); T-09 flagged 4 / 4 / 5 / 9; T-12
+   snapshotted all 306 lines.
+2. **They abort cleanly on the wrong data.** Run against an empty database they fail their baseline
+   assertions and roll back — afterwards `sales.needs_review` does not exist, `sale_items.unit_cost_usd`
+   does not exist, and `wallets.balance` is still `NUMERIC(10,2)`. Zero trace, which is the whole
+   point of the Part 1 protocol.
+3. **They are idempotent.** A second run of all three changes nothing and still verifies.
+4. **T-12's dependency guard is real.** Unflagging the zero-cost items and re-running gives
+   `T-12 FAILED: 5 line(s) snapshotted a zero cost from an unflagged item. Run T-09 first.`
+   Re-flagging makes it pass again.
+
+### Decisions worth reviewing before applying
+
+- **T-06 widens 29 columns, not 26.** The plan's 26 are exactly the `NUMERIC(10,2)` amount columns,
+  which is what caps at 99,999,999.99; the other 3 are the `NUMERIC(10,4)` FX rate columns going to
+  `(18,8)`. The four `commission_rate` columns are **deliberately left at `NUMERIC(5,2)`** — they are
+  percentages, not money, and `999.99%` is already generous. Flagging it because it is a judgement
+  call, not an oversight.
+- **The plan says widening "does not rewrite rows". It does.** Changing scale, not just precision,
+  forces a table rewrite under an `ACCESS EXCLUSIVE` lock. Harmless at 490 rows — a moment's lock —
+  but worth knowing before someone runs it expecting a metadata-only change.
+- T-12 backfills `fx_rate_at_sale` from `COALESCE(sales.exchange_rate, 38.0)`. **15 of the 149 sales
+  carry no exchange rate**, so those take the fallback. All 306 lines are flagged
+  `cost_is_estimated = true` regardless, per R3.
+
+### Each file lists what it does NOT do
+
+T-09 still owes the exclusion of `needs_review` rows from margin / run-rate / payout, the admin
+review page, and the SRD 9,458.05 commission-payout **report** (report only — never insert).
+T-12 still owes `reportCalculations.ts:107` reading `si.unit_cost_usd`, and `POST /api/sales`
+writing real costs with `cost_is_estimated = false`. Both are noted at the foot of their files.
