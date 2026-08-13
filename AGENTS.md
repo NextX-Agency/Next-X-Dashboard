@@ -19,6 +19,20 @@ Two documents govern this work. Read both before changing any code that touches 
 "Financial" means: sales, sale items, wallets, wallet transactions, expenses, commissions,
 purchase orders, exchange rates, budgets, obligations, and the ledger.
 
+## Where the work stands — read this before starting
+
+**`docs/IMPLEMENTATION_LOG.md` is the authoritative record of current state.** The runbook is the
+plan; the log is what has actually happened. Read its final entries first — they carry corrections
+that **supersede the runbook's ordering**, including:
+
+- **T-05 must run after T-13, not after T-11.** `handleUndoSale` still writes to five financial
+  tables from the browser. Closing those tables early breaks the dashboard.
+- **T-04 is half applied.** Write it idempotently rather than assuming a clean start.
+- Production RLS is weaker than `20260127000000_enable_rls_policies.sql` suggests. **Query
+  `pg_policies` directly; do not trust that migration file.**
+
+Claim each task in the log and push the claim before writing code. The push is the lock.
+
 ## Non-negotiable rules
 
 These are not style preferences. Each one maps to a production failure documented in the audit.
