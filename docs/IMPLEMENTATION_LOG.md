@@ -605,3 +605,28 @@ zero payout expenses recorded** — matching the audit exactly.
 One detail worth noting: the location name is `Paramaribo - Noord, Blauwgrond`, which contains a
 comma. The CSV quotes fields properly; a naive join would have silently shifted every column right
 of it.
+
+## T-16 — claude — 2026-08-13T15:40Z — code DONE · migration staged, NOT APPLIED
+
+Before: invoice numbers came from `Math.random()` in the browser and were never stored. The number
+        on a customer's copy exists nowhere in the database.
+After:  `invoice_number` on `sales`, unique, allocated **inside the sale transaction** from an
+        `invoice_sequences` counter row.
+
+Migration `20260814000400_t16_invoice_numbers.sql` — **NOT APPLIED**. Tested against the
+production-shape fixture: 149 sales numbered `INV-000001`..`INV-000149`, 149 distinct, all flagged
+`invoice_is_reconstructed`, sequence ends at exactly 149 (gapless). Idempotent — a second run
+re-verifies and changes nothing.
+
+**A Postgres `SEQUENCE` is deliberately not used.** Sequences are non-transactional: a rolled-back
+sale burns its number and leaves a hole. An invoice series with holes is exactly what an auditor
+asks about. A counter row bumped under the transaction's lock gives back the number when the sale
+rolls back.
+
+⚠️ **For the owner, before this is applied.** Reconstructed numbers will **not** match the numbers on
+invoice copies customers already hold — the originals were random and were never recorded, so no
+software can recover them. Every historical row is flagged `invoice_is_reconstructed = true` so the
+two are never confused. **If this matters for tax, raise it with the accountant before applying.**
+
+One bug caught in testing: naming the PL/pgSQL variable `prefix` collided with
+`invoice_sequences.prefix` and Postgres rejected the ambiguous reference. Renamed `seq_prefix`.

@@ -131,6 +131,14 @@ model SiteAnalyticsEvent {
   @@map("site_analytics_events")
 }
 
+model InvoiceSequence {
+  prefix     String   @id
+  lastNumber BigInt   @default(0) @map("last_number")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("invoice_sequences")
+}
+
 model StoreSetting {
   id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   key       String    @unique
@@ -311,6 +319,8 @@ model Sale {
   correlationId       String?               @map("correlation_id") @db.Uuid
   needsReview         Boolean               @default(false) @map("needs_review")
   reviewReason        String?               @map("review_reason")
+  invoiceNumber       String?               @unique @map("invoice_number")
+  invoiceIsReconstructed Boolean            @default(false) @map("invoice_is_reconstructed")
   commissions         Commission[]
   saleItems           SaleItem[]
   location            Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)

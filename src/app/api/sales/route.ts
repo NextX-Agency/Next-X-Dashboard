@@ -13,6 +13,7 @@ import {
   parseQuantity,
   resolveExchangeRate,
   resolveSaleLines,
+  allocateInvoiceNumber,
   SaleValidationError,
   type SaleComboInput,
   type SaleLineInput,
@@ -478,11 +479,16 @@ export async function POST(request: NextRequest) {
       // One id ties the sale to its ledger entries, so a later void can post
       // its contra entries under the same correlation (T-13).
       const correlationId = randomUUID()
+      // Allocated inside the transaction, so a failed sale releases the number
+      // instead of burning it (T-16).
+      const invoiceNumber = await allocateInvoiceNumber(tx)
 
       const sale = await tx.sale.create({
         data: {
           locationId,
           correlationId,
+          invoiceNumber,
+          invoiceIsReconstructed: false,
           sellerId: seller?.id ?? null,
           currency,
           exchangeRate: currency === 'USD' ? exchangeRate : null,
@@ -507,7 +513,7 @@ export async function POST(request: NextRequest) {
             })),
           },
         },
-        select: { id: true, createdAt: true },
+        select: { id: true, createdAt: true, invoiceNumber: true },
       })
 
       // Atomic decrements. The old client read a quantity and wrote back
@@ -619,6 +625,7 @@ export async function POST(request: NextRequest) {
 
       return {
         saleId: sale.id,
+        invoiceNumber: sale.invoiceNumber,
         createdAt: sale.createdAt.toISOString(),
         locationName: location.name,
         currency,

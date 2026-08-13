@@ -314,3 +314,34 @@ export async function resolveSaleLines(
 export function resolveExchangeRate(rate: unknown): number {
   return normalizeExchangeRate(rate === null || rate === undefined ? undefined : Number(rate))
 }
+
+/**
+ * Take the next invoice number, inside the sale's transaction (T-16, F-17).
+ *
+ * A Postgres SEQUENCE is deliberately not used. Sequences are non-transactional:
+ * a rolled-back sale would burn its number and leave a hole in the series, and
+ * an invoice series with holes is exactly what an auditor asks about. This bumps
+ * a counter row under the transaction's lock instead, so a rolled-back sale
+ * releases its number and two concurrent sales cannot take the same one.
+ *
+ * Numbers were previously generated with `Math.random()` in the browser and
+ * never stored at all.
+ */
+export async function allocateInvoiceNumber(
+  tx: SaleTransactionClient,
+  prefix = 'INV',
+): Promise<string> {
+  const rows = await tx.$queryRawUnsafe<Array<{ last_number: bigint }>>(
+    `INSERT INTO public.invoice_sequences (prefix, last_number)
+     VALUES ($1, 1)
+     ON CONFLICT (prefix) DO UPDATE
+       SET last_number = public.invoice_sequences.last_number + 1, updated_at = NOW()
+     RETURNING last_number`,
+    prefix,
+  )
+  const next = Number(rows[0]?.last_number ?? 0)
+  if (!Number.isFinite(next) || next <= 0) {
+    throw new SaleValidationError('Could not allocate an invoice number.')
+  }
+  return `${prefix}-${String(next).padStart(6, '0')}`
+}

@@ -56,6 +56,8 @@ interface CreatedSaleItem {
 
 interface CreatedSale {
   saleId: string
+  /** Allocated and stored server-side (T-16). Null until that migration runs. */
+  invoiceNumber: string | null
   createdAt: string
   locationName: string
   currency: string
@@ -540,7 +542,9 @@ export default function SalesPage() {
         currency: created.currency as Currency,
         paymentMethod: created.paymentMethod === 'cash' ? 'Cash' : 'Bank Transfer',
         total: created.totalAmount,
-        invoiceNumber,
+        // The stored, gapless number. Falls back to the old client-generated
+        // one only until the T-16 migration has been applied.
+        invoiceNumber: created.invoiceNumber ?? invoiceNumber,
       })
 
       setCart([])
