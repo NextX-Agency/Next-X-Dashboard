@@ -1108,6 +1108,12 @@ public policies. No data was changed by the migration.
 Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
 
+## T-24 — claimed by Codex — 2026-08-13T15:50Z — in progress
+
+Adding a forward-only USD revaluation run, balanced SRD gain/loss journal posting, and a strict
+fresh-rate gate. The first approved run establishes a carry baseline without rewriting history;
+later runs post only the change.
+
 ## T-23 — claimed by Codex — 2026-08-13T15:35Z — in progress
 
 Adding RLS-protected investment and fixed-asset registers plus idempotent, non-cash depreciation
