@@ -815,3 +815,12 @@ Prisma already represented the six review fields; code was verified against the 
 ## T-12 — claimed by Codex — 2026-08-13T10:52Z — in progress
 
 Applying the staged cost and FX snapshot migration after T-09's dependency guard.
+
+## T-12 — Codex — 2026-08-13T10:55Z — DONE
+
+Before and after: 149 / 306 / 490 / 490 / 83 / 122 / SRD 42,005.99 / USD 534.00.
+All 306 sale lines now carry a non-null historical cost and FX snapshot, each marked estimated;
+the T-09 guard confirmed no zero cost was frozen from an unflagged item. The migration's internal
+checks and the post-commit Part 6 suite passed. Pre-migration dump retained:
+`backups/finance-overhaul-pre-t12-20260813T103340Z.dump`
+(`8351EE2D7FA744C547B688C9978B528A70D389E53636442FE6DC420ED2B46D57`).
