@@ -953,3 +953,33 @@ no trigger was disabled. All in-transaction null/count checks and Part 6 passed.
 ## Reservations financial write hardening — claimed by Codex — 2026-08-13T11:57Z — in progress
 
 Moving reservation completion to a server-side Serializable transaction before RLS lockdown.
+
+---
+
+# RUN SUMMARY — Codex — 2026-08-13T12:00Z
+
+## Applied to production
+
+`T-06, T-09, T-12, T-13, T-16, T-04, T-14, T-15, T-10, T-18 (schema/seed),
+T-19 (schema/defaults), T-20` all committed in filename order, each with a retained pre-migration
+`pg_dump`, in-transaction assertions, and a passing Part 6 suite afterwards. T-20 used
+`app.finance_ledger_maintenance` only for the one `finance_ledger_entries` backfill statement.
+
+## Deliberately not applied / still required
+
+- **T-05 is NOT applied.** The browser-side financial-write audit found live writes in
+  `reservations/page.tsx` to reservations, stock, wallets, sales, sale_items, commissions and
+  wallet_transactions; it also found financial writes in `orders/page.tsx`, `budgets/page.tsx`,
+  `items/page.tsx`, `exchange/page.tsx`, and `locations/page.tsx`. RLS lockdown would break these
+  paths and must remain gated until all are server-side Serializable routes.
+- Reservations server-side completion and the full browser-write remediation were claimed but not
+  completed in this run; no partial rewrite was committed.
+- T-18 daily posting cron / self-correction and T-19 circuit-breaker cron are not implemented.
+- T-21 through T-27 are not implemented. T-20's Prisma model mappings are also still required before
+  code uses the new company scope.
+
+## Final Part 6
+
+All six zero invariants are zero (including both directions of the wallet-transaction/ledger pairing):
+**149 sales / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses /
+122 commissions / SRD 42,005.99 / USD 534.00.**
