@@ -1108,3 +1108,8 @@ public policies. No data was changed by the migration.
 Part 6 passed: **149 sales / 306 sale_items / 490 wallet_transactions / 490
 finance_ledger_entries / 83 expenses / 122 commissions / SRD 42,005.99 / USD 534.00**.
 Orphan sale items, both wallet-transaction/ledger pairing directions, and negative stock are zero.
+
+## T-18 code — claimed by Codex — 2026-08-13T14:28Z — in progress
+
+Implementing the authenticated daily recurring-expense cron with per-schedule Serializable posting,
+idempotency, short-month scheduling, insufficient-funds skip behavior, and protected routing.
