@@ -1404,7 +1404,7 @@ changed during this code task.
 / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122
 commissions / SRD 42,005.99 / USD 534.00**.
 
-## Expense documentation completeness — claude — 2026-08-16T07:40Z — in progress
+## Expense documentation completeness — claude — 2026-08-16T07:40Z — DONE
 
 Claiming the guided expense-documentation work. The `/finance` review card reports 324 open
 checks against 85 expenses because it counts five fields per expense, renders only four of them,
@@ -1422,3 +1422,82 @@ Owner decisions taken for this task:
 - Supplier and explanation are answered once per expense category, applied to the whole group,
   and remembered as a category default so new expenses stop reopening the same gap.
 - The card counts expenses needing attention, not open fields.
+
+### Result
+
+Migration `20260816000100_expense_documentation_completeness.sql` applied with the Part 1
+transactional protocol: a full dry run ending in `ROLLBACK` first, then the real run with the
+verification wrapped in a `DO` block that raises, so a failed check could not reach `COMMIT`.
+No fresh `pg_dump` was taken — this environment has no database credentials, only the Supabase MCP.
+The backfill is exactly reversible without one:
+
+```sql
+UPDATE public.expenses SET expense_date = NULL, date_is_inferred = false WHERE date_is_inferred;
+```
+
+Added: `expenses.date_is_inferred`, `expenses.vendor_is_inferred`,
+`expenses.description_is_inferred`, `expense_categories.default_vendor_name`,
+`expense_categories.default_description`. Backfilled 83 `expense_date` values from
+`created_at` in UTC and flagged every one.
+
+**Why UTC and not Suriname local time.** Every reader already falls back to
+`expense_date ?? created_at`, and every window is `expense_date >= x OR (expense_date IS NULL AND
+created_at >= x)`, so a UTC date hands each row the value its own fallback was already using and
+no reported figure moves. Measured first: 8 of the 83 land on a different calendar day under
+`America/Paramaribo`, and **0** change calendar month. Local time would have shifted those 8 days
+for no gain in any report. They are flagged and correctable in the review queue.
+
+**Before → after, documentation checks**
+
+| | Before | After |
+|---|---|---|
+| Headline on `/finance` | 324 "open documentation checks" | 83 expenses need an answer |
+| Missing classification | 9 | 9 |
+| Missing supplier | 83 | 83 |
+| Missing explanation | 64 | 64 |
+| Missing date | 83 (counted, never rendered) | 0 |
+| Missing receipt | 85 (counted, rendered) | not a check |
+| Open fields total | 324 | 156 |
+| Owner actions to clear it | 156 field edits | 19 questions |
+
+The old number counted five fields across 85 expenses and rendered four of them, so 324 was both
+larger than the book and unreconcilable against its own breakdown. The headline now counts
+expenses, and every field it counts is shown.
+
+Receipt number is excluded by owner decision (2026-08-16): not one expense in the book carries one.
+The column, its comment and every stored value are untouched — a receipt that exists is still
+recorded and displayed. Re-adding `'receipt'` to `DOCUMENTATION_FIELDS` in
+`src/lib/expenseDocumentation.ts` is the whole reversal.
+
+New: `GET/POST /api/finance/documentation` and the answer flow on `/finance/review`. A grouped
+answer fills one field for one category in a single `runSerializableTransaction` with an activity
+log entry, only over rows that are still blank, flagged `*_is_inferred`, and optionally remembered
+on the category. Classification is asked per expense, because the nine open rows are a headlight,
+a subscription and stock in one category. Rehearsed against production inside a rolled-back
+transaction: the Shipping supplier answer closes 20 rows, drops the vendor gap 83 → 63, and leaves
+wallet transactions, ledger entries and both balances untouched.
+
+**No money-moving path was touched.** No amount, wallet, wallet transaction or ledger entry is
+written or updated by any of this, and no row is deleted. `finance_ledger_entries` rows are
+deliberately left as they were — they are append-only (R4) and record what was known when the money
+moved; a supplier name supplied months later does not change that.
+
+**One behaviour change worth knowing.** `accountingPeriodChecks.ts` filters its unclassified-expense
+gate on `expense_date` with no null fallback, so before the backfill the 83 dateless expenses were
+invisible to it. They are visible now, which means closing 2026-01 (4), 2026-02 (3), 2026-05 (1) and
+2026-06 (1) will require classifying those nine. `accounting_periods` is empty — nothing is closed —
+so no closed period was rewritten. This is the gate finally seeing what it was written to check.
+
+**Part 6, re-measured 2026-08-16.** The 2026-08-13 baseline had moved before this task started, and
+every delta reconciles to trading between the 13th and the 16th: +2 sales, +4 sale items,
++4 commissions, 2 expenses (USD 392.99 to Amazon) and one manual wallet correction of
+SRD 11,383.99 that was properly recorded as a wallet transaction and mirrored to the ledger.
+42,005.99 + 1,900.00 − 11,383.99 = 32,522.00 and 534.00 − 392.99 = 141.01, both exact.
+
+New baseline: **151 sales / 310 sale_items / 495 wallet_transactions / 495 finance_ledger_entries /
+85 expenses / 126 commissions / SRD 32,522.00 / USD 141.01.** Wallet transactions and ledger
+entries are still equal with zero gaps, before and after this task.
+
+`pnpm exec tsc --noEmit`, `pnpm build` and `git diff --check` passed. `pnpm lint` reports 292
+problems both with and without this change — all pre-existing, in `tests/` and `archived/`;
+`eslint` on every file touched here is clean.

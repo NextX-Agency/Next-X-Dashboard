@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { EXPENSE_CLASSIFICATION_LABELS, isExpenseClassification } from '@/lib/expenseClassification'
+import {
+  isDocumentationRelevant,
+  summarizeExpenseDocumentation,
+  type ExpenseDocumentationSummary,
+} from '@/lib/expenseDocumentation'
 
 function asNumber(value: unknown) {
   return Number(value ?? 0)
 }
 
 type CurrencySummary = { inflow: number; outflow: number; net: number }
-type ReviewSummary = { total: number; unclassified: number; missingDate: number; missingVendor: number; missingReceipt: number; missingDescription: number; refunded: number }
 
 export async function GET(request: NextRequest) {
   const user = await requireAdmin(request)
@@ -45,7 +49,8 @@ export async function GET(request: NextRequest) {
     const byCurrency: Record<string, CurrencySummary> = {}
     const byEvent: Record<string, Record<string, CurrencySummary>> = {}
     const byLocation: Record<string, Record<string, CurrencySummary>> = {}
-    const expenseReview: ReviewSummary = { total: 0, unclassified: 0, missingDate: 0, missingVendor: 0, missingReceipt: 0, missingDescription: 0, refunded: 0 }
+    // One shared definition of "not fully documented" — see expenseDocumentation.ts.
+    const expenseReview: ExpenseDocumentationSummary = summarizeExpenseDocumentation(expenseReviewRows)
     const expenseClassification: Record<string, Record<string, number>> = {}
     const add = (collection: Record<string, Record<string, CurrencySummary>>, group: string, currency: string, direction: string, amount: number) => {
       collection[group] ??= {}
@@ -68,16 +73,7 @@ export async function GET(request: NextRequest) {
     })
 
     expenseReviewRows.forEach((expense) => {
-      if (expense.status === 'refunded') {
-        expenseReview.refunded += 1
-        return
-      }
-      expenseReview.total += 1
-      if (!isExpenseClassification(expense.classification) || expense.classification === 'unclassified') expenseReview.unclassified += 1
-      if (!expense.expenseDate) expenseReview.missingDate += 1
-      if (!expense.vendorName?.trim()) expenseReview.missingVendor += 1
-      if (!expense.receiptNumber?.trim()) expenseReview.missingReceipt += 1
-      if (!expense.description?.trim()) expenseReview.missingDescription += 1
+      if (!isDocumentationRelevant(expense)) return
       const classification = isExpenseClassification(expense.classification) ? expense.classification : 'unclassified'
       expenseClassification[classification] ??= {}
       const currency = expense.currency

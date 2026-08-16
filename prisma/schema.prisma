@@ -403,6 +403,10 @@ model ExpenseCategory {
   id                String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name              String
   createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// Answers given once in the review queue, reused for new expenses in this
+  /// category so the same documentation gap does not reopen every time.
+  defaultVendorName String?              @map("default_vendor_name")
+  defaultDescription String?             @map("default_description")
   expenses          Expense[]
   recurringExpenses RecurringExpense[]
   ledgerEntries     FinanceLedgerEntry[]
@@ -434,6 +438,12 @@ model Expense {
   recurringExpenseId  String?               @map("recurring_expense_id") @db.Uuid
   periodKey           String?               @map("period_key")
   payoutRunId         String?               @map("payout_run_id") @db.Uuid
+  /// R7: a derived value must stay distinguishable from a recorded one.
+  /// `dateIsInferred` marks the 2026-08-16 backfill from `createdAt`; the other
+  /// two mark values filled in by a grouped answer in the review queue.
+  dateIsInferred        Boolean             @default(false) @map("date_is_inferred")
+  vendorIsInferred      Boolean             @default(false) @map("vendor_is_inferred")
+  descriptionIsInferred Boolean             @default(false) @map("description_is_inferred")
   category            ExpenseCategory?      @relation(fields: [categoryId], references: [id])
   locations           Location?             @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   wallet              Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
