@@ -1403,3 +1403,22 @@ changed during this code task.
 `git diff --check` passed. A final read-only production query confirmed Part 6 remains: **149 sales
 / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122
 commissions / SRD 42,005.99 / USD 534.00**.
+
+## Expense documentation completeness — claude — 2026-08-16T07:40Z — in progress
+
+Claiming the guided expense-documentation work. The `/finance` review card reports 324 open
+checks against 85 expenses because it counts five fields per expense, renders only four of them,
+and includes `expense_date` — a column shipped without a backfill (R6) even though `created_at`
+is populated on all 85 rows.
+
+Measured in production before starting: 85 active expenses, 0 refunded, 9 unclassified,
+83 missing `expense_date`, 83 missing `vendor_name`, 85 missing `receipt_number`,
+64 missing `description`, 9 `needs_review`.
+
+Owner decisions taken for this task:
+- Receipt number is dropped from the completeness checks. The column and every stored value stay;
+  only the counter stops treating a blank receipt as an open question.
+- `expense_date` is backfilled from `created_at` in Suriname local time and flagged as inferred (R7).
+- Supplier and explanation are answered once per expense category, applied to the whole group,
+  and remembered as a category default so new expenses stop reopening the same gap.
+- The card counts expenses needing attention, not open fields.
