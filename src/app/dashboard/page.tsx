@@ -14,6 +14,7 @@ import {
   DollarSign,
   FileCheck2,
   MapPin,
+  Layers,
   Package,
   Receipt,
   RefreshCcw,
@@ -26,6 +27,7 @@ import {
 import { formatCurrency } from '@/lib/currency'
 import { useCurrency } from '@/lib/CurrencyContext'
 import type { DashboardMetrics, DashboardResponse } from '@/types/dashboard'
+import type { DashboardGrowth, DashboardGrowthResponse } from '@/types/growth'
 
 const EMPTY_DASHBOARD: DashboardMetrics = {
   totalSalesUSD: 0, totalSalesSRD: 0, weeklySalesUSD: 0, weeklySalesSRD: 0,
@@ -57,6 +59,14 @@ async function fetchDashboardMetrics(signal?: AbortSignal): Promise<DashboardMet
     throw new Error('Unable to load dashboard metrics right now.')
   }
   return (await response.json() as DashboardResponse).data
+}
+
+async function fetchGrowth(signal?: AbortSignal): Promise<DashboardGrowth | null> {
+  const response = await fetch('/api/dashboard/growth', { cache: 'no-store', signal })
+  // Growth is supporting context, not the reason the page exists. A failure
+  // here hides the panel; it must never take the operating overview down.
+  if (!response.ok) return null
+  return (await response.json() as DashboardGrowthResponse).data
 }
 
 function getTimeAgo(dateString: string): string {
@@ -115,12 +125,64 @@ function TaskRow({ icon: Icon, title, detail, href, state }: {
   </Link>
 }
 
+/**
+ * One catalogue, judged on the only question that matters for a shop with
+ * limited cash: is the money tied up in it coming back?
+ */
+function CatalogRow({ catalog, currency }: {
+  catalog: DashboardGrowth['catalogs'][number]
+  currency: 'SRD' | 'USD'
+}) {
+  // Below 1.0 the catalogue has not returned what is parked in it over the
+  // window. It is a ratio, not a verdict — new stock starts here by definition.
+  const turn = catalog.capitalTurn
+  const tone = turn === null ? 'neutral' : turn >= 1 ? 'positive' : turn >= 0.4 ? 'warning' : 'negative'
+  const toneText = {
+    neutral: 'text-slate-400',
+    positive: 'text-emerald-300',
+    warning: 'text-amber-300',
+    negative: 'text-rose-300',
+  }[tone]
+
+  return <div className="border-b border-white/[0.07] px-5 py-4 last:border-b-0 sm:px-6">
+    <div className="flex items-baseline justify-between gap-3">
+      <p className="text-sm font-semibold text-slate-100">{catalog.label}</p>
+      <p className="text-sm font-semibold tabular-nums text-white">{formatCurrency(catalog.revenueSrd, currency)}</p>
+    </div>
+
+    <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+      <div
+        className="h-full rounded-full bg-orange-400"
+        style={{ width: `${Math.max(Math.min(catalog.revenueSharePct, 100), catalog.revenueSharePct > 0 ? 2 : 0)}%` }}
+      />
+    </div>
+
+    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-4">
+      <div><dt className="text-slate-500">Revenue share</dt><dd className="font-semibold tabular-nums text-slate-300">{catalog.revenueSharePct.toFixed(1)}%</dd></div>
+      <div><dt className="text-slate-500">Capital held</dt><dd className="font-semibold tabular-nums text-slate-300">{catalog.capitalSharePct.toFixed(1)}%</dd></div>
+      <div><dt className="text-slate-500">Units sold</dt><dd className="font-semibold tabular-nums text-slate-300">{catalog.unitsSold}</dd></div>
+      <div>
+        <dt className="text-slate-500">Return on stock</dt>
+        <dd className={`font-semibold tabular-nums ${toneText}`}>{turn === null ? '—' : `${turn.toFixed(2)}x`}</dd>
+      </div>
+    </dl>
+
+    {catalog.stagnantSkus > 0 && (
+      <p className="mt-2.5 text-xs text-slate-500">
+        {catalog.stagnantSkus} of {catalog.skusInStock} stocked {catalog.skusInStock === 1 ? 'product' : 'products'} sold nothing in this window
+        {' · '}{formatCurrency(catalog.stockCostSrd, currency)} of stock held
+      </p>
+    )}
+  </div>
+}
+
 export default function DashboardPage() {
   const { displayCurrency, exchangeRate } = useCurrency()
   const [stats, setStats] = useState<DashboardMetrics>(EMPTY_DASHBOARD)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const [growth, setGrowth] = useState<DashboardGrowth | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -128,9 +190,12 @@ export default function DashboardPage() {
     const load = async () => {
       try {
         setLoading(true); setError(null)
-        const data = await fetchDashboardMetrics(controller.signal)
+        const [data, growthData] = await Promise.all([
+          fetchDashboardMetrics(controller.signal),
+          fetchGrowth(controller.signal).catch(() => null),
+        ])
         if (!mounted || controller.signal.aborted) return
-        setStats(data); setLastUpdatedAt(new Date().toISOString())
+        setStats(data); setGrowth(growthData); setLastUpdatedAt(new Date().toISOString())
       } catch (loadError) {
         if (!mounted || controller.signal.aborted) return
         setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard metrics right now.')
@@ -145,7 +210,11 @@ export default function DashboardPage() {
   const refresh = async () => {
     try {
       setLoading(true); setError(null)
-      setStats(await fetchDashboardMetrics())
+      const [data, growthData] = await Promise.all([
+        fetchDashboardMetrics(),
+        fetchGrowth().catch(() => null),
+      ])
+      setStats(data); setGrowth(growthData)
       setLastUpdatedAt(new Date().toISOString())
     } catch (refreshError) {
       setError(refreshError instanceof Error ? refreshError.message : 'Unable to refresh dashboard metrics right now.')
@@ -163,6 +232,18 @@ export default function DashboardPage() {
   const totalYearSales = monthlySales.reduce((sum, amount) => sum + amount, 0)
   const currentMonth = new Date().getMonth()
   const inventoryIssues = stats.lowStockItems + stats.outOfStockItems
+
+  // Growth figures arrive in SRD. The header toggle decides what the reader sees.
+  const toDisplay = (srd: number) => displayCurrency === 'USD' ? srd / activeExchangeRate : srd
+  const growthCatalogs = (growth?.catalogs ?? []).map((catalog) => ({
+    ...catalog,
+    revenueSrd: toDisplay(catalog.revenueSrd),
+    stockCostSrd: toDisplay(catalog.stockCostSrd),
+  }))
+  const growthMonths = growth?.months ?? []
+  const maxGrowthMonth = Math.max(...growthMonths.map((month) => month.revenueSrd), 1)
+  const latestMonth = growthMonths.length > 0 ? growthMonths[growthMonths.length - 1] : null
+  const bestMonth = growth?.bestMonth ?? null
   const activity = stats.recentActivity.map((item) => ({ ...item, time: getTimeAgo(item.timestamp) }))
 
   return <main className="min-h-full bg-[#090d13] text-slate-100">
@@ -196,6 +277,129 @@ export default function DashboardPage() {
 
         <aside className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]"><div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Audit trail</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Recent activity</h2></div><Link href="/activity" className="text-xs font-semibold text-orange-300 hover:text-orange-200">View all</Link></div>{loading && !hasData ? <div className="space-y-3 p-5">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-11 animate-pulse rounded-xl bg-white/[0.04]" />)}</div> : activity.length === 0 ? <div className="grid min-h-64 place-items-center px-8 text-center"><div><Activity className="mx-auto text-slate-600" size={28} /><p className="mt-3 text-sm font-medium text-slate-300">No recent activity</p><p className="mt-1 text-xs leading-5 text-slate-500">New sales, exchange changes, and operations will appear here.</p></div></div> : <div className="divide-y divide-white/[0.06]">{activity.slice(0, 6).map((item, index) => <div key={`${item.title}-${index}`} className="flex items-center gap-3 px-5 py-3.5"><span className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.05] text-orange-300"><Activity size={15} /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-200">{item.title}</p><p className="mt-0.5 text-xs text-slate-500">{item.time}</p></div></div>)}</div>}</aside>
       </section>
+
+      {/* ═══════════ WHERE GROWTH IS AND IS NOT COMING FROM ═══════════ */}
+      {growth && (
+        <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,.85fr)]">
+          <article className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4 sm:px-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Growth</p>
+                <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Where the money is working</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Revenue against the stock capital each catalogue holds, over the last {growth.windowDays} days.
+                </p>
+              </div>
+              <Link href="/reports" className="text-xs font-semibold text-orange-300 hover:text-orange-200">Full reports</Link>
+            </div>
+
+            {/* Month shape first — the trend the owner feels but cannot currently see. */}
+            {growthMonths.length > 0 && (
+              <div className="border-b border-white/[0.08] px-5 py-5 sm:px-6">
+                <div className="flex items-end gap-2 sm:gap-3">
+                  {growthMonths.map((month) => {
+                    const height = Math.max((month.revenueSrd / maxGrowthMonth) * 100, month.revenueSrd > 0 ? 8 : 2)
+                    const isBest = bestMonth !== null && month.monthKey === bestMonth.monthKey
+                    return <div key={month.monthKey} className="group flex flex-1 flex-col items-center gap-2">
+                      <span className="text-[10px] font-semibold tabular-nums text-slate-500">
+                        {Math.round(toDisplay(month.revenueSrd) / (displayCurrency === 'USD' ? 1 : 1000))}{displayCurrency === 'USD' ? '' : 'k'}
+                      </span>
+                      <div className="flex h-24 w-full items-end">
+                        <div
+                          title={`${month.label}: ${formatCurrency(toDisplay(month.revenueSrd), displayCurrency)}${month.isPartial ? ' (month in progress)' : ''}`}
+                          className={`w-full rounded-t-md transition ${month.isPartial ? 'bg-orange-400/35' : isBest ? 'bg-emerald-400/80' : 'bg-slate-500/70'}`}
+                          style={{ height: `${height}%` }}
+                        />
+                      </div>
+                      <span className={`text-[10px] font-semibold ${month.isPartial ? 'text-orange-300' : 'text-slate-500'}`}>{month.label}</span>
+                    </div>
+                  })}
+                </div>
+                <p className="mt-4 text-xs leading-5 text-slate-500">
+                  {bestMonth
+                    ? <>Best complete month in view: <span className="font-semibold text-slate-300">{bestMonth.label}</span> at {formatCurrency(toDisplay(bestMonth.revenueSrd), displayCurrency)}.</>
+                    : 'Not enough complete months to compare yet.'}
+                  {latestMonth?.isPartial ? ` ${latestMonth.label} is still running, so its bar is not comparable yet.` : null}
+                </p>
+              </div>
+            )}
+
+            <div>
+              {growthCatalogs.length === 0
+                ? <p className="px-5 py-8 text-center text-sm text-slate-500 sm:px-6">No catalogue activity in this window.</p>
+                : growthCatalogs.map((catalog) => (
+                  <CatalogRow key={catalog.catalog} catalog={catalog} currency={displayCurrency} />
+                ))}
+            </div>
+          </article>
+
+          <aside className="flex flex-col gap-5">
+            {/* Stock that stopped moving — the single biggest lever on cash. */}
+            <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#101620]">
+              <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Cash tied up</p>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Stock that stopped moving</h2>
+                </div>
+                <Link href="/stock" className="shrink-0 text-xs font-semibold text-orange-300 hover:text-orange-200">Stock</Link>
+              </div>
+
+              {growth.stagnant.length === 0 ? (
+                <div className="flex items-center gap-3 px-5 py-6">
+                  <CheckCircle2 size={18} className="shrink-0 text-emerald-300" />
+                  <p className="text-sm text-slate-300">Every stocked product sold at least once in this window.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="border-b border-white/[0.08] px-5 py-4">
+                    <p className="text-2xl font-semibold tabular-nums text-amber-300">
+                      {formatCurrency(toDisplay(growth.stagnantTotalCostSrd), displayCurrency)}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      at cost, across products that sold nothing in {growth.windowDays} days
+                    </p>
+                  </div>
+                  <ul className="divide-y divide-white/[0.06]">
+                    {growth.stagnant.map((sku) => (
+                      <li key={sku.id} className="flex items-center gap-3 px-5 py-3">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/[0.05] text-slate-400"><Layers size={15} /></span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-slate-200">{sku.name}</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            {sku.unitsOnHand} in stock · {sku.daysSinceSale === null ? 'never sold' : `last sold ${sku.daysSinceSale} days ago`}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-400">
+                          {formatCurrency(toDisplay(sku.stockCostSrd), displayCurrency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+
+            {/* Demand that reached the counter and did not convert. */}
+            <div className="rounded-2xl border border-white/[0.09] bg-[#101620] p-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Reservations</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-white">
+                {growth.reservations.conversionPct === null ? '—' : `${growth.reservations.conversionPct.toFixed(0)}%`}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {growth.reservations.completed} completed · {growth.reservations.cancelled} cancelled
+                {growth.reservations.pending > 0 ? ` · ${growth.reservations.pending} still open` : null}
+              </p>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Every cancelled reservation was someone who wanted to buy. This is the cheapest revenue
+                in the business to recover.
+              </p>
+              <Link href="/orders" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-orange-300 hover:text-orange-200">
+                Open the order desk <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </aside>
+        </section>
+      )}
 
       <section className="mt-5"><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Common actions</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Go directly to your task</h2></div><p className="text-sm text-slate-500">These links do not change data until you confirm an action on the next screen.</p></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Link href="/sales" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><ShoppingCart size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Record a sale</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a sale with its stock, wallet, and commission records.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open sales <ArrowUpRight size={14} /></span></Link><Link href="/stock" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><Package size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Manage stock</h3><p className="mt-1 text-xs leading-5 text-slate-500">Receive inventory, inspect locations, and resolve stock pressure.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open stock <ArrowUpRight size={14} /></span></Link><Link href="/finance" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><Wallet size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">Check money trail</h3><p className="mt-1 text-xs leading-5 text-slate-500">Review cash movement, finance documentation, and close controls.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open finance <ArrowUpRight size={14} /></span></Link><Link href="/reports" className="group rounded-2xl border border-white/[0.09] bg-[#101620] p-5 transition hover:border-orange-400/25 hover:bg-[#131b27]"><BarChart3 size={19} className="text-orange-300" /><h3 className="mt-5 text-sm font-semibold text-white">View reports</h3><p className="mt-1 text-xs leading-5 text-slate-500">Compare sales, product performance, and business trends.</p><span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-orange-300">Open reports <ArrowUpRight size={14} /></span></Link></div></section>
 
