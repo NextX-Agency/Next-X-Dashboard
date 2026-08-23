@@ -56,7 +56,7 @@ export function NewHero({
   return (
     <section ref={sectionRef} className="relative bg-white" aria-label="Introductie">
       <div className={catalogShellClassName}>
-        <div className="grid items-center gap-6 py-7 sm:gap-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,27rem)] lg:gap-16 lg:py-16">
+        <div className="grid items-center gap-6 py-10 sm:gap-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,27rem)] lg:gap-16 lg:py-16">
           {/* ── Copy ───────────────────────────────── */}
           <div className="max-w-xl">
             <p className="catalog-reveal audio-eyebrow mb-5 flex items-center gap-3">
@@ -64,7 +64,7 @@ export function NewHero({
               NextX Audio · Suriname
             </p>
 
-            <h2 className="catalog-reveal catalog-reveal-d1 audio-display text-[2.1rem] leading-[0.95] text-[#111111] sm:text-[3.25rem] lg:text-[4rem]">
+            <h2 className="catalog-reveal catalog-reveal-d1 audio-display text-[2.75rem] leading-[0.92] text-[#111111] sm:text-[3.25rem] sm:leading-[0.95] lg:text-[4rem]">
               {titleLines.map((line, index) => (
                 <span key={index} className="block">
                   {line}
@@ -72,7 +72,7 @@ export function NewHero({
               ))}
             </h2>
 
-            <p className="catalog-reveal catalog-reveal-d2 mt-4 max-w-md text-[0.9375rem] leading-6 text-neutral-600 sm:mt-6 sm:text-[0.975rem] sm:leading-7">
+            <p className="catalog-reveal catalog-reveal-d2 mt-5 max-w-md text-[0.9375rem] leading-6 text-neutral-600 sm:mt-6 sm:text-[0.975rem] sm:leading-7">
               {subtitle}
             </p>
 
@@ -99,8 +99,13 @@ export function NewHero({
             </div>
           </div>
 
-          {/* ── Brandmark ──────────────────────────── */}
-          <div className="catalog-reveal catalog-reveal-d2 order-first lg:order-last">
+          {/* ── Brandmark ────────────────────────────
+              Desktop only. Below `lg` the layout is a single column, so this
+              wordmark stacked about 30px under the identical one in the fixed
+              header — the same mark twice inside the first 170px of the phone
+              screen, before the visitor read a word about what is sold. The
+              header already carries the brand there. */}
+          <div className="catalog-reveal catalog-reveal-d2 order-first hidden lg:order-last lg:block">
             <Image
               src="/nextx-logo-light.png"
               alt="NextX"
