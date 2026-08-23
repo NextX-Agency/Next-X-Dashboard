@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Local restore-verification cluster (scripts/restore-verification)
 /.t01-verify/
+
+# Claude Code local machine settings
+.claude/settings.local.json

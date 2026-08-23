@@ -1403,3 +1403,137 @@ changed during this code task.
 `git diff --check` passed. A final read-only production query confirmed Part 6 remains: **149 sales
 / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122
 commissions / SRD 42,005.99 / USD 534.00**.
+
+## Reporting-truth audit and growth surface — Claude — 2026-08-23 — DONE
+
+Read-only audit of the production figures behind `/reports`, followed by code-only repairs. **No
+financial row was created, changed or deleted.** Production still holds 152 sales / 311 sale_items /
+497 wallet_transactions / 497 finance_ledger_entries / 85 expenses / 126 commissions.
+
+### What the screen was showing
+
+The reported figures were reproduced exactly from production before any change: revenue
+SRD 195,756.00 over 144 sales, gross SRD 108,902.72 (55.6%), expenses SRD 45,258.56, commissions
+SRD 10,366.13, net SRD 53,278.03. Six defects were found, all in the reporting layer.
+
+1. **Silent exclusion of flagged revenue.** `COUNTABLE_SALE` correctly drops the 8 posted sales with
+   `needs_review = true`, but the page never said so. SRD 15,220.02 + USD 80.00 of banked revenue was
+   missing from the headline with no way to discover it: 4 sales have line items and only a header
+   mismatch, 4 have no lines at all. Total recorded revenue is SRD 214,176.02 at sale-time rates, not
+   SRD 195,756.00. The API now returns an `excludedRevenue` summary grouped by review reason, and the
+   page renders it above the KPI grid with a route into `/finance/review`. The countable basis is
+   unchanged — the exclusion was right, its invisibility was not.
+
+2. **Revenue and COGS converted at different rates.** `totalGrossProfit` summed `grossProfitUsd`
+   across sales and multiplied the total by *today's* rate, while revenue already came back in SRD at
+   each sale's own rate. An SRD sale booked at 40 had its profit restated at the current 38, so gross
+   profit fell below `revenue - COGS` by roughly 5% of revenue. Replaced with per-sale conversion via
+   the existing `grossProfitSrd`. On the same 144 sales: 108,902.72 → 112,133.02, margin 55.6% → 57.3%.
+   `reportExport.ts` was already correct, so screen and CSV had been disagreeing.
+
+3. **`pctChange` invented +100%.** With an empty comparison period it returned 100 rather than null,
+   painting a green +100.0% on every tile in a year-to-date view — including the expense tile, which
+   rendered it as a red down-arrow next to a plus sign. It now returns null and `TrendBadge` renders
+   nothing.
+
+4. **`unit_cost_usd` never reached the margin calculation.** The API selected it; the mapper dropped
+   it; `getSaleFinancials` passed only `purchasePriceUsd`, so COGS used the item's price *today*
+   — exactly the F-01 failure `resolveUnitCostUsd` documents. Currently latent (0 of 311 lines
+   diverge), and it would have silently rewritten every historical margin on the first re-price.
+   `ReportSaleItem` now carries `unit_cost_usd` and `cost_is_estimated`, declared explicitly because
+   the generated `database.types.ts` predates the T-12 columns.
+
+5. **Inconsistent operating-profit exclusion.** `isExcludedExpenseFromOperatingProfit` ran its
+   category test only for `unclassified`, so an "Investment" (USD 294.00 Wyze Cam) and a "Personal
+   Items" row (USD 98.99 excavator light) tagged `other` were charged against operating profit, while
+   "Personal Items" rows still tagged `unclassified` were not. The same spend fell on two sides of the
+   line depending on triage state. `other` now takes the same test and `investment`/`capital` were
+   added to the category list. Effect: SRD 14,933.62 leaves operating expense. The cash still left the
+   wallet — this changes the classification, not the balance.
+
+6. **Commission currency defaulted to USD.** `c.sales?.currency || 'USD'` multiplied an SRD payout by
+   the rate whenever the sale relation was missing. All 126 commissions currently have a sale, so the
+   effect is nil today; default changed to SRD here and in `reportExport.ts`.
+
+Corrected totals on the same 144 sales: gross 112,133.02, expenses 30,324.94, commissions 10,366.13,
+net **71,441.95** (36.5%).
+
+The active rate is 38, set 2026-06-05 — 79 days stale, and every USD figure on `/reports` rested on
+it silently. The API now returns the rate with its age and staleness; the page shows it above the
+tiles, matching the dashboard's 7-day threshold.
+
+### Growth surface
+
+Added `GET /api/dashboard/growth` (admin-only, read-only) and a growth panel on `/dashboard`:
+six-month revenue shape with the best *complete* month marked and the running month hatched, revenue
+against stock capital per catalogue, stalled SKUs with the cash in them, and reservation conversion.
+All revenue converts at each sale's own rate and uses the same countable basis as `/reports`, so the
+two surfaces cannot disagree.
+
+What it shows: audio returns SRD 2.62 per SRD of stock capital over 90 days; watches returns 0.32.
+Watches holds 39.6% of stock capital (SRD 14,098.76) for 7.3% of revenue, and 16 of its 16 stocked
+SKUs sold nothing in 90 days. SRD 15,801.16 of stock has not moved.
+
+### Open for the owner — deliberately not actioned
+
+- A manual `wallet_edit` adjustment on 2026-08-15 moved the Blauwgrond cash wallet from 18,255.99 to
+  6,872.00 (SRD 11,383.99) with description "Balance correction to 6872.00 SRD" and no reason. USD
+  40.00 went to zero the same way on 2026-08-19. This is the F-34 pattern and needs an explanation
+  recorded against it.
+- The SRD 500.00 drift on the Blauwgrond bank wallet is still open (`balance` 0.00 vs
+  `balance_after` 500.00), plus 11 balance-chain breaks totalling SRD 12,830.00 and USD 402.93.
+- 306 of 311 sale lines carry `cost_is_estimated = true`; every margin here is an estimate.
+- **RLS is disabled on `accounts`, `journal_entries` and `journal_lines`** — the anon key can read and
+  write the journal. Remediation SQL was not applied: enabling RLS without policies blocks all access.
+
+`./node_modules/.bin/tsc --noEmit`, `npx eslint` on every touched file, and `pnpm build` all pass.
+Owner-facing report: https://claude.ai/code/artifact/39b217d7-7229-426d-ad11-dba8f97ef272
+
+### Storefront branding
+
+`NewHero` (audio) renders `/nextx-logo-light.png` beside the copy. Below `lg` the layout collapses to
+one column, which stacked that wordmark roughly 30px under the identical one in the fixed header —
+measured on a 375x812 viewport, a 208x83 mark at y=85 under the header mark at y=14, so the brand
+appeared twice inside the first 170px before a word about what is sold.
+
+The desktop composition is unchanged and was verified byte-identical at 1440px (logo 432x173 in the
+right column, headline 64px, grid `720px 432px`, `lg:py-16` = 64px). Only the sub-`lg` rendering was
+reworked: the brandmark is `hidden lg:block`, the headline goes 2.1rem → 2.75rem now that it leads,
+and the space the wordmark occupied returns to the section as padding. After: headline 44px at
+y=128 (was 33.6px at y=223), both CTAs 343x48 above the fold, no horizontal overflow.
+
+An earlier revision of this task replaced the brandmark with the featured product image and added a
+proof strip. The owner asked for the original hero back, so that was reverted in full — the current
+change is scoped to mobile only.
+
+`audio_hero_title` is "Welcome To NextX" and `audio_hero_subtitle` sells "Invicta-horloges" inside
+the audio shop. Both were briefly rewritten during this task and **restored to their original values
+at the owner's request**; the generic `hero_title` / `hero_subtitle` keys were never touched and were
+used to restore them exactly. `watches_hero_*` settings are all empty, so that storefront runs on
+component defaults. All of this is content, and it is the owner's to decide.
+
+### Database
+
+`accounts`, `journal_entries` and `journal_lines` shipped with RLS disabled — the anon key could read
+and write the journal. Every other financial table here runs RLS-on with no policies, which denies
+the client roles while the application's `postgres` connection bypasses RLS. The three tables were
+brought onto that footing in `20260823120000_enable_rls_on_journal_and_accounts.sql`. Verified first
+inside a transaction against production (journal re-read as the app role: 3 entries / 12 lines) and
+rolled back, then applied. No table in `public` is now without RLS. Counts after: 152 sales /
+311 sale_items / 497 wallet_transactions / 497 finance_ledger_entries, SRD 32,822.00 / USD 101.01 —
+unchanged.
+
+### Still open — needs the owner, not code
+
+- **The exchange rate is not set.** Still 38 from 2026-06-05. Deliberately not changed: the real
+  USD/SRD rate is a fact about the world, and inventing one is worse than a stale one that is
+  labelled stale.
+- **Two January sales look like a double submission.** `810578cd` and `977b562a` are identical in
+  every field — same location, same wallet, same three item ids, same quantities, same SRD 1,400 —
+  created **7 seconds apart** (10:14:54.779 and 10:15:01.422), invoices INV-000010 and INV-000011,
+  both crediting the wallet. If that is a duplicate, revenue is *overstated* by SRD 1,400 and the
+  wallet was credited twice, which is the opposite of the direction the review queue implies. Not
+  resolved here: whether the customer bought one bundle or two is not inferable from the data.
+- The other two header-mismatch sales (`1ed30212`, `9f0ff7ce`) have wallet movements matching their
+  headers exactly, so revenue is not in doubt for them; only the line totals disagree.
+- The SRD 11,383.99 wallet write-down of 2026-08-15 still has no reason recorded.
