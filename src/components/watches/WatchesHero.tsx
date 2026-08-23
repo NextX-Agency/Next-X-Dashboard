@@ -25,7 +25,9 @@ function WatchesHeroComponent({
 }: WatchesHeroProps) {
   const bgRef = useRef<HTMLDivElement>(null)
   // The original hero art was a 5816x2688 PNG weighing 16 MB, shipped on every
-  // watches visit. These WebP renders are visually identical at 114 KB / 28 KB.
+  // watches visit. It is now a 2400px landscape WebP for desktop and a 1280x1920
+  // portrait crop for phones: the hero box is portrait on mobile, so a landscape
+  // source had to be scaled up roughly 3.5x by object-cover and looked soft.
   const desktopImage = imageUrl || '/hero_section-watches.webp'
   const mobileImage = mobileImageUrl || (imageUrl ? imageUrl : '/hero_section-watches-mobile.webp')
   const hasDistinctMobileImage = mobileImage !== desktopImage
@@ -83,9 +85,9 @@ function WatchesHeroComponent({
             src={mobileImage}
             alt=""
             fill
-            className="object-cover object-[68%_center] sm:hidden"
+            className="object-cover object-center sm:hidden"
             priority
-            quality={88}
+            quality={82}
             unoptimized={unoptimizedMobileImage}
             sizes="100vw"
           />
