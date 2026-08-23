@@ -716,12 +716,12 @@ export async function buildReportExportData(
   const totalCommissionsSrd = commissions.reduce((sum, commission) => {
     const amount = toNumber(commission.commissionAmount)
     const rate = getReportExchangeRate(commission.sale?.exchangeRate, fallbackExchangeRate)
-    return sum + ((commission.sale?.currency || 'USD') === 'SRD' ? amount : amount * rate)
+    return sum + ((commission.sale?.currency || 'SRD') === 'SRD' ? amount : amount * rate)
   }, 0)
   const totalCommissionsUsd = commissions.reduce((sum, commission) => {
     const amount = toNumber(commission.commissionAmount)
     const rate = getReportExchangeRate(commission.sale?.exchangeRate, fallbackExchangeRate)
-    return sum + ((commission.sale?.currency || 'USD') === 'USD' ? amount : amount / rate)
+    return sum + ((commission.sale?.currency || 'SRD') === 'USD' ? amount : amount / rate)
   }, 0)
 
   const totalGrossProfitSrd = totalRevenueSrd - totalCogsSrd

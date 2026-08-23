@@ -21,7 +21,18 @@ type PurchaseOrderItemRow = Database['public']['Tables']['purchase_order_items']
 export type ReportSaleItem = Pick<
   SaleItemRow,
   'id' | 'sale_id' | 'item_id' | 'quantity' | 'unit_price' | 'subtotal' | 'is_custom_price' | 'original_price' | 'discount_reason' | 'created_at'
->
+> & {
+  /**
+   * The cost captured onto the line when the sale happened (T-12). Without it
+   * the report falls back to the item's purchase price *today*, so re-pricing a
+   * product silently rewrites the margin on every sale ever made (F-01).
+   *
+   * Declared here rather than picked from `SaleItemRow` because the generated
+   * `database.types.ts` predates the T-12 columns.
+   */
+  unit_cost_usd: number | null
+  cost_is_estimated: boolean
+}
 
 export interface ReportSale extends Pick<
   SaleRow,
@@ -106,8 +117,49 @@ export interface ReportPurchaseOrder extends Pick<
   purchase_order_items?: ReportPurchaseOrderItem[]
 }
 
+/**
+ * Revenue that exists in the books but is deliberately kept out of every
+ * derived figure because the record itself is not trustworthy — a header with
+ * no line items, or a header disagreeing with its lines.
+ *
+ * The exclusion is correct: a sale with no cost lines would report a 100%
+ * margin. Hiding the exclusion is not. Without this block the reports page
+ * showed revenue short by the excluded amount and gave the reader no way to
+ * find out, which reads as a bad month rather than a data problem.
+ */
+export interface ReportExcludedRevenueGroup {
+  reason: string
+  saleCount: number
+  totalSrd: number
+  totalUsd: number
+  firstSaleAt: string | null
+  lastSaleAt: string | null
+}
+
+export interface ReportExcludedRevenue {
+  saleCount: number
+  totalSrd: number
+  totalUsd: number
+  groups: ReportExcludedRevenueGroup[]
+}
+
+/**
+ * The rate every USD figure on the reports page is converted with, and when it
+ * was set. Every dollar amount here is only as current as this rate, so the
+ * page has to be able to say how old it is.
+ */
+export interface ReportExchangeRate {
+  usdToSrd: number
+  setAt: string | null
+  ageDays: number | null
+  isStale: boolean
+}
+
 export interface ReportsDataPayload {
   sales: ReportSale[]
+  exchangeRate: ReportExchangeRate
+  /** Posted sales held out of `sales` because they are flagged for review. */
+  excludedRevenue: ReportExcludedRevenue
   items: ReportItem[]
   stocks: ReportStock[]
   locations: ReportLocation[]

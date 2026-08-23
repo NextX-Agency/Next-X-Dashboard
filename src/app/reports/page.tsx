@@ -27,6 +27,8 @@ import { isExcludedExpenseFromOperatingProfit } from '@/lib/expenseClassificatio
 import type {
   ReportCategory as Category,
   ReportCommission as CommissionWithSale,
+  ReportExcludedRevenue,
+  ReportExchangeRate,
   ReportExpense as ExpenseWithCategory,
   ReportItem as Item,
   ReportLocation as Location,
@@ -247,8 +249,16 @@ function catalogLabel(catalogType: CatalogType): string {
   }
 }
 
+/**
+ * Percentage change, or null when the comparison is meaningless.
+ *
+ * The previous behaviour returned +100% whenever the prior period was empty,
+ * so a year-to-date view — whose prior year has no rows at all — painted a
+ * green "+100.0%" on every tile including expenses. Growth against nothing is
+ * not growth; the caller renders no badge when this returns null.
+ */
 function pctChange(current: number, previous: number): number | null {
-  if (previous === 0) return current > 0 ? 100 : null
+  if (previous === 0) return null
   return ((current - previous) / Math.abs(previous)) * 100
 }
 
@@ -301,6 +311,8 @@ export default function ReportsPage() {
   const [sellers, setSellers] = useState<Seller[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
+  const [excludedRevenue, setExcludedRevenue] = useState<ReportExcludedRevenue | null>(null)
+  const [reportRate, setReportRate] = useState<ReportExchangeRate | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -377,6 +389,8 @@ export default function ReportsPage() {
       setSellers(payload.data.sellers)
       setCategories(payload.data.categories)
       setPurchaseOrders(payload.data.purchaseOrders)
+      setExcludedRevenue(payload.data.excludedRevenue ?? null)
+      setReportRate(payload.data.exchangeRate ?? null)
     } catch (error) {
       console.error('Error loading reports data:', error)
       setLoadError(error instanceof Error ? error.message : 'Unable to load report data right now.')
@@ -660,6 +674,11 @@ export default function ReportsPage() {
         return {
           subtotal: saleItem.subtotal,
           quantity: saleItem.quantity,
+          // unitCostUsd is the cost as it was at the time of sale and must win.
+          // purchasePriceUsd is the item's price *today* and is only a fallback
+          // for lines written before the T-12 backfill.
+          unitCostUsd: saleItem.unit_cost_usd,
+          costIsEstimated: saleItem.cost_is_estimated === true,
           purchasePriceUsd: item?.purchase_price_usd ?? 0,
         }
       }),
@@ -671,13 +690,25 @@ export default function ReportsPage() {
     return displayCurrency === 'USD' ? financials.revenueUsd : financials.revenueSrd
   }, [displayCurrency, getSaleFinancials])
 
-  const saleProfitUSD = useCallback((sale: SaleWithItems): number => {
-    return getSaleFinancials(sale).grossProfitUsd
-  }, [getSaleFinancials])
+  /**
+   * Gross profit for one sale, in the display currency, converted at the rate
+   * that sale was recorded at.
+   *
+   * Summing `grossProfitUsd` across sales and multiplying the total by today's
+   * rate — which is what this page used to do — converts revenue and cost at
+   * two different rates. Revenue already comes back in SRD at the sale's own
+   * rate, so an SRD sale booked at 40 had its profit restated at the current
+   * 38, and gross profit came out below `revenue - COGS` by roughly 5% of
+   * revenue. Per-sale conversion keeps the two sides on one rate.
+   */
+  const saleProfitInDisplay = useCallback((sale: SaleWithItems): number => {
+    const financials = getSaleFinancials(sale)
+    return displayCurrency === 'USD' ? financials.grossProfitUsd : financials.grossProfitSrd
+  }, [displayCurrency, getSaleFinancials])
 
-  const profitInDisplay = useCallback((profitUSD: number): number =>
-    displayCurrency === 'USD' ? profitUSD : profitUSD * rate,
-    [displayCurrency, rate]
+  const sumSaleProfitInDisplay = useCallback((sales: SaleWithItems[]): number =>
+    sales.reduce((sum, sale) => sum + saleProfitInDisplay(sale), 0),
+    [saleProfitInDisplay]
   )
 
   const amountInDisplay = useCallback((amount: number, currency: string | null | undefined, sourceRate?: number | null): number => {
@@ -775,13 +806,17 @@ export default function ReportsPage() {
 
   const commissionInDisplay = useCallback((c: CommissionWithSale): number => {
     const amt = toNum(c.commission_amount)
-    const commissionCurrency = c.sales?.currency || 'USD'
+    // A commission is denominated in its sale's currency. When the sale relation
+    // is missing the old default was 'USD', which multiplied a plain SRD payout
+    // by the exchange rate and inflated the commission line by ~38x. SRD is the
+    // store currency, so an unknown-currency payout is left unconverted.
+    const commissionCurrency = c.sales?.currency || 'SRD'
     return amountInDisplay(amt, commissionCurrency, c.sales?.exchange_rate)
   }, [amountInDisplay])
 
   // ─── Aggregates ───
   const totalRevenue = useMemo(() => filteredSales.reduce((s, sale) => s + saleAmountInDisplay(sale), 0), [filteredSales, saleAmountInDisplay])
-  const totalGrossProfit = useMemo(() => profitInDisplay(filteredSales.reduce((s, sale) => s + saleProfitUSD(sale), 0)), [filteredSales, saleProfitUSD, profitInDisplay])
+  const totalGrossProfit = useMemo(() => sumSaleProfitInDisplay(filteredSales), [filteredSales, sumSaleProfitInDisplay])
   const totalExpensesAmt = useMemo(() => {
     return filteredExpenses
       .filter(e => !excludeInventoryExpenses || !isInventoryExpense(e))
@@ -797,7 +832,7 @@ export default function ReportsPage() {
 
   // Previous period
   const prevRevenue = useMemo(() => prevSales.reduce((s, sale) => s + saleAmountInDisplay(sale), 0), [prevSales, saleAmountInDisplay])
-  const prevGrossProfit = useMemo(() => profitInDisplay(prevSales.reduce((s, sale) => s + saleProfitUSD(sale), 0)), [prevSales, saleProfitUSD, profitInDisplay])
+  const prevGrossProfit = useMemo(() => sumSaleProfitInDisplay(prevSales), [prevSales, sumSaleProfitInDisplay])
   const prevExpensesAmt = useMemo(() => {
     return prevExpenses
       .filter(e => !excludeInventoryExpenses || !isInventoryExpense(e))
@@ -1077,8 +1112,7 @@ export default function ReportsPage() {
       const locExpenses = filteredExpenses.filter(e => e.location_id === loc.id)
       const locCommissions = filteredCommissions.filter(c => c.location_id === loc.id)
       const revenue = locSales.reduce((s, sale) => s + saleAmountInDisplay(sale), 0)
-      const profitUSD = locSales.reduce((s, sale) => s + saleProfitUSD(sale), 0)
-      const grossProfit = profitInDisplay(profitUSD)
+      const grossProfit = sumSaleProfitInDisplay(locSales)
       const expenses = locExpenses
         .filter((expense) => !excludeInventoryExpenses || !isInventoryExpense(expense))
         .reduce((s, e) => s + expenseInDisplay(e), 0)
@@ -1097,7 +1131,7 @@ export default function ReportsPage() {
         avgTransaction: locSales.length > 0 ? revenue / locSales.length : 0,
       }
     }).sort((a, b) => b.revenue - a.revenue)
-  }, [locations, filteredSales, filteredExpenses, filteredCommissions, catalogStocks, catalogItems, saleAmountInDisplay, saleProfitUSD, profitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate, excludeInventoryExpenses, isInventoryExpense])
+  }, [locations, filteredSales, filteredExpenses, filteredCommissions, catalogStocks, catalogItems, saleAmountInDisplay, sumSaleProfitInDisplay, expenseInDisplay, commissionInDisplay, displayCurrency, rate, excludeInventoryExpenses, isInventoryExpense])
 
   // ─── Seller Performance ───
   const sellerPerformance = useMemo(() => {
@@ -1468,7 +1502,7 @@ export default function ReportsPage() {
       }
 
       const totalSales = monthSales.reduce((sum, sale) => sum + saleAmountInDisplay(sale), 0)
-      const grossProfit = monthSales.reduce((sum, sale) => sum + profitInDisplay(saleProfitUSD(sale)), 0)
+      const grossProfit = sumSaleProfitInDisplay(monthSales)
       const totalExpenses = monthExpenses
         .filter((expense) => !excludeInventoryExpenses || !isInventoryExpense(expense))
         .reduce((sum, expense) => sum + expenseInDisplay(expense), 0)
@@ -1497,10 +1531,9 @@ export default function ReportsPage() {
     isCatalogScoped,
     isInventoryExpense,
     now,
-    profitInDisplay,
     saleAmountInDisplay,
-    saleProfitUSD,
     selectedLocation,
+    sumSaleProfitInDisplay,
   ])
 
   const activeCatalogLabel = catalogLabel(catalogFilter)
@@ -2061,6 +2094,85 @@ export default function ReportsPage() {
 
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════ THE RATE EVERY USD FIGURE RESTS ON ═══════════════ */}
+        {reportRate && (
+          <div className={cn(
+            'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border px-4 py-3 text-xs sm:text-sm',
+            reportRate.isStale
+              ? 'border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-400'
+              : 'border-border bg-card text-muted-foreground',
+          )}>
+            <span className="font-semibold text-foreground">1 USD = {reportRate.usdToSrd} SRD</span>
+            <span className="text-muted-foreground">
+              {reportRate.ageDays === null
+                ? 'No active rate is set — figures fall back to 40.'
+                : `Set ${reportRate.ageDays} ${reportRate.ageDays === 1 ? 'day' : 'days'} ago.`}
+            </span>
+            <span className="text-muted-foreground">
+              Every USD amount below is converted at this rate; sales convert at the rate recorded on the sale.
+            </span>
+            {reportRate.isStale && (
+              <Link href="/exchange" className="font-semibold underline underline-offset-4">
+                Update the rate
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ REVENUE HELD BACK FROM THE FIGURES ═══════════════ */}
+        {excludedRevenue && excludedRevenue.saleCount > 0 && (
+          <div className="card-premium border border-amber-500/25 bg-amber-500/5 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0 rounded-xl bg-amber-500/10 p-2 text-amber-600">
+                  <AlertTriangle size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-foreground sm:text-base">
+                    {excludedRevenue.saleCount} recorded {excludedRevenue.saleCount === 1 ? 'sale is' : 'sales are'} not in the totals below
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">
+                    These sales are posted and the money moved, but the records cannot be trusted to
+                    produce a margin, so every figure on this page leaves them out. Resolve them and
+                    they rejoin the numbers.
+                  </p>
+                  <dl className="mt-3 space-y-1.5">
+                    {excludedRevenue.groups.map((group) => (
+                      <div key={group.reason} className="flex flex-wrap items-baseline gap-x-2 text-xs sm:text-sm">
+                        <dt className="text-muted-foreground">{group.reason}</dt>
+                        <dd className="font-semibold text-foreground">
+                          {group.saleCount} {group.saleCount === 1 ? 'sale' : 'sales'}
+                          {group.totalSrd > 0 && ` · ${formatCurrency(group.totalSrd, 'SRD')}`}
+                          {group.totalUsd > 0 && ` · ${formatCurrency(group.totalUsd, 'USD')}`}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+
+              <div className="shrink-0 sm:text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Held back</p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-amber-600 sm:text-xl">
+                  {formatCurrency(excludedRevenue.totalSrd, 'SRD')}
+                </p>
+                {excludedRevenue.totalUsd > 0 && (
+                  <p className="text-sm font-semibold tabular-nums text-amber-600">
+                    + {formatCurrency(excludedRevenue.totalUsd, 'USD')}
+                  </p>
+                )}
+                <Link
+                  href="/finance/review"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
+                >
+                  Open review queue
+                  <ArrowUpRight size={14} />
+                </Link>
               </div>
             </div>
           </div>

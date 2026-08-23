@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { COUNTABLE_SALE } from '@/lib/financialFilters'
 import type {
   ReportCategory,
+  ReportExcludedRevenue,
+  ReportExcludedRevenueGroup,
+  ReportExchangeRate,
   ReportComboItem,
   ReportCommission,
   ReportExpense,
@@ -21,6 +24,10 @@ import type {
   ReportWallet,
   ReportWalletTransaction,
 } from '@/types/reports'
+
+// Matches the dashboard's threshold so the two surfaces agree on "stale".
+const EXCHANGE_RATE_STALE_AFTER_DAYS = 7
+const DEFAULT_EXCHANGE_RATE = 40
 
 function toNumber(value: unknown): number {
   return value == null ? 0 : Number(value)
@@ -61,7 +68,7 @@ export async function GET(request: NextRequest) {
   if (authResult instanceof NextResponse) return authResult
 
   try {
-    const [sales, items, stocks, locations, expenses, commissions, wallets, walletTransactions, reservations, comboItems, sellers, categories, purchaseOrders] = await Promise.all([
+    const [sales, excludedSales, activeRate, items, stocks, locations, expenses, commissions, wallets, walletTransactions, reservations, comboItems, sellers, categories, purchaseOrders] = await Promise.all([
       prisma.sale.findMany({
         where: COUNTABLE_SALE,
         select: {
@@ -93,6 +100,24 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
+      }),
+      // Posted sales that COUNTABLE_SALE holds back. Summarised, never merged
+      // into the countable set: they must not move a margin, but the reader has
+      // to be able to see that they exist and what they are worth.
+      prisma.sale.findMany({
+        where: { status: 'posted', needsReview: true },
+        select: {
+          currency: true,
+          totalAmount: true,
+          exchangeRate: true,
+          reviewReason: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.exchangeRate.findFirst({
+        where: { isActive: true },
+        orderBy: { setAt: 'desc' },
       }),
       prisma.item.findMany({
         select: {
@@ -296,7 +321,50 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
+    const rateSetAt = activeRate?.setAt ?? null
+    const rateAgeDays = rateSetAt
+      ? Math.floor((Date.now() - rateSetAt.getTime()) / (24 * 60 * 60 * 1000))
+      : null
+    const exchangeRate: ReportExchangeRate = {
+      usdToSrd: toNumber(activeRate?.usdToSrd) || DEFAULT_EXCHANGE_RATE,
+      setAt: rateSetAt ? rateSetAt.toISOString() : null,
+      ageDays: rateAgeDays,
+      isStale: rateAgeDays === null || rateAgeDays > EXCHANGE_RATE_STALE_AFTER_DAYS,
+    }
+
+    const excludedGroups = new Map<string, ReportExcludedRevenueGroup>()
+    for (const sale of excludedSales) {
+      const reason = sale.reviewReason?.trim() || 'Flagged for review without a stated reason.'
+      const amount = toNumber(sale.totalAmount)
+      const createdAt = toIsoString(sale.createdAt)
+      const group = excludedGroups.get(reason) ?? {
+        reason,
+        saleCount: 0,
+        totalSrd: 0,
+        totalUsd: 0,
+        firstSaleAt: createdAt,
+        lastSaleAt: createdAt,
+      }
+
+      group.saleCount += 1
+      if (sale.currency === 'USD') group.totalUsd += amount
+      else group.totalSrd += amount
+      if (group.firstSaleAt === null || createdAt < group.firstSaleAt) group.firstSaleAt = createdAt
+      if (group.lastSaleAt === null || createdAt > group.lastSaleAt) group.lastSaleAt = createdAt
+
+      excludedGroups.set(reason, group)
+    }
+
+    const excludedRevenue: ReportExcludedRevenue = {
+      saleCount: excludedSales.length,
+      totalSrd: [...excludedGroups.values()].reduce((sum, group) => sum + group.totalSrd, 0),
+      totalUsd: [...excludedGroups.values()].reduce((sum, group) => sum + group.totalUsd, 0),
+      groups: [...excludedGroups.values()].sort((a, b) => b.saleCount - a.saleCount),
+    }
+
     const data: ReportsDataPayload = {
+      exchangeRate,
+      excludedRevenue,
       sales: sales.map<ReportSale>((sale) => ({
         id: sale.id,
         location_id: sale.locationId,
@@ -319,6 +387,8 @@ export async function GET(request: NextRequest) {
           original_price: saleItem.original_price == null ? null : toNumber(saleItem.original_price),
           discount_reason: saleItem.discount_reason,
           created_at: toIsoString(saleItem.createdAt),
+          unit_cost_usd: saleItem.unitCostUsd == null ? null : toNumber(saleItem.unitCostUsd),
+          cost_is_estimated: saleItem.costIsEstimated ?? false,
         })),
       })),
       items: items.map(mapItem),

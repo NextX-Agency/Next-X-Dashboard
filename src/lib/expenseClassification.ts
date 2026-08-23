@@ -31,9 +31,17 @@ export function isExcludedFromOperatingProfit(classification: string | null | un
 }
 
 /**
- * Keeps historic, not-yet-classified expenses out of operating profit only when
- * their existing category or description already identifies them as stock or a
- * personal withdrawal. New expenses must be classified at entry time.
+ * Keeps historic expenses out of operating profit when their existing category
+ * or description already identifies them as stock, capital, or a personal
+ * withdrawal. New expenses must be classified at entry time.
+ *
+ * The category test used to run only for `unclassified` rows. That made the
+ * same real-world spend land on two different sides of operating profit
+ * depending on whether someone had got round to classifying it: an "Investment"
+ * and a "Personal Items" row tagged `other` were charged against operating
+ * profit, while "Personal Items" rows still tagged `unclassified` were not.
+ * `other` now takes the same test, so the treatment follows what the money was,
+ * not how far through triage the record is.
  */
 export function isExcludedExpenseFromOperatingProfit(expense: {
   classification?: string | null
@@ -41,13 +49,19 @@ export function isExcludedExpenseFromOperatingProfit(expense: {
   description?: string | null
 }): boolean {
   if (isExcludedFromOperatingProfit(expense.classification)) return true
-  if (expense.classification !== 'unclassified') return false
+  if (expense.classification !== 'unclassified' && expense.classification !== 'other') return false
 
   const categoryName = (expense.categoryName || '').toLowerCase().trim()
   const isInventoryOrPersonal =
     categoryName === 'business expense' ||
     categoryName === 'personal items' ||
     categoryName === 'personal' ||
+    // Capital put into an asset is not a period cost. It leaves the wallet, and
+    // the ledger records that, but charging it against the month's operating
+    // profit reports a trading loss that did not happen.
+    categoryName === 'investment' ||
+    categoryName === 'investments' ||
+    categoryName === 'capital' ||
     categoryName === 'inventory' ||
     categoryName === 'stock' ||
     categoryName === 'stock purchase' ||
