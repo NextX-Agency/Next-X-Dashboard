@@ -20,6 +20,7 @@ import {
   type WatchesCartEntry,
   upsertWatchesCartItem,
 } from '@/lib/watchesCart'
+import { orderReferenceLine, submitShopOrder } from '@/lib/shopOrderClient'
 import {
   WatchesHeader,
   WatchProductCard,
@@ -65,6 +66,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
   const [qty, setQty] = useState(1)
   const [cartItems, setCartItems] = useState<WatchesCartEntry[]>([])
   const [cartOpen, setCartOpen] = useState(false)
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [addedToCart, setAddedToCart] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -186,8 +188,26 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
     setWatchesCartItemQuantity(itemId, nextQuantity)
   }, [getCartStockLimit])
 
-  const handleSubmitOrder = useCallback(() => {
-    if (cartItems.length === 0) return
+  /**
+   * Save the order, then hand the customer to WhatsApp.
+   *
+   * The cart used to open wa.me and clear itself, leaving the order nowhere but
+   * a chat thread. It is now persisted first and the message quotes its number.
+   * A failed save still opens WhatsApp — losing our own record must never lose
+   * the customer — and the message then says the order was not recorded.
+   */
+  const handleSubmitOrder = useCallback(async () => {
+    if (cartItems.length === 0 || isSubmittingOrder) return
+    setIsSubmittingOrder(true)
+
+    const result = await submitShopOrder({
+      channel: 'webshop_watches',
+      currency: displayCurrency,
+      items: cartItems.map((entry) => ({ itemId: entry.id, quantity: entry.quantity })),
+      customerName: customerName || null,
+      customerPhone: customerPhone || null,
+      customerNotes: customerNotes || null,
+    })
 
     const message = buildWatchesCartWhatsAppMessage({
       items: cartItems,
@@ -196,6 +216,7 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
       customerName,
       customerPhone,
       customerNotes,
+      orderReference: orderReferenceLine(result),
     })
 
     const sanitizedNumber = whatsappNumber.replace(/[^0-9]/g, '')
@@ -206,7 +227,8 @@ export default function WatchDetailClient({ item, relatedItems, whatsappNumber, 
     setCustomerPhone('')
     setCustomerNotes('')
     setCartOpen(false)
-  }, [activeExchangeRate, cartItems, customerName, customerNotes, customerPhone, displayCurrency, whatsappNumber])
+    setIsSubmittingOrder(false)
+  }, [activeExchangeRate, cartItems, customerName, customerNotes, customerPhone, displayCurrency, isSubmittingOrder, whatsappNumber])
 
   const cartCount = getWatchesCartCount(cartItems)
 

@@ -1419,3 +1419,114 @@ general ledger) are designed but not claimed here.
 
 Every migration in this claim is additive. No financial row is updated or deleted, and no existing
 money path changes behaviour.
+
+## W-00..W-04 — claude — 2026-09-03T02:05Z — DONE
+
+### The Part 6 baseline in this log was stale — corrected
+
+The first attempt at the W-01 migration **aborted and rolled back** because its verification
+asserted the figures recorded here on 2026-08-13 (149 sales / 490 wallet transactions /
+SRD 42,005.99 / USD 534.00). The business has traded since. Nothing was wrong with the data.
+
+**Current verified baseline: 158 sales / 321 sale_items / 508 wallet_transactions /
+508 finance_ledger_entries / 88 expenses / 126 commissions / 105 units on hand /
+SRD 35,002.00 / USD 94.00.**
+
+Two things worth carrying forward:
+
+- **Do not hardcode a snapshot in a migration's verification.** W-01 instead snapshots the counts
+  into a temp table at `BEGIN` and asserts they are unchanged at `COMMIT`. That is strictly
+  stronger — it proves *this migration* changed no financial row — and it does not rot.
+- **12 of the 13 wallets have no `opening_balance` entry in `finance_ledger_entries`** (only one
+  does, SRD 17,000). Their stored balance therefore starts from a pre-ledger value the ledger never
+  recorded, so `sum(ledger) ≠ balance` per wallet is expected today and is **not** corruption. This
+  matters for the Phase 3 general-ledger work: an opening journal must be posted per wallet before
+  GL cash can be reconciled to wallet balances.
+
+### Applied
+
+**W-00 — closed the open doors.** `/api/get-sale-info` and `/api/debug-reservations` served sale
+totals, location data, customer names, phone numbers and email addresses to **any unauthenticated
+caller**; both now require `requireAdmin` and read through Prisma. Removed `/api/migrate` (a
+standing DDL-execution endpoint holding the service-role key, for a migration long since applied),
+plus the `/migrate` and `/upload-example` pages. `/api/debug-profit` and
+`/api/dev/terminal-history` were kept — both are authenticated and in use by `/reports` and
+`/performance`.
+
+**W-01 — a customer order now exists.** Added `customer_orders` and `customer_order_items`,
+`stock.reserved_quantity` and `sales.client_id` (migration
+`20260903000100_w01_customer_orders.sql`, additive, verified transactionally against production).
+The webshop persisted **nothing** before this: `sendWhatsAppOrder` built a message, opened `wa.me`
+and cleared the cart, so an order lived only in a chat thread and was retyped by hand into the
+sales desk. All four shop surfaces (audio, legacy catalog, watches list, watch detail) now POST to
+the new public `/api/shop/orders` first and quote the returned order number in the WhatsApp
+message. A failed save never blocks the customer — WhatsApp still opens, and the message says the
+order was not recorded.
+
+The shop endpoint is unauthenticated by necessity and distrustful by design: it accepts only
+product ids, quantities and contact details, **re-prices every line server-side from `items`**,
+caps line count, quantity and text length, rate-limits per hashed IP, and matches or creates the
+customer on a normalised phone number so repeat buyers accumulate history. It writes **no
+financial row** — an order is a promise, not money.
+
+`sales.client_id` was deliberately **not backfilled**. There is no stored reservation-to-sale link,
+so any historical assignment would be a guess, and a guess must not become indistinguishable from a
+fact.
+
+**W-02 — purchasing and selling are no longer both called "orders".** `/orders` was the *purchase*
+order desk. Purchasing moved to `/purchasing` (`/api/purchasing`, `@/types/purchasing`) and
+`/orders` is now the sales order desk: incoming webshop orders, confirm, cancel with a reason,
+mark ready, and **convert to a sale in one click**.
+
+To avoid a second money path, the sales route's transaction body was lifted **unchanged** into
+`src/lib/salePosting.ts` (`postSale`). Both `/api/sales` POST and the order desk's `convert` now
+call it, so header, line items, stock, commissions, the wallet credit, the wallet transaction, the
+immutable ledger entry and the activity log remain one Serializable transaction with one
+implementation. Converting closes the order in that same transaction: both, or neither.
+
+**W-03 — reservations finally hold stock.** `reservations` reserved nothing: neither
+`saleCreation` nor `stockUtils` had any notion of a hold, so the same watch could be promised to
+two people and sold once. Creating a reservation now holds stock atomically, cancelling releases
+it, and completing releases it immediately *before* the sale's decrement — ordering that matters,
+because `resolveSaleLines` now refuses to sell reserved units and a fully reserved item would
+otherwise fail its own completion.
+
+Availability is `quantity - reserved_quantity` everywhere: the public catalog API, both browser
+catalog reads, and the sale path, which now gives a specific message ("3 of 5 in stock are free —
+2 are held for a reservation or a confirmed order") rather than letting the new database
+constraints reject the write. Three CHECK constraints now make the invariants unbreakable:
+`quantity >= 0`, `reserved_quantity >= 0`, `reserved_quantity <= quantity`. **Stock could
+previously go negative.**
+
+**W-04 — navigation follows the work.** The rail was 22 equal-weight destinations in loosely
+themed buckets. It is now grouped by business process — Sell, Buy, Stock, Money, Books, Insights,
+Shops, Admin — across the desktop rail, the mobile menu and the top-bar page context.
+
+### Verified
+
+`prisma validate`, `prisma generate`, `tsc --noEmit` and `pnpm build` all pass. `eslint` reports
+**0 errors and 0 warnings** across every file touched (the repository's 189 pre-existing errors are
+unchanged and untouched).
+
+A read-only production query after the work confirms nothing financial moved: **158 sales / 321
+sale_items / 508 wallet_transactions / 508 finance_ledger_entries / 88 expenses / 126 commissions /
+SRD 35,002.00 / USD 94.00**, wallet transactions still pair 1:1 with ledger entries, zero orphaned
+sale items, zero stock rows violating the new invariants, 105 units on hand and 0 reserved.
+
+### Not done — and why
+
+Phases 2 and 3 of the program are designed but deliberately **not** started here:
+
+- **Phase 2 — perpetual inventory and real landed cost.** `purchase_orders` is empty in production,
+  so inventory is bought as an expense (24 rows classified `inventory`, USD 2,999.50 + SRD 425) and
+  **306 of 321 sale lines carry an estimated cost**. Fixing this means suppliers as their own
+  entity (they currently point at `clients`, the *customer* table), landed cost on receipt, a
+  moving-average cost per item and location, and GR/IR so a received-but-unbilled shipment is a
+  visible liability. The empty `purchase_orders` table makes this reshaping free of backfill risk —
+  it will never be cheaper.
+- **Phase 3 — a general ledger that works.** `journal_entries` holds **3 rows** (opening balance
+  only). 158 sales, 88 expenses and 508 wallet transactions post nothing to it, and the chart of
+  accounts has **no revenue, COGS, inventory, AR or AP account to post to**. Phase 2 must land
+  first: a ledger posting fabricated costs is worse than no ledger.
+
+Phase 3 also needs the per-wallet opening journal noted at the top of this entry.

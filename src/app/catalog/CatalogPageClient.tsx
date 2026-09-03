@@ -8,6 +8,7 @@ import type { NormalizedCatalogData } from '@/lib/catalogData'
 import { Database } from '@/types/database.types'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { getSellingPrice, normalizeExchangeRate } from '@/lib/pricing'
+import { orderReferenceLine, submitShopOrder } from '@/lib/shopOrderClient'
 import { getLocationCatalogFilter } from '@/lib/locationCatalog'
 import { 
   getItemStockStatus, 
@@ -198,6 +199,7 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([])
   const [showCart, setShowCart] = useState(false)
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerNotes, setCustomerNotes] = useState('')
@@ -439,18 +441,21 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
 
         const { data: stockData } = await supabase
           .from('stock')
-          .select('item_id, location_id, quantity')
+          .select('item_id, location_id, quantity, reserved_quantity')
         
         if (stockData) {
           const visibleLocationIds = new Set((locationsRes.data || []).map((location: { id: string }) => location.id))
           const map = new Map<string, number>()
-          stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
+          stockData.forEach((stock: { item_id: string; location_id: string; quantity: number; reserved_quantity: number | null }) => {
             if (!visibleLocationIds.has(stock.location_id)) {
               return
             }
 
+            // Held units are promised to a reservation or a confirmed order,
+            // so the shop must not offer them.
+            const available = Math.max(stock.quantity - (stock.reserved_quantity ?? 0), 0)
             const current = map.get(stock.item_id) || 0
-            map.set(stock.item_id, current + stock.quantity)
+            map.set(stock.item_id, current + available)
           })
           setStockMap(map)
           setStockMetadata({ lastUpdated: new Date() })
@@ -491,18 +496,19 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       // Fallback to Supabase
       const { data: stockData } = await supabase
         .from('stock')
-        .select('item_id, location_id, quantity')
+        .select('item_id, location_id, quantity, reserved_quantity')
       
       if (stockData) {
         const visibleLocationIds = new Set(locations.map((location) => location.id))
         const map = new Map<string, number>()
-        stockData.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
+        stockData.forEach((stock: { item_id: string; location_id: string; quantity: number; reserved_quantity: number | null }) => {
           if (!visibleLocationIds.has(stock.location_id)) {
             return
           }
 
+          const available = Math.max(stock.quantity - (stock.reserved_quantity ?? 0), 0)
           const current = map.get(stock.item_id) || 0
-          map.set(stock.item_id, current + stock.quantity)
+          map.set(stock.item_id, current + available)
         })
         setStockMap(map)
         setStockMetadata({ lastUpdated: new Date() })
@@ -643,31 +649,61 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   }
 
   // WhatsApp order
-  const sendWhatsAppOrder = () => {
-    if (cart.length === 0) return
-    
+  // The pickup day the customer chose, as a date the order can store.
+  const resolvePickupIso = useCallback((): string | null => {
+    if (pickupDate === 'custom') return customPickupDate || null
+    const day = new Date()
+    if (pickupDate === 'tomorrow') day.setDate(day.getDate() + 1)
+    return day.toISOString().slice(0, 10)
+  }, [pickupDate, customPickupDate])
+
+  /**
+   * Save the order, then hand the customer to WhatsApp.
+   *
+   * This used to only build a message and open wa.me, so the order existed
+   * nowhere but a chat thread and had to be retyped into the sales desk. The
+   * order is now persisted first and the message quotes its number. A failed
+   * save never blocks the customer — WhatsApp still opens, and the message says
+   * the order was not recorded so staff know to enter it by hand.
+   */
+  const sendWhatsAppOrder = async () => {
+    if (cart.length === 0 || isSubmittingOrder) return
+    setIsSubmittingOrder(true)
+
+    const result = await submitShopOrder({
+      channel: 'webshop_audio',
+      currency,
+      items: cart.map((c) => ({ itemId: c.item.id, quantity: c.quantity })),
+      locationId: selectedLocation || null,
+      pickupDate: resolvePickupIso(),
+      customerName: customerName || null,
+      customerPhone: customerPhone || null,
+      customerNotes: customerNotes || null,
+    })
+
     let message = `Hallo ${settings.store_name}!\n\n`
+    message += orderReferenceLine(result, 'nl')
     message += `Ik wil graag bestellen:\n\n`
-    
+
     cart.forEach((c, idx) => {
       const price = getPrice(c.item)
       message += `${idx + 1}. ${c.item.name}\n`
-      message += `   ${c.quantity}× ${formatCurrency(price, currency)} = ${formatCurrency(price * c.quantity, currency)}\n\n`
+      message += `   ${c.quantity}\u00d7 ${formatCurrency(price, currency)} = ${formatCurrency(price * c.quantity, currency)}\n\n`
     })
-    
-    message += `━━━━━━━━━━━━━━━━━━\n`
+
+    message += `\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n`
     message += `Totaal: ${formatCurrency(getCartTotal(), currency)}\n\n`
-    
+
     if (customerName) message += `Naam: ${customerName}\n`
     if (customerPhone) message += `Tel: ${customerPhone}\n`
     if (customerNotes) message += `Opmerking: ${customerNotes}\n`
-    
+
     const pickupLocation = locations.find(l => l.id === selectedLocation)
-    message += `\n📍 Ophaallocatie: ${pickupLocation?.name || settings.store_address}\n`
+    message += `\n\ud83d\udccd Ophaallocatie: ${pickupLocation?.name || settings.store_address}\n`
     if (pickupLocation?.address) {
       message += `   ${pickupLocation.address}\n`
     }
-    
+
     let pickupDateText = ''
     if (pickupDate === 'today') {
       pickupDateText = 'Vandaag'
@@ -678,16 +714,17 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
       pickupDateText = date.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     }
     if (pickupDateText) {
-      message += `📅 Ophaaldatum: ${pickupDateText}\n`
+      message += `\ud83d\udcc5 Ophaaldatum: ${pickupDateText}\n`
     }
-    
+
     const whatsappNumber = settings.whatsapp_number.replace(/[^0-9]/g, '')
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
-    
+
     setCart([])
     setCustomerNotes('')
     setShowCart(false)
     localStorage.removeItem('nextx-cart')
+    setIsSubmittingOrder(false)
   }
 
   // Helper functions

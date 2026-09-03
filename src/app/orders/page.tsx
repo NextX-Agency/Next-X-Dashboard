@@ -1,2245 +1,461 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { Plus, ClipboardList, Trash2, Edit, X, Search, Filter, ArrowUpDown, Package, Check, Truck, Clock, XCircle, Eye, AlertTriangle, PackageCheck, Users, Calendar as CalendarIcon, Wallet as WalletIcon, Download, RefreshCcw, Headphones, Watch, ImageIcon } from 'lucide-react'
-import { PageHeader, PageContainer, Button, Input, Select, Textarea, EmptyState, LoadingSpinner, StatBox } from '@/components/UI'
-import { Modal } from '@/components/PageCards'
-import { ConfirmDialog } from '@/components/ConfirmDialog'
-import { useConfirmDialog } from '@/lib/useConfirmDialog'
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  ClipboardList,
+  Headphones,
+  MapPin,
+  MessageCircle,
+  Package,
+  Phone,
+  Receipt,
+  ShoppingBag,
+  Store,
+  Watch,
+  X,
+} from 'lucide-react'
+import {
+  Badge,
+  Button,
+  EmptyState,
+
+  LoadingSpinner,
+  Modal,
+  PageContainer,
+  PageHeader,
+  Select,
+  StatBox,
+  Textarea,
+} from '@/components/UI'
 import { formatCurrency, type Currency } from '@/lib/currency'
-import { useCurrency } from '@/lib/CurrencyContext'
-import { cn } from '@/lib/utils'
-import type {
-  OrdersPageClient as Client,
-  OrdersPageDataResponse,
-  OrdersPageItem as Item,
-  OrdersPageLocation as Location,
-  OrdersPageOrder as OrderWithDetails,
-  OrdersPageWallet as Wallet,
-} from '@/types/orders'
 
-type OrderStatus = 'pending' | 'ordered' | 'shipped' | 'partially_received' | 'received' | 'cancelled'
-type SortField = 'date' | 'amount' | 'status'
-type SortOrder = 'asc' | 'desc'
-type ItemCatalogFilter = 'audio' | 'watches'
+/**
+ * The sales order desk.
+ *
+ * `/orders` was the purchase order desk until W-01; purchasing now lives at
+ * `/purchasing`. This screen is where a customer's order lands — the document
+ * the webshop never used to create — and where it becomes a sale without
+ * anybody retyping a WhatsApp message.
+ */
 
-interface OrderItemForm {
-  id?: string
-  item_id: string
-  quantity: string
-  unit_cost: string
-  original_cost?: string
-  allocations: Array<{
-    location_id: string
-    quantity: string
-  }>
-}
-
-interface ReceiveItemForm {
+interface OrderLine {
   id: string
-  order_item_id: string
-  location_id: string
-  location_name: string
-  item_name: string
-  ordered: number
-  already_received: number
-  remaining: number
-  receiving: string
+  itemId: string
+  name: string
+  brand: string | null
+  imageUrl: string | null
+  quantity: number
+  unitPrice: number
+  subtotal: number
 }
 
-interface EditReceiptItemForm {
+interface CustomerOrder {
   id: string
-  order_item_id: string
-  item_id: string
-  location_id: string
-  location_name: string
-  item_name: string
-  total_quantity: number
-  quantity_received: number
-  new_quantity_received: string
-  is_allocation: boolean
+  orderNumber: string
+  status: string
+  channel: string
+  currency: Currency
+  totalAmount: number
+  customerName: string | null
+  customerPhone: string | null
+  customerEmail: string | null
+  customerNotes: string | null
+  pickupDate: string | null
+  stockReserved: boolean
+  createdAt: string
+  cancelReason: string | null
+  client: { id: string; name: string; phone: string | null; email: string | null } | null
+  location: { id: string; name: string } | null
+  sale: { id: string; invoiceNumber: string | null; createdAt: string } | null
+  items: OrderLine[]
 }
 
-function getFinanceStage(order: OrderWithDetails) {
-  const commitment = order.finance_obligation
-  if (order.status === 'cancelled') return { label: 'Commitment cancelled', detail: 'The order and financial history are retained.', tone: 'bg-muted text-muted-foreground' }
-  if (order.status === 'pending') return { label: 'Draft — no payable yet', detail: 'Confirm this order to record its financial commitment.', tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' }
-  if (!commitment) return { label: 'Finance link needed', detail: 'This legacy order is not yet included in payables.', tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' }
-  if (commitment.status === 'paid') return { label: 'Payable settled', detail: 'The commitment is recorded as paid.', tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' }
-  if (commitment.status === 'partial') return { label: 'Partly settled', detail: `${formatCurrency(commitment.outstanding_amount, commitment.currency)} still outstanding.`, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' }
-  return { label: 'Payable recorded', detail: `${formatCurrency(commitment.outstanding_amount, commitment.currency)} reserved for supplier review.`, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' }
+interface OrderDeskResponse {
+  data: {
+    orders: CustomerOrder[]
+    stats: { openCount: number; awaitingConversion: number }
+  }
 }
 
-export default function OrdersPage() {
-  const { displayCurrency, exchangeRate } = useCurrency()
-  const { dialogProps, confirm } = useConfirmDialog()
-  const [orders, setOrders] = useState<OrderWithDetails[]>([])
-  const [items, setItems] = useState<Item[]>([])
-  const [locations, setLocations] = useState<Location[]>([])
-  const [wallets, setWallets] = useState<Wallet[]>([])
-  const [clients, setClients] = useState<Client[]>([])
-  const [showOrderForm, setShowOrderForm] = useState(false)
-  const [showViewOrder, setShowViewOrder] = useState(false)
-  const [showReceiveModal, setShowReceiveModal] = useState(false)
-  const [showDeleteOrderModal, setShowDeleteOrderModal] = useState(false)
-  const [viewingOrder, setViewingOrder] = useState<OrderWithDetails | null>(null)
-  const [receivingOrder, setReceivingOrder] = useState<OrderWithDetails | null>(null)
-  const [deletingOrder, setDeletingOrder] = useState<OrderWithDetails | null>(null)
-  const [receiveItems, setReceiveItems] = useState<ReceiveItemForm[]>([])
-  const [editingOrder, setEditingOrder] = useState<OrderWithDetails | null>(null)
+const STATUS_STYLE: Record<string, { label: string; variant: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'orange' }> = {
+  new: { label: 'New', variant: 'orange' },
+  confirmed: { label: 'Confirmed · stock held', variant: 'info' },
+  reserved: { label: 'Reserved', variant: 'info' },
+  fulfilled: { label: 'Ready for pickup', variant: 'warning' },
+  invoiced: { label: 'Sold', variant: 'success' },
+  cancelled: { label: 'Cancelled', variant: 'danger' },
+  expired: { label: 'Expired', variant: 'default' },
+}
+
+const CHANNEL_STYLE: Record<string, { label: string; icon: typeof Headphones }> = {
+  webshop_audio: { label: 'Audio shop', icon: Headphones },
+  webshop_watches: { label: 'Watch shop', icon: Watch },
+  counter: { label: 'Counter', icon: Store },
+}
+
+export default function OrderDeskPage() {
+  const [orders, setOrders] = useState<CustomerOrder[]>([])
+  const [stats, setStats] = useState({ openCount: 0, awaitingConversion: 0 })
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [priceChanges, setPriceChanges] = useState<Record<string, number>>({})
-  const [shipmentNote, setShipmentNote] = useState('')
-  const [showEditReceiptsModal, setShowEditReceiptsModal] = useState(false)
-  const [editingReceiptOrder, setEditingReceiptOrder] = useState<OrderWithDetails | null>(null)
-  const [editReceiptItems, setEditReceiptItems] = useState<EditReceiptItemForm[]>([])
+  const [statusFilter, setStatusFilter] = useState('open')
+  const [channelFilter, setChannelFilter] = useState('all')
+  const [error, setError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  const [orderForm, setOrderForm] = useState({
-    wallet_id: '',
-    location_id: '',
-    supplier_id: '',
-    currency: 'USD' as Currency,
-    notes: '',
-    expected_arrival: ''
-  })
-  const [orderItems, setOrderItems] = useState<OrderItemForm[]>([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
-  const [itemCatalogFilter, setItemCatalogFilter] = useState<ItemCatalogFilter>('audio')
-  const [itemSearchQuery, setItemSearchQuery] = useState('')
-  const [activeItemPickerIndex, setActiveItemPickerIndex] = useState<number | null>(0)
-  
-  // Filter and sort states
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string>('')
-  const [filterLocation, setFilterLocation] = useState<string>('')
-  const [filterWallet, setFilterWallet] = useState<string>('')
-  const [dateFrom, setDateFrom] = useState<string>('')
-  const [dateTo, setDateTo] = useState<string>('')
-  const [sortField, setSortField] = useState<SortField>('date')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [convertTarget, setConvertTarget] = useState<CustomerOrder | null>(null)
+  const [convertPaymentMethod, setConvertPaymentMethod] = useState<'cash' | 'bank'>('cash')
+  const [cancelTarget, setCancelTarget] = useState<CustomerOrder | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
 
-  const loadData = useCallback(async (showLoadingState: boolean = false) => {
-    if (showLoadingState) {
-      setLoading(true)
-    } else {
-      setRefreshing(true)
-    }
-    setLoadError(null)
-
+  const loadOrders = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const response = await fetch('/api/orders', {
-        cache: 'no-store',
-      })
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Your session has expired. Please sign in again.')
-        }
-
-        if (response.status === 403) {
-          throw new Error('You no longer have access to order data.')
-        }
-
-        throw new Error('Unable to load order data right now.')
-      }
-
-      const payload = await response.json() as OrdersPageDataResponse
+      const query = statusFilter === 'open' ? '' : `status=${statusFilter}&`
+      const response = await fetch(`/api/orders?${query}channel=${channelFilter}`, { cache: 'no-store' })
+      if (!response.ok) throw new Error('Unable to load the order desk.')
+      const payload = (await response.json()) as OrderDeskResponse
       setOrders(payload.data.orders)
-      setItems(payload.data.items)
-      setLocations(payload.data.locations)
-      setWallets(payload.data.wallets)
-      setClients(payload.data.clients)
-    } catch (error) {
-      console.error('Error loading order data:', error)
-      setLoadError(error instanceof Error ? error.message : 'Unable to load order data right now.')
+      setStats(payload.data.stats)
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load the order desk.')
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
-  }, [])
+  }, [statusFilter, channelFilter])
 
   useEffect(() => {
-    void loadData(true)
-  }, [loadData])
+    void loadOrders()
+  }, [loadOrders])
 
-  const saveOrderAction = useCallback(async (action: string, payload: Record<string, unknown>) => {
-    const response = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...payload }),
-    })
-    const result = await response.json().catch(() => null) as { error?: string } | null
-    if (!response.ok) throw new Error(result?.error || 'Unable to save the purchase order.')
-    return result
-  }, [])
+  // "Open" is the desk's real working set: everything still needing a person.
+  const visibleOrders = useMemo(() => {
+    if (statusFilter !== 'open') return orders
+    return orders.filter((order) => !['invoiced', 'cancelled', 'expired'].includes(order.status))
+  }, [orders, statusFilter])
 
-  const resetOrderForm = () => {
-    setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
-    setOrderItems([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
-    setEditingOrder(null)
-    setPriceChanges({})
-    setItemSearchQuery('')
-    setActiveItemPickerIndex(0)
-    setShowOrderForm(false)
-  }
-
-  const openNewOrderForm = () => {
-    setEditingOrder(null)
-    setOrderForm({ wallet_id: '', location_id: '', supplier_id: '', currency: 'USD', notes: '', expected_arrival: '' })
-    setOrderItems([{ item_id: '', quantity: '1', unit_cost: '', allocations: [] }])
-    setPriceChanges({})
-    setItemSearchQuery('')
-    setActiveItemPickerIndex(0)
-    setShowOrderForm(true)
-  }
-
-  // Filter and sort orders
-  const filteredAndSortedOrders = orders
-    .filter(order => {
-      const matchesSearch = !searchQuery || 
-        order.locations?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.wallets?.person_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.notes?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.clients?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.purchase_order_items?.some(item => item.items?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-      
-      const matchesStatus = !filterStatus || order.status === filterStatus
-      const matchesLocation = !filterLocation || order.location_id === filterLocation ||
-        order.purchase_order_items?.some(item =>
-          item.purchase_order_allocations?.some(allocation => allocation.location_id === filterLocation)
-        )
-      const matchesWallet = !filterWallet || order.wallet_id === filterWallet
-
-      let matchesDate = true
-      if (dateFrom) {
-        matchesDate = matchesDate && new Date(order.created_at) >= new Date(dateFrom)
+  const runAction = useCallback(
+    async (body: Record<string, unknown>, orderId: string) => {
+      setBusyId(orderId)
+      setError(null)
+      try {
+        const response = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        if (!response.ok) throw new Error(payload?.error ?? 'Nothing was changed.')
+        await loadOrders()
+        return true
+      } catch (actionError) {
+        setError(actionError instanceof Error ? actionError.message : 'Nothing was changed.')
+        return false
+      } finally {
+        setBusyId(null)
       }
-      if (dateTo) {
-        const end = new Date(dateTo)
-        end.setDate(end.getDate() + 1)
-        matchesDate = matchesDate && new Date(order.created_at) < end
-      }
-      
-      return matchesSearch && matchesStatus && matchesLocation && matchesWallet && matchesDate
-    })
-    .sort((a, b) => {
-      let comparison = 0
-      switch (sortField) {
-        case 'date':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          break
-        case 'amount':
-          comparison = a.total_amount - b.total_amount
-          break
-        case 'status':
-          const statusOrder = ['pending', 'ordered', 'shipped', 'partially_received', 'received', 'cancelled']
-          comparison = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)
-          break
-      }
-      return sortOrder === 'asc' ? comparison : -comparison
-    })
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortOrder('desc')
-    }
-  }
-
-  const clearFilters = () => {
-    setSearchQuery('')
-    setFilterStatus('')
-    setFilterLocation('')
-    setFilterWallet('')
-    setDateFrom('')
-    setDateTo('')
-    setSortField('date')
-    setSortOrder('desc')
-  }
-
-  const hasActiveFilters = searchQuery || filterStatus || filterLocation || filterWallet || dateFrom || dateTo
-
-  const catalogTabs: Array<{ value: ItemCatalogFilter; label: string; icon: React.ReactNode; count: number }> = [
-    {
-      value: 'audio',
-      label: 'Audio',
-      icon: <Headphones size={14} />,
-      count: items.filter(item => item.catalog_type !== 'watches').length,
     },
-    {
-      value: 'watches',
-      label: 'Watches',
-      icon: <Watch size={14} />,
-      count: items.filter(item => item.catalog_type === 'watches').length,
-    },
-  ]
-
-  const visiblePickerItems = items.filter(item => {
-    const matchesCatalog = itemCatalogFilter === 'watches'
-      ? item.catalog_type === 'watches'
-      : item.catalog_type !== 'watches'
-    const query = itemSearchQuery.trim().toLowerCase()
-    const matchesSearch = !query ||
-      item.name.toLowerCase().includes(query) ||
-      item.brand?.toLowerCase().includes(query)
-
-    return matchesCatalog && matchesSearch
-  })
-
-  const getSelectedItem = (itemId: string) => items.find(item => item.id === itemId)
-
-  const getCatalogLabel = (catalogType?: string | null) => catalogType === 'watches' ? 'Watches' : 'Audio'
-
-  const calculateTotal = () => {
-    return orderItems.reduce((sum, item) => {
-      const qty = parseFloat(item.quantity) || 0
-      const cost = parseFloat(item.unit_cost) || 0
-      return sum + (qty * cost)
-    }, 0)
-  }
-
-  const buildDefaultAllocations = (quantity: string, locationId = orderForm.location_id) => (
-    locationId ? [{ location_id: locationId, quantity }] : []
+    [loadOrders],
   )
 
-  const addOrderItem = () => {
-    setOrderItems([...orderItems, { item_id: '', quantity: '1', unit_cost: '', allocations: buildDefaultAllocations('1') }])
-    setActiveItemPickerIndex(orderItems.length)
-  }
-
-  const removeOrderItem = (index: number) => {
-    if (orderItems.length > 1) {
-      setOrderItems(orderItems.filter((_, i) => i !== index))
-      setActiveItemPickerIndex(current => {
-        if (current === null) return null
-        if (current === index) return null
-        return current > index ? current - 1 : current
-      })
-    }
-  }
-
-  const updateOrderItem = (index: number, field: 'item_id' | 'quantity' | 'unit_cost', value: string) => {
-    const newItems = [...orderItems]
-    if (field === 'item_id') {
-      newItems[index][field] = value
-      // Auto-fill unit cost from item's current purchase price
-      const item = items.find(i => i.id === value)
-      if (item) {
-        const currentPrice = Number(item.purchase_price_usd)
-        newItems[index].unit_cost = currentPrice.toString()
-        // Track if price changed from original (for editing)
-        if (editingOrder) {
-          const origItem = editingOrder.purchase_order_items?.find(oi => oi.item_id === value)
-          if (origItem && Number(origItem.unit_cost) !== currentPrice) {
-            setPriceChanges(prev => ({ ...prev, [value]: Number(origItem.unit_cost) }))
-          }
-        }
-      }
-    } else {
-      newItems[index][field] = value
-      if (field === 'quantity' && newItems[index].allocations.length <= 1) {
-        newItems[index].allocations = buildDefaultAllocations(value, newItems[index].allocations[0]?.location_id || orderForm.location_id)
-      }
-    }
-    setOrderItems(newItems)
-  }
-
-  const selectOrderItem = (index: number, item: Item) => {
-    updateOrderItem(index, 'item_id', item.id)
-    setActiveItemPickerIndex(null)
-  }
-
-  const updateDefaultDestination = (locationId: string) => {
-    setOrderForm({ ...orderForm, location_id: locationId })
-    setOrderItems(current => current.map(item => {
-      if (item.allocations.length > 1) return item
-      return {
-        ...item,
-        allocations: buildDefaultAllocations(item.quantity, locationId),
-      }
-    }))
-  }
-
-  const addAllocation = (itemIndex: number) => {
-    setOrderItems(current => current.map((item, index) => {
-      if (index !== itemIndex) return item
-      return {
-        ...item,
-        allocations: [
-          ...item.allocations,
-          { location_id: '', quantity: '0' },
-        ],
-      }
-    }))
-  }
-
-  const updateAllocation = (itemIndex: number, allocationIndex: number, field: 'location_id' | 'quantity', value: string) => {
-    setOrderItems(current => current.map((item, index) => {
-      if (index !== itemIndex) return item
-      return {
-        ...item,
-        allocations: item.allocations.map((allocation, innerIndex) => (
-          innerIndex === allocationIndex ? { ...allocation, [field]: value } : allocation
-        )),
-      }
-    }))
-  }
-
-  const normalizeOrderItemsForSubmit = () => {
-    return orderItems
-      .filter(item => item.item_id && parseInt(item.quantity, 10) > 0)
-      .map(item => {
-        const quantity = parseInt(item.quantity, 10)
-        const unitCost = parseFloat(item.unit_cost) || 0
-        const allocationMap = new Map<string, number>()
-        const sourceAllocations = item.allocations.length > 0
-          ? item.allocations
-          : buildDefaultAllocations(item.quantity)
-
-        sourceAllocations.forEach((allocation) => {
-          const locationId = allocation.location_id || orderForm.location_id
-          const allocationQuantity = parseInt(allocation.quantity, 10) || 0
-          if (!locationId || allocationQuantity <= 0) return
-          allocationMap.set(locationId, (allocationMap.get(locationId) || 0) + allocationQuantity)
-        })
-
-        const allocations = Array.from(allocationMap.entries()).map(([location_id, allocationQuantity]) => ({
-          location_id,
-          quantity: allocationQuantity,
-        }))
-        const allocatedQuantity = allocations.reduce((sum, allocation) => sum + allocation.quantity, 0)
-
-        if (allocatedQuantity !== quantity) {
-          const itemName = items.find(candidate => candidate.id === item.item_id)?.name || 'Selected item'
-          throw new Error(`${itemName} has ${quantity} unit(s), but distribution totals ${allocatedQuantity}.`)
-        }
-
-        return {
-          id: item.id,
-          item_id: item.item_id,
-          quantity,
-          unit_cost: unitCost,
-          subtotal: quantity * unitCost,
-          allocations,
-        }
-      })
-  }
-
-  const removeAllocation = (itemIndex: number, allocationIndex: number) => {
-    setOrderItems(current => current.map((item, index) => {
-      if (index !== itemIndex) return item
-      const nextAllocations = item.allocations.filter((_, innerIndex) => innerIndex !== allocationIndex)
-      return {
-        ...item,
-        allocations: nextAllocations.length > 0 ? nextAllocations : buildDefaultAllocations(item.quantity),
-      }
-    }))
-  }
-
-  const handleSubmitOrder = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submitting) return
-
-    if (!orderForm.location_id) {
-      alert('Select a default destination')
-      return
-    }
-    
-    let validItems: ReturnType<typeof normalizeOrderItemsForSubmit>
-    try {
-      validItems = normalizeOrderItemsForSubmit()
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Check the order distribution.')
-      return
-    }
-
-    if (validItems.length === 0) {
-      alert('Add at least one item to the order')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      await saveOrderAction(editingOrder ? 'update' : 'create', {
-        ...(editingOrder ? { id: editingOrder.id } : {}),
-        ...orderForm,
-        exchange_rate: exchangeRate,
-        items: validItems.map((item) => ({
-          id: item.id,
-          item_id: item.item_id,
-          quantity: item.quantity,
-          unit_cost: item.unit_cost,
-          allocations: item.allocations,
-        })),
-      })
-
-      resetOrderForm()
-      await loadData()
-    } catch (error) {
-      console.error('Error saving order:', error)
-      alert(error instanceof Error ? error.message : 'Error saving order')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleUpdateStatus = async (order: OrderWithDetails, newStatus: OrderStatus) => {
-    if (newStatus === 'received' || newStatus === 'partially_received') {
-      // Open receive modal instead
-      openReceiveModal(order)
-      return
-    }
-
-    if (newStatus === 'cancelled') {
-      const ok = await confirm({
-        title: 'Cancel Order',
-        message: 'This closes remaining incoming stock. Any unpaid payable commitment is cancelled but retained for audit; wallet balances stay unchanged.',
-        itemName: `Order #${order.id.slice(0, 8)}`,
-        variant: 'danger',
-        confirmLabel: 'Cancel Order',
-      })
-      if (!ok) return
-
-      await saveOrderAction('cancel', { id: order.id })
-      await loadData()
-      return
-    }
-
-    // Simple status transitions (pending→ordered, ordered→shipped)
-    await saveOrderAction('status', { id: order.id, status: newStatus })
-    
-    await loadData()
-  }
-
-  const handleLinkFinance = async (order: OrderWithDetails) => {
-    const ok = await confirm({
-      title: 'Record financial commitment',
-      message: `Create a payable commitment for ${formatCurrency(order.total_amount, order.currency as Currency)}. This does not pay the supplier or change a wallet balance.`,
-      itemName: `Order #${order.id.slice(0, 8)}`,
-      confirmLabel: 'Record commitment',
-    })
-    if (!ok) return
-    setSubmitting(true)
-    try {
-      await saveOrderAction('linkFinance', { id: order.id })
-      await loadData()
-    } catch (error) {
-      console.error('Error linking order to finance:', error)
-      alert(error instanceof Error ? error.message : 'Unable to record the financial commitment.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // Open receive modal with editable quantities
-  const openReceiveModal = (order: OrderWithDetails) => {
-    setReceivingOrder(order)
-    const itemsToReceive = (order.purchase_order_items || []).flatMap(oi => {
-      const allocations = oi.purchase_order_allocations || []
-
-      if (allocations.length === 0) {
-        const remaining = oi.quantity - (oi.quantity_received || 0)
-        return [{
-          id: oi.id,
-          order_item_id: oi.id,
-          location_id: order.location_id,
-          location_name: order.locations?.name || 'Default destination',
-          item_name: oi.items?.name || 'Unknown',
-          ordered: oi.quantity,
-          already_received: oi.quantity_received || 0,
-          remaining,
-          receiving: remaining.toString(),
-        }]
-      }
-
-      return allocations.map(allocation => {
-        const remaining = allocation.quantity - (allocation.quantity_received || 0)
-        return {
-          id: allocation.id,
-          order_item_id: oi.id,
-          location_id: allocation.location_id,
-          location_name: allocation.locations?.name || 'Unknown location',
-          item_name: oi.items?.name || 'Unknown',
-          ordered: allocation.quantity,
-          already_received: allocation.quantity_received || 0,
-          remaining,
-          receiving: remaining.toString(),
-        }
-      })
-    })
-
-    setReceiveItems(itemsToReceive.filter(item => item.remaining > 0))
-    setShipmentNote('')
-    setShowReceiveModal(true)
-  }
-
-  const handleReceiveShipment = async () => {
-    if (!receivingOrder || submitting) return
-    setSubmitting(true)
-
-    try {
-      const receiptLines = receiveItems
-        .map((item) => ({
-          order_item_id: item.order_item_id,
-          allocation_id: item.id === item.order_item_id ? null : item.id,
-          location_id: item.location_id,
-          quantity: Number.parseInt(item.receiving, 10) || 0,
-        }))
-        .filter((item) => item.quantity > 0)
-      if (receiptLines.length === 0) throw new Error('Enter a quantity to receive.')
-      await saveOrderAction('receive', { id: receivingOrder.id, items: receiptLines, shipment_note: shipmentNote || null })
-
-      setShowReceiveModal(false)
-      setReceivingOrder(null)
-      setShipmentNote('')
-      await loadData()
-    } catch (error) {
-      console.error('Error receiving shipment:', error)
-      alert(error instanceof Error ? error.message : 'Error processing receipt')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleViewOrder = (order: OrderWithDetails) => {
-    setViewingOrder(order)
-    setShowViewOrder(true)
-  }
-
-  const openDeleteOrderModal = (order: OrderWithDetails) => {
-    setDeletingOrder(order)
-    setShowDeleteOrderModal(true)
-  }
-
-  const closeDeleteOrderModal = (force: boolean = false) => {
-    if (submitting && !force) return
-    setShowDeleteOrderModal(false)
-    setDeletingOrder(null)
-  }
-
-  const handleEditOrder = (order: OrderWithDetails) => {
-    if (order.status !== 'pending') {
-      alert('Can only edit pending orders')
-      return
-    }
-    setEditingOrder(order)
-    setOrderForm({
-      wallet_id: order.wallet_id || '',
-      location_id: order.location_id,
-      supplier_id: order.supplier_id || '',
-      currency: order.currency as Currency,
-      notes: order.notes || '',
-      expected_arrival: order.expected_arrival ? order.expected_arrival.split('T')[0] : ''
-    })
-
-    // Detect price changes and auto-sync to latest
-    const changes: Record<string, number> = {}
-    const newOrderItems = order.purchase_order_items?.map(oItem => {
-      const currentItem = items.find(i => i.id === oItem.item_id)
-      const currentPrice = currentItem ? Number(currentItem.purchase_price_usd) : Number(oItem.unit_cost)
-      const orderPrice = Number(oItem.unit_cost)
-      
-      if (currentPrice !== orderPrice) {
-        changes[oItem.item_id] = orderPrice // store the old price
-      }
-
-      return {
-        id: oItem.id,
-        item_id: oItem.item_id,
-        quantity: oItem.quantity.toString(),
-        unit_cost: currentPrice.toString(), // auto-sync to latest price
-        original_cost: orderPrice.toString(),
-        allocations: oItem.purchase_order_allocations && oItem.purchase_order_allocations.length > 0
-          ? oItem.purchase_order_allocations.map(allocation => ({
-            location_id: allocation.location_id,
-            quantity: allocation.quantity.toString(),
-          }))
-          : [{ location_id: order.location_id, quantity: oItem.quantity.toString() }],
-      }
-    }) || [{ item_id: '', quantity: '1', unit_cost: '', allocations: buildDefaultAllocations('1', order.location_id) }]
-
-    setPriceChanges(changes)
-    setOrderItems(newOrderItems)
-    setItemSearchQuery('')
-    setActiveItemPickerIndex(null)
-    setShowOrderForm(true)
-  }
-
-  const handleDeleteOrder = async () => {
-    if (!deletingOrder || submitting) return
-
-    setSubmitting(true)
-    try {
-      await saveOrderAction('cancel', { id: deletingOrder.id })
-      closeDeleteOrderModal(true)
-      await loadData()
-    } catch (error) {
-      console.error('Error deleting order:', error)
-      alert(error instanceof Error ? error.message : 'Error deleting order')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const openEditReceiptsModal = (order: OrderWithDetails) => {
-    setEditingReceiptOrder(order)
-    const items: EditReceiptItemForm[] = (order.purchase_order_items || []).flatMap<EditReceiptItemForm>(oi => {
-      const allocations = oi.purchase_order_allocations || []
-      if (allocations.length === 0) {
-        if ((oi.quantity_received || 0) <= 0) return []
-        return [{
-          id: oi.id,
-          order_item_id: oi.id,
-          item_id: oi.item_id,
-          location_id: order.location_id,
-          location_name: order.locations?.name || 'Default',
-          item_name: oi.items?.name || 'Unknown',
-          total_quantity: oi.quantity,
-          quantity_received: oi.quantity_received || 0,
-          new_quantity_received: (oi.quantity_received || 0).toString(),
-          is_allocation: false,
-        }]
-      }
-      return allocations
-        .filter(alloc => (alloc.quantity_received || 0) > 0)
-        .map(alloc => ({
-          id: alloc.id,
-          order_item_id: oi.id,
-          item_id: oi.item_id,
-          location_id: alloc.location_id,
-          location_name: alloc.locations?.name || 'Unknown',
-          item_name: oi.items?.name || 'Unknown',
-          total_quantity: alloc.quantity,
-          quantity_received: alloc.quantity_received || 0,
-          new_quantity_received: (alloc.quantity_received || 0).toString(),
-          is_allocation: true,
-        }))
-    })
-    setEditReceiptItems(items)
-    setShowEditReceiptsModal(true)
-  }
-
-  const handleSaveEditReceipts = async () => {
-    if (!editingReceiptOrder || submitting) return
-    setSubmitting(true)
-    try {
-      if (editReceiptItems.length === 0) throw new Error('There are no received quantities to adjust.')
-      await saveOrderAction('adjustReceipts', {
-        id: editingReceiptOrder.id,
-        items: editReceiptItems.map((item) => ({
-          order_item_id: item.order_item_id,
-          allocation_id: item.is_allocation ? item.id : null,
-          location_id: item.location_id,
-          new_quantity_received: Number.parseInt(item.new_quantity_received, 10) || 0,
-        })),
-      })
-
-      setShowEditReceiptsModal(false)
-      setEditingReceiptOrder(null)
-      await loadData()
-    } catch (error) {
-      console.error('Error adjusting receipts:', error)
-      alert(error instanceof Error ? error.message : 'Error adjusting receipts')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock size={14} />
-      case 'ordered': return <Package size={14} />
-      case 'shipped': return <Truck size={14} />
-      case 'partially_received': return <PackageCheck size={14} />
-      case 'received': return <Check size={14} />
-      case 'cancelled': return <XCircle size={14} />
-      default: return null
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-500/20 text-yellow-500'
-      case 'ordered': return 'bg-blue-500/20 text-blue-500'
-      case 'shipped': return 'bg-purple-500/20 text-purple-500'
-      case 'partially_received': return 'bg-amber-500/20 text-amber-500'
-      case 'received': return 'bg-green-500/20 text-green-500'
-      case 'cancelled': return 'bg-red-500/20 text-red-500'
-      default: return 'bg-gray-500/20 text-gray-500'
-    }
-  }
-
-  const getStatusLabel = (status: string) => {
-    if (status === 'partially_received') return 'Partial'
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-
-  const getItemsSummary = (order: OrderWithDetails) => {
-    const items = order.purchase_order_items || []
-    if (items.length === 0) return ''
-    const summary = items.slice(0, 3).map(i => `${i.quantity}x ${i.items?.name || '?'}`).join(', ')
-    return items.length > 3 ? `${summary} +${items.length - 3} more` : summary
-  }
-
-  const getAllocationRows = useCallback((order: OrderWithDetails, item: NonNullable<OrderWithDetails['purchase_order_items']>[number]) => {
-    const allocations = item.purchase_order_allocations || []
-    if (allocations.length > 0) return allocations
-
-    return [{
-      id: item.id,
-      order_item_id: item.id,
-      location_id: order.location_id,
-      quantity: item.quantity,
-      quantity_received: item.quantity_received || 0,
-      created_at: item.id,
-      updated_at: item.id,
-      locations: order.locations,
-    }]
-  }, [])
-
-  const amountInDisplayCurrency = useCallback((amount: number, currency: Currency, sourceRate?: number | null) => {
-    if (currency === displayCurrency) return amount
-    const rate = sourceRate || exchangeRate
-    return currency === 'USD' ? amount * rate : amount / rate
-  }, [displayCurrency, exchangeRate])
-
-  const getOrderProgress = useCallback((order: OrderWithDetails) => {
-    const ordered = order.purchase_order_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
-    const received = order.purchase_order_items?.reduce((sum, item) => sum + (item.quantity_received || 0), 0) || 0
-    return {
-      ordered,
-      received,
-      remaining: Math.max(0, ordered - received),
-      percent: ordered > 0 ? Math.min(100, (received / ordered) * 100) : 0,
-    }
-  }, [])
-
-  const getOrderRemainingValue = useCallback((order: OrderWithDetails) => {
-    const remainingValue = (order.purchase_order_items || []).reduce((sum, item) => {
-      const remainingQuantity = Math.max(0, item.quantity - (item.quantity_received || 0))
-      return sum + remainingQuantity * item.unit_cost
-    }, 0)
-
-    return amountInDisplayCurrency(remainingValue, order.currency as Currency, order.exchange_rate)
-  }, [amountInDisplayCurrency])
-
-  const orderPipeline = useMemo(() => {
-    const activeOrders = orders.filter(order => order.status !== 'cancelled' && order.status !== 'received')
-    const destinationMap = new Map<string, {
-      locationId: string
-      locationName: string
-      units: number
-      value: number
-      orders: Set<string>
-    }>()
-    const statusMap = new Map<string, { count: number; units: number; value: number }>()
-
-    let incomingUnits = 0
-    let incomingValue = 0
-    let orderedUnits = 0
-    let receivedUnits = 0
-
-    orders
-      .filter(order => order.status !== 'cancelled')
-      .forEach(order => {
-        const progress = getOrderProgress(order)
-        orderedUnits += progress.ordered
-        receivedUnits += progress.received
-      })
-
-    activeOrders.forEach(order => {
-      let orderRemainingUnits = 0
-      let orderRemainingValue = 0
-
-      ;(order.purchase_order_items || []).forEach(item => {
-        getAllocationRows(order, item).forEach(allocation => {
-          const remainingQuantity = Math.max(0, allocation.quantity - (allocation.quantity_received || 0))
-          if (remainingQuantity <= 0) return
-
-          const lineValue = amountInDisplayCurrency(remainingQuantity * item.unit_cost, order.currency as Currency, order.exchange_rate)
-          const locationId = allocation.location_id
-          const locationName = allocation.locations?.name || order.locations?.name || 'Unassigned'
-          const existing = destinationMap.get(locationId) || {
-            locationId,
-            locationName,
-            units: 0,
-            value: 0,
-            orders: new Set<string>(),
-          }
-
-          existing.units += remainingQuantity
-          existing.value += lineValue
-          existing.orders.add(order.id)
-          destinationMap.set(locationId, existing)
-
-          orderRemainingUnits += remainingQuantity
-          orderRemainingValue += lineValue
-        })
-      })
-
-      incomingUnits += orderRemainingUnits
-      incomingValue += orderRemainingValue
-
-      const status = order.status
-      const statusEntry = statusMap.get(status) || { count: 0, units: 0, value: 0 }
-      statusEntry.count += 1
-      statusEntry.units += orderRemainingUnits
-      statusEntry.value += orderRemainingValue
-      statusMap.set(status, statusEntry)
-    })
-
-    return {
-      activeOrderCount: activeOrders.length,
-      incomingUnits,
-      incomingValue,
-      orderedUnits,
-      receivedUnits,
-      receivedPercent: orderedUnits > 0 ? Math.min(100, (receivedUnits / orderedUnits) * 100) : 0,
-      destinations: Array.from(destinationMap.values())
-        .map(destination => ({
-          ...destination,
-          orderCount: destination.orders.size,
-        }))
-        .sort((left, right) => right.value - left.value),
-      statuses: Array.from(statusMap.entries()).map(([status, value]) => ({
-        status,
-        ...value,
-      })),
-    }
-  }, [amountInDisplayCurrency, getAllocationRows, getOrderProgress, orders])
-
-  const purchaseFinance = useMemo(() => {
-    const outstandingByCurrency = new Map<string, number>()
-    const unlinkedByCurrency = new Map<string, number>()
-    let payableCount = 0
-    let legacyUnlinkedCount = 0
-    let draftCount = 0
-
-    for (const order of orders) {
-      if (order.status === 'cancelled') continue
-      if (order.status === 'pending') {
-        draftCount += 1
-        continue
-      }
-      const commitment = order.finance_obligation
-      if (!commitment) {
-        legacyUnlinkedCount += 1
-        unlinkedByCurrency.set(order.currency, (unlinkedByCurrency.get(order.currency) ?? 0) + order.total_amount)
-        continue
-      }
-      if (commitment.status === 'cancelled') continue
-      payableCount += 1
-      outstandingByCurrency.set(commitment.currency, (outstandingByCurrency.get(commitment.currency) ?? 0) + commitment.outstanding_amount)
-    }
-
-    return {
-      payableCount,
-      legacyUnlinkedCount,
-      draftCount,
-      outstandingByCurrency: Array.from(outstandingByCurrency.entries()).map(([currency, amount]) => ({ currency: currency as Currency, amount })).sort((a, b) => a.currency.localeCompare(b.currency)),
-      unlinkedByCurrency: Array.from(unlinkedByCurrency.entries()).map(([currency, amount]) => ({ currency: currency as Currency, amount })).sort((a, b) => a.currency.localeCompare(b.currency)),
-    }
-  }, [orders])
-
-  const hasLoadedData = orders.length > 0 || items.length > 0 || locations.length > 0 || wallets.length > 0 || clients.length > 0
-
-  if (loading) {
-    return (
-      <div className="min-h-screen">
-        <PageHeader title="Orders" subtitle="Manage purchase orders and inventory" />
-        <LoadingSpinner />
-      </div>
+  const handleConfirm = (order: CustomerOrder) =>
+    runAction({ action: 'confirm', id: order.id, locationId: order.location?.id ?? null }, order.id)
+
+  const handleFulfil = (order: CustomerOrder) =>
+    runAction({ action: 'status', id: order.id, status: 'fulfilled' }, order.id)
+
+  const handleConvert = async () => {
+    if (!convertTarget) return
+    const ok = await runAction(
+      {
+        action: 'convert',
+        id: convertTarget.id,
+        locationId: convertTarget.location?.id ?? null,
+        paymentMethod: convertPaymentMethod,
+      },
+      convertTarget.id,
     )
+    if (ok) setConvertTarget(null)
   }
 
-  if (!hasLoadedData && loadError) {
-    return (
-      <div className="min-h-screen pb-20 lg:pb-0">
-        <PageHeader
-          title="Orders"
-          subtitle="Order data is temporarily unavailable"
-          icon={<ClipboardList size={24} />}
-          action={
-            <Button onClick={() => void loadData(true)} variant="secondary">
-              <RefreshCcw size={18} />
-              Retry
-            </Button>
-          }
-        />
-        <PageContainer>
-          <EmptyState
-            icon={AlertTriangle}
-            title="Could not load orders"
-            description={loadError}
-            action={
-              <Button onClick={() => void loadData(true)} variant="primary">
-                <RefreshCcw size={18} />
-                Retry
-              </Button>
-            }
-          />
-        </PageContainer>
-      </div>
+  const handleCancel = async () => {
+    if (!cancelTarget) return
+    const ok = await runAction(
+      { action: 'cancel', id: cancelTarget.id, reason: cancelReason },
+      cancelTarget.id,
     )
+    if (ok) {
+      setCancelTarget(null)
+      setCancelReason('')
+    }
   }
 
   return (
-    <div className="min-h-screen pb-20 lg:pb-0">
-      <PageHeader 
-        title="Orders" 
-        subtitle="Plan incoming stock, destination distribution, and receipt progress"
-        icon={<ClipboardList size={24} />}
+    <>
+      <PageHeader
+        title="Order desk"
+        subtitle="Customer orders from the webshop and the counter, from arrival to sale."
+        icon={<ClipboardList size={20} />}
         action={
-          <div className="flex gap-2 flex-wrap justify-end">
-            <Button onClick={() => void loadData()} variant="ghost" loading={refreshing}>
-              <RefreshCcw size={18} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button onClick={openNewOrderForm} variant="primary" ariaLabel="New Order">
-              <Plus size={20} />
-              <span className="hidden sm:inline">New Order</span>
-            </Button>
-          </div>
+          <Button variant="secondary" onClick={() => void loadOrders()} disabled={loading}>
+            Refresh
+          </Button>
         }
       />
 
       <PageContainer>
-        {loadError && (
-          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground">Sync warning:</span> {loadError}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatBox label="New, not yet handled" value={stats.openCount} icon={ShoppingBag} variant={stats.openCount ? 'primary' : 'default'} />
+          <StatBox label="Holding stock" value={stats.awaitingConversion} icon={Package} variant={stats.awaitingConversion ? 'warning' : 'default'} />
+          <StatBox label="Shown here" value={visibleOrders.length} icon={ClipboardList} />
+          <StatBox
+            label="Value on the desk"
+            value={formatCurrency(
+              visibleOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+              (visibleOrders[0]?.currency ?? 'SRD') as Currency,
+            )}
+            icon={Receipt}
+          />
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          <Select
+            label="Status"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="sm:w-56"
+          >
+            <option value="open">Open (needs a person)</option>
+            <option value="all">All orders</option>
+            <option value="new">New</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="fulfilled">Ready for pickup</option>
+            <option value="invoiced">Sold</option>
+            <option value="cancelled">Cancelled</option>
+          </Select>
+          <Select
+            label="Channel"
+            value={channelFilter}
+            onChange={(event) => setChannelFilter(event.target.value)}
+            className="sm:w-56"
+          >
+            <option value="all">All channels</option>
+            <option value="webshop_audio">Audio shop</option>
+            <option value="webshop_watches">Watch shop</option>
+            <option value="counter">Counter</option>
+          </Select>
+        </div>
+
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatBox 
-            label="Incoming Units"
-            value={orderPipeline.incomingUnits.toString()} 
-            icon={<ClipboardList size={20} />}
-            variant="primary"
-          />
-          <StatBox 
-            label={`Incoming Cost (${displayCurrency})`}
-            value={formatCurrency(orderPipeline.incomingValue, displayCurrency)} 
-            icon={<Clock size={20} />}
-            variant="warning"
-          />
-          <StatBox 
-            label="Receipt Progress"
-            value={`${orderPipeline.receivedPercent.toFixed(0)}%`} 
-            icon={<PackageCheck size={20} />}
-            variant="success"
-          />
-          <StatBox 
-            label="Active Orders"
-            value={orderPipeline.activeOrderCount.toString()} 
-            icon={<WalletIcon size={20} />}
-          />
-        </div>
-
-        <section aria-labelledby="purchase-finance-heading" className="mb-6 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
-          <article className="overflow-hidden rounded-2xl border border-primary/20 bg-card">
-            <div className="flex flex-col justify-between gap-4 border-b border-border/70 bg-primary/[0.035] px-5 py-5 sm:flex-row sm:items-end lg:px-6">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary">Purchase finance control</p>
-                <h2 id="purchase-finance-heading" className="mt-1 text-xl font-bold tracking-tight text-foreground">Orders become commitments before they become payments.</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Confirming a purchase order records an unpaid supplier commitment. Receiving stock changes inventory; posting the supplier bill in Finance is the only step that changes a wallet.</p>
-              </div>
-              <Link href="/finance" className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary transition hover:text-primary/75">Open Finance overview <span aria-hidden="true">→</span></Link>
+        <div className="mt-5 space-y-3">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <LoadingSpinner size="lg" />
             </div>
-            <div className="grid divide-y divide-border/70 sm:grid-cols-[1fr_1fr] sm:divide-x sm:divide-y-0">
-              <div className="p-5 lg:p-6">
-                <p className="text-xs font-semibold text-foreground">Supplier commitments</p>
-                <p className="mt-1 text-sm text-muted-foreground">Outstanding amounts stay in their original currency.</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {purchaseFinance.outstandingByCurrency.length ? purchaseFinance.outstandingByCurrency.map(({ currency, amount }) => <span key={currency} className="rounded-lg bg-primary/10 px-3 py-2 text-sm font-bold tabular-nums text-primary">{formatCurrency(amount, currency)}</span>) : <span className="text-sm text-muted-foreground">No unpaid supplier commitments.</span>}
-                </div>
-                <p className="mt-4 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{purchaseFinance.payableCount}</span> order{purchaseFinance.payableCount === 1 ? '' : 's'} linked to Finance · <span className="font-semibold text-foreground">{purchaseFinance.draftCount}</span> draft{purchaseFinance.draftCount === 1 ? '' : 's'} not committed yet</p>
-              </div>
-              <div className="p-5 lg:p-6">
-                <p className="text-xs font-semibold text-foreground">Finance link check</p>
-                {purchaseFinance.legacyUnlinkedCount ? <><p className="mt-1 text-sm leading-6 text-muted-foreground"><span className="font-semibold text-amber-700 dark:text-amber-300">{purchaseFinance.legacyUnlinkedCount} existing order{purchaseFinance.legacyUnlinkedCount === 1 ? '' : 's'} need a payable link.</span> Use the action on the order to record each commitment after review.</p><div className="mt-3 flex flex-wrap gap-2">{purchaseFinance.unlinkedByCurrency.map(({ currency, amount }) => <span key={currency} className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">{formatCurrency(amount, currency)} unchecked</span>)}</div></> : <p className="mt-1 text-sm leading-6 text-emerald-700 dark:text-emerald-300">Every confirmed order on this desk has a Finance commitment.</p>}
-              </div>
-            </div>
-          </article>
-
-          <aside className="rounded-2xl border border-border bg-muted/[0.18] p-5 lg:p-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">The working sequence</p>
-            <ol className="mt-4 space-y-4 text-sm">
-              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">1</span><span><strong className="block text-foreground">Create and check the purchase order</strong><span className="text-muted-foreground">Drafts are operational planning only.</span></span></li>
-              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/12 text-xs font-bold text-primary">2</span><span><strong className="block text-foreground">Mark it ordered</strong><span className="text-muted-foreground">Finance records the supplier commitment automatically.</span></span></li>
-              <li className="grid grid-cols-[1.75rem_1fr] gap-3"><span className="grid h-7 w-7 place-items-center rounded-lg bg-primary/12 text-xs font-bold text-primary">3</span><span><strong className="block text-foreground">Receive stock, then post the bill</strong><span className="text-muted-foreground">The approved supplier bill creates the expense, wallet transaction, and ledger evidence together.</span></span></li>
-            </ol>
-          </aside>
-        </section>
-
-        <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="text-base font-bold text-foreground">Incoming Stock Flow</h2>
-                <p className="text-sm text-muted-foreground">Orders are stock indicators now. Wallet balances stay separate.</p>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {orderPipeline.receivedUnits}/{orderPipeline.orderedUnits} units received
-              </div>
-            </div>
-            <div className="h-2 overflow-hidden rounded bg-muted">
-              <div
-                className="h-full rounded bg-primary transition-all"
-                style={{ width: `${orderPipeline.receivedPercent}%` }}
-              />
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {orderPipeline.statuses.length === 0 ? (
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground sm:col-span-3">
-                  No active incoming orders.
-                </div>
-              ) : orderPipeline.statuses.map(status => (
-                <div key={status.status} className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                  <div className={`mb-2 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium ${getStatusColor(status.status)}`}>
-                    {getStatusIcon(status.status)}
-                    {getStatusLabel(status.status)}
-                  </div>
-                  <div className="text-lg font-bold text-foreground">{status.units} units</div>
-                  <div className="text-xs text-muted-foreground">{formatCurrency(status.value, displayCurrency)} across {status.count} order(s)</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4 lg:p-5">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-foreground">Distribution</h2>
-              <p className="text-sm text-muted-foreground">Remaining stock by destination.</p>
-            </div>
-            <div className="space-y-3">
-              {orderPipeline.destinations.length === 0 ? (
-                <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
-                  No allocated incoming stock.
-                </div>
-              ) : orderPipeline.destinations.slice(0, 5).map(destination => {
-                const pct = orderPipeline.incomingValue > 0 ? (destination.value / orderPipeline.incomingValue) * 100 : 0
-                return (
-                  <div key={destination.locationId} className="rounded-lg border border-border/70 bg-muted/20 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-foreground">{destination.locationName}</div>
-                        <div className="text-xs text-muted-foreground">{destination.units} units from {destination.orderCount} order(s)</div>
-                      </div>
-                      <div className="shrink-0 text-right text-sm font-bold text-primary">{formatCurrency(destination.value, displayCurrency)}</div>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded bg-background">
-                      <div className="h-full rounded bg-primary/80" style={{ width: `${Math.min(100, pct)}%` }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Filters Section */}
-        <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-foreground flex items-center gap-2">
-              <Filter size={18} className="text-primary" />
-              Filters & Sort
-            </h2>
-            {hasActiveFilters && (
-              <Button onClick={clearFilters} variant="ghost" size="sm" className="min-h-10 touch-manipulation">
-                <X size={16} />
-                Clear
-              </Button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-              <input
-                type="search"
-                inputMode="search"
-          placeholder="Search orders, items, source/contact..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 min-h-12 bg-muted border border-border rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="min-h-12"
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="ordered">Ordered</option>
-              <option value="shipped">Shipped</option>
-              <option value="partially_received">Partially Received</option>
-              <option value="received">Received</option>
-              <option value="cancelled">Cancelled</option>
-            </Select>
-            <Select
-              value={filterLocation}
-              onChange={(e) => setFilterLocation(e.target.value)}
-              className="min-h-12"
-            >
-              <option value="">All Locations</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </Select>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <Select
-              value={filterWallet}
-              onChange={(e) => setFilterWallet(e.target.value)}
-              className="min-h-12"
-            >
-              <option value="">All Wallets</option>
-              {wallets.map(w => (
-                <option key={w.id} value={w.id}>{w.person_name} - {w.type} ({w.currency})</option>
-              ))}
-            </Select>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              placeholder="From date"
-              className="min-h-12"
-            />
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              placeholder="To date"
-              className="min-h-12"
-            />
-            <div className="flex gap-2">
-              <Button
-                onClick={() => toggleSort('date')}
-                variant={sortField === 'date' ? 'primary' : 'secondary'}
-                size="sm"
-                className="flex-1 min-h-11 touch-manipulation"
-              >
-                <ArrowUpDown size={14} />
-                Date
-              </Button>
-              <Button
-                onClick={() => toggleSort('amount')}
-                variant={sortField === 'amount' ? 'primary' : 'secondary'}
-                size="sm"
-                className="flex-1 min-h-11 touch-manipulation"
-              >
-                <ArrowUpDown size={14} />
-                Amount
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Orders List */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          {filteredAndSortedOrders.length === 0 ? (
+          ) : visibleOrders.length === 0 ? (
             <EmptyState
-              icon={ClipboardList}
-              title="No orders found"
-              description={hasActiveFilters ? "Try adjusting your filters" : "Create your first purchase order"}
+              icon={ShoppingBag}
+              title="No orders on the desk"
+              description="Orders placed in the audio and watch shops arrive here automatically, with their prices and customer details already filled in."
             />
           ) : (
-            <div className="divide-y divide-border">
-              {filteredAndSortedOrders.map((order) => (
-                <div key={order.id} className="p-4 lg:p-5 hover:bg-muted/50 transition-colors">
-                  {(() => {
-                    const progress = getOrderProgress(order)
-                    const financeStage = getFinanceStage(order)
-                    const destinations = (order.purchase_order_items || [])
-                      .flatMap(item => getAllocationRows(order, item))
-                      .reduce((map, allocation) => {
-                        const existing = map.get(allocation.location_id) || {
-                          name: allocation.locations?.name || order.locations?.name || 'Unassigned',
-                          quantity: 0,
-                        }
-                        existing.quantity += Math.max(0, allocation.quantity - (allocation.quantity_received || 0))
-                        map.set(allocation.location_id, existing)
-                        return map
-                      }, new Map<string, { name: string; quantity: number }>())
+            visibleOrders.map((order) => {
+              const status = STATUS_STYLE[order.status] ?? { label: order.status, variant: 'default' as const }
+              const channel = CHANNEL_STYLE[order.channel] ?? { label: order.channel, icon: ShoppingBag }
+              const ChannelIcon = channel.icon
+              const busy = busyId === order.id
+              const whatsappNumber = (order.customerPhone ?? order.client?.phone ?? '').replace(/\D/g, '')
 
-                    return (
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1.5">
-                        <span className="font-mono text-sm text-muted-foreground">#{order.id.slice(0, 8)}</span>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                          {getStatusIcon(order.status)}
-                          {getStatusLabel(order.status)}
+              return (
+                <article key={order.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-sm font-semibold text-foreground">{order.orderNumber}</span>
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <ChannelIcon size={13} /> {channel.label}
                         </span>
-                        <span title={financeStage.detail} className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${financeStage.tone}`}>
-                          {financeStage.label}
-                        </span>
-                        {order.clients?.name && (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Users size={12} />
-                            {order.clients.name}
-                          </span>
-                        )}
                       </div>
-                      {/* Item summary line */}
-                      {getItemsSummary(order) && (
-                        <p className="text-sm text-foreground mb-1 truncate">{getItemsSummary(order)}</p>
+                      <p className="mt-1.5 text-sm text-muted-foreground">
+                        {order.customerName ?? order.client?.name ?? 'Unnamed customer'}
+                        {order.customerPhone ? ` · ${order.customerPhone}` : ''}
+                        {order.location ? ` · ${order.location.name}` : ''}
+                        {order.pickupDate ? ` · pickup ${order.pickupDate}` : ''}
+                      </p>
+                      {order.customerNotes && (
+                        <p className="mt-1 text-sm italic text-muted-foreground">“{order.customerNotes}”</p>
                       )}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                        <span className="font-semibold">{formatCurrency(order.total_amount, order.currency as Currency)}</span>
-                        <span className="text-muted-foreground">→ {order.locations?.name}</span>
-                        {order.wallets ? (
-                          <span className="text-muted-foreground">
-                            <WalletIcon size={12} className="inline mr-1" />
-                            {order.wallets.person_name} reference
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">No wallet link</span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
-                        <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                        {order.expected_arrival && (
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarIcon size={11} />
-                            ETA: {new Date(order.expected_arrival).toLocaleDateString()}
-                          </span>
-                        )}
-                        <span>{order.purchase_order_items?.length || 0} items</span>
-                        <span className="text-amber-500 font-medium">{progress.remaining} incoming</span>
-                        <span className="text-primary font-medium">{formatCurrency(getOrderRemainingValue(order), displayCurrency)} remaining</span>
-                      </div>
-                      <p className="mt-2 text-xs text-muted-foreground">Finance: {financeStage.detail}</p>
-                      <div className="mt-3 max-w-2xl">
-                        <div className="mb-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                          <span>{progress.received}/{progress.ordered} units received</span>
-                          <span>{progress.percent.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded bg-muted">
-                          <div className="h-full rounded bg-primary" style={{ width: `${progress.percent}%` }} />
-                        </div>
-                        {destinations.size > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {Array.from(destinations.entries()).slice(0, 4).map(([locationId, destination]) => (
-                              <span key={locationId} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
-                                {destination.name}: <span className="font-semibold text-foreground">{destination.quantity}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      {order.cancelReason && (
+                        <p className="mt-1 text-sm text-destructive">Cancelled: {order.cancelReason}</p>
+                      )}
+                      {order.sale && (
+                        <p className="mt-1 text-sm text-success">
+                          Sold as invoice {order.sale.invoiceNumber ?? order.sale.id.slice(0, 8)}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Status update buttons */}
-                      {order.status === 'pending' && (
-                        <Button 
-                          onClick={() => handleUpdateStatus(order, 'ordered')} 
-                          variant="secondary" 
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                        >
-                          <Package size={14} />
-                          <span className="hidden xs:inline">Mark</span> Ordered
-                        </Button>
-                      )}
-                      {order.status === 'ordered' && (
-                        <Button 
-                          onClick={() => handleUpdateStatus(order, 'shipped')} 
-                          variant="secondary" 
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                        >
-                          <Truck size={14} />
-                          <span className="hidden xs:inline">Mark</span> Shipped
-                        </Button>
-                      )}
-                      {(order.status === 'ordered' || order.status === 'shipped') && (
-                        <Button 
-                          onClick={() => handleUpdateStatus(order, 'received')} 
-                          variant="primary" 
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                        >
-                          <Download size={14} />
-                          Receive
-                        </Button>
-                      )}
-                      {order.status === 'partially_received' && (
-                        <Button
-                          onClick={() => handleUpdateStatus(order, 'received')}
-                          variant="primary"
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                        >
-                          <PackageCheck size={14} />
-                          Receive More
-                        </Button>
-                      )}
-                      {order.status !== 'pending' && order.status !== 'cancelled' && !order.finance_obligation && (
-                        <Button
-                          onClick={() => void handleLinkFinance(order)}
-                          variant="secondary"
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                          disabled={submitting}
-                        >
-                          <WalletIcon size={14} />
-                          Link Finance
-                        </Button>
-                      )}
-                      {(order.status === 'partially_received' || order.status === 'received') && (
-                        <Button
-                          onClick={() => openEditReceiptsModal(order)}
-                          variant="ghost"
-                          size="sm"
-                          className="min-h-10 touch-manipulation"
-                        >
-                          <Edit size={14} />
-                          <span className="hidden xs:inline">Edit</span> Receipts
-                        </Button>
-                      )}
-                      {(order.status === 'pending' || order.status === 'ordered' || order.status === 'shipped' || order.status === 'partially_received') && (
-                        <Button 
-                          onClick={() => handleUpdateStatus(order, 'cancelled')} 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-destructive hover:text-destructive min-h-10 touch-manipulation"
-                        >
-                          <XCircle size={14} />
-                          Cancel
-                        </Button>
-                      )}
-                      {/* Action buttons */}
-                      <Button onClick={() => handleViewOrder(order)} variant="ghost" size="sm" className="min-h-10 min-w-10 touch-manipulation">
-                        <Eye size={14} />
-                      </Button>
-                      {order.status === 'pending' && (
-                        <Button onClick={() => handleEditOrder(order)} variant="ghost" size="sm" className="min-h-10 min-w-10 touch-manipulation">
-                          <Edit size={14} />
-                        </Button>
-                      )}
-                      <Button onClick={() => openDeleteOrderModal(order)} variant="ghost" size="sm" className="text-destructive hover:text-destructive min-h-10 min-w-10 touch-manipulation">
-                          <Trash2 size={14} />
-                      </Button>
+                    <div className="text-left sm:text-right">
+                      <p className="text-lg font-semibold tabular-nums text-foreground">
+                        {formatCurrency(order.totalAmount, order.currency)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                    )
-                  })()}
-                </div>
-              ))}
-            </div>
+
+                  <ul className="mt-3 space-y-1 border-t border-border pt-3">
+                    {order.items.map((line) => (
+                      <li key={line.id} className="flex items-baseline justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate text-muted-foreground">
+                          {line.quantity}× {line.brand ? `${line.brand} ` : ''}{line.name}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-foreground">
+                          {formatCurrency(line.subtotal, order.currency)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {order.status === 'new' && (
+                      <Button size="sm" onClick={() => void handleConfirm(order)} loading={busy} disabled={busy}>
+                        <Check size={15} /> Confirm &amp; hold stock
+                      </Button>
+                    )}
+                    {(order.status === 'confirmed' || order.status === 'reserved') && (
+                      <Button size="sm" variant="secondary" onClick={() => void handleFulfil(order)} loading={busy} disabled={busy}>
+                        <Package size={15} /> Ready for pickup
+                      </Button>
+                    )}
+                    {['confirmed', 'reserved', 'fulfilled'].includes(order.status) && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setConvertPaymentMethod('cash')
+                          setConvertTarget(order)
+                        }}
+                        disabled={busy}
+                      >
+                        <ArrowRight size={15} /> Convert to sale
+                      </Button>
+                    )}
+                    {!['invoiced', 'cancelled', 'expired'].includes(order.status) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setCancelReason('')
+                          setCancelTarget(order)
+                        }}
+                        disabled={busy}
+                      >
+                        <X size={15} /> Cancel
+                      </Button>
+                    )}
+                    {whatsappNumber && (
+                      <a
+                        href={`https://wa.me/${whatsappNumber}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <MessageCircle size={15} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </article>
+              )
+            })
           )}
         </div>
       </PageContainer>
 
-      {/* Create/Edit Order Modal */}
-      <Modal
-        isOpen={showOrderForm}
-        onClose={resetOrderForm}
-        title={editingOrder ? 'Edit Order' : 'New Purchase Order'}
-        panelClassName="sm:max-w-4xl"
-      >
-        <form onSubmit={handleSubmitOrder} className="space-y-4">
-          <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-500">
-                <PackageCheck size={17} />
-              </div>
-              <div>
-                <div className="text-sm font-bold text-foreground">Start the purchase workflow here</div>
-                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  Creating this order plans incoming stock. Marking it ordered creates a supplier commitment for Finance; wallet balances stay unchanged until an approved supplier bill is posted.
-                </div>
-              </div>
-            </div>
+      {convertTarget && (
+        <Modal isOpen title={`Convert ${convertTarget.orderNumber} to a sale`} onClose={() => setConvertTarget(null)}>
+          <p className="text-sm text-muted-foreground">
+            This posts the sale, moves the stock, credits the wallet and writes the ledger entry in one
+            step — using the prices already on the order. Nothing is retyped.
+          </p>
+
+          <div className="mt-4 rounded-xl border border-border bg-muted/40 p-3">
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <MapPin size={14} /> {convertTarget.location?.name ?? 'No location set'}
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Phone size={14} /> {convertTarget.customerPhone ?? '—'}
+            </p>
+            <p className="mt-2 text-lg font-semibold tabular-nums text-foreground">
+              {formatCurrency(convertTarget.totalAmount, convertTarget.currency)}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Default Destination *</label>
-              <Select
-                value={orderForm.location_id}
-                onChange={(e) => updateDefaultDestination(e.target.value)}
-                className="min-h-12"
-                required
-              >
-                <option value="">Select location</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Planned funding source</label>
-              <Select
-                value={orderForm.wallet_id}
-                onChange={(e) => setOrderForm({ ...orderForm, wallet_id: e.target.value })}
-                className="min-h-12"
-              >
-                <option value="">No wallet reference</option>
-                {wallets.map(wallet => (
-                  <option key={wallet.id} value={wallet.id}>
-                    {wallet.person_name} - {wallet.type} ({wallet.currency})
-                  </option>
-                ))}
-              </Select>
-              <p className="mt-1.5 text-xs leading-5 text-muted-foreground">This helps Finance trace the intended source. It never debits this wallet from the order desk.</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Currency *</label>
-              <Select
-                value={orderForm.currency}
-                onChange={(e) => setOrderForm({ ...orderForm, currency: e.target.value as Currency })}
-                className="min-h-12"
-                required
-              >
-                <option value="USD">USD</option>
-                <option value="SRD">SRD</option>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Source / Contact</label>
-              <Select
-                value={orderForm.supplier_id}
-                onChange={(e) => setOrderForm({ ...orderForm, supplier_id: e.target.value })}
-                className="min-h-12"
-              >
-                <option value="">No source/contact</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-              <p className="mt-1 text-xs text-muted-foreground">Optional reference from saved contacts.</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Expected Arrival</label>
-              <Input
-                type="date"
-                value={orderForm.expected_arrival}
-                onChange={(e) => setOrderForm({ ...orderForm, expected_arrival: e.target.value })}
-                className="min-h-12"
-              />
-            </div>
-          </div>
-
-          {/* Price change notice */}
-          {editingOrder && Object.keys(priceChanges).length > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm">
-              <div className="flex items-center gap-2 font-medium text-amber-500 mb-1">
-                <AlertTriangle size={14} />
-                Prices auto-synced to latest
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {Object.keys(priceChanges).length} item(s) had price changes since this order was created. 
-                Costs have been updated to the current purchase price.
-              </p>
-            </div>
+          {!convertTarget.location && (
+            <p className="mt-3 text-sm text-destructive">
+              This order has no location. Confirm it against a location first, so the sale knows which
+              stock and wallet it belongs to.
+            </p>
           )}
 
-          {/* Order Items */}
-          <div className="border border-border rounded-lg p-3 sm:p-4">
-            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground">Stock Items</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Pick products by catalog. Images and purchase cost are shown before adding.</p>
-              </div>
-              <Button type="button" onClick={addOrderItem} variant="secondary" size="sm" className="min-h-10 touch-manipulation">
-                <Plus size={14} />
-                Add Item
-              </Button>
-            </div>
+          <Select
+            label="How was it paid?"
+            className="mt-4"
+            value={convertPaymentMethod}
+            onChange={(event) => setConvertPaymentMethod(event.target.value === 'bank' ? 'bank' : 'cash')}
+          >
+            <option value="cash">Cash</option>
+            <option value="bank">Bank</option>
+          </Select>
 
-            <div className="mb-4 rounded-lg border border-border/70 bg-muted/20 p-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="grid grid-cols-2 gap-2 sm:w-72">
-                  {catalogTabs.map(tab => (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => setItemCatalogFilter(tab.value)}
-                      className={cn(
-                        'flex min-h-11 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold transition-colors',
-                        itemCatalogFilter === tab.value
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-border bg-card hover:border-primary/50'
-                      )}
-                    >
-                      {tab.icon}
-                      {tab.label}
-                      <span className={cn(
-                        'rounded px-1.5 py-0.5 text-[10px]',
-                        itemCatalogFilter === tab.value ? 'bg-primary-foreground/20' : 'bg-muted text-muted-foreground'
-                      )}>
-                        {tab.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                  <Input
-                    value={itemSearchQuery}
-                    onChange={(event) => setItemSearchQuery(event.target.value)}
-                    placeholder={`Search ${itemCatalogFilter === 'watches' ? 'watches' : 'audio'} items...`}
-                    className="min-h-11 pl-9"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 sm:space-y-3">
-              {orderItems.map((orderItem, index) => {
-                const selectedItem = getSelectedItem(orderItem.item_id)
-                const pickerOpen = activeItemPickerIndex === index || !selectedItem
-                const lineTotal = (parseFloat(orderItem.quantity) || 0) * (parseFloat(orderItem.unit_cost) || 0)
-
-                return (
-                <div key={index} className="rounded-lg border border-border bg-muted/30 p-3">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      {selectedItem ? (
-                        <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-card p-2.5">
-                          <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-muted">
-                            {selectedItem.image_url ? (
-                              <Image
-                                src={selectedItem.image_url}
-                                alt={selectedItem.name}
-                                fill
-                                className="object-cover"
-                                sizes="64px"
-                              />
-                            ) : (
-                              <ImageIcon size={22} className="text-muted-foreground" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            {selectedItem.brand && (
-                              <div className="truncate text-[11px] font-semibold uppercase tracking-wide text-primary">{selectedItem.brand}</div>
-                            )}
-                            <div className="truncate text-sm font-bold text-foreground">{selectedItem.name}</div>
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                              <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-muted-foreground">{getCatalogLabel(selectedItem.catalog_type)}</span>
-                              <span className="text-muted-foreground">Cost {formatCurrency(selectedItem.purchase_price_usd, 'USD')}</span>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={() => setActiveItemPickerIndex(pickerOpen ? null : index)}
-                            variant="ghost"
-                            size="sm"
-                            className="min-h-10"
-                          >
-                            {pickerOpen ? 'Close' : 'Change'}
-                          </Button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setActiveItemPickerIndex(index)}
-                          className="flex min-h-16 w-full items-center justify-between gap-3 rounded-lg border border-dashed border-border bg-card/60 px-3 py-2 text-left transition-colors hover:border-primary/60"
-                        >
-                          <div>
-                            <div className="text-sm font-semibold text-foreground">Choose an item</div>
-                            <div className="mt-1 text-xs text-muted-foreground">{itemCatalogFilter === 'watches' ? 'Watches' : 'Audio'} catalog is active</div>
-                          </div>
-                          <Plus size={16} className="text-primary" />
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 lg:w-[360px]">
-                      <div>
-                        <label className="mb-1 block text-xs text-muted-foreground">Qty</label>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
-                          step="1"
-                          placeholder="Qty"
-                          value={orderItem.quantity}
-                          onChange={(e) => updateOrderItem(index, 'quantity', e.target.value)}
-                          className="min-h-12"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs text-muted-foreground">Unit Cost</label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            min="0"
-                            placeholder="Cost"
-                            value={orderItem.unit_cost}
-                            onChange={(e) => updateOrderItem(index, 'unit_cost', e.target.value)}
-                            className={cn("min-h-12", priceChanges[orderItem.item_id] !== undefined && "border-amber-500")}
-                            required
-                          />
-                          {priceChanges[orderItem.item_id] !== undefined && (
-                            <span className="absolute -top-2 right-1 bg-card px-1 text-[10px] text-amber-500">
-                              was {formatCurrency(priceChanges[orderItem.item_id], orderForm.currency)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-xs text-muted-foreground">Line</label>
-                        <div className="flex min-h-12 items-center justify-end rounded border border-border bg-card px-3 text-sm font-bold">
-                          {formatCurrency(lineTotal, orderForm.currency)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {orderItems.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => removeOrderItem(index)}
-                        variant="ghost"
-                        size="sm"
-                        className="min-h-10 w-full text-destructive touch-manipulation lg:w-auto"
-                      >
-                        <X size={14} />
-                        <span className="lg:hidden ml-1">Remove</span>
-                      </Button>
-                    )}
-                  </div>
-
-                  {pickerOpen && (
-                    <div className="mt-3 rounded-lg border border-border bg-card/70 p-2">
-                      {visiblePickerItems.length === 0 ? (
-                        <div className="flex min-h-28 flex-col items-center justify-center gap-3 rounded border border-dashed border-border bg-muted/20 px-3 text-center text-sm text-muted-foreground">
-                          <span>No {itemCatalogFilter === 'watches' ? 'watch' : 'audio'} items match this search.</span>
-                          <a
-                            href="/products"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
-                          >
-                            <Plus size={12} />
-                            Add new item to catalog
-                          </a>
-                        </div>
-                      ) : (
-                        <div className="grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                          {visiblePickerItems.map(item => {
-                            const isSelected = item.id === orderItem.item_id
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => selectOrderItem(index, item)}
-                                className={cn(
-                                  'group flex gap-3 rounded border p-2 text-left transition-colors',
-                                  isSelected
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-border bg-background hover:border-primary/60'
-                                )}
-                              >
-                                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-border bg-muted">
-                                  {item.image_url ? (
-                                    <Image
-                                      src={item.image_url}
-                                      alt={item.name}
-                                      fill
-                                      className="object-cover transition-transform group-hover:scale-105"
-                                      sizes="64px"
-                                    />
-                                  ) : (
-                                    <div className="flex h-full w-full items-center justify-center">
-                                      <ImageIcon size={20} className="text-muted-foreground" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      {item.brand && (
-                                        <div className="truncate text-[10px] font-semibold uppercase tracking-wide text-primary">{item.brand}</div>
-                                      )}
-                                      <div className="line-clamp-2 text-sm font-semibold text-foreground">{item.name}</div>
-                                    </div>
-                                    {isSelected && <Check size={14} className="mt-0.5 shrink-0 text-primary" />}
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                    <span className="rounded border border-border bg-muted px-1.5 py-0.5">{getCatalogLabel(item.catalog_type)}</span>
-                                    <span>{formatCurrency(item.purchase_price_usd, 'USD')}</span>
-                                  </div>
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                      <div className="mt-2 border-t border-border/50 pt-2 text-center">
-                        <a
-                          href="/products"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Plus size={11} />
-                          Item not listed? Add it to the catalog
-                        </a>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-3 border-t border-border/70 pt-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Distribution</div>
-                        <div className="text-xs text-muted-foreground">
-                          Total allocated: {orderItem.allocations.reduce((sum, allocation) => sum + (parseInt(allocation.quantity, 10) || 0), 0)} / {parseInt(orderItem.quantity, 10) || 0}
-                        </div>
-                      </div>
-                      <Button type="button" onClick={() => addAllocation(index)} variant="ghost" size="sm" className="min-h-9">
-                        <Plus size={13} />
-                        Split
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {(orderItem.allocations.length > 0 ? orderItem.allocations : buildDefaultAllocations(orderItem.quantity)).map((allocation, allocationIndex) => (
-                        <div key={allocationIndex} className="grid grid-cols-[1fr_88px_auto] gap-2">
-                          <Select
-                            value={allocation.location_id}
-                            onChange={(e) => updateAllocation(index, allocationIndex, 'location_id', e.target.value)}
-                            className="min-h-11"
-                            required
-                          >
-                            <option value="">Location</option>
-                            {locations.map(location => (
-                              <option key={location.id} value={location.id}>{location.name}</option>
-                            ))}
-                          </Select>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            step="1"
-                            value={allocation.quantity}
-                            onChange={(e) => updateAllocation(index, allocationIndex, 'quantity', e.target.value)}
-                            className="min-h-11"
-                          />
-                          <Button
-                            type="button"
-                            onClick={() => removeAllocation(index, allocationIndex)}
-                            variant="ghost"
-                            size="sm"
-                            className="min-h-11 min-w-11 text-destructive"
-                          >
-                            <X size={14} />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                )
-              })}
-            </div>
-            <div className="mt-3 pt-3 border-t border-border flex justify-between items-center">
-              <span className="font-medium">Total:</span>
-              <span className="text-lg font-bold">{formatCurrency(calculateTotal(), orderForm.currency)}</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Notes</label>
-            <Textarea
-              value={orderForm.notes}
-              onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
-              placeholder="Order notes..."
-              rows={2}
-              className="text-base"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-            <Button type="button" onClick={resetOrderForm} variant="secondary" className="min-h-12 touch-manipulation order-2 sm:order-1">
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" disabled={submitting} className="min-h-12 touch-manipulation order-1 sm:order-2">
-              {submitting ? 'Saving...' : editingOrder ? 'Update Order' : 'Create Order'}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConvertTarget(null)}>Cancel</Button>
+            <Button
+              onClick={() => void handleConvert()}
+              loading={busyId === convertTarget.id}
+              disabled={busyId === convertTarget.id || !convertTarget.location}
+            >
+              Post the sale
             </Button>
           </div>
-        </form>
-      </Modal>
+        </Modal>
+      )}
 
-      {/* View Order Modal */}
-      <Modal
-        isOpen={showViewOrder}
-        onClose={() => { setShowViewOrder(false); setViewingOrder(null) }}
-        title={`Order #${viewingOrder?.id.slice(0, 8)}`}
-      >
-        {viewingOrder && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-sm text-muted-foreground">Status</span>
-                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusColor(viewingOrder.status)}`}>
-                  {getStatusIcon(viewingOrder.status)}
-                  {getStatusLabel(viewingOrder.status)}
-                </div>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Total</span>
-                <p className="font-bold text-lg">{formatCurrency(viewingOrder.total_amount, viewingOrder.currency as Currency)}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Funding Reference</span>
-                <p className="font-medium text-sm sm:text-base truncate">
-                  {viewingOrder.wallets ? `${viewingOrder.wallets.person_name} - ${viewingOrder.wallets.type}` : 'No wallet linked'}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">To Location</span>
-                <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.locations?.name}</p>
-              </div>
-              {viewingOrder.clients?.name && (
-                <div>
-                  <span className="text-sm text-muted-foreground">Source / Contact</span>
-                  <p className="font-medium text-sm sm:text-base truncate">{viewingOrder.clients.name}</p>
-                </div>
-              )}
-              <div>
-                <span className="text-sm text-muted-foreground">Created</span>
-                <p className="font-medium text-sm sm:text-base">{new Date(viewingOrder.created_at).toLocaleString()}</p>
-              </div>
-              {viewingOrder.expected_arrival && (
-                <div>
-                  <span className="text-sm text-muted-foreground">Expected Arrival</span>
-                  <p className="font-medium text-sm sm:text-base">{new Date(viewingOrder.expected_arrival).toLocaleDateString()}</p>
-                </div>
-              )}
-            </div>
-
-            {viewingOrder.notes && (
-              <div>
-                <span className="text-sm text-muted-foreground">Notes</span>
-                <p className="mt-1 text-sm">{viewingOrder.notes}</p>
-              </div>
-            )}
-
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="bg-muted px-4 py-2 font-medium text-sm flex justify-between items-center">
-                <span>Order Items</span>
-                {(viewingOrder.status === 'partially_received' || viewingOrder.status === 'received') && (
-                  <span className="text-xs text-muted-foreground">
-                    {viewingOrder.purchase_order_items?.reduce((s, i) => s + (i.quantity_received || 0), 0)}/
-                    {viewingOrder.purchase_order_items?.reduce((s, i) => s + i.quantity, 0)} received
-                  </span>
-                )}
-              </div>
-              <div className="divide-y divide-border">
-                {viewingOrder.purchase_order_items?.map((item) => (
-                  <div key={item.id} className="px-4 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{item.items?.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity} × {formatCurrency(item.unit_cost, viewingOrder.currency as Currency)}
-                      </p>
-                      {(item.quantity_received || 0) > 0 && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[120px]">
-                            <div 
-                              className={cn(
-                                "h-full rounded-full",
-                                (item.quantity_received || 0) >= item.quantity ? "bg-green-500" : "bg-amber-500"
-                              )}
-                              style={{ width: `${Math.min(100, ((item.quantity_received || 0) / item.quantity) * 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {item.quantity_received}/{item.quantity} received
-                          </span>
-                        </div>
-                      )}
-                      {(item.purchase_order_allocations || []).length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {item.purchase_order_allocations?.map(allocation => (
-                            <span key={allocation.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
-                              {allocation.locations?.name || 'Unknown'}:
-                              <span className="font-semibold text-foreground">{allocation.quantity_received}/{allocation.quantity}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <span className="font-medium text-right">{formatCurrency(item.subtotal, viewingOrder.currency as Currency)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button onClick={() => { setShowViewOrder(false); setViewingOrder(null) }} variant="secondary" className="min-h-12 touch-manipulation">
-                Close
-              </Button>
-            </div>
+      {cancelTarget && (
+        <Modal isOpen title={`Cancel ${cancelTarget.orderNumber}`} onClose={() => setCancelTarget(null)}>
+          <p className="text-sm text-muted-foreground">
+            The order is kept for the record and its held stock goes back on sale. Orders are never
+            deleted.
+          </p>
+          <Textarea
+            label="Why is it cancelled?"
+            className="mt-4"
+            value={cancelReason}
+            onChange={(event) => setCancelReason(event.target.value)}
+            placeholder="Customer changed their mind, item no longer available, duplicate order…"
+          />
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setCancelTarget(null)}>Keep it open</Button>
+            <Button
+              variant="danger"
+              onClick={() => void handleCancel()}
+              loading={busyId === cancelTarget.id}
+              disabled={busyId === cancelTarget.id || cancelReason.trim().length < 3}
+            >
+              Cancel the order
+            </Button>
           </div>
-        )}
-      </Modal>
-
-      {/* Receive Shipment Modal */}
-      <Modal
-        isOpen={showReceiveModal}
-        onClose={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]); setShipmentNote('') }}
-        title={`Receive Shipment — #${receivingOrder?.id.slice(0, 8)}`}
-      >
-        {receivingOrder && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm text-muted-foreground">
-              Set how many units arrived in this batch. Leave at 0 for items not yet delivered — you can receive the rest later.
-            </div>
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="bg-muted px-4 py-2 font-medium text-sm flex items-center justify-between">
-                <span>Items to Receive</span>
-                <Button
-                  type="button"
-                  onClick={() => setReceiveItems(prev => prev.map(ri => ({ ...ri, receiving: ri.remaining.toString() })))}
-                  variant="secondary"
-                  size="sm"
-                  className="min-h-8 text-xs"
-                >
-                  <PackageCheck size={12} />
-                  Receive All
-                </Button>
-              </div>
-              <div className="divide-y divide-border">
-                {receiveItems.map((ri, idx) => (
-                  <div key={ri.id} className="px-4 py-3">
-                    <div className="mb-2">
-                      <p className="font-semibold text-sm">{ri.item_name}</p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
-                        <span>{ri.location_name}</span>
-                        <span>Ordered: {ri.ordered}</span>
-                        {ri.already_received > 0 && <span className="text-primary font-medium">Prev. received: {ri.already_received}</span>}
-                        <span className="text-amber-500 font-medium">Remaining: {ri.remaining}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm text-muted-foreground whitespace-nowrap">Now:</label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        max={ri.remaining}
-                        value={ri.receiving}
-                        onChange={(e) => {
-                          const val = Math.max(0, Math.min(ri.remaining, parseInt(e.target.value) || 0))
-                          setReceiveItems(prev => prev.map((item, i) => i === idx ? { ...item, receiving: val.toString() } : item))
-                        }}
-                        className="w-24 min-h-10"
-                      />
-                      <span className="text-xs text-muted-foreground shrink-0">/ {ri.remaining}</span>
-                      <Button
-                        type="button"
-                        onClick={() => setReceiveItems(prev => prev.map((item, i) => i === idx ? { ...item, receiving: item.remaining.toString() } : item))}
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto min-h-9 text-xs"
-                      >
-                        Fill
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3 text-sm grid grid-cols-2 gap-y-1">
-              <span className="text-muted-foreground">Receiving now:</span>
-              <span className="font-semibold text-right">{receiveItems.reduce((s, i) => s + (parseInt(i.receiving) || 0), 0)} units</span>
-              <span className="text-muted-foreground">Still remaining after:</span>
-              <span className="font-medium text-right">{receiveItems.reduce((s, i) => s + (i.remaining - (parseInt(i.receiving) || 0)), 0)} units</span>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Batch Note <span className="text-muted-foreground font-normal">(optional)</span>
-              </label>
-              <Input
-                value={shipmentNote}
-                onChange={(e) => setShipmentNote(e.target.value)}
-                placeholder="e.g. AliExpress partial shipment 1, arrived June 11..."
-                className="min-h-11"
-              />
-            </div>
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                onClick={() => { setShowReceiveModal(false); setReceivingOrder(null); setReceiveItems([]); setShipmentNote('') }}
-                variant="secondary"
-                className="min-h-12 touch-manipulation"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleReceiveShipment}
-                variant="primary"
-                disabled={submitting || receiveItems.reduce((s, i) => s + (parseInt(i.receiving) || 0), 0) === 0}
-                className="min-h-12 touch-manipulation"
-              >
-                {submitting ? 'Processing...' : 'Confirm Receipt'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Cancel Order Modal */}
-      <Modal
-        isOpen={showDeleteOrderModal}
-        onClose={() => closeDeleteOrderModal()}
-        title={`Cancel Order${deletingOrder ? ` — #${deletingOrder.id.slice(0, 8)}` : ''}`}
-      >
-        {deletingOrder && (
-            <div className="space-y-4">
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-lg bg-red-500/10 p-2 text-red-500">
-                    <AlertTriangle size={18} />
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="font-semibold text-foreground">Cancel this order</div>
-                    <div className="text-muted-foreground">
-                      The order and any receipt history remain available for audit. Wallet balances and received stock are unchanged.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 rounded-xl border border-border/60 bg-muted/20 p-4 text-sm">
-                <div>
-                  <div className="text-xs text-muted-foreground">Status</div>
-                  <div className="mt-1 font-semibold capitalize text-foreground">{getStatusLabel(deletingOrder.status)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                  <div className="mt-1 font-semibold text-foreground">{formatCurrency(deletingOrder.total_amount, deletingOrder.currency as Currency)}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Wallet</div>
-                  <div className="mt-1 font-semibold text-foreground">{deletingOrder.wallets?.person_name || 'No wallet linked'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Destination</div>
-                  <div className="mt-1 font-semibold text-foreground">{deletingOrder.locations?.name || 'Unknown location'}</div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-xs text-muted-foreground space-y-1">
-                <div>Cancellation does not delete the order, order lines, allocation history, stock records, or wallet records.</div>
-                <div>Use receipt adjustments for a documented stock correction; this action only closes incoming-stock planning.</div>
-                <div>Wallet balances are never changed by purchase-order cancellation.</div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-                <Button type="button" onClick={() => closeDeleteOrderModal()} variant="secondary" className="min-h-12 touch-manipulation order-2 sm:order-1" disabled={submitting}>
-                  Cancel
-                </Button>
-                <Button type="button" onClick={() => void handleDeleteOrder()} variant="primary" className="min-h-12 touch-manipulation order-1 sm:order-2" disabled={submitting}>
-                  {submitting ? 'Cancelling...' : 'Cancel Order'}
-                </Button>
-              </div>
-            </div>
-        )}
-      </Modal>
-
-      {/* Edit Receipts Modal */}
-      <Modal
-        isOpen={showEditReceiptsModal}
-        onClose={() => { setShowEditReceiptsModal(false); setEditingReceiptOrder(null) }}
-        title={`Adjust Receipts — #${editingReceiptOrder?.id.slice(0, 8)}`}
-      >
-        {editingReceiptOrder && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-sm">
-              <div className="flex items-start gap-2 text-amber-500">
-                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                <div>
-                  <div className="font-semibold">Changing received quantities will adjust stock levels.</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Reducing a qty removes units from that location&apos;s stock. Only previously received entries are shown.</div>
-                </div>
-              </div>
-            </div>
-            {editReceiptItems.length === 0 ? (
-              <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-center text-muted-foreground">
-                No received items to adjust.
-              </div>
-            ) : (
-              <div className="border border-border rounded-lg overflow-hidden">
-                <div className="bg-muted px-4 py-2 font-medium text-sm">Received Items</div>
-                <div className="divide-y divide-border">
-                  {editReceiptItems.map((item, idx) => {
-                    const diff = (parseInt(item.new_quantity_received) || 0) - item.quantity_received
-                    return (
-                      <div key={item.id} className="px-4 py-3">
-                        <p className="font-semibold text-sm">{item.item_name}</p>
-                        <p className="text-xs text-muted-foreground mb-2">{item.location_name} · Total ordered: {item.total_quantity}</p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-muted-foreground whitespace-nowrap">Received:</span>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min="0"
-                            max={item.total_quantity}
-                            value={item.new_quantity_received}
-                            onChange={(e) => {
-                              const val = Math.max(0, Math.min(item.total_quantity, parseInt(e.target.value) || 0))
-                              setEditReceiptItems(prev => prev.map((ri, i) => i === idx ? { ...ri, new_quantity_received: val.toString() } : ri))
-                            }}
-                            className="w-24 min-h-11"
-                          />
-                          <span className="text-xs text-muted-foreground">/ {item.total_quantity}</span>
-                          {diff !== 0 && (
-                            <span className={cn('text-xs font-semibold', diff > 0 ? 'text-green-500' : 'text-red-500')}>
-                              {diff > 0 ? '+' : ''}{diff} stock
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                onClick={() => { setShowEditReceiptsModal(false); setEditingReceiptOrder(null) }}
-                variant="secondary"
-                className="min-h-12 touch-manipulation"
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => void handleSaveEditReceipts()}
-                variant="primary"
-                className="min-h-12 touch-manipulation"
-                disabled={submitting || editReceiptItems.length === 0}
-              >
-                {submitting ? 'Saving...' : 'Save Adjustments'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <ConfirmDialog {...dialogProps} />
-    </div>
+        </Modal>
+      )}
+    </>
   )
 }

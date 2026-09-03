@@ -142,7 +142,7 @@ export default function ProductDetailPage() {
         supabase.from('store_settings').select('*'),
         supabase.from('categories').select('*').eq('is_active', true).eq('catalog_type', CATALOG_TYPE).order('name'),
         supabase.from('locations').select('*').eq('is_active', true).in('catalog_type', LOCATION_CATALOG_FILTER).order('name'),
-        supabase.from('stock').select('item_id, location_id, quantity')
+        supabase.from('stock').select('item_id, location_id, quantity, reserved_quantity')
       ])
 
       if (productRes.data) {
@@ -197,17 +197,21 @@ export default function ProductDetailPage() {
         const locationMap = new Map<string, Map<string, number>>()
         const visibleLocationIds = new Set((locationsRes.data || []).map((location: { id: string }) => location.id))
 
-        stockRes.data.forEach((stock: { item_id: string; location_id: string; quantity: number }) => {
+        stockRes.data.forEach((stock: { item_id: string; location_id: string; quantity: number; reserved_quantity: number | null }) => {
           if (!visibleLocationIds.has(stock.location_id)) {
             return
           }
 
+          // Held units are promised to a reservation or a confirmed order, so
+          // the shop must not offer them.
+          const available = Math.max(stock.quantity - (stock.reserved_quantity ?? 0), 0)
+
           const current = map.get(stock.item_id) || 0
-          map.set(stock.item_id, current + stock.quantity)
+          map.set(stock.item_id, current + available)
 
           const itemLocations = locationMap.get(stock.item_id) || new Map<string, number>()
           const currentLocationQuantity = itemLocations.get(stock.location_id) || 0
-          itemLocations.set(stock.location_id, currentLocationQuantity + stock.quantity)
+          itemLocations.set(stock.location_id, currentLocationQuantity + available)
           locationMap.set(stock.item_id, itemLocations)
         })
         console.log('Stock map built:', Object.fromEntries(map))

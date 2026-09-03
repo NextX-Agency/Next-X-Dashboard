@@ -1,18 +1,32 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/apiAuth'
+import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+/**
+ * The ten most recent pending reservations, for diagnosing the reservation
+ * desk.
+ *
+ * This route used to return customer names, phone numbers and email addresses
+ * to any unauthenticated caller. It now requires an authenticated admin.
+ */
+export async function GET(request: NextRequest) {
+  const authResult = await requireAdmin(request)
+  if (authResult instanceof NextResponse) return authResult
+
   try {
-    const { data: reservations } = await supabase
-      .from('reservations')
-      .select('*, clients(*), locations(*)')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(10)
-    
+    const reservations = await prisma.reservation.findMany({
+      where: { status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        client: true,
+        location: { select: { id: true, name: true } },
+        item: { select: { id: true, name: true } },
+      },
+    })
+
     return NextResponse.json({ reservations })
-  } catch (error) {
-    console.error('Error:', error)
-    return NextResponse.json({ error: String(error) }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Unable to load reservations.' }, { status: 500 })
   }
 }

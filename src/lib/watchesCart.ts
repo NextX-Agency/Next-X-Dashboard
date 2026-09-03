@@ -123,6 +123,8 @@ interface BuildWatchesCartWhatsAppMessageArgs {
   customerName?: string
   customerPhone?: string
   customerNotes?: string
+  /** The saved order's reference line, so the shop can find it in the desk. */
+  orderReference?: string
 }
 
 export function buildWatchesCartWhatsAppMessage({
@@ -132,8 +134,10 @@ export function buildWatchesCartWhatsAppMessage({
   customerName,
   customerPhone,
   customerNotes,
+  orderReference,
 }: BuildWatchesCartWhatsAppMessageArgs) {
   let message = 'Hello NextX Watches,\n\n'
+  if (orderReference) message += orderReference
   message += 'I would like to place an order for:\n\n'
 
   items.forEach((item, index) => {

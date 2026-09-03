@@ -15,10 +15,10 @@ const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
 
 // Admin routes that require admin role
 const ADMIN_ROUTES = [
-  '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
+  '/dashboard', '/items', '/stock', '/orders', '/purchasing', '/sales', '/expenses',
   '/budgets', '/wallets', '/finance', '/finance/review', '/commissions', '/exchange', '/locations',
   '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
-  '/upload-example', '/migrate', '/team'
+  '/team'
 ]
 const ADMIN_PREFIXES = ['/api/']
 
@@ -31,11 +31,12 @@ const PROTECTED_API_PREFIXES = [
   '/api/sales',
   '/api/stock',
   '/api/orders',
+  '/api/purchasing',
   '/api/wallets',
   '/api/budgets',
   '/api/expenses',
   '/api/reservations',
-  '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
+  '/api/upload', '/api/delete', '/api/create-commission',
   '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
   '/api/backup/export', '/api/backup/save', '/api/backup/list',
   '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
@@ -128,6 +129,7 @@ export const config = {
     '/seller/:path*',
     '/stock/:path*',
     '/orders/:path*',
+    '/purchasing/:path*',
     '/sales/:path*',
     '/expenses/:path*',
     '/budgets/:path*',
@@ -142,8 +144,6 @@ export const config = {
     '/activity/:path*',
     '/reservations/:path*',
     '/invoices/:path*',
-    '/upload-example/:path*',
-    '/migrate/:path*',
     '/team/:path*',
     '/api/commissions/:path*',
     '/api/dashboard/:path*',
@@ -153,13 +153,13 @@ export const config = {
     '/api/stock/:path*',
     '/api/seller/:path*',
     '/api/orders/:path*',
+    '/api/purchasing/:path*',
     '/api/wallets/:path*',
     '/api/budgets/:path*',
     '/api/expenses/:path*',
     '/api/reservations/:path*',
     '/api/upload/:path*',
     '/api/delete/:path*',
-    '/api/migrate/:path*',
     '/api/create-commission/:path*',
     '/api/get-sale-info/:path*',
     '/api/debug-reservations/:path*',
