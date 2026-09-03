@@ -1403,3 +1403,19 @@ changed during this code task.
 `git diff --check` passed. A final read-only production query confirmed Part 6 remains: **149 sales
 / 306 sale_items / 490 wallet_transactions / 490 finance_ledger_entries / 83 expenses / 122
 commissions / SRD 42,005.99 / USD 534.00**.
+
+## W-00..W-04 (ERP flow correction, Phase 0/1/4a) — claimed by claude — 2026-09-03T01:20Z — in progress
+
+Owner-directed program to correct the O2C, P2P and R2R flows. Analysis established, against
+production: the webshop persists no order (WhatsApp handoff only), `purchase_orders` is empty so
+inventory is bought as an expense and 306 of 321 sale lines carry an estimated cost, and the
+general ledger holds 3 entries (opening balance) with no revenue, COGS, inventory, AR or AP account
+to post to.
+
+This claim covers Phase 0 (close unauthenticated routes), Phase 1 (persist customer orders, hold
+stock on reservation, link a sale to a customer, convert an order to a sale without retyping) and
+Phase 4a (navigation by process). Phases 2 (landed cost / perpetual inventory) and 3 (working
+general ledger) are designed but not claimed here.
+
+Every migration in this claim is additive. No financial row is updated or deleted, and no existing
+money path changes behaviour.
