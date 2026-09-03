@@ -3068,7 +3068,7 @@ export default function ReportsPage() {
                       Remaining units and value are calculated from open purchase orders and their destination allocations.
                     </div>
                   </div>
-                  <Link href="/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-violet-500 transition-colors hover:text-violet-400">
+                  <Link href="/purchasing" className="inline-flex items-center gap-1 text-sm font-semibold text-violet-500 transition-colors hover:text-violet-400">
                     Manage orders
                     <ArrowRight size={14} />
                   </Link>

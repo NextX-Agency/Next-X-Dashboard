@@ -22,6 +22,10 @@ import {
   ClipboardList,
   Gauge,
   FileCheck2,
+  ShoppingBag,
+  Truck,
+  BookOpen,
+  Scale,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAdminCatalog } from '@/lib/adminCatalog'
@@ -51,12 +55,14 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   
   // Auto-expand current section based on path
   const getCurrentSection = useCallback(() => {
-    if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Public shops'
-    if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations') || pathname.startsWith('/invoices')) return 'Daily operations'
-    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/finance') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Money & finance'
+    if (pathname.startsWith('/audio') || pathname.startsWith('/watches')) return 'Shops'
+    if (pathname.startsWith('/purchasing')) return 'Buy'
+    if (pathname.startsWith('/orders') || pathname.startsWith('/sales') || pathname.startsWith('/reservations') || pathname.startsWith('/invoices')) return 'Sell'
+    if (pathname.startsWith('/finance')) return 'Books'
+    if (pathname.startsWith('/exchange') || pathname.startsWith('/wallets') || pathname.startsWith('/expenses') || pathname.startsWith('/commissions') || pathname.startsWith('/budgets')) return 'Money'
     if (pathname.startsWith('/reports') || pathname.startsWith('/performance') || pathname.startsWith('/activity')) return 'Insights'
-    if (pathname.startsWith('/settings') || pathname.startsWith('/team')) return 'Administration'
-    return 'Catalog & stock'
+    if (pathname.startsWith('/settings') || pathname.startsWith('/team')) return 'Admin'
+    return 'Sell'
   }, [pathname])
   
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -89,42 +95,49 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
     }
   }, [isOpen])
 
+  // Mirrors the desktop rail: grouped by the work being done, not by feature.
   const navSections: NavSection[] = useMemo(() => [
     {
-      title: 'Catalog & stock',
+      title: 'Sell',
       items: [
         { name: 'Overview', icon: LayoutDashboard, path: '/dashboard' },
+        { name: 'Order desk', icon: ShoppingBag, path: '/orders' },
+        { name: 'Record a sale', icon: ShoppingCart, path: '/sales' },
+        { name: 'Reservations', icon: Calendar, path: '/reservations' },
+        { name: 'Invoices', icon: Receipt, path: '/invoices' },
+      ],
+    },
+    {
+      title: 'Buy',
+      items: [
+        { name: 'Purchase orders', icon: Truck, path: '/purchasing' },
+        { name: 'Supplier bills', icon: FileCheck2, path: '/finance/review' },
+      ],
+    },
+    {
+      title: 'Stock',
+      items: [
         { name: 'Products & pricing', icon: Package, path: '/items' },
         { name: 'Stock levels', icon: Layers, path: '/stock' },
         { name: 'Store locations', icon: MapPin, path: '/locations' },
       ],
     },
     {
-      title: 'Public shops',
+      title: 'Money',
       items: [
-        { name: 'Audio shop', icon: Headphones, path: '/audio', external: true },
-        { name: 'Watch shop', icon: Watch, path: '/watches', external: true },
-      ],
-    },
-    {
-      title: 'Daily operations',
-      items: [
-        { name: 'Order desk', icon: ClipboardList, path: '/orders' },
-        { name: 'Record & view sales', icon: ShoppingCart, path: '/sales' },
-        { name: 'Reservations', icon: Calendar, path: '/reservations' },
-        { name: 'Invoices', icon: Receipt, path: '/invoices' },
-      ],
-    },
-    {
-      title: 'Money & finance',
-      items: [
-        { name: 'Finance overview', icon: BarChart3, path: '/finance' },
         { name: 'Wallets & balances', icon: Wallet, path: '/wallets' },
         { name: 'Expenses', icon: Receipt, path: '/expenses' },
         { name: 'Commissions', icon: Users, path: '/commissions' },
         { name: 'Budgets', icon: Target, path: '/budgets' },
         { name: 'Exchange rate', icon: DollarSign, path: '/exchange' },
-        { name: 'Month-end close', icon: FileCheck2, path: '/finance/close' },
+      ],
+    },
+    {
+      title: 'Books',
+      items: [
+        { name: 'Finance overview', icon: Scale, path: '/finance' },
+        { name: 'Review queue', icon: ClipboardList, path: '/finance/review' },
+        { name: 'Month-end close', icon: BookOpen, path: '/finance/close' },
       ],
     },
     {
@@ -132,11 +145,18 @@ export default function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
       items: [
         { name: 'Reports', icon: BarChart3, path: '/reports' },
         { name: 'Performance', icon: Gauge, path: '/performance' },
-        { name: 'Activity Log', icon: Activity, path: '/activity' },
+        { name: 'Activity log', icon: Activity, path: '/activity' },
       ],
     },
     {
-      title: 'Administration',
+      title: 'Shops',
+      items: [
+        { name: 'Audio shop', icon: Headphones, path: '/audio', external: true },
+        { name: 'Watch shop', icon: Watch, path: '/watches', external: true },
+      ],
+    },
+    {
+      title: 'Admin',
       items: [
         { name: 'Team access', icon: Users, path: '/team' },
         { name: 'Settings', icon: Settings, path: '/settings' },

@@ -6,7 +6,7 @@ type FinanceWorkspaceNavProps = {
 }
 
 const ITEMS = [
-  { id: 'purchases', href: '/orders', label: 'Purchases', help: 'Orders and commitments', icon: ShoppingCart },
+  { id: 'purchases', href: '/purchasing', label: 'Purchases', help: 'Purchase orders and commitments', icon: ShoppingCart },
   { id: 'overview', href: '/finance', label: 'Money overview', help: 'Cash and movement', icon: Landmark },
   { id: 'review', href: '/finance/review', label: 'Resolve issues', help: 'Exceptions to fix', icon: ListChecks },
   { id: 'close', href: '/finance/close', label: 'Close month', help: 'Checklist and lock', icon: CheckSquare2 },

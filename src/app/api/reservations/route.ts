@@ -6,6 +6,7 @@ import { markFinanceLedgerRecorded, recordFinanceLedgerEntry } from '@/lib/finan
 import { prisma } from '@/lib/prisma'
 import { roundCurrencyAmount } from '@/lib/pricing'
 import { runSerializableTransaction } from '@/lib/serializableTransaction'
+import { holdStockForOrder, releaseStockForOrder } from '@/lib/customerOrders'
 import { writeActivityLog } from '@/lib/serverActivityLog'
 import {
   allocateInvoiceNumber,
@@ -390,6 +391,27 @@ async function completeReservationSale(
     throw new SaleValidationError('The reservation location and its cash wallet belong to different companies.')
   }
 
+  // Release this reservation's own hold first.
+  //
+  // Order matters: `resolveSaleLines` refuses to sell reserved units, and the
+  // units being sold here are exactly the ones this reservation is holding. If
+  // the hold were released after the lines were resolved, a fully reserved item
+  // would fail its own completion. Everything is inside one Serializable
+  // transaction, so the hold cannot be released without the sale being written.
+  const heldReservations = await tx.reservation.findMany({
+    where: { id: { in: reservationIds } },
+    select: { itemId: true, quantity: true },
+  })
+  const heldByItemId = new Map<string, number>()
+  for (const held of heldReservations) {
+    heldByItemId.set(held.itemId, (heldByItemId.get(held.itemId) ?? 0) + held.quantity)
+  }
+  await releaseStockForOrder(
+    tx,
+    locationId,
+    [...heldByItemId].map(([itemId, quantity]) => ({ itemId, quantity })),
+  )
+
   const { lines, stockByItemId } = await resolveSaleLines(
     tx,
     { locationId, currency: 'SRD', paymentMethod: 'cash', items, combos },
@@ -441,6 +463,7 @@ async function completeReservationSale(
   for (const line of lines) {
     demandByItemId.set(line.itemId, (demandByItemId.get(line.itemId) ?? 0) + line.quantity)
   }
+
   for (const [itemId, demand] of demandByItemId) {
     const stock = stockByItemId.get(itemId)
     if (!stock) throw new SaleValidationError('The reservation stock record no longer exists.')
@@ -861,6 +884,20 @@ export async function POST(request: NextRequest) {
         }
 
         const reservationIds = createdReservations.map((reservation) => reservation.id)
+
+        // Hold the stock. Reservations promised units for months without ever
+        // removing them from what the shop offered, so the same watch could be
+        // reserved twice and sold once.
+        const heldByItemId = new Map<string, number>()
+        for (const line of lines) {
+          heldByItemId.set(line.itemId, (heldByItemId.get(line.itemId) ?? 0) + line.quantity)
+        }
+        await holdStockForOrder(
+          tx,
+          locationId,
+          [...heldByItemId].map(([itemId, quantity]) => ({ itemId, quantity })),
+        )
+
         if (paid) {
           return completeReservationSale(tx, request, user, reservationIds, client.name, locationId, items, combos)
         }
@@ -972,6 +1009,21 @@ export async function POST(request: NextRequest) {
           data: { status: 'cancelled' },
         })
         if (update.count !== reservationIds.length) throw new SaleValidationError('A reservation changed while it was being cancelled.')
+
+        // Give the held units back to what the shop can sell.
+        const releasedByItemId = new Map<string, number>()
+        for (const reservation of reservations) {
+          releasedByItemId.set(
+            reservation.itemId,
+            (releasedByItemId.get(reservation.itemId) ?? 0) + reservation.quantity,
+          )
+        }
+        await releaseStockForOrder(
+          tx,
+          locationId,
+          [...releasedByItemId].map(([itemId, quantity]) => ({ itemId, quantity })),
+        )
+
         await writeActivityLog({
           action: 'cancel',
           entityType: 'reservation',

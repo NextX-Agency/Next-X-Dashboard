@@ -220,12 +220,17 @@ export async function resolveSaleLines(
     }),
     tx.stock.findMany({
       where: { locationId: input.locationId, itemId: { in: uniqueIds } },
-      select: { id: true, itemId: true, quantity: true },
+      select: { id: true, itemId: true, quantity: true, reservedQuantity: true },
     }),
   ])
 
   const itemsById = new Map<string, ItemRecord>(items.map((item) => [item.id, item]))
-  const stockByItemId = new Map(stocks.map((stock) => [stock.itemId, { id: stock.id, quantity: stock.quantity }]))
+  const stockByItemId = new Map(
+    stocks.map((stock) => [
+      stock.itemId,
+      { id: stock.id, quantity: stock.quantity, reservedQuantity: stock.reservedQuantity },
+    ]),
+  )
   const lines: ResolvedSaleLine[] = []
 
   const priceOf = (item: ItemRecord) => getSellingPrice(
@@ -297,6 +302,12 @@ export async function resolveSaleLines(
 
   // Stock is checked against the total demand per item, not per line: the same
   // product can appear both loose and inside a combo.
+  //
+  // The check now subtracts held units as well as counting physical ones.
+  // Reserved stock is promised to a reservation or a confirmed webshop order,
+  // so a counter sale must not quietly consume it — and the database's
+  // `stock_reserved_not_over_quantity` constraint would refuse the write
+  // anyway, with a far less helpful message.
   const demandByItemId = new Map<string, number>()
   for (const line of lines) {
     demandByItemId.set(line.itemId, (demandByItemId.get(line.itemId) ?? 0) + line.quantity)
@@ -304,8 +315,18 @@ export async function resolveSaleLines(
   for (const [itemId, demand] of demandByItemId) {
     const stock = stockByItemId.get(itemId)
     const name = itemsById.get(itemId)?.name ?? 'A product'
-    assert(stock, `${name} is not stocked at this location.`)
-    assert(stock.quantity >= demand, `${name} does not have enough stock (${stock.quantity} on hand, ${demand} requested).`)
+    if (!stock) {
+      throw new SaleValidationError(`${name} is not stocked at this location.`)
+    }
+    const available = stock.quantity - stock.reservedQuantity
+    if (available < demand) {
+      throw new SaleValidationError(
+        stock.reservedQuantity > 0
+          ? `${name}: only ${Math.max(available, 0)} of ${stock.quantity} in stock are free — `
+            + `${stock.reservedQuantity} are held for a reservation or a confirmed order.`
+          : `${name}: only ${Math.max(available, 0)} in stock, ${demand} requested.`,
+      )
+    }
   }
 
   return { lines, stockByItemId }

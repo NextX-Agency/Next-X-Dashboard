@@ -20,6 +20,28 @@ const FALLBACK_EMPTY_RESPONSE = {
 }
 
 // API route to get catalog data - bypasses RLS by using Prisma
+/**
+ * What the shop is allowed to offer.
+ *
+ * A public catalog must not advertise units that are already promised. Held
+ * stock — a reservation, or a confirmed webshop order — is subtracted here so
+ * `quantity` means *sellable* everywhere downstream, which is what every
+ * caller in the shop already assumes it means. The physical count and the hold
+ * travel alongside it for surfaces that want to explain the difference.
+ */
+function toAvailableStock(
+  rows: Array<{ id: string; itemId: string; locationId: string; quantity: number; reservedQuantity: number }>,
+) {
+  return rows.map((row) => ({
+    id: row.id,
+    itemId: row.itemId,
+    locationId: row.locationId,
+    quantity: Math.max(row.quantity - row.reservedQuantity, 0),
+    onHandQuantity: row.quantity,
+    reservedQuantity: row.reservedQuantity,
+  }))
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -132,7 +154,7 @@ export async function GET(request: NextRequest) {
       settings.forEach(s => { settingsObj[s.key] = s.value })
       result.settings = settingsObj
 
-      result.stock = stock
+      result.stock = toAvailableStock(stock)
 
       // Store in memory stale cache for resilience against transient DB outages
       staleCache = { data: result, timestamp: Date.now() }
@@ -228,7 +250,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'stock') {
-      result.stock = await prisma.stock.findMany({
+      result.stock = toAvailableStock(await prisma.stock.findMany({
         where: {
           item: {
             catalogType,
@@ -239,7 +261,7 @@ export async function GET(request: NextRequest) {
             catalogType: { in: locationCatalogFilter },
           },
         },
-      })
+      }))
     }
 
     return NextResponse.json(result)

@@ -26,6 +26,8 @@ model User {
   ledgerEntries    FinanceLedgerEntry[]   @relation("LedgerActor")
   reviewedExpenses Expense[]              @relation("ExpenseReviewedBy")
   voidedSales      Sale[]                 @relation("SaleVoidedBy")
+  confirmedOrders  CustomerOrder[]        @relation("CustomerOrderConfirmedBy")
+  cancelledOrders  CustomerOrder[]        @relation("CustomerOrderCancelledBy")
 
   @@index([email], map: "idx_users_email")
   @@map("users")
@@ -200,6 +202,7 @@ model Item {
   purchaseOrderItems                      PurchaseOrderItem[]
   reservations                            Reservation[]
   saleItems                               SaleItem[]
+  customerOrderItems                      CustomerOrderItem[]
   stock                                   Stock[]
   stockTransfers                          StockTransfer[]
 
@@ -225,6 +228,7 @@ model Location {
   purchaseOrderAllocations PurchaseOrderAllocation[]
   purchaseOrders           PurchaseOrder[]
   reservations             Reservation[]
+  customerOrders           CustomerOrder[]
   sales                    Sale[]
   sellers                  Seller[]
   stock                    Stock[]
@@ -246,6 +250,10 @@ model Stock {
   itemId     String   @map("item_id") @db.Uuid
   locationId String   @map("location_id") @db.Uuid
   quantity   Int      @default(0)
+  /// Units promised to an open reservation or a confirmed customer order.
+  /// Available stock is `quantity - reservedQuantity`. Maintained only inside
+  /// serializable transactions with atomic increments, never read-then-write.
+  reservedQuantity Int @default(0) @map("reserved_quantity")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -291,6 +299,8 @@ model Client {
   locations       Location?       @relation(fields: [location_id], references: [id], onUpdate: NoAction)
   purchase_orders PurchaseOrder[]
   reservations    Reservation[]
+  customerOrders  CustomerOrder[]
+  sales           Sale[]
 
   @@index([location_id], map: "idx_clients_location")
   @@map("clients")
@@ -337,6 +347,9 @@ model Sale {
   reviewReason           String?               @map("review_reason")
   invoiceNumber          String?               @unique @map("invoice_number")
   invoiceIsReconstructed Boolean               @default(false) @map("invoice_is_reconstructed")
+  clientId               String?               @map("client_id") @db.Uuid
+  client                 Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  customerOrders         CustomerOrder[]
   commissions            Commission[]
   saleItems              SaleItem[]
   location               Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
@@ -346,6 +359,7 @@ model Sale {
   wallet_transactions    wallet_transactions[]
 
   @@index([status])
+  @@index([clientId], map: "idx_sales_client")
   @@map("sales")
 }
 
@@ -788,6 +802,86 @@ model FinanceObligation {
   @@index([dueDate], map: "idx_finance_obligations_due_date")
   @@index([createdAt(sort: Desc)], map: "idx_finance_obligations_created_at")
   @@map("finance_obligations")
+}
+
+/// A customer's order — the document that has been missing.
+///
+/// Until W-01 the webshop persisted nothing: the cart built a WhatsApp message,
+/// opened wa.me and cleared itself, so an order existed only in a chat thread
+/// and had to be retyped into the sales desk. This is that order.
+///
+/// An order is a promise, not money. Nothing here touches a wallet, the ledger
+/// or a commission until `convert` turns it into a posted Sale.
+model CustomerOrder {
+  id            String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderNumber   String              @unique @map("order_number")
+  companyId     String              @map("company_id") @db.Uuid
+  clientId      String?             @map("client_id") @db.Uuid
+  locationId    String?             @map("location_id") @db.Uuid
+  /// webshop_audio | webshop_watches | counter
+  channel       String
+  /// new | confirmed | reserved | fulfilled | invoiced | cancelled | expired
+  status        String              @default("new")
+  currency      String
+  exchangeRate  Decimal?            @map("exchange_rate") @db.Decimal(18, 8)
+  totalAmount   Decimal             @default(0) @map("total_amount") @db.Decimal(18, 4)
+
+  customerName  String?             @map("customer_name")
+  customerPhone String?             @map("customer_phone")
+  customerEmail String?             @map("customer_email")
+  customerNotes String?             @map("customer_notes")
+  pickupDate    DateTime?           @map("pickup_date") @db.Date
+
+  saleId        String?             @map("sale_id") @db.Uuid
+  /// True while this order holds stock, so a release can never run twice.
+  stockReserved Boolean             @default(false) @map("stock_reserved")
+
+  confirmedAt   DateTime?           @map("confirmed_at") @db.Timestamptz(6)
+  confirmedBy   String?             @map("confirmed_by") @db.Uuid
+  cancelledAt   DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  cancelledBy   String?             @map("cancelled_by") @db.Uuid
+  cancelReason  String?             @map("cancel_reason")
+  sourceIpHash  String?             @map("source_ip_hash")
+
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  items         CustomerOrderItem[]
+  client        Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  location      Location?           @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  sale          Sale?               @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  confirmedByUser User?             @relation("CustomerOrderConfirmedBy", fields: [confirmedBy], references: [id], onDelete: SetNull)
+  cancelledByUser User?             @relation("CustomerOrderCancelledBy", fields: [cancelledBy], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status, createdAt(sort: Desc)], map: "idx_customer_orders_status")
+  @@index([channel, createdAt(sort: Desc)], map: "idx_customer_orders_channel")
+  @@index([clientId], map: "idx_customer_orders_client")
+  @@index([saleId], map: "idx_customer_orders_sale")
+  @@index([locationId], map: "idx_customer_orders_location")
+  @@map("customer_orders")
+}
+
+/// One line of a customer order.
+///
+/// `unitPrice` is the price the customer was quoted, snapshotted at order time
+/// and never recomputed. A price change next week must not silently rewrite
+/// what somebody was told last week.
+model CustomerOrderItem {
+  id        String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId   String        @map("order_id") @db.Uuid
+  itemId    String        @map("item_id") @db.Uuid
+  quantity  Int
+  unitPrice Decimal       @map("unit_price") @db.Decimal(18, 4)
+  subtotal  Decimal       @db.Decimal(18, 4)
+  comboId   String?       @map("combo_id") @db.Uuid
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order     CustomerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item      Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([orderId], map: "idx_customer_order_items_order")
+  @@index([itemId], map: "idx_customer_order_items_item")
+  @@map("customer_order_items")
 }
 
 model PurchaseOrder {
