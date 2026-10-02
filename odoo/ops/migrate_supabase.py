@@ -126,6 +126,8 @@ for it in items:
         "is_storable": True,
         "sale_ok": True,
         "purchase_ok": True,
+        "taxes_id": [(5, 0, 0)],  # no tax until the accountant approves a Surinamese setup
+        "supplier_taxes_id": [(5, 0, 0)],
         "categ_id": categ.id,
         "list_price": it["selling_price_srd"] or 0.0,
         "description_ecommerce": to_html(it["description"]),

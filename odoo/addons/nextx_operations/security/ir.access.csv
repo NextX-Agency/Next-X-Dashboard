@@ -1,0 +1,4 @@
+id,name,model_id,group_id/id,operation,domain
+nextx_landed_cost_read,NextX sellers read landed costs,stock.landed.cost,base.group_user,r,
+nextx_landed_cost_lines_read,NextX sellers read landed cost lines,stock.landed.cost.lines,base.group_user,r,
+nextx_valuation_adjustment_lines_read,NextX sellers read valuation adjustment lines,stock.valuation.adjustment.lines,base.group_user,r,

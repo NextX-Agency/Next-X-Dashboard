@@ -65,6 +65,34 @@ except Exception as exc:
     say(f"!! logo not set: {exc}")
 say(f"company: {company.name} / {company.country_id.code} / {company.currency_id.name}")
 
+# ------------------------------------------------------------------ currency display, precision, document defaults
+# Odoo ships both SRD and USD with the symbol "$"; documents must say which one they mean.
+for cur, symbol in ((srd, "SRD"), (usd, "USD")):
+    if cur.symbol != symbol or cur.position != "before":
+        cur.write({"symbol": symbol, "position": "before"})
+        say(f"~ currency {cur.name}: symbol {symbol}, shown before the amount")
+# Unit prices on documents showed up to 6 decimals; money is 2.
+price_prec = env.ref("product.decimal_price")
+if price_prec.digits != 2:
+    price_prec.digits = 2
+    say("~ decimal precision 'Product Price' = 2")
+# Only verified facts in document headers/footers (no address, tax or bank details are invented).
+company_vals = {
+    "report_footer": "<p>shop-nextx.com</p>",
+    "company_details": "<p><strong>NextX</strong><br/>shop-nextx.com<br/>Suriname</p>",
+    "primary_color": "#111111",
+    "secondary_color": "#F97015",
+}
+company.write({k: v for k, v in company_vals.items() if k in company._fields})
+if "point_of_sale_use_ticket_qr_code" in company._fields:
+    company.point_of_sale_use_ticket_qr_code = False  # no self-invoicing QR on receipts
+say("company: document footer, header block and brand colours set; receipt self-invoicing QR off")
+# The NextX header is ~28 mm tall; Odoo's default A4 paper format reserves 52 mm, which left a big dead gap.
+pf = company.paperformat_id
+if pf and (pf.margin_top != 36 or pf.header_spacing != 36):
+    pf.write({"margin_top": 36, "header_spacing": 36})
+    say("~ paper format A4: top margin / header spacing 36 mm")
+
 # ------------------------------------------------------------------ categories + product tags
 roots = {}
 for kind, title in (("audio", "Audio"), ("watches", "Watches")):
@@ -113,7 +141,10 @@ say(f"warehouse {warehouse.name}: {len(shops)} shop locations, receipts={warehou
 public = env["product.pricelist"].search([("currency_id", "=", srd.id)], limit=1) or env["product.pricelist"].create({"name": "NextX SRD", "currency_id": srd.id})
 if public.name != "NextX SRD" and public.name in ("Standaard", "Default", "Public Pricelist", "Openbare prijslijst"):
     public.name = "NextX SRD"
-usd_list = ensure("product.pricelist", [("name", "=", "NextX USD")], {"currency_id": usd.id}, "pricelist NextX USD")
+usd_list = ensure("product.pricelist", [("name", "=", "NextX USD")], {"currency_id": usd.id, "sequence": 20}, "pricelist NextX USD")
+if public.sequence != 1:
+    public.sequence = 1  # default pricelist for customers and web orders is SRD, never USD
+    say("~ SRD pricelist is first in sequence")
 
 # ------------------------------------------------------------------ landed cost products (kept to three)
 for name in ("Freight (Landed Cost)", "Import / Handling (Landed Cost)", "Other Landed Cost"):
@@ -174,6 +205,19 @@ for n, (shop_id, loc) in enumerate(shops.items(), start=1):
     config.write({"payment_method_ids": [(6, 0, [method.id])]})
     xmlid_set(config, f"poscfg_{shop_id}")
 say("POS: receipt header/footer are owned by the NextX receipt template, not typed into each config")
+
+# ------------------------------------------------------------------ storefront integration parameters
+params = env["ir.config_parameter"].sudo()
+if DATA and os.path.exists(os.path.join(DATA, "store-settings.json")):
+    with open(os.path.join(DATA, "store-settings.json"), encoding="utf8") as fh:
+        for row in json.load(fh):
+            if row["value"]:
+                params.set_str(f"nextx_storefront.setting.{row['key']}", row["value"])
+    say("storefront: public store settings copied (name, WhatsApp, address, hero copy)")
+if usd_list and not params.get_str("nextx_storefront.usd_pricelist_id"):
+    params.set_str("nextx_storefront.usd_pricelist_id", str(usd_list.id))
+# The shared secret is never set here: generate it on the server (deploy script) so it never travels through chat or git.
+say("storefront secret configured: " + ("yes" if len(params.get_str("nextx_storefront.secret")) >= 24 else "NO (deploy script generates it)"))
 
 env.cr.commit()
 say("configure_nextx: done")

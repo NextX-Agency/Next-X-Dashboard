@@ -1,10 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="external_layout_standard_nextx"
-              inherit_id="web.external_layout_standard"
-              name="NextX standard document logo sizing">
-        <xpath expr="//img[hasclass('o_company_logo_big')]" position="attributes">
-            <attribute name="style">max-width: 52mm; max-height: 16mm; width: auto; height: auto; object-fit: contain;</attribute>
+    <!--
+      NextX A4 documents (quotation, sales order, invoice, credit note, purchase order, delivery slip).
+      Standard Odoo "external_layout_standard" with: a logo-left / company-right header, and no snail-mail window
+      offset (that offset left a large dead gap under the header). Styling lives in nextx_reports.css.
+    -->
+    <template id="external_layout_standard_nextx" inherit_id="web.external_layout_standard" name="NextX document layout">
+        <xpath expr="//div[contains(@t-attf-class, 'layout header')]" position="replace">
+            <div t-attf-class="o_company_#{company.id}_layout header nx-header">
+                <table class="table-borderless w-100">
+                    <tr>
+                        <td class="align-middle" style="width: 50%;">
+                            <img t-if="company.logo" class="nx-logo" t-att-src="image_data_uri(company.logo)" alt="NextX"/>
+                        </td>
+                        <td class="align-middle text-end nx-company">
+                            <t t-call="web.company_address_list"/>
+                        </td>
+                    </tr>
+                </table>
+            </div>
         </xpath>
+        <xpath expr="//t[@t-call='web.external_layout_body']" position="replace">
+            <t t-call="web.external_layout_body">
+                <t t-out="0"/>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- The quotation / order table prints empty first two column headers; label them. -->
+    <template id="report_saleorder_document_nextx" inherit_id="sale.report_saleorder_document" name="NextX sales document table headers">
+        <xpath expr="//th[@name='th_description']" position="inside">Omschrijving</xpath>
+        <xpath expr="//th[@name='th_quantity']" position="inside">Aantal</xpath>
     </template>
 </odoo>

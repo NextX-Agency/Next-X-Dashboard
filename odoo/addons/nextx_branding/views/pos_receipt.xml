@@ -1,43 +1,111 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  NextX POS receipt, 80 mm thermal, black and white only.
+  Layout: logo + shop url / bon, date, seller / items (name on its own line, then qty x price and line total) /
+  TOTAAL / payments / thank-you. The logo is embedded because this template also renders inside the POS browser,
+  where module static paths and Python helpers are not available.
+  Regenerate the logo with odoo/ops/build_receipt_logo.py.
+-->
 <odoo>
-    <template id="pos_order_receipt_header_nextx"
-              inherit_id="point_of_sale.pos_order_receipt_header"
-              name="NextX POS receipt header">
-        <xpath expr="//div[@name='logo']/img" position="attributes">
-            <attribute name="class">mx-auto d-block</attribute>
-            <attribute name="style">display: block; margin: 0 auto; width: 48mm; max-width: 100%; max-height: 24mm; height: auto; object-fit: contain;</attribute>
+    <!-- ================= header ================= -->
+    <template id="pos_order_receipt_header_nextx" inherit_id="point_of_sale.pos_order_receipt_header" name="NextX POS receipt header">
+        <xpath expr="//div[@name='logo']" position="replace">
+            <div class="w-100 text-center" name="logo">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAABmAQAAAADO4za8AAAEOklEQVR42pWYsY6kRhCGv+5FGgJLEF50Q+CHcLDS8Cb3Cg4nsLQdXuhH8JNY7HkehNnIIZOhUy/loBroZpgBI7EsTVFd9ffffxWDbBwDwJuIB7BsHEO47rMGoAnXTWtbiPgWehFpt32X6rIDzKa16cIJYI0xFjDGPDA/Az18AB/7snSa6MUC8tTyVc9sGhAR/bt2XEXkXaQQkcKGiZ4fFQJIuR13oWc5rU7zwPDTmJzcAQwVDNU+THLnAV9bgPaZZdZA1lBPA8cHmHg4iD+K+FMnIp1YAgce0wqwrZptx206oLsBRq37p+Y9GKXJnt3gArVo1NpvEsVfmKhinmEi7yLyz0FECtkRSQV8zUHCyssmUaQEyp17nlKpYtmkbO4gr9ipJ1kD1ODrYN1svgH0YwQnRbBXzXPwJh5MC3AajopnJwHBQNl/Af6cJwvDgXS3Rdx/TaRpo/UdhaYdrfVtcQA/lfj97Ok8Udfeia9QhdezJhJjuIzWfTzqgD7eIfU0blMiAzTluCzh+nW6tZHX4K7NwdNCGQBWGkk5Wg8xMh0wxAtWTjZxJG20cCNVR6LorY3mCu56C4KDU7L4vn7MqrclrWIOxpT1hnRQ1aRfIOiif/4Gk+TOLfh2M2UPbpHxpD/L3SBA/wcM1ODjR2fQMmV1ZYOrFzWpAnnv6nG22CJRHcxefMahD/ozWbaqAgMcRBxGNM4iqI/qjxSie6d8rArzokqUZaqy+Yr+UAbrfKmbWUITxXio9vYneYx3tqBscFGvy0pSN+Zd7pabKmmdRv+q5iATgp2IDEeRB/rtIhkJhKILId73MXWafzsa7cLEjtRa7ziqNP/LqAv24aLnK9EBSLPEpAOKGZNi7IHWfXcJyFImCVR7Ui0ext0mBXqoRg2yrBG8SdTO10kk+Z5IRg3S6hR2mogsedJp0T8GTLLnXru5B1p7LCljzaRBdo0sQ1pyPyaW3/l+v2/Jm7TumMUjP0uhn9N6Xfr28c6atPJ7srdEy+oALyKkWgXfhmJqrVPfnwpHB1/mgjgudXEnBuWPWbx9RJNPt9bN3Mb3fuUuodwF6ypGxtJAHX1z1QpV1jzcxfN41Tvo2+gjo4v7vBcJN4rJqROR9igyHGWtpkl6f5sa5TBjvpRGM3OqboGPHkyKSb34pGzmFBptlO290uYeLDWED8QLkL0CPljbuBiUKxL6fZ47fPwGenDq4CAtFDpciAzFVUSuARMT51p3kFOORNH2uAAkyTJb9hNmzFkVpUw6jnGeFkotdA4Mk/bkzi5rjtIkIFkHmvhaB20MdQPwi8KTxQLZuwzImoRVvwH8Hg18AauNtG3BtlaV6SQicGigcDqXBTgEmtymVnfruPvSfXqEnucMnLetL3r+j18tnKL2uh13oedVRK6bvqUM575IOqVKCUi2+dvMzcAJcrM7y3r3bzMxnf8D/imCTyIhVM4AAAAASUVORK5CYII=" style="width: 300px !important; max-width: 70% !important; height: auto !important;"/>
+                <div class="text-large" style="letter-spacing: 1px;">shop-nextx.com</div>
+            </div>
         </xpath>
-        <xpath expr="//span[@name='ticket']" position="replace">
-            <span name="ticket">Bon</span>
+        <xpath expr="//div[@name='ticket_reference']/parent::div" position="replace">
+            <table class="w-100 mt-3 mb-2" style="border-top: 2px dashed #000; border-bottom: 2px dashed #000;" name="receipt_meta">
+                <tbody>
+                    <tr><td class="text-start w-30">Bon</td><td class="text-end"><t t-out="order['pos_reference']"/></td></tr>
+                    <tr><td class="text-start w-30">Datum</td><td class="text-end"><t t-out="extra_data['formated_date_order']"/></td></tr>
+                    <tr t-if="extra_data['cashier_name']"><td class="text-start w-30">Verkoper</td><td class="text-end cashier-name"><t t-out="extra_data['cashier_name']"/></td></tr>
+                </tbody>
+            </table>
         </xpath>
-        <xpath expr="//span[@name='served_by']" position="replace">
-            <span name="served_by">Verkoper:</span>
-        </xpath>
+        <xpath expr="//div[@name='cashier_name']" position="replace"/>
     </template>
 
-    <template id="pos_order_receipt_nextx"
-              inherit_id="point_of_sale.pos_order_receipt"
-              name="NextX POS receipt copy">
-        <xpath expr="//div[@name='simplified_receipt_label']/strong" position="replace">
-            <strong>Bon</strong>
+    <!-- ================= totals, payments ================= -->
+    <template id="pos_order_receipt_nextx" inherit_id="point_of_sale.pos_order_receipt" name="NextX POS receipt body">
+        <xpath expr="//div[@name='simplified_receipt_label']/strong" position="replace"><strong>Bon</strong></xpath>
+
+        <xpath expr="//div[@name='prices']" position="replace">
+            <div class="w-100 mb-3" name="prices" t-if="not conditions['basic_receipt']" style="border-top: 2px dashed #000; padding-top: 8px;">
+                <table class="w-100">
+                    <tbody>
+                        <tr t-if="extra_data['prices'].get('discount_amount')">
+                            <td class="text-start" name="discount">Korting</td>
+                            <td class="text-end font-monospace discount-amount" t-out="extra_data['prices']['discount_amount']"/>
+                        </tr>
+                        <t t-foreach="extra_data['prices']['taxes']" t-as="tax">
+                            <tr name="taxes_line">
+                                <td class="text-start"><t t-out="tax['name']"/></td>
+                                <td class="text-end font-monospace"><t t-out="tax['amount']"/></td>
+                            </tr>
+                        </t>
+                        <tr t-if="extra_data['prices'].get('rounding_amount')">
+                            <td class="text-start" name="rounding">Afronding</td>
+                            <td class="text-end font-monospace rounding-amount" t-out="extra_data['prices']['rounding_amount']"/>
+                        </tr>
+                        <tr class="text-bold" style="font-size: 30px;">
+                            <td class="text-start" name="total">TOTAAL</td>
+                            <td class="text-end"><span class="total-amount font-monospace" t-out="extra_data['prices']['total_amount']"/></td>
+                        </tr>
+                        <t t-foreach="payments" t-as="payment" name="payments">
+                            <tr class="payment-line" t-if="not payment.get('is_change')">
+                                <td class="text-start" t-out="payment['payment_method_data']['name']"/>
+                                <td class="text-end font-monospace" t-out="payment['amount']"/>
+                            </tr>
+                        </t>
+                        <t t-foreach="payments" t-as="payment" name="change_payments">
+                            <tr t-if="payment.get('is_change')">
+                                <td class="text-start" name="change">Wisselgeld</td>
+                                <td class="text-end change-amount font-monospace" t-out="payment['amount'].replace('-', '')"/>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
         </xpath>
+
+        <!-- the item count and the self-invoicing QR (it would send customers to the Odoo server) are not wanted -->
         <xpath expr="//table[@name='total_item_count']" position="replace"/>
+        <xpath expr="//div[@class='w-100'][./table//img[hasclass('invoice-qr-code')]]" position="replace"/>
     </template>
 
-    <template id="pos_order_receipt_footer_nextx"
-              inherit_id="point_of_sale.pos_order_receipt_footer"
-              name="NextX POS receipt footer">
-        <xpath expr="//strong[normalize-space()='Odoo']/parent::div" position="replace">
-            <div class="w-100 text-center mt-3">NextX</div>
+    <!-- ================= line items ================= -->
+    <template id="pos_orderline_receipt_nextx" inherit_id="point_of_sale.pos_orderline_receipt" name="NextX POS receipt line">
+        <xpath expr="//tr[@name='standard-line']" position="replace">
+            <t t-if="not line['combo_parent_id']">
+                <tr name="standard-line" class="lines">
+                    <td colspan="2" class="text-start top" style="padding-top: 10px;"><div name="product-name" class="name text-normal text-bold" t-out="line['product_data']['display_name']"/></td>
+                </tr>
+                <tr class="lines">
+                    <td class="text-start top">
+                        <span class="qty text-normal"><t t-out="line['qty']"/></span> <span class="text-normal">x</span> <span class="price-unit text-normal font-monospace" t-out="line['unit_price']"/>
+                        <t t-if="line['discount'] and not conditions['basic_receipt']"><span class="no-discount-price"> (-<t t-out="int(line['discount']) if line['discount'] == int(line['discount']) else line['discount']"/>%)</span></t>
+                    </td>
+                    <td t-if="not conditions['basic_receipt']" class="text-end top price-incl text-normal font-monospace" t-out="line['price_subtotal_incl']"/>
+                </tr>
+                <tr t-if="line['customer_note']"><td colspan="2" class="text-start text-small"><span class="line-note" t-out="line['customer_note']"/></td></tr>
+            </t>
         </xpath>
     </template>
 
-    <template id="pos_orderline_receipt_information_nextx"
-              inherit_id="point_of_sale.pos_orderline_receipt_information"
-              name="NextX Dutch POS line discount">
-        <xpath expr="//div[hasclass('no-discount-price')]" position="replace">
-            <div t-if="line['discount'] and not conditions['basic_receipt'] and not line['combo_parent_id']" class="text-small no-discount-price">
-                <span>Korting </span><t t-out="line['discount']"/>% <span>op </span><t t-out="line['no_discount_price']"/>
+    <!-- ================= footer ================= -->
+    <template id="pos_order_receipt_footer_nextx" inherit_id="point_of_sale.pos_order_receipt_footer" name="NextX POS receipt footer">
+        <xpath expr="//div[@name='footer']/parent::div" position="replace">
+            <div class="w-100 text-center mt-3" style="border-top: 2px dashed #000; padding-top: 12px;">
+                <div class="w-100 mt-2" name="footer"/>
+                <div class="text-large text-bold">Bedankt voor je aankoop.</div>
+                <div class="text-large">shop-nextx.com</div>
+                <!-- shop name, plus address / phone / tax id only once they are filled in on the POS config or company -->
+                <div class="text-small mt-2" t-if="config.get('name')" t-out="config['name']"/>
+                <div class="text-small" t-if="config.get('receipt_address')" t-out="config['receipt_address']"/>
+                <div class="text-small" t-if="config.get('phone')">Tel: <t t-out="config['phone']"/></div>
+                <div class="text-small" t-if="company.get('vat') and extra_data.get('vat_label')"><t t-out="extra_data['vat_label']"/>: <t t-out="company['vat']"/></div>
             </div>
         </xpath>
     </template>

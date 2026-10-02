@@ -73,6 +73,14 @@ try {
                  max(unit_cost_usd) filter (where unit_cost_usd > 0)::float8 as max_cost
           from sale_items group by item_id`)
       )
+      // Public storefront copy only (what shop-nextx.com already shows); no payout rules or internal settings.
+      write(
+        'store-settings.json',
+        await tx.$queryRawUnsafe(`
+          select key, value from store_settings
+          where key in ('store_name','whatsapp_number','store_address','store_email','store_description','hero_title','hero_subtitle','watches_hero_title','watches_hero_subtitle','watches_store_description')
+          order by key`)
+      )
       write(
         'exchange_rates.json',
         await tx.$queryRawUnsafe(`select usd_to_srd::float8, set_at, is_active from exchange_rates order by set_at desc`)

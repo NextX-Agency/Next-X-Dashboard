@@ -29,7 +29,7 @@ def _clean(value, limit):
 class NextXStore(http.Controller):
     # ------------------------------------------------------------------ plumbing
     def _authorized(self):
-        secret = request.env["ir.config_parameter"].sudo().get_param("nextx_storefront.secret") or ""
+        secret = request.env["ir.config_parameter"].sudo().get_str("nextx_storefront.secret") or ""
         header = request.httprequest.headers.get("Authorization", "")
         token = header[7:].strip() if header.lower().startswith("bearer ") else ""
         # A short or missing secret means "not configured": refuse everything rather than trust it.
@@ -67,6 +67,19 @@ class NextXStore(http.Controller):
             out[pid] = tmpl or None
         return out
 
+    def _resolve_location(self, env, public_id, locations):
+        """public location id (Supabase UUID or odoo-<id>) -> one of the shop locations, or empty."""
+        if not public_id:
+            return env["stock.location"]
+        if public_id.startswith("odoo-") and public_id[5:].isdigit():
+            candidate = env["stock.location"].sudo().browse(int(public_id[5:])).exists()
+        else:
+            row = env["ir.model.data"].sudo().search(
+                [("model", "=", "stock.location"), ("module", "=", EXT_MODULE), ("name", "=", f"location_{public_id}")], limit=1
+            )
+            candidate = env["stock.location"].sudo().browse(row.res_id).exists() if row else env["stock.location"]
+        return candidate if candidate in locations else env["stock.location"]
+
     def _shop_locations(self, env, company):
         warehouse = env["stock.warehouse"].sudo().search([("company_id", "=", company.id)], limit=1)
         stock_root = warehouse.lot_stock_id
@@ -102,7 +115,7 @@ class NextXStore(http.Controller):
         if company.currency_id.name != "SRD":
             return _json({"error": "company currency must be SRD"}, 500)
 
-        base_url = (env["ir.config_parameter"].sudo().get_param("web.base.url") or "").rstrip("/")
+        base_url = (env["ir.config_parameter"].sudo().get_str("web.base.url") or "").rstrip("/")
         templates = env["product.template"].sudo().search(
             [("sale_ok", "=", True), ("is_published", "=", True), ("type", "!=", "service")], order="id"
         )
@@ -127,7 +140,7 @@ class NextXStore(http.Controller):
         loc_ext = self._ext_map(env, "stock.location", "location_", locations.ids)
 
         usd_list = env["product.pricelist"].sudo().browse(
-            int(env["ir.config_parameter"].sudo().get_param("nextx_storefront.usd_pricelist_id") or 0)
+            int(env["ir.config_parameter"].sudo().get_str("nextx_storefront.usd_pricelist_id") or 0)
         ).exists()
 
         products = []
@@ -314,5 +327,16 @@ class NextXStore(http.Controller):
             }
         )
         order.action_confirm()  # reserves the stock; staff cancel it if the customer never collects
+        # Reserve from the shop the customer will collect at, when that shop has the stock; otherwise keep Odoo's choice.
+        _wh, shops = self._shop_locations(env, company)
+        pickup_loc = self._resolve_location(env, pickup, shops)
+        if pickup_loc:
+            free_here = self._free_by_location(env, order.order_line.product_id, pickup_loc)
+            if all(free_here[l.product_id.id].get(pickup_loc.id, 0.0) + l.qty_delivered >= l.product_uom_qty for l in order.order_line):
+                for picking in order.picking_ids.filtered(lambda p: p.state not in ("done", "cancel")):
+                    picking.do_unreserve()
+                    picking.write({"location_id": pickup_loc.id})
+                    picking.move_ids.write({"location_id": pickup_loc.id})
+                    picking.action_assign()
         _logger.info("shop order %s created (%s lines)", order.name, len(lines))
         return _json({"ok": True, "order_name": order.name, "order_id": order.id, "reused": False})

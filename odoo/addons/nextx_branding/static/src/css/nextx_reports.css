@@ -1,33 +1,57 @@
-/* Shared, restrained accents for NextX's standard Odoo PDF reports. */
-.o_company_1_layout {
-    font-family: Lato, Arial, sans-serif;
-    color: #111111;
-}
+/*
+  NextX A4 documents: minimal, dark text, one orange accent, thin rules, numbers right-aligned.
+  Brand: orange #F97015, dark #111111, neutral #F6F6F4. Orange is an accent only (never body text) for print contrast.
+  wkhtmltopdf renders with an old WebKit: no flex/grid, so everything here is plain block/table CSS.
+*/
+.header.nx-header { padding-bottom: 4mm; border-bottom: 1.6pt solid #f97015; margin-bottom: 7mm; }
+.header.nx-header .nx-logo { width: 42mm; height: auto; max-height: 20mm; }
+.header.nx-header .nx-company ul { margin: 0; padding: 0; list-style: none; font-size: 8.5pt; line-height: 1.45; color: #444; }
+.header.nx-header .nx-company strong { color: #111; font-size: 10pt; }
 
-.o_company_1_layout .header {
-    border-bottom: 0.6pt solid #f97015;
-    padding-bottom: 2.5mm;
-}
+.article { color: #111111; font-size: 9.5pt; line-height: 1.45; }
 
-.o_company_1_layout .o_company_logo_big {
-    max-width: 52mm !important;
-    max-height: 16mm !important;
-    width: auto !important;
-    height: auto !important;
-    object-fit: contain;
-}
+/* customer address block: left, compact (also neutralises Odoo's snail-mail window offset) */
+.article .address, .o_snail_mail .address { padding-top: 0 !important; margin-bottom: 8mm; }
+.article .address [name="address"] { margin-left: 0 !important; width: 62% !important; max-width: 62% !important; }
+.article .address address { margin: 0 !important; font-style: normal; font-weight: 400; color: #111; font-size: 10pt; line-height: 1.5; }
+.article .address address, .article .address address * { font-weight: 400; }
+.article .address address [itemprop="name"], .article .address address strong { font-weight: 700; }
 
-.o_company_1_layout .o_main_table thead th {
-    color: #111111 !important;
-    border-bottom: 0.6pt solid #f97015 !important;
-}
+/* document title: dark, bold, with a short orange rule */
+.article h2 { color: #111111; font-size: 21pt; font-weight: 700; letter-spacing: -0.2pt; margin: 0 0 6mm 0; }
+.article h2:after { content: ""; display: block; width: 22mm; height: 2.2pt; background: #f97015; margin-top: 3mm; }
 
-.o_company_1_layout .o_total_table tr.o_total td {
-    border-top: 0.8pt solid #f97015 !important;
-    font-weight: 700;
-}
+/* info row (dates, source, reference): small grey label above the value */
+.article #informations { margin-bottom: 7mm; }
+.article #informations strong { display: block; font-size: 7pt; font-weight: 700; letter-spacing: 0.7pt; text-transform: uppercase; color: #777; }
+.article #informations div { font-size: 10pt; color: #111; }
 
-.o_company_1_layout .footer {
-    color: #111111 !important;
-    border-top-color: #f97015 !important;
-}
+/* line table */
+.article table.o_main_table { width: 100%; border-collapse: collapse; margin-bottom: 4mm; }
+.article table.o_main_table thead th { font-size: 7pt; font-weight: 700; letter-spacing: 0.7pt; text-transform: uppercase; color: #555; padding: 2mm 1.5mm; border-top: 0; border-bottom: 1pt solid #111; }
+.article table.o_main_table tbody td { padding: 2.4mm 1.5mm; border-top: 0; border-bottom: 0.4pt solid #dcdcd8; vertical-align: top; font-size: 9.5pt; font-weight: 400; }
+.article table.o_main_table tbody td * { font-weight: inherit; }
+.article table.o_main_table td.o_price_total, .article table.o_main_table th:last-child { font-weight: 700; }
+.article table.o_main_table td.text-end { white-space: nowrap; }
+
+/* totals: right aligned, strong closing line */
+.article table.o_total_table { width: auto; margin-left: auto; min-width: 70mm; }
+.article table.o_total_table td { padding: 1.4mm 1.5mm; border: 0; font-size: 9.5pt; }
+.article table.o_total_table tr.o_total td { border-top: 1.4pt solid #111; padding-top: 2.4mm; font-size: 12pt; font-weight: 700; color: #111; }
+
+/* payment communication, notes, terms */
+.article #payment_term { margin-top: 6mm; font-size: 9pt; color: #333; }
+.article p[name="payment_communication"] { margin: 0; }
+
+/* footer */
+.footer .o_footer_content { border-top: 0.6pt solid #cfcfca !important; color: #666; font-size: 8pt; padding-top: 2mm; }
+.footer .o_footer_pager { color: #888; }
+
+/* The PDF engine has no icon font: the phone glyph rendered as the word "phone" on top of the number. */
+.article address .fa, .article address i.fa { display: none !important; }
+.article address [itemprop="telephone"]:before, .article address [itemprop="mobile"]:before { content: "Tel. "; color: #777; }
+.article address .o_force_ltr { unicode-bidi: normal; }
+
+/* long documents: never split a row or the totals across pages, repeat the table header */
+.article table.o_main_table tr, .article table.o_total_table { page-break-inside: avoid; }
+.article table.o_main_table thead { display: table-header-group; }
