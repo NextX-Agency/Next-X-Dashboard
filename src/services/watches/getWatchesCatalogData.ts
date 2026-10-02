@@ -3,6 +3,8 @@ import 'server-only'
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getLocationCatalogFilter } from '@/lib/locationCatalog'
+import { fetchCatalog } from '@/lib/storefront/odoo/client'
+import { getStorefrontSource } from '@/services/storefront/source'
 
 const CATALOG_TYPE = 'watches'
 const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
@@ -31,7 +33,7 @@ function serializeWatchItem(item: RawWatchItem) {
   }
 }
 
-async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
+async function loadWatchesFromSupabase(): Promise<Record<string, unknown>> {
   const watchItemSelect = {
     id: true,
     name: true,
@@ -172,8 +174,37 @@ async function loadWatchesCatalogData(): Promise<Record<string, unknown>> {
   }
 }
 
+// Same output shape as the Supabase loader, built from the Odoo storefront addon.
+async function loadWatchesFromOdoo(): Promise<Record<string, unknown>> {
+  const wire = await fetchCatalog()
+  const categories = new Map(wire.categories.map(c => [c.id, { id: c.id, name: c.name }]))
+  const products = wire.products.filter(p => p.catalog === CATALOG_TYPE && !p.is_combo)
+
+  return {
+    items: products.map(p => ({
+      id: p.id,
+      name: p.name,
+      brand: p.brand,
+      categoryId: p.category_id,
+      category: p.category_id ? categories.get(p.category_id) ?? null : null,
+      imageUrl: p.image_url,
+      sellingPriceUsd: p.price_usd,
+      sellingPriceSrd: p.price_srd,
+      catalogType: CATALOG_TYPE,
+      isPublic: true,
+    })),
+    exchangeRate: wire.exchange_rate ? { usdToSrd: wire.exchange_rate.usd_to_srd } : null,
+    banners: [],
+    collections: [],
+    settings: wire.settings,
+    stock: products.flatMap(p => p.stock.map(s => ({ itemId: p.id, quantity: Math.max(0, Math.floor(s.quantity)) }))),
+  }
+}
+
+const SOURCE = getStorefrontSource()
+
 export const getWatchesCatalogData = unstable_cache(
-  loadWatchesCatalogData,
-  ['watches-catalog-data-v2'],
+  SOURCE === 'odoo' ? loadWatchesFromOdoo : loadWatchesFromSupabase,
+  [`watches-catalog-data-v2-${SOURCE}`],
   { revalidate: 120, tags: ['watches-catalog'] }
 )

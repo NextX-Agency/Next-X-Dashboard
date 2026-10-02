@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
@@ -39,6 +40,7 @@
     "eslint-config-next": "16.0.8",
     "prisma": "6.19.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

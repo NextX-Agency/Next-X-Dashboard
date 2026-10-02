@@ -4,6 +4,8 @@ import { unstable_cache } from 'next/cache'
 
 import { prisma } from '@/lib/prisma'
 import { getLocationCatalogFilter } from '@/lib/locationCatalog'
+import { getStorefrontSource } from '@/services/storefront/source'
+import { getOdooCatalog } from '@/services/storefront/getOdooCatalog'
 
 const CATALOG_TYPE = 'audio'
 const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
@@ -112,7 +114,13 @@ async function loadCatalogPageData(): Promise<Record<string, unknown>> {
   }
 }
 
-export const getCatalogPageData = unstable_cache(loadCatalogPageData, ['catalog-page-data'], {
-  revalidate: 60,
-  tags: ['catalog'],
-})
+const SOURCE = getStorefrontSource()
+
+export const getCatalogPageData = unstable_cache(
+  async (): Promise<Record<string, unknown>> =>
+    SOURCE === 'odoo'
+      ? ((await getOdooCatalog(CATALOG_TYPE)) as unknown as Record<string, unknown>)
+      : loadCatalogPageData(),
+  [`catalog-page-data-${SOURCE}`],
+  { revalidate: 60, tags: ['catalog'] }
+)
