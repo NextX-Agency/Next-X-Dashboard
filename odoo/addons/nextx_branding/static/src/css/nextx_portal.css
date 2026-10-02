@@ -1,0 +1,25 @@
+/* Brand only the customer portal; keep the internal Odoo backend untouched. */
+.o_portal_wrap .btn-primary {
+    color: #111111 !important;
+    background-color: #f97015 !important;
+    border-color: #f97015 !important;
+}
+
+.o_portal_wrap .btn-primary:hover,
+.o_portal_wrap .btn-primary:focus {
+    color: #111111 !important;
+    background-color: #e5640d !important;
+    border-color: #e5640d !important;
+}
+
+.o_portal_wrap a:not(.btn) {
+    color: #111111;
+    text-decoration-color: #f97015;
+    text-underline-offset: 2px;
+}
+
+.o_portal_wrap a:focus-visible,
+.o_portal_wrap button:focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 2px;
+}

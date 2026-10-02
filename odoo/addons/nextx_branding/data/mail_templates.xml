@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo context="{'lang': 'nl_NL'}">
+        <record id="sale.email_template_edi_sale" model="mail.template">
+            <field name="subject">NextX - Offerte {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Je offerte <strong><t t-out="object.name or ''"/></strong> staat klaar.</p>
+    <p style="margin:0 0 12px;">Totaal: <strong><t t-out="format_amount(object.amount_total, object.currency_id)"/></strong>.</p>
+    <p t-if="object.get_portal_url()" style="margin:0 0 16px;"><a t-att-href="object.get_portal_url()" style="color:#111111; text-decoration:underline; text-decoration-color:#F97015; text-underline-offset:2px;">Bekijk je offerte</a></p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="sale.mail_template_sale_confirmation" model="mail.template">
+            <field name="subject">NextX - Bestelling {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Je bestelling <strong><t t-out="object.name or ''"/></strong> is bevestigd.</p>
+    <p style="margin:0 0 12px;">Totaal: <strong><t t-out="format_amount(object.amount_total, object.currency_id)"/></strong>.</p>
+    <p t-if="object.get_portal_url()" style="margin:0 0 16px;"><a t-att-href="object.get_portal_url()" style="color:#111111; text-decoration:underline; text-decoration-color:#F97015; text-underline-offset:2px;">Bekijk je bestelling</a></p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="sale.mail_template_sale_payment_executed" model="mail.template">
+            <field name="subject">NextX - Betaling voor {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Je betaling voor bestelling <strong><t t-out="object.name or ''"/></strong> is verwerkt.</p>
+    <t t-set="transaction" t-value="object.get_portal_last_transaction()"/>
+    <p t-if="transaction" style="margin:0 0 12px;">Ontvangen: <strong><t t-out="format_amount(transaction.amount, transaction.currency_id)"/></strong>.</p>
+    <p t-if="object.get_portal_url()" style="margin:0 0 16px;"><a t-att-href="object.get_portal_url()" style="color:#111111; text-decoration:underline; text-decoration-color:#F97015; text-underline-offset:2px;">Bekijk je bestelling</a></p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="account.email_template_edi_invoice" model="mail.template">
+            <field name="subject">NextX - Factuur {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Hierbij je factuur <strong><t t-out="object.name or ''"/></strong>.</p>
+    <p style="margin:0 0 12px;">Totaal: <strong><t t-out="format_amount(object.amount_total, object.currency_id)"/></strong>.</p>
+    <p t-if="object.payment_reference" style="margin:0 0 12px;">Betalingskenmerk: <t t-out="object.payment_reference"/></p>
+    <p t-if="object.get_portal_url()" style="margin:0 0 16px;"><a t-att-href="object.get_portal_url()" style="color:#111111; text-decoration:underline; text-decoration-color:#F97015; text-underline-offset:2px;">Bekijk je factuur</a></p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="account.email_template_edi_credit_note" model="mail.template">
+            <field name="subject">NextX - Creditnota {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Hierbij je creditnota <strong><t t-out="object.name or ''"/></strong>.</p>
+    <p style="margin:0 0 12px;">Totaal creditnota: <strong><t t-out="format_amount(object.amount_total, object.currency_id)"/></strong>.</p>
+    <p t-if="object.get_portal_url()" style="margin:0 0 16px;"><a t-att-href="object.get_portal_url()" style="color:#111111; text-decoration:underline; text-decoration-color:#F97015; text-underline-offset:2px;">Bekijk je creditnota</a></p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="stock.mail_template_data_delivery_confirmation" model="mail.template">
+            <field name="subject">NextX - Levering {{ object.origin or object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Hallo <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">De levering voor bestelling <strong><t t-out="object.origin or object.name or ''"/></strong> is verwerkt.</p>
+    <p style="margin:0 0 16px;">Je leveringsgegevens staan in de bijlage.</p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+
+        <record id="purchase.email_template_edi_purchase_done" model="mail.template">
+            <field name="subject">NextX - Inkooporder {{ object.name or '' }}</field>
+            <field name="lang">nl_NL</field>
+            <field name="body_html" type="html">
+<div style="margin:0; padding:0; color:#111111; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.55;">
+    <p style="margin:0 0 12px;">Beste <t t-out="object.partner_id.name or ''"/>,</p>
+    <p style="margin:0 0 12px;">Hierbij onze inkooporder <strong><t t-out="object.name or ''"/></strong>.</p>
+    <p style="margin:0 0 12px;">Totaal: <strong><t t-out="format_amount(object.amount_total, object.currency_id)"/></strong>.</p>
+    <p style="margin:0 0 16px;">De orderdetails staan in de bijlage.</p>
+    <p style="margin:0; border-top:1px solid #F97015; padding-top:8px;"><strong>NextX</strong><br/><a href="https://shop-nextx.com" style="color:#111111;">shop-nextx.com</a></p>
+</div></field>
+        </record>
+</odoo>

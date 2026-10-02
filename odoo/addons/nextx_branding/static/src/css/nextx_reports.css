@@ -1,0 +1,33 @@
+/* Shared, restrained accents for NextX's standard Odoo PDF reports. */
+.o_company_1_layout {
+    font-family: Lato, Arial, sans-serif;
+    color: #111111;
+}
+
+.o_company_1_layout .header {
+    border-bottom: 0.6pt solid #f97015;
+    padding-bottom: 2.5mm;
+}
+
+.o_company_1_layout .o_company_logo_big {
+    max-width: 52mm !important;
+    max-height: 16mm !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain;
+}
+
+.o_company_1_layout .o_main_table thead th {
+    color: #111111 !important;
+    border-bottom: 0.6pt solid #f97015 !important;
+}
+
+.o_company_1_layout .o_total_table tr.o_total td {
+    border-top: 0.8pt solid #f97015 !important;
+    font-weight: 700;
+}
+
+.o_company_1_layout .footer {
+    color: #111111 !important;
+    border-top-color: #f97015 !important;
+}

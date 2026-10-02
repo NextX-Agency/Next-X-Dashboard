@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="external_layout_standard_nextx"
+              inherit_id="web.external_layout_standard"
+              name="NextX standard document logo sizing">
+        <xpath expr="//img[hasclass('o_company_logo_big')]" position="attributes">
+            <attribute name="style">max-width: 52mm; max-height: 16mm; width: auto; height: auto; object-fit: contain;</attribute>
+        </xpath>
+    </template>
+</odoo>
