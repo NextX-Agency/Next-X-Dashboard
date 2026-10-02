@@ -103,7 +103,8 @@ const nextConfig: NextConfig = {
   
   async redirects() {
     return [
-      ...legacyProductRedirects,
+      // statusCode 301 (not permanent:true, which Next sends as 308) so the legacy map is a literal 301.
+      ...legacyProductRedirects.map(({ source, destination }) => ({ source, destination, statusCode: 301 })),
       {
         source: '/catalog',
         destination: '/audio',
