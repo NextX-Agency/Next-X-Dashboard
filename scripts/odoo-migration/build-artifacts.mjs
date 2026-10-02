@@ -15,6 +15,8 @@ const items = src('items.json')
 const locations = src('locations.json')
 const stock = src('stock.json')
 const fx = src('exchange_rates.json')
+const comboItems = src('combo_items.json')
+const costEvidence = new Map(src('cost-evidence.json').map(r => [r.item_id, r]))
 
 // ---------------------------------------------------------------- slugs
 export function slugify(name) {
@@ -89,6 +91,22 @@ for (const i of items) {
 }
 const locName = Object.fromEntries(locations.map(l => [l.id, l.name]))
 
+// Cost classification (see private/COST-CLASSIFICATION.md):
+//   MIGRATABLE               cost matches at least one historical sale snapshot that was NOT itself estimated
+//   NEEDS_OWNER_CONFIRMATION cost exists only on the item master (or only in estimated snapshots)
+//   DERIVED                  combo: cost is the sum of its components, never stored on the combo
+//   INVALID_ZERO             non-combo with no usable cost
+const byId = new Map(items.map(i => [i.id, i]))
+export function costClass(i) {
+  if (i.is_combo) return 'DERIVED'
+  if (!(i.purchase_price_usd > 0)) return 'INVALID_ZERO'
+  const ev = costEvidence.get(i.id)
+  const realLines = ev ? ev.lines - ev.estimated_lines : 0
+  const consistent = ev ? ev.distinct_costs <= 1 && (ev.min_cost == null || ev.min_cost === i.purchase_price_usd) : true
+  return realLines > 0 && consistent ? 'MIGRATABLE' : 'NEEDS_OWNER_CONFIRMATION'
+}
+const comboCost = id => comboItems.filter(c => c.combo_id === id).reduce((a, c) => a + (byId.get(c.item_id)?.purchase_price_usd ?? 0) * c.quantity, 0)
+
 const manifestRows = items.map(i => [
   `nextx_supabase.item_${i.id}`,
   i.name.trim(),
@@ -98,7 +116,8 @@ const manifestRows = items.map(i => [
   i.is_combo ? 'combo' : 'storable',
   i.selling_price_srd ?? '',
   i.selling_price_usd ?? '',
-  i.is_combo ? '' : i.purchase_price_usd,
+  i.is_combo ? comboCost(i.id).toFixed(2) : i.purchase_price_usd,
+  costClass(i),
   i.is_public && !i.is_combo ? 'yes' : 'no',
   registry[i.id].slug,
   i.image_url ?? '',
@@ -106,7 +125,7 @@ const manifestRows = items.map(i => [
 writeFileSync(
   join(priv, 'odoo-product-manifest.csv'),
   csv(
-    ['external_id', 'name', 'catalog', 'category', 'brand', 'type', 'price_srd', 'price_usd', 'source_cost_usd', 'published', 'slug', 'source_image_url'],
+    ['external_id', 'name', 'catalog', 'category', 'brand', 'type', 'price_srd', 'price_usd', 'source_cost_usd', 'cost_class', 'published', 'slug', 'source_image_url'],
     manifestRows
   )
 )
@@ -148,6 +167,7 @@ const summary = {
   brands: [...brandCanon.values()],
   itemsWithoutCategory: items.filter(i => !i.category).length,
   itemsWithoutBrand: items.filter(i => !i.brand).length,
+  costClasses: Object.fromEntries(['MIGRATABLE', 'NEEDS_OWNER_CONFIRMATION', 'DERIVED', 'INVALID_ZERO'].map(k => [k, items.filter(i => costClass(i) === k).length])),
   nonComboZeroCost: items.filter(i => !i.is_combo && !(i.purchase_price_usd > 0)).length,
   activeFx: activeFx && { usdToSrd: activeFx.usd_to_srd, setAt: activeFx.set_at },
   pricesNotAtFx: activeFx

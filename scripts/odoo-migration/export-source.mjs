@@ -62,6 +62,17 @@ try {
         'combo_items.json',
         await tx.$queryRawUnsafe(`select combo_id::text, item_id::text, quantity::int from combo_items order by combo_id, item_id`)
       )
+      // Independent evidence for each product's cost: the cost snapshot on historical sale lines.
+      write(
+        'cost-evidence.json',
+        await tx.$queryRawUnsafe(`
+          select item_id::text, count(*)::int as lines,
+                 count(*) filter (where cost_is_estimated)::int as estimated_lines,
+                 count(distinct unit_cost_usd) filter (where unit_cost_usd > 0)::int as distinct_costs,
+                 min(unit_cost_usd) filter (where unit_cost_usd > 0)::float8 as min_cost,
+                 max(unit_cost_usd) filter (where unit_cost_usd > 0)::float8 as max_cost
+          from sale_items group by item_id`)
+      )
       write(
         'exchange_rates.json',
         await tx.$queryRawUnsafe(`select usd_to_srd::float8, set_at, is_active from exchange_rates order by set_at desc`)
