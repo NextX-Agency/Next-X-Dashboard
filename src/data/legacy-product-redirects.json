@@ -1,0 +1,342 @@
+[
+  {
+    "source": "/catalog/77d9aedd-8f45-47cc-928c-e2ecee3ee888",
+    "destination": "/audio/kz-edx-pro",
+    "permanent": true
+  },
+  {
+    "source": "/audio/77d9aedd-8f45-47cc-928c-e2ecee3ee888",
+    "destination": "/audio/kz-edx-pro",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/388c31fc-d118-4ab3-ad9f-62303f69e878",
+    "destination": "/audio/kz-castor-pro",
+    "permanent": true
+  },
+  {
+    "source": "/audio/388c31fc-d118-4ab3-ad9f-62303f69e878",
+    "destination": "/audio/kz-castor-pro",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/796c32f2-1e79-4826-b653-aa9ee24f0d66",
+    "destination": "/audio/kz-vader",
+    "permanent": true
+  },
+  {
+    "source": "/audio/796c32f2-1e79-4826-b653-aa9ee24f0d66",
+    "destination": "/audio/kz-vader",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/61b007df-3edd-4b12-b13b-3687198fcc27",
+    "destination": "/audio/kz-elliptical-pouch",
+    "permanent": true
+  },
+  {
+    "source": "/audio/61b007df-3edd-4b12-b13b-3687198fcc27",
+    "destination": "/audio/kz-elliptical-pouch",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/e9f079f3-64d4-4fe0-b0f5-5b92700b4ec2",
+    "destination": "/audio/essager-aux-3-5mm-to-type-c-dac",
+    "permanent": true
+  },
+  {
+    "source": "/audio/e9f079f3-64d4-4fe0-b0f5-5b92700b4ec2",
+    "destination": "/audio/essager-aux-3-5mm-to-type-c-dac",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/af49afda-56e8-4b25-823a-fc91f9e7949f",
+    "destination": "/audio/kz-zsn-pro-2",
+    "permanent": true
+  },
+  {
+    "source": "/audio/af49afda-56e8-4b25-823a-fc91f9e7949f",
+    "destination": "/audio/kz-zsn-pro-2",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/e891d5e1-de3f-4321-9782-36523bc5a84f",
+    "destination": "/audio/kz-zs10-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/audio/e891d5e1-de3f-4321-9782-36523bc5a84f",
+    "destination": "/audio/kz-zs10-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/30594bb0-b4f2-4316-b877-ffc7102fe1fd",
+    "destination": "/audio/essager-1m-aux-3-5mm-to-aux-verlengkabel",
+    "permanent": true
+  },
+  {
+    "source": "/audio/30594bb0-b4f2-4316-b877-ffc7102fe1fd",
+    "destination": "/audio/essager-1m-aux-3-5mm-to-aux-verlengkabel",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/c6e72547-4632-49b0-ba78-ee9774349757",
+    "destination": "/audio/kz-iem-3-5mm-kabel",
+    "permanent": true
+  },
+  {
+    "source": "/audio/c6e72547-4632-49b0-ba78-ee9774349757",
+    "destination": "/audio/kz-iem-3-5mm-kabel",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/2bd236a5-7d5a-4d03-8f1a-7d165f5111a5",
+    "destination": "/audio/essager-2m-aux-3-5mm-to-aux-verlengkabel",
+    "permanent": true
+  },
+  {
+    "source": "/audio/2bd236a5-7d5a-4d03-8f1a-7d165f5111a5",
+    "destination": "/audio/essager-2m-aux-3-5mm-to-aux-verlengkabel",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/226efd8e-0a24-4709-85dd-655fbccc0866",
+    "destination": "/audio/m-vave-sws12-wireless-iem-system",
+    "permanent": true
+  },
+  {
+    "source": "/audio/226efd8e-0a24-4709-85dd-655fbccc0866",
+    "destination": "/audio/m-vave-sws12-wireless-iem-system",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/3f794fb4-b718-4fb0-af2f-54facfb11d95",
+    "destination": "/audio/kz-as16-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/audio/3f794fb4-b718-4fb0-af2f-54facfb11d95",
+    "destination": "/audio/kz-as16-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/fe4e7b56-0858-469f-ba95-2e402b6acf03",
+    "destination": "/audio/kz-carol",
+    "permanent": true
+  },
+  {
+    "source": "/audio/fe4e7b56-0858-469f-ba95-2e402b6acf03",
+    "destination": "/audio/kz-carol",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/e8287ef5-e09c-4f76-864d-8b008829e750",
+    "destination": "/audio/kz-az09",
+    "permanent": true
+  },
+  {
+    "source": "/audio/e8287ef5-e09c-4f76-864d-8b008829e750",
+    "destination": "/audio/kz-az09",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/ce6a6431-14c9-4208-b5e7-bc5a97ecd075",
+    "destination": "/audio/kz-edx-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/audio/ce6a6431-14c9-4208-b5e7-bc5a97ecd075",
+    "destination": "/audio/kz-edx-pro-x",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/aa28df06-2b2e-4a0e-b5a0-aafd8dddf2f6",
+    "destination": "/watches/invicta-speedway-celerium-mens-watch-44mm-gold-50759",
+    "permanent": true
+  },
+  {
+    "source": "/watches/aa28df06-2b2e-4a0e-b5a0-aafd8dddf2f6",
+    "destination": "/watches/invicta-speedway-celerium-mens-watch-44mm-gold-50759",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/e475d0c9-ed60-47f9-96b5-00b68117e733",
+    "destination": "/watches/invicta-pro-diver-nexodus-mens-watch-46mm-steel-46282",
+    "permanent": true
+  },
+  {
+    "source": "/watches/e475d0c9-ed60-47f9-96b5-00b68117e733",
+    "destination": "/watches/invicta-pro-diver-nexodus-mens-watch-46mm-steel-46282",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/50bd7ae3-d741-4df7-a985-48196a312e59",
+    "destination": "/watches/curren-8439-luxury-business-mens-watch-gold-silver",
+    "permanent": true
+  },
+  {
+    "source": "/watches/50bd7ae3-d741-4df7-a985-48196a312e59",
+    "destination": "/watches/curren-8439-luxury-business-mens-watch-gold-silver",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/3df15549-6df6-4823-bc27-fe05377c7d06",
+    "destination": "/watches/curren-8439-luxury-business-mens-watch-silver-black",
+    "permanent": true
+  },
+  {
+    "source": "/watches/3df15549-6df6-4823-bc27-fe05377c7d06",
+    "destination": "/watches/curren-8439-luxury-business-mens-watch-silver-black",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/5104531b-c2b1-4ad3-a2ac-cae3543f8fc4",
+    "destination": "/watches/poedagar-613-square-luxury-mens-watch-silver-black",
+    "permanent": true
+  },
+  {
+    "source": "/watches/5104531b-c2b1-4ad3-a2ac-cae3543f8fc4",
+    "destination": "/watches/poedagar-613-square-luxury-mens-watch-silver-black",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/2e448d38-3d23-48c8-9056-9e0aa693d44f",
+    "destination": "/watches/curren-8452-mens-quartz-watch-full-black",
+    "permanent": true
+  },
+  {
+    "source": "/watches/2e448d38-3d23-48c8-9056-9e0aa693d44f",
+    "destination": "/watches/curren-8452-mens-quartz-watch-full-black",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/2144604f-a04f-4e1c-a921-3ad0cb9c0d5c",
+    "destination": "/watches/poedagar-895-luxury-mens-quartz-sport-watch-black-white",
+    "permanent": true
+  },
+  {
+    "source": "/watches/2144604f-a04f-4e1c-a921-3ad0cb9c0d5c",
+    "destination": "/watches/poedagar-895-luxury-mens-quartz-sport-watch-black-white",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/58b02e44-e70d-4f42-b039-81c2434e008e",
+    "destination": "/watches/curren-8456-classic-mens-watch-silver-blue-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/58b02e44-e70d-4f42-b039-81c2434e008e",
+    "destination": "/watches/curren-8456-classic-mens-watch-silver-blue-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/2ab3bb62-88e1-4177-a8a5-c7d5447d2f69",
+    "destination": "/watches/poedagar-989-classic-mens-leather-watch-silver-white-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/2ab3bb62-88e1-4177-a8a5-c7d5447d2f69",
+    "destination": "/watches/poedagar-989-classic-mens-leather-watch-silver-white-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/adaf0cc2-2b69-443b-9eec-bc25ce885976",
+    "destination": "/watches/poedagar-989-classic-mens-leather-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/adaf0cc2-2b69-443b-9eec-bc25ce885976",
+    "destination": "/watches/poedagar-989-classic-mens-leather-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/19b801e9-6577-4f63-a909-118461ba286b",
+    "destination": "/watches/poedagar-930-luxury-mens-watch-silver-green-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/19b801e9-6577-4f63-a909-118461ba286b",
+    "destination": "/watches/poedagar-930-luxury-mens-watch-silver-green-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/623672c7-3927-4857-b829-ae3897349832",
+    "destination": "/watches/poedagar-930-luxury-mens-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/623672c7-3927-4857-b829-ae3897349832",
+    "destination": "/watches/poedagar-930-luxury-mens-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/09d09c3b-9460-41cf-b68f-01bf4ad943e7",
+    "destination": "/watches/curren-8453-mens-business-watch-gold-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/09d09c3b-9460-41cf-b68f-01bf4ad943e7",
+    "destination": "/watches/curren-8453-mens-business-watch-gold-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/db29636d-cf62-4fae-b05c-21a742198bc2",
+    "destination": "/watches/curren-8023-mens-sport-military-watch-all-black",
+    "permanent": true
+  },
+  {
+    "source": "/watches/db29636d-cf62-4fae-b05c-21a742198bc2",
+    "destination": "/watches/curren-8023-mens-sport-military-watch-all-black",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/19b6c76e-be33-4742-b811-f805c4df115e",
+    "destination": "/watches/curren-8023-mens-sport-military-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/watches/19b6c76e-be33-4742-b811-f805c4df115e",
+    "destination": "/watches/curren-8023-mens-sport-military-watch-silver-black-dial",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/cee46e9c-a2f4-41bc-97cf-d59c7236fff0",
+    "destination": "/watches/invicta-pro-diver-mens-watch-gold-charcoal-dial-model-47171",
+    "permanent": true
+  },
+  {
+    "source": "/watches/cee46e9c-a2f4-41bc-97cf-d59c7236fff0",
+    "destination": "/watches/invicta-pro-diver-mens-watch-gold-charcoal-dial-model-47171",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/479772f5-7728-4e87-94fb-47410c519342",
+    "destination": "/watches/invicta-specialty-rowan-mens-watch-gold-steel-black-dial-model-69477",
+    "permanent": true
+  },
+  {
+    "source": "/watches/479772f5-7728-4e87-94fb-47410c519342",
+    "destination": "/watches/invicta-specialty-rowan-mens-watch-gold-steel-black-dial-model-69477",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/5a1aa52c-0557-40ad-aee4-cdfcd5822608",
+    "destination": "/watches/invicta-specialty-rowan-mens-watch-gold-steel-blue-dial-model-69476",
+    "permanent": true
+  },
+  {
+    "source": "/watches/5a1aa52c-0557-40ad-aee4-cdfcd5822608",
+    "destination": "/watches/invicta-specialty-rowan-mens-watch-gold-steel-blue-dial-model-69476",
+    "permanent": true
+  },
+  {
+    "source": "/catalog/22a5e50f-6d92-4423-89a9-750706ce913a",
+    "destination": "/watches/invicta-ocean-voyage-mens-watch-steel-black-dial-model-48832",
+    "permanent": true
+  },
+  {
+    "source": "/watches/22a5e50f-6d92-4423-89a9-750706ce913a",
+    "destination": "/watches/invicta-ocean-voyage-mens-watch-steel-black-dial-model-48832",
+    "permanent": true
+  }
+]

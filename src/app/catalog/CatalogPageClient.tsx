@@ -1,5 +1,6 @@
 'use client'
 
+import { SITE_URL } from '@/lib/storefront/site'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
@@ -138,7 +139,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
 
 const CATALOG_TYPE = 'audio'
 const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
-const STORE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+const STORE_URL = SITE_URL
 
 function createStockMap(stockData: unknown[]): Map<string, number> {
   const map = new Map<string, number>()

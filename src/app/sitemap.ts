@@ -1,10 +1,14 @@
 import { MetadataRoute } from 'next'
 import { createClient } from '@supabase/supabase-js'
+import { SITE_URL } from '@/lib/storefront/site'
+import { productSlug } from '@/lib/storefront/slugs'
+import { getCatalogPageData } from '@/services/catalog/getCatalogPageData'
+import { getWatchProducts } from '@/services/watches/getWatchProducts'
 
 // Dynamic sitemap generation for Next.js
 // This will be automatically served at /sitemap.xml
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+const BASE_URL = SITE_URL
 
 // Create Supabase client for server-side sitemap generation
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -17,52 +21,63 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
-      lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 1.0,
     },
     {
-      url: `${BASE_URL}/catalog`,
-      lastModified: new Date(),
+      url: `${BASE_URL}/audio`,
+      changeFrequency: 'daily',
+      priority: 1.0,
+    },
+    {
+      url: `${BASE_URL}/watches`,
       changeFrequency: 'daily',
       priority: 1.0,
     },
     {
       url: `${BASE_URL}/blog`,
-      lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/faq`,
-      lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.7,
     },
     {
       url: `${BASE_URL}/testimonials`,
-      lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.7,
     },
   ]
 
-  // Dynamic product pages from database
+  // Product pages: final slug URLs only (never URLs that redirect), from the active storefront source.
+  // lastModified is omitted when the source does not know it rather than inventing "now".
   let productPages: MetadataRoute.Sitemap = []
   try {
-    const { data: products } = await supabase
-      .from('items')
-      .select('id, updated_at')
-      .eq('is_public', true)
-    
-    productPages = products?.map(product => ({
-      url: `${BASE_URL}/catalog/${product.id}`,
-      lastModified: new Date(product.updated_at || new Date()),
-      changeFrequency: 'weekly' as const,
-      priority: 0.9,
-    })) || []
+    const audio = (await getCatalogPageData()) as { items?: Array<{ id: string; name: string; updatedAt?: string | Date }> }
+    productPages.push(
+      ...(audio.items ?? []).map(item => ({
+        url: `${BASE_URL}/audio/${productSlug(item)}`,
+        ...(item.updatedAt ? { lastModified: new Date(item.updatedAt) } : {}),
+        changeFrequency: 'weekly' as const,
+        priority: 0.9,
+      }))
+    )
   } catch (error) {
-    console.error('Error fetching products for sitemap:', error)
+    console.error('Error fetching audio products for sitemap:', error)
+  }
+  try {
+    const { products } = await getWatchProducts()
+    productPages.push(
+      ...products.map(item => ({
+        url: `${BASE_URL}/watches/${productSlug(item)}`,
+        changeFrequency: 'weekly' as const,
+        priority: 0.9,
+      }))
+    )
+  } catch (error) {
+    console.error('Error fetching watches for sitemap:', error)
   }
 
   // Dynamic blog posts from database

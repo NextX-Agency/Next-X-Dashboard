@@ -6,6 +6,7 @@ import { Plus, Package, Eye, Bell } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
 import { Database } from '@/types/database.types'
 import { type StockStatus } from '@/lib/stockUtils'
+import { productSlug } from '@/lib/storefront/slugs'
 
 type Item = Database['public']['Tables']['items']['Row']
 
@@ -71,7 +72,7 @@ export function NewProductCard({
   const isOutOfStock = stockStatus === 'out-of-stock'
   const isLowStock = stockStatus === 'low-stock'
   
-  const productHref = `${catalogBasePath}/${id}`
+  const productHref = `${catalogBasePath}/${productSlug({ id, name })}`
 
   // Generate SEO-friendly alt text
   const altText = generateAltText(name, categoryName, isCombo)

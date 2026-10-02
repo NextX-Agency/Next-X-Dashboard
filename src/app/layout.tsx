@@ -5,8 +5,9 @@ import { CurrencyProvider } from "@/lib/CurrencyContext";
 import { AuthProvider } from "@/lib/AuthContext";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { SiteAnalyticsTracker } from "@/components/SiteAnalyticsTracker";
+import { SITE_URL } from "@/lib/storefront/site";
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+const BASE_URL = SITE_URL
 
 // Site-wide UI face. globals.css has always asked for Inter but nothing loaded it,
 // so every visitor fell back to whatever system font their device had.

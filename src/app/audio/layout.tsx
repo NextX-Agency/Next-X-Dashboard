@@ -19,7 +19,7 @@ const archivoBlack = Archivo_Black({
 });
 
 export const metadata: Metadata = {
-  title: "Shop In-Ear Monitors & Audio Accessories | NextX Suriname",
+  title: { absolute: "Shop In-Ear Monitors & Audio Accessories | NextX Suriname" },
   description: "Shop premium in-ear monitors, KZ earphones, audio accessories, and exclusive combo deals at NextX Suriname. Fast local pickup in Commewijne, easy WhatsApp ordering. Trusted quality audio gear.",
   keywords: [
     "NextX Suriname",

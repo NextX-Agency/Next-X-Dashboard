@@ -1,9 +1,10 @@
 import { MetadataRoute } from 'next'
+import { SITE_URL } from '@/lib/storefront/site'
 
 // Dynamic robots.txt generation for Next.js
 // This will be automatically served at /robots.txt
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+const BASE_URL = SITE_URL
 
 export default function robots(): MetadataRoute.Robots {
   return {

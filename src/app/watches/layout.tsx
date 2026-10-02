@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { absoluteUrl } from '@/lib/storefront/site'
 import { Cormorant_Garamond, Jost } from 'next/font/google'
 
 const cormorant = Cormorant_Garamond({
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     images: [{ url: '/og-image.png', width: 1200, height: 630 }],
   },
   alternates: {
-    canonical: 'https://shop-nextx.com/watches',
+    canonical: absoluteUrl('/watches'),
   },
 }
 

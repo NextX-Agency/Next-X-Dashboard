@@ -1,37 +1,49 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import type { Metadata } from 'next'
-import { prisma } from '@/lib/prisma'
-import { getLocationCatalogFilter } from '@/lib/locationCatalog'
+import { absoluteUrl } from '@/lib/storefront/site'
+import { breadcrumbJsonLd, jsonLd, metaDescription, productJsonLd } from '@/lib/storefront/seo'
+import { resolveProduct } from '@/lib/storefront/slugs'
+import { getWatchProducts, type WatchProductData } from '@/services/watches/getWatchProducts'
 import WatchDetailClient from './WatchDetailClient'
 
 interface PageProps {
+  // The segment is the product slug. Legacy UUID URLs are still accepted and redirected.
   params: Promise<{ id: string }>
 }
 
-const CATALOG_TYPE = 'watches'
-const LOCATION_CATALOG_FILTER = getLocationCatalogFilter(CATALOG_TYPE)
+export const revalidate = 60
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
   try {
-    const item = await prisma.item.findFirst({
-      where: {
-        id,
-        catalogType: CATALOG_TYPE,
-        isPublic: true,
-        is_combo: false,
-        deletedAt: null,
-      },
-    })
-    if (!item) return { title: 'Watch not found | NextX Watches' }
+    const { products } = await getWatchProducts()
+    const match = resolveProduct(id, products)
+    if (!match) return { title: 'Watch not found | NextX Watches', robots: { index: false, follow: false } }
+
+    const { product, canonicalSlug } = match
+    const path = `/watches/${canonicalSlug}`
+    const title = `${product.name} | NextX Watches`
+    const description = metaDescription(
+      product.description,
+      `${product.name} bij NextX Watches in Suriname. Ophalen in de winkel of bestellen via WhatsApp.`
+    )
     return {
-      title: `${item.name} | NextX Watches`,
-      description: item.description ?? `Buy ${item.name} — luxury timepiece available in Suriname.`,
+      title: { absolute: title },
+      description,
+      alternates: { canonical: absoluteUrl(path) },
       openGraph: {
-        title: `${item.name} | NextX Watches`,
-        images: item.imageUrl ? [{ url: item.imageUrl, width: 1200, height: 1200 }] : [],
+        title,
+        description,
+        type: 'website',
+        url: absoluteUrl(path),
+        images: product.imageUrl ? [{ url: product.imageUrl, width: 1200, height: 1200, alt: product.name }] : [],
       },
-      alternates: { canonical: `https://shop-nextx.com/watches/${id}` },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: product.imageUrl ? [product.imageUrl] : [],
+      },
     }
   } catch {
     return { title: 'NextX Watches' }
@@ -41,137 +53,66 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function WatchDetailPage({ params }: PageProps) {
   const { id } = await params
 
-  let item
-  let related: typeof item[] = []
-  let whatsappNumber = '5978555555'
-  let activeExchangeRate: number | null = null
-
+  let data: WatchProductData
   try {
-    const [resolvedItem, whatsappSetting, exchangeRate] = await Promise.all([
-      prisma.item.findFirst({
-        where: {
-          id,
-          catalogType: CATALOG_TYPE,
-          isPublic: true,
-          is_combo: false,
-          deletedAt: null,
-        },
-        include: {
-          category: true,
-          stock: {
-            where: {
-              location: {
-                is_active: true,
-                catalogType: { in: LOCATION_CATALOG_FILTER },
-              },
-            },
-          },
-        },
-      }),
-      prisma.storeSetting.findUnique({ where: { key: 'whatsapp_number' } }),
-      prisma.exchangeRate.findFirst({ where: { isActive: true }, orderBy: { setAt: 'desc' } }),
-    ])
-
-    item = resolvedItem
-    whatsappNumber = whatsappSetting?.value || whatsappNumber
-    activeExchangeRate = exchangeRate?.usdToSrd ? Number(exchangeRate.usdToSrd) : null
-
-    if (!item) notFound()
-
-    const relatedBaseWhere = {
-      catalogType: CATALOG_TYPE,
-      isPublic: true,
-      is_combo: false,
-      deletedAt: null,
-      id: { not: id },
-    }
-
-    related = await prisma.item.findMany({
-      where: {
-        ...relatedBaseWhere,
-        ...(item.categoryId ? { categoryId: item.categoryId } : {}),
-      },
-      take: 4,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        category: true,
-        stock: {
-          where: {
-            location: {
-              is_active: true,
-              catalogType: { in: LOCATION_CATALOG_FILTER },
-            },
-          },
-        },
-      },
-    })
-
-    if (related.length < 4) {
-      const relatedIds = new Set(related.map(relatedItem => relatedItem.id))
-      const fallbackRelated = await prisma.item.findMany({
-        where: {
-          ...relatedBaseWhere,
-          id: { notIn: [id, ...relatedIds] },
-        },
-        take: 4 - related.length,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          category: true,
-          stock: {
-            where: {
-              location: {
-                is_active: true,
-                catalogType: { in: LOCATION_CATALOG_FILTER },
-              },
-            },
-          },
-        },
-      })
-
-      related = [...related, ...fallbackRelated]
-    }
+    data = await getWatchProducts()
   } catch {
     notFound()
   }
 
-  const totalStock = item.stock.reduce((s, st) => s + st.quantity, 0)
+  const match = resolveProduct(id, data.products)
+  if (!match) notFound()
+  // One canonical URL per product: UUIDs and stale slugs 301 to the slug.
+  if (!match.isCanonical) permanentRedirect(`/watches/${match.canonicalSlug}`)
+
+  const { product: item } = match
+
+  // Same category first, then newest, up to four.
+  const others = data.products.filter(p => p.id !== item.id)
+  const related = [
+    ...others.filter(p => item.categoryId && p.categoryId === item.categoryId),
+    ...others.filter(p => !(item.categoryId && p.categoryId === item.categoryId)),
+  ].slice(0, 4)
 
   const relatedMapped = related.map(r => ({
     id: r.id,
     name: r.name,
     brand: r.brand,
     imageUrl: r.imageUrl,
-    sellingPriceUsd: r.sellingPriceUsd ? Number(r.sellingPriceUsd) : null,
-    sellingPriceSrd: r.sellingPriceSrd ? Number(r.sellingPriceSrd) : null,
-    stockCount: r.stock.reduce((s, st) => s + st.quantity, 0),
+    sellingPriceUsd: r.sellingPriceUsd,
+    sellingPriceSrd: r.sellingPriceSrd,
+    stockCount: r.stockCount,
   }))
 
-  const numericSrdPrice = item.sellingPriceSrd ? Number(item.sellingPriceSrd) : null
-  const numericUsdPrice = item.sellingPriceUsd ? Number(item.sellingPriceUsd) : null
-  const productJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: item.name,
-    brand: item.brand ? { '@type': 'Brand', name: item.brand } : undefined,
-    category: item.category?.name,
-    image: item.imageUrl ? [item.imageUrl] : undefined,
-    description: item.description ?? undefined,
-    offers: {
-      '@type': 'Offer',
-      url: `https://shop-nextx.com/watches/${item.id}`,
-      priceCurrency: numericSrdPrice != null ? 'SRD' : 'USD',
-      price: numericSrdPrice ?? numericUsdPrice ?? undefined,
-      availability: totalStock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      itemCondition: 'https://schema.org/NewCondition',
-    },
-  }
+  const blocks = [
+    jsonLd(
+      productJsonLd({
+        catalog: 'watches',
+        slug: match.canonicalSlug,
+        name: item.name,
+        brand: item.brand,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        categoryName: item.categoryName,
+        priceSrd: item.sellingPriceSrd,
+        priceUsd: item.sellingPriceUsd,
+        inStock: item.stockCount > 0,
+      })
+    ),
+    jsonLd(
+      breadcrumbJsonLd([
+        { name: 'Home', path: '/' },
+        { name: 'Watches', path: '/watches' },
+        { name: item.name },
+      ])
+    ),
+  ]
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
+      {blocks.map((block, index) => (
+        <script key={index} type="application/ld+json" dangerouslySetInnerHTML={{ __html: block }} />
+      ))}
       <WatchDetailClient
         item={{
           id: item.id,
@@ -179,14 +120,14 @@ export default async function WatchDetailPage({ params }: PageProps) {
           brand: item.brand,
           description: item.description,
           imageUrl: item.imageUrl,
-          sellingPriceUsd: numericUsdPrice,
-          sellingPriceSrd: numericSrdPrice,
-          categoryName: item.category?.name,
-          stockCount: totalStock,
+          sellingPriceUsd: item.sellingPriceUsd,
+          sellingPriceSrd: item.sellingPriceSrd,
+          categoryName: item.categoryName ?? undefined,
+          stockCount: item.stockCount,
         }}
         relatedItems={relatedMapped}
-        whatsappNumber={whatsappNumber}
-        initialExchangeRate={activeExchangeRate}
+        whatsappNumber={data.whatsappNumber || '5978555555'}
+        initialExchangeRate={data.exchangeRate}
       />
     </>
   )

@@ -10,6 +10,7 @@ import { DEFAULT_EXCHANGE_RATE, getSellingPrice, normalizeExchangeRate } from '@
 import { catalogShellClassName } from '@/components/catalog/shell'
 import { NewHeader } from '@/components/catalog/NewHeader'
 import { NewFooter } from '@/components/catalog/NewFooter'
+import { productPath } from '@/lib/storefront/slugs'
 import { 
   getItemStockStatus, 
   getItemStockLevel, 
@@ -458,68 +459,8 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
   const images = product?.image_url ? [product.image_url] : []
   const cartItems = loadCartItems()
 
-  // Generate product structured data for SEO
-  const productSchema = product ? {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "name": product.name,
-    "description": product.description || `${product.name} - Available at ${settings.store_name} in Suriname`,
-    "image": product.image_url || "",
-    "sku": product.id,
-    "brand": {
-      "@type": "Brand",
-      "name": settings.store_name
-    },
-    "offers": {
-      "@type": "Offer",
-      "url": typeof window !== 'undefined' ? window.location.href : '',
-      "priceCurrency": currency,
-      "price": unitPrice,
-      "availability": stockStatus === 'out-of-stock' 
-        ? "https://schema.org/OutOfStock" 
-        : "https://schema.org/InStock",
-      "seller": {
-        "@type": "Organization",
-        "name": settings.store_name
-      },
-      "areaServed": {
-        "@type": "Country",
-        "name": "Suriname"
-      }
-    },
-    "category": category?.name || "Audio Accessories"
-  } : null
-
-  // Breadcrumb schema
-  const breadcrumbSchema = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": typeof window !== 'undefined' ? `${window.location.origin}/` : '/'
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Audio",
-        "item": typeof window !== 'undefined' ? `${window.location.origin}/audio` : '/audio'
-      },
-      ...(category ? [{
-        "@type": "ListItem",
-        "position": 3,
-        "name": category.name,
-        "item": typeof window !== 'undefined' ? `${window.location.origin}/audio?category=${category.id}` : `/audio?category=${category.id}`
-      }] : []),
-      {
-        "@type": "ListItem",
-        "position": category ? 4 : 3,
-        "name": product?.name || "Product"
-      }
-    ]
-  }
+  // Structured data (Product, Offer, Breadcrumb) is rendered on the server in page.tsx so crawlers
+  // get absolute URLs and a currency that does not depend on this visitor's toggle.
 
   // Loading state — Show a skeleton to avoid blank screen while data loads
 
@@ -527,18 +468,6 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Structured Data for SEO */}
-      {productSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-        />
-      )}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
-
       {/* Header */}
       <NewHeader
         storeName={settings.store_name}
@@ -813,11 +742,10 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
                   {product.combo_items.map((ci) => {
                     const itemStock = stockMap.get(ci.child_item_id) || 0
                     const itemOutOfStock = itemStock <= 0
-                    console.log(`Combo item: ${ci.child_item?.name}, child_item_id: ${ci.child_item_id}, stock: ${itemStock}`)
                     return (
                       <Link
                         key={ci.id}
-                        href={`/audio/${ci.child_item_id}`}
+                        href={productPath('audio', { id: ci.child_item_id, name: ci.child_item?.name ?? '' })}
                         className={`flex items-center gap-3 p-3 rounded-sm border cursor-pointer transition-all ${
                           itemOutOfStock
                             ? 'bg-red-50 border-red-200 hover:bg-red-100'

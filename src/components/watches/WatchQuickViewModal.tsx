@@ -1,5 +1,6 @@
 'use client'
 
+import { productSlug } from '@/lib/storefront/slugs'
 import { memo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -159,7 +160,7 @@ function WatchQuickViewModalComponent({
               )}
 
               <Link
-                href={`/watches/${item.id}`}
+                href={`/watches/${productSlug(item)}`}
                 onClick={onClose}
                 className="w-btn-outline flex items-center justify-center gap-2"
               >

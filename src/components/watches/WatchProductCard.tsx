@@ -1,5 +1,6 @@
 'use client'
 
+import { productSlug } from '@/lib/storefront/slugs'
 import { memo, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -49,7 +50,7 @@ function WatchProductCardComponent({
   onAddToCart,
   onQuickView,
 }: WatchProductCardProps) {
-  const productHref = href ?? `/watches/${id}`
+  const productHref = href ?? `/watches/${productSlug({ id, name })}`
   const price = getWatchSellingPrice({ sellingPriceUsd, sellingPriceSrd }, displayCurrency, exchangeRate)
   const inStock = stockCount > 0
   const [imageLoaded, setImageLoaded] = useState(false)
