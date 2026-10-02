@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Local restore-verification cluster (scripts/restore-verification)
 /.t01-verify/
+
+# Odoo migration: cost, stock and finance material. The repo is public, keep it out.
+docs/odoo-migration/private/
