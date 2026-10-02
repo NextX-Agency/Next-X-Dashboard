@@ -154,5 +154,5 @@ const summary = {
     ? items.filter(i => i.selling_price_srd && i.selling_price_usd && Math.abs(i.selling_price_srd / activeFx.usd_to_srd - i.selling_price_usd) > 0.01).length
     : null,
 }
-writeFileSync(join(out, 'source-summary.json'), JSON.stringify(summary, null, 2) + '\n')
+writeFileSync(join(priv, 'source-summary.json'), JSON.stringify(summary, null, 2) + '\n')
 console.log(summary)
