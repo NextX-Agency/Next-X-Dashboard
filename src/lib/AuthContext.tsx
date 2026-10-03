@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { getDefaultRedirect, getAccessDeniedRedirect } from './routes'
+import { createContext, useContext, useState, useEffect, useRef, ReactNode, useMemo, useCallback } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { getDefaultRedirect, getAccessDeniedRedirect, isPublicRoute } from './routes'
 
 // User roles enum for type safety
 export type UserRole = 'admin' | 'seller' | 'user' | 'staff'
@@ -37,7 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
+  const pathname = usePathname()
+  const sessionChecked = useRef(false)
+
   useEffect(() => {
+    if (sessionChecked.current) return
+    // Anonymous shoppers on the public storefront can never have a session, so asking the server about one
+    // only produced a 401 on every page view. The check runs once, the first time the visitor reaches a page
+    // that needs to know (admin pages, /login). AuthGuard waits on `loading`, so it cannot redirect early.
+    if (isPublicRoute(pathname) && pathname !== '/login') {
+      setLoading(false)
+      return
+    }
+    sessionChecked.current = true
+    setLoading(true)
     // Check for existing session using API route (bypasses RLS)
     const checkSession = async () => {
       try {
@@ -57,9 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false)
     }
-    
+
     checkSession()
-  }, [])
+  }, [pathname])
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
     try {

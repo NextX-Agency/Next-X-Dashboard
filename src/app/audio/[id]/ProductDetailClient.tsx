@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_WHATSAPP_NUMBER } from '@/lib/storefront/contact'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -122,7 +123,7 @@ function createStoreSettings(settingsMap: Record<string, string>): StoreSettings
   const logoUrl = settingsMap.audio_store_logo_url || settingsMap.store_logo_url || ''
 
   return {
-    whatsapp_number: settingsMap.whatsapp_number || '+5978318508',
+    whatsapp_number: settingsMap.whatsapp_number || DEFAULT_WHATSAPP_NUMBER,
     store_name: settingsMap.store_name || 'NextX',
     store_address: settingsMap.store_address || 'Commewijne, Noord',
     store_logo_url: logoUrl && logoUrl !== '/logo.png' ? logoUrl : '',

@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation'
+import { DEFAULT_WHATSAPP_NUMBER } from '@/lib/storefront/contact'
 import type { Metadata } from 'next'
 import { absoluteUrl } from '@/lib/storefront/site'
 import { breadcrumbJsonLd, jsonLd, metaDescription, productJsonLd } from '@/lib/storefront/seo'
@@ -126,7 +127,7 @@ export default async function WatchDetailPage({ params }: PageProps) {
           stockCount: item.stockCount,
         }}
         relatedItems={relatedMapped}
-        whatsappNumber={data.whatsappNumber || '5978555555'}
+        whatsappNumber={data.whatsappNumber || DEFAULT_WHATSAPP_NUMBER}
         initialExchangeRate={data.exchangeRate}
       />
     </>

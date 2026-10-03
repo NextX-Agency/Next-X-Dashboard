@@ -53,7 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Product pages: final slug URLs only (never URLs that redirect), from the active storefront source.
   // lastModified is omitted when the source does not know it rather than inventing "now".
-  let productPages: MetadataRoute.Sitemap = []
+  const productPages: MetadataRoute.Sitemap = []
   try {
     const audio = (await getCatalogPageData()) as { items?: Array<{ id: string; name: string; updatedAt?: string | Date }> }
     productPages.push(

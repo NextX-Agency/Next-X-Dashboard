@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_WHATSAPP_NUMBER } from '@/lib/storefront/contact'
 import { memo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -13,7 +14,7 @@ interface WatchesFooterProps {
 }
 
 function WatchesFooterComponent({
-  whatsappNumber = '5978555555',
+  whatsappNumber = DEFAULT_WHATSAPP_NUMBER,
   logoUrl,
   storeAddress = 'Paramaribo, Suriname',
   storeDescription = 'Curated luxury timepieces from NextX — delivering exceptional watches with personal service and expertise.',

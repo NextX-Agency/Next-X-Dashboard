@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_WHATSAPP_NUMBER } from '@/lib/storefront/contact'
 import { SITE_URL } from '@/lib/storefront/site'
 import { odooCheckoutEnabled, useOdooOrder } from '@/lib/storefront/useOdooOrder'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
@@ -125,7 +126,7 @@ interface StoreSettings {
 }
 
 const DEFAULT_SETTINGS: StoreSettings = {
-  whatsapp_number: '+5978318508',
+  whatsapp_number: DEFAULT_WHATSAPP_NUMBER,
   store_name: 'NextX',
   store_description: '',
   store_address: 'Commewijne, Noord',

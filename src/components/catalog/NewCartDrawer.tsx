@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { X, Plus, Minus, Package, MessageCircle, ShoppingBag, MapPin, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { formatCurrency, type Currency } from '@/lib/currency'
@@ -99,7 +99,7 @@ export function NewCartDrawer({
   const totalPrice = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   
   // Check if any items exceed available stock (handles both regular and combo items)
-  const getItemStockInfo = (item: CartItem) => {
+  const getItemStockInfo = useCallback((item: CartItem) => {
     const { id, quantity: currentQuantity, isCombo, comboItems } = item
     
     // For combo items, calculate based on component availability
@@ -120,7 +120,7 @@ export function NewCartDrawer({
     const isLowStock = stockLevel <= STOCK_THRESHOLDS.LOW_STOCK && !isOutOfStock
     const canIncrement = currentQuantity < stockLevel
     return { stockLevel, isOverStock, isOutOfStock, isLowStock, canIncrement, isCombo: false }
-  }
+  }, [stockMap])
   
   // Check if cart has any stock issues (handles both regular and combo items)
   const hasStockIssues = useMemo(() => {
@@ -128,7 +128,7 @@ export function NewCartDrawer({
       const stockInfo = getItemStockInfo(item)
       return stockInfo.isOverStock || stockInfo.isOutOfStock
     })
-  }, [items, stockMap])
+  }, [items, getItemStockInfo])
 
   if (!isOpen) return null
 

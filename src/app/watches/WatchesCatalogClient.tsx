@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_WHATSAPP_NUMBER } from '@/lib/storefront/contact'
 import { useState, useMemo, useCallback, useEffect, useDeferredValue, useRef, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -265,7 +266,7 @@ export default function WatchesCatalogClient({
 
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase())
 
-  const whatsappNumber = settings.whatsapp_number ?? '5978555555'
+  const whatsappNumber = settings.whatsapp_number || DEFAULT_WHATSAPP_NUMBER
   const serverExchangeRate = useMemo(() => normalizeExchangeRate(initialExchangeRate), [initialExchangeRate])
   const activeExchangeRate = useMemo(() => (
     isCurrencyLoading
