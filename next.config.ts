@@ -8,10 +8,12 @@ const legacyProductRedirects: Array<{ source: string; destination: string; perma
   readFileSync(join(process.cwd(), "src/data/legacy-product-redirects.json"), "utf8")
 );
 
-// Odoo serves product images from its own host; allow the optimiser to fetch them.
-const odooImageHost = (() => {
+// Odoo serves product images from its own host; allow the optimiser to fetch exactly that origin.
+const odooImageOrigin = (() => {
   try {
-    return process.env.ODOO_STOREFRONT_URL ? new URL(process.env.ODOO_STOREFRONT_URL).hostname : null;
+    if (!process.env.ODOO_STOREFRONT_URL) return null;
+    const u = new URL(process.env.ODOO_STOREFRONT_URL);
+    return { protocol: u.protocol.replace(":", "") as "http" | "https", hostname: u.hostname, port: u.port };
   } catch {
     return null;
   }
@@ -29,7 +31,7 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
-      ...(odooImageHost ? [{ protocol: 'https' as const, hostname: odooImageHost }] : []),
+      ...(odooImageOrigin ? [odooImageOrigin] : []),
       {
         // Allow localhost blob previews in dev
         protocol: 'http',
@@ -46,6 +48,8 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 31536000,
     // Allow SVG (logo)
     dangerouslyAllowSVG: true,
+    // Local Odoo (replica) images are on a private address; production uses a public Odoo host.
+    dangerouslyAllowLocalIP: process.env.NODE_ENV !== 'production',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   

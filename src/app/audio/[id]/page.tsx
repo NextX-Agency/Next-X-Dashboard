@@ -54,15 +54,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     const { product, canonicalSlug } = match
     const path = `/audio/${canonicalSlug}`
-    // The root layout template already appends "| NextX Suriname".
-    const title = `${product.name} kopen in Suriname`
+    // The audio layout sets an absolute title, which resets the root template, so the brand is added here.
+    const title = `${product.name} kopen in Suriname | NextX`
     const description = metaDescription(
       product.description,
       `${product.name} bij NextX Suriname. Ophalen in de winkel of bestellen via WhatsApp.`
     )
 
     return {
-      title,
+      title: { absolute: title },
       description,
       alternates: { canonical: absoluteUrl(path) },
       openGraph: {

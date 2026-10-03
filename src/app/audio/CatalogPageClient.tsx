@@ -1,6 +1,7 @@
 'use client'
 
 import { SITE_URL } from '@/lib/storefront/site'
+import { odooCheckoutEnabled, useOdooOrder } from '@/lib/storefront/useOdooOrder'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { NormalizedCatalogData } from '@/lib/catalogData'
@@ -190,6 +191,8 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
 
   // Cart state
   const [cart, setCart] = useState<CartItem[]>([])
+  // Odoo checkout (preview only): see useOdooOrder. Off by default, so production keeps the WhatsApp hand-off.
+  const odooOrder = useOdooOrder()
   const [showCart, setShowCart] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -429,6 +432,21 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
   const getCartItemQuantity = (itemId: string) => {
     const cartItem = cart.find(c => c.item.id === itemId)
     return cartItem?.quantity || 0
+  }
+
+  const placeOdooOrder = () => {
+    const when = pickupDate === 'today' ? 'Vandaag' : pickupDate === 'tomorrow' ? 'Morgen' : customPickupDate || ''
+    const note = [when && `Ophaaldatum: ${when}`, customerNotes && `Opmerking: ${customerNotes}`].filter(Boolean).join(' | ')
+    void odooOrder.place({
+      customerName,
+      customerPhone,
+      pickupLocationId: selectedLocation,
+      note,
+      lines: cart.map(c => ({ product_id: c.item.id, quantity: c.quantity })),
+      storeName: settings.store_name,
+      whatsappNumber: settings.whatsapp_number,
+      onPlaced: () => { setCart([]); setCustomerNotes('') },
+    })
   }
 
   // WhatsApp order
@@ -1015,7 +1033,11 @@ export function CatalogPageClient({ initialData }: CatalogPageClientProps) {
         onCustomerPhoneChange={setCustomerPhone}
         customerNotes={customerNotes}
         onCustomerNotesChange={setCustomerNotes}
-        onSubmitOrder={sendWhatsAppOrder}
+        onSubmitOrder={odooCheckoutEnabled ? placeOdooOrder : sendWhatsAppOrder}
+        checkoutMode={odooCheckoutEnabled ? 'odoo' : 'whatsapp'}
+        submitting={odooOrder.submitting}
+        submitError={odooOrder.error}
+        orderConfirmation={odooOrder.confirmation}
         stockMap={Object.fromEntries(stockMap)}
       />}
 

@@ -53,6 +53,11 @@ interface NewCartDrawerProps {
   onCustomerNotesChange: (notes: string) => void
   onSubmitOrder: () => void
   stockMap?: Record<string, number>
+  /** 'odoo' places a real order (reserves stock) instead of handing the cart to WhatsApp. Default: whatsapp. */
+  checkoutMode?: 'whatsapp' | 'odoo'
+  submitting?: boolean
+  submitError?: string | null
+  orderConfirmation?: { name: string; whatsappUrl: string } | null
 }
 
 export function NewCartDrawer({
@@ -78,7 +83,11 @@ export function NewCartDrawer({
   customerNotes,
   onCustomerNotesChange,
   onSubmitOrder,
-  stockMap = {}
+  stockMap = {},
+  checkoutMode = 'whatsapp',
+  submitting = false,
+  submitError = null,
+  orderConfirmation = null,
 }: NewCartDrawerProps) {
   // Toggle state for checkout form visibility
   const panelRef = useRef<HTMLDivElement>(null)
@@ -166,7 +175,27 @@ export function NewCartDrawer({
 
         {/* Items - Scrollable area with better mobile height */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          {items.length === 0 ? (
+          {orderConfirmation ? (
+            <div className="flex flex-col items-center justify-center h-full py-12 px-6 text-center" role="status">
+              <div className="w-16 h-16 rounded-sm bg-[#f97015]/10 flex items-center justify-center mb-4">
+                <ShoppingBag size={28} className="text-[#f97015]" />
+              </div>
+              <h3 className="font-semibold text-[#111111] text-lg mb-1">Bedankt voor je bestelling</h3>
+              <p className="text-sm text-[#111111]/70 mb-1">Bestelnummer</p>
+              <p className="text-2xl font-bold text-[#111111] mb-4" data-testid="order-name">{orderConfirmation.name}</p>
+              <p className="text-sm text-[#111111]/60 mb-6">We hebben je producten gereserveerd bij de gekozen winkel.</p>
+              <a
+                href={orderConfirmation.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-12 rounded-sm bg-[#111111] text-white font-semibold flex items-center justify-center gap-2 mb-3"
+              >
+                <MessageCircle size={18} />
+                Bevestig via WhatsApp
+              </a>
+              <button onClick={onClose} className="text-sm text-[#111111]/60 underline underline-offset-2">Verder winkelen</button>
+            </div>
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 px-6">
               <div className="w-16 h-16 rounded-sm bg-[#f97015]/10 flex items-center justify-center mb-4">
                 <ShoppingBag size={28} className="text-[#f97015]/40" />
@@ -465,16 +494,22 @@ export function NewCartDrawer({
                 </span>
               </div>
 
+              {submitError && (
+                <p role="alert" className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-sm px-3 py-2">{submitError}</p>
+              )}
               <button
                 onClick={onSubmitOrder}
-                className="w-full h-12 sm:h-14 rounded-sm sm:rounded-sm bg-[#f97015] text-white font-semibold flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#d95c08] active:scale-[0.98] transition-all shadow-lg shadow-green-500/20"
+                disabled={submitting}
+                className="w-full h-12 sm:h-14 rounded-sm sm:rounded-sm bg-[#f97015] text-white font-semibold flex items-center justify-center gap-2 sm:gap-3 hover:bg-[#d95c08] active:scale-[0.98] transition-all shadow-lg shadow-green-500/20 disabled:opacity-60 disabled:cursor-wait"
               >
-                <MessageCircle size={18} />
-                <span className="text-sm sm:text-base">Bestellen via WhatsApp</span>
+                {checkoutMode === 'odoo' ? <ShoppingBag size={18} /> : <MessageCircle size={18} />}
+                <span className="text-sm sm:text-base">
+                  {checkoutMode === 'odoo' ? (submitting ? 'Bezig met plaatsen…' : 'Bestelling plaatsen') : 'Bestellen via WhatsApp'}
+                </span>
               </button>
-              
+
               <p className="text-[10px] sm:text-xs text-[#111111]/50 text-center mt-3">
-                Je wordt doorgestuurd naar WhatsApp
+                {checkoutMode === 'odoo' ? 'We reserveren je producten bij de gekozen winkel.' : 'Je wordt doorgestuurd naar WhatsApp'}
               </p>
             </div>
           </div>
