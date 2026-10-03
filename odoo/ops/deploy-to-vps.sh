@@ -16,7 +16,9 @@
 set -euo pipefail
 
 OPS="$(cd "$(dirname "$0")" && pwd)"
-OWNER="${SUDO_USER:?run this with sudo, as your normal user}"
+[ "$(id -u)" -eq 0 ] || { echo "Run with sudo:  sudo bash $0"; exit 1; }
+# Works from `sudo` and from a root shell: the files belong to the user who owns this directory.
+OWNER="${SUDO_USER:-$(stat -c %U "$OPS")}"
 DB="${NEXTX_DB:-nextx_staging}"
 WEB="${NEXTX_WEB:-odoo20-web}"
 DBC="${NEXTX_DBC:-odoo20-db}"
@@ -25,6 +27,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BK="$OPS/backups/$STAMP"
 OUT="$OPS/out"
 LOG="$OUT/deploy-$STAMP.log"
+echo "NextX deploy starting as $(id -un), files owned by $OWNER, in $OPS"
 mkdir -p "$BK" "$OUT" "$OPS/secrets"
 exec > >(tee -a "$LOG") 2>&1
 
