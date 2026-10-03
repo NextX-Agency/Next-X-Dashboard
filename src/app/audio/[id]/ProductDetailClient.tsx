@@ -514,14 +514,14 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
         <nav aria-label="Breadcrumb" className="mb-4">
           <ol className="flex items-center text-sm flex-wrap gap-1" itemScope itemType="https://schema.org/BreadcrumbList">
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-              <Link href="/" className="text-[#f97015] hover:underline" itemProp="item">
+              <Link href="/" className="text-[#f97015] hover:underline inline-block py-2 -my-2" itemProp="item">
                 <span itemProp="name">Home</span>
               </Link>
               <meta itemProp="position" content="1" />
             </li>
             <li className="mx-1.5 text-neutral-400">/</li>
             <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-              <Link href="/audio" className="text-[#f97015] hover:underline" itemProp="item">
+              <Link href="/audio" className="text-[#f97015] hover:underline inline-block py-2 -my-2" itemProp="item">
                 <span itemProp="name">Audio</span>
               </Link>
               <meta itemProp="position" content="2" />
@@ -530,7 +530,7 @@ export default function ProductDetailClient({ initialData }: { initialData: Prod
               <>
                 <li className="mx-1.5 text-neutral-400">/</li>
                 <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-                  <Link href={`/audio?category=${category.id}`} className="text-[#f97015] hover:underline" itemProp="item">
+                  <Link href={`/audio?category=${category.id}`} className="text-[#f97015] hover:underline inline-block py-2 -my-2" itemProp="item">
                     <span itemProp="name">{category.name}</span>
                   </Link>
                   <meta itemProp="position" content="3" />
