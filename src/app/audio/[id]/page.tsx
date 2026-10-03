@@ -117,29 +117,34 @@ export default async function ProductDetailPage({ params }: PageProps) {
         exchangeRate: data.exchangeRate as ProductDetailInitialData['exchangeRate'],
       }
 
-      jsonLdBlocks = [
-        jsonLd(
-          productJsonLd({
-            catalog: 'audio',
-            slug: match.canonicalSlug,
-            name: product.name,
-            brand: product.brand,
-            description: product.description,
-            imageUrl: product.image_url,
-            categoryName: category?.name,
-            priceSrd: product.selling_price_srd,
-            priceUsd: product.selling_price_usd,
-            inStock: units > 0,
-          })
-        ),
-        jsonLd(
-          breadcrumbJsonLd([
-            { name: 'Home', path: '/' },
-            { name: 'Audio', path: '/audio' },
-            { name: product.name },
-          ])
-        ),
-      ]
+      // Structured data must never take the page down, but it must never fail silently either.
+      try {
+        jsonLdBlocks = [
+          jsonLd(
+            productJsonLd({
+              catalog: 'audio',
+              slug: match.canonicalSlug,
+              name: product.name,
+              brand: product.brand,
+              description: product.description,
+              imageUrl: product.image_url,
+              categoryName: category?.name,
+              priceSrd: product.selling_price_srd,
+              priceUsd: product.selling_price_usd,
+              inStock: units > 0,
+            })
+          ),
+          jsonLd(
+            breadcrumbJsonLd([
+              { name: 'Home', path: '/' },
+              { name: 'Audio', path: '/audio' },
+              { name: product.name },
+            ])
+          ),
+        ]
+      } catch (ldError) {
+        console.error('Failed to build structured data for', match.canonicalSlug, ldError)
+      }
     }
   } catch (error) {
     // permanentRedirect throws a control-flow error that must reach Next.

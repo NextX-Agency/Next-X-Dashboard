@@ -34,6 +34,12 @@ describe('productJsonLd', () => {
     expect(ld.offers!.availability).toBe('https://schema.org/InStock')
     expect(ld.brand!.name).toBe('KZ')
   })
+  it('accepts string prices (Prisma Decimal) as well as numbers', () => {
+    const ld = asLd(productJsonLd({ ...base, priceSrd: '3000', priceUsd: '79.0000' }))
+    expect(ld.offers!.price).toBe('3000.00')
+    expect(asLd(productJsonLd({ ...base, priceSrd: '', priceUsd: '79.5' })).offers!.priceCurrency).toBe('USD')
+    expect(asLd(productJsonLd({ ...base, priceSrd: 'abc' })).offers).toBeUndefined()
+  })
   it('reports out of stock and omits offers without a price', () => {
     expect(asLd(productJsonLd({ ...base, priceSrd: 100, inStock: false })).offers!.availability).toBe('https://schema.org/OutOfStock')
     expect(asLd(productJsonLd({ ...base })).offers).toBeUndefined()

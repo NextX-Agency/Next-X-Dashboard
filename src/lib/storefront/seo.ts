@@ -23,11 +23,16 @@ export interface ProductSeoInput {
   description?: string | null
   imageUrl?: string | null
   categoryName?: string | null
-  priceSrd?: number | null
-  priceUsd?: number | null
+  // Prisma returns Decimal columns as strings, Odoo as numbers: accept both.
+  priceSrd?: number | string | null
+  priceUsd?: number | string | null
   inStock: boolean
 }
 
+const toNumber = (v: number | string | null | undefined): number | null => {
+  const n = typeof v === 'string' ? parseFloat(v) : v
+  return typeof n === 'number' && Number.isFinite(n) ? n : null
+}
 const money = (n: number) => n.toFixed(2)
 
 /**
@@ -35,8 +40,10 @@ const money = (n: number) => n.toFixed(2)
  * depend on the visitor's currency toggle, so what Google indexes matches what the shop charges.
  */
 export function productJsonLd(p: ProductSeoInput) {
-  const useSrd = p.priceSrd != null && p.priceSrd > 0
-  const price = useSrd ? p.priceSrd : p.priceUsd
+  const srd = toNumber(p.priceSrd)
+  const usd = toNumber(p.priceUsd)
+  const useSrd = srd != null && srd > 0
+  const price = useSrd ? srd : usd
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
