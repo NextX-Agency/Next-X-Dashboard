@@ -14,6 +14,9 @@ internal users land on it after login. It is built on the standard menu service 
     "data": ["views/home_menu.xml"],
     "post_init_hook": "post_init_hook",
     "assets": {
+        "web._assets_primary_variables": [
+            ("prepend", "nextx_home/static/src/scss/primary_variables.scss"),
+        ],
         "web.assets_backend": [
             "nextx_home/static/src/home_menu/home_menu.js",
             "nextx_home/static/src/home_menu/home_menu.xml",
