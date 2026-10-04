@@ -5,7 +5,7 @@
 #
 # What it does, in order (every step is logged to ~/nextx-ops/out/deploy-<time>.log):
 #   1. refuses to run if Odoo is not healthy; takes a database + filestore BACKUP and verifies it can be read
-#   2. installs the three NextX addons from the tested payload (nextx_branding, nextx_storefront, nextx_operations)
+#   2. installs the NextX addons from the tested payload (nextx_branding, nextx_storefront, nextx_operations, nextx_home)
 #   3. read-only audit BEFORE, then installs/upgrades the addons
 #   4. generates the storefront secret (once; never printed) and applies the idempotent configuration
 #   5. migrates the catalogue, images and opening stock from the Supabase snapshot (idempotent; sets, never adds)
@@ -46,7 +46,7 @@ docker cp "$WEB:/var/lib/odoo/filestore/$DB" "$BK/filestore" 2>/dev/null || echo
 echo "backup ok: $(du -sh "$BK" | cut -f1) in $BK"
 
 step "2. addons"
-for a in nextx_branding nextx_storefront nextx_operations; do
+for a in nextx_branding nextx_storefront nextx_operations nextx_home; do
   rsync -a --delete --exclude '__pycache__' "$OPS/payload/addons/$a/" "$ADDONS/$a/"
   chown -R root:root "$ADDONS/$a"
   chmod -R go-w "$ADDONS/$a"
@@ -56,7 +56,7 @@ ls "$ADDONS"
 step "3. audit BEFORE, then install / upgrade"
 oshell "$OPS/payload/ops/audit_odoo.py" > "$OUT/audit-before-$STAMP.txt" 2>&1 || true
 echo "audit before: $OUT/audit-before-$STAMP.txt"
-docker exec "$WEB" odoo -d "$DB" -i nextx_operations,nextx_storefront -u nextx_branding --stop-after-init 2>&1 | grep -E "ERROR|CRITICAL|Traceback|nextx_.*loaded" | tail -12
+docker exec "$WEB" odoo -d "$DB" -i nextx_operations,nextx_storefront,nextx_home -u nextx_branding --stop-after-init 2>&1 | grep -E "ERROR|CRITICAL|Traceback|nextx_.*loaded" | tail -12
 
 step "4. storefront secret + configuration"
 docker cp "$OPS/payload/data" "$WEB:/tmp/nextx-data"

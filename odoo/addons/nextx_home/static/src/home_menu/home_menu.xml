@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="nextx_home.HomeMenu">
+        <div class="nx_home">
+            <div class="nx_home_inner">
+                <div class="nx_home_search">
+                    <input type="search" class="nx_home_input" placeholder="Zoek een app…" autocomplete="off"
+                           t-ref="this.searchInput"
+                           t-model="this.query"
+                           t-on-keydown="this.onKeydown"/>
+                </div>
+                <div class="nx_home_grid">
+                    <a t-foreach="this.apps" t-as="app" t-key="app.id" class="nx_app"
+                       t-att-href="'/odoo/' + (app.actionPath || ('action-' + (app.actionID || '')))"
+                       t-att-data-menu-xmlid="app.xmlid"
+                       t-on-click.prevent="() => this.openApp(app)">
+                        <span class="nx_app_icon">
+                            <img t-if="app.webIconData" t-att-src="app.webIconData" alt=""/>
+                            <i t-elif="app.webIcon" class="oi" t-att-data-icon="this.iconName(app)" t-att-style="'color:' + this.iconColor(app)"/>
+                            <span t-else="" class="nx_app_letter" t-out="(app.name || '?').charAt(0)"/>
+                        </span>
+                        <span class="nx_app_name" t-out="app.name"/>
+                    </a>
+                </div>
+                <div t-if="!this.apps.length" class="nx_home_empty">Geen app gevonden.</div>
+            </div>
+        </div>
+    </t>
+
+</templates>

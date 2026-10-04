@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_home_menu" model="ir.actions.client">
+        <field name="name">NextX</field>
+        <field name="tag">nextx_home.home_menu</field>
+    </record>
+</odoo>
