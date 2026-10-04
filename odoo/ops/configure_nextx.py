@@ -206,6 +206,14 @@ for n, (shop_id, loc) in enumerate(shops.items(), start=1):
     xmlid_set(config, f"poscfg_{shop_id}")
 say("POS: receipt header/footer are owned by the NextX receipt template, not typed into each config")
 
+# ------------------------------------------------------------------ sellers: standard 'Contact creation' so they can add a customer in POS / on a quote
+partner_group = env.ref("base.group_partner_manager")
+for login in ("rico", "aryan"):
+    seller = env["res.users"].search([("login", "=", login)], limit=1)
+    if seller and partner_group not in seller.group_ids:
+        seller.write({"group_ids": [(4, partner_group.id)]})
+        say(f"~ user {login}: added standard group '{partner_group.full_name}'")
+
 # ------------------------------------------------------------------ storefront integration parameters
 params = env["ir.config_parameter"].sudo()
 if DATA and os.path.exists(os.path.join(DATA, "store-settings.json")):

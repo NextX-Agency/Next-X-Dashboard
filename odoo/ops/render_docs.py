@@ -74,7 +74,9 @@ credit.action_post()
 save("credit-note.pdf", Report._render_qweb_pdf("account.report_invoice", credit.ids)[0])
 
 # --- POS receipt (HTML; convert with wkhtmltopdf --page-width 80mm)
-cfg = env["pos.config"].search([], limit=1)
+# A POS can have only one open session; an earlier implementation test left one open, so use a shop that has none.
+busy = env["pos.session"].search([("state", "!=", "closed")]).mapped("config_id")
+cfg = env["pos.config"].search([("id", "not in", busy.ids)], limit=1) or env["pos.config"].search([], limit=1)
 seller = env["res.users"].create({"name": "Rico", "login": "zz_rico_render", "group_ids": [(6, 0, [env.ref("base.group_user").id, env.ref("point_of_sale.group_pos_user").id])]})
 session = env["pos.session"].with_user(seller).create({"config_id": cfg.id, "user_id": seller.id})
 session.set_opening_control(0, "")
