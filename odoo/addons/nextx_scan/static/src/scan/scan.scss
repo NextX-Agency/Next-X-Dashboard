@@ -1,0 +1,65 @@
+// Same look as the NextX home screen: dark, one orange accent (#F97015).
+.nx_scan {
+    min-height: 100%;
+    padding: 24px 16px 48px;
+    background: #141414;
+    color: #f4f4f2;
+    overflow-y: auto;
+
+    .nx_scan_inner { max-width: 640px; margin: 0 auto; }
+
+    .nx_scan_tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+    .nx_scan_tab {
+        flex: 1 1 auto; height: 42px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14);
+        background: rgba(255, 255, 255, .05); color: #f4f4f2; font-weight: 500;
+        &.active { background: #f97015; border-color: #f97015; color: #111; }
+    }
+    .nx_scan_hint { margin: 12px 0; color: rgba(255, 255, 255, .6); font-size: 14px; }
+
+    .nx_scan_row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .nx_scan_field {
+        flex: 1 1 200px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: rgba(255, 255, 255, .6);
+        select {
+            height: 42px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14);
+            background: #1d1d1d; color: #fff; padding: 0 10px;
+        }
+    }
+
+    .nx_scan_input_row { display: flex; gap: 8px; }
+    .nx_scan_input {
+        flex: 1; height: 48px; border-radius: 10px; padding: 0 14px; font-size: 17px;
+        border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .06); color: #fff; outline: none;
+        &:focus { border-color: #f97015; box-shadow: 0 0 0 3px rgba(249, 112, 21, .25); }
+    }
+    .nx_scan_camera {
+        height: 48px; padding: 0 16px; border-radius: 10px; border: 1px solid #f97015; background: transparent; color: #f97015; font-weight: 600;
+    }
+
+    .nx_scan_msg { margin-top: 12px; padding: 10px 14px; border-radius: 10px; white-space: pre-line; }
+    .nx_scan_msg_error { background: rgba(220, 53, 69, .18); border: 1px solid rgba(220, 53, 69, .5); }
+    .nx_scan_msg_success { background: rgba(40, 167, 69, .18); border: 1px solid rgba(40, 167, 69, .5); }
+
+    .nx_scan_card { margin-top: 16px; padding: 14px; border-radius: 14px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); }
+    .nx_scan_card_head { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; background: #222; } }
+    .nx_scan_name { font-size: 18px; font-weight: 600; }
+    .nx_scan_sub { font-size: 13px; color: rgba(255, 255, 255, .5); }
+    .nx_scan_price { margin-top: 4px; color: #f97015; font-weight: 700; }
+    .nx_scan_table { width: 100%; td { padding: 6px 0; border-top: 1px solid rgba(255, 255, 255, .08); } .nx_num { text-align: right; font-weight: 600; } }
+
+    .nx_scan_lines { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .nx_scan_line { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .05); }
+    .nx_scan_line_name { display: flex; flex-direction: column; min-width: 0; small { color: rgba(255, 255, 255, .5); } }
+    .nx_scan_qty {
+        display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+        button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .18); background: transparent; color: #fff; font-size: 18px; }
+        input { width: 64px; height: 36px; text-align: center; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .18); background: #1d1d1d; color: #fff; }
+        .nx_scan_remove { color: #ff6b6b; }
+    }
+    .nx_scan_empty { text-align: center; color: rgba(255, 255, 255, .45); padding: 24px 0; }
+
+    .nx_scan_footer { margin-top: 16px; display: flex; justify-content: space-between; align-items: center; }
+    .nx_scan_confirm {
+        height: 46px; padding: 0 28px; border-radius: 10px; border: 0; background: #f97015; color: #111; font-weight: 700;
+        &:disabled { opacity: .4; }
+    }
+}

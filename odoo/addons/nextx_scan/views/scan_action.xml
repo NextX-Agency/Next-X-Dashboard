@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_scan" model="ir.actions.client">
+        <field name="name">Scannen</field>
+        <field name="tag">nextx_scan.scan</field>
+    </record>
+
+    <menuitem id="menu_scan_root"
+              name="Scannen"
+              action="action_scan"
+              sequence="25"
+              groups="stock.group_stock_user"
+              web_icon="nextx_scan,static/description/icon.png"/>
+</odoo>

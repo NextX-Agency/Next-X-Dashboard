@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================= Revenue per shop (POS) ================= -->
+    <record id="view_pivot_revenue_shop" model="ir.ui.view">
+        <field name="name">nextx.report.pos.revenue.pivot</field>
+        <field name="model">report.pos.order</field>
+        <field name="arch" type="xml">
+            <pivot string="Omzet per winkel" sample="1">
+                <field name="config_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="price_total" type="measure"/>
+                <field name="nbr_lines" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="view_graph_revenue_shop" model="ir.ui.view">
+        <field name="name">nextx.report.pos.revenue.graph</field>
+        <field name="model">report.pos.order</field>
+        <field name="arch" type="xml">
+            <graph string="Omzet per winkel" type="bar" sample="1">
+                <field name="date" interval="week"/>
+                <field name="config_id"/>
+                <field name="price_total" type="measure"/>
+            </graph>
+        </field>
+    </record>
+    <record id="action_revenue_shop" model="ir.actions.act_window">
+        <field name="name">Omzet per winkel</field>
+        <field name="res_model">report.pos.order</field>
+        <field name="view_mode">pivot,graph</field>
+        <field name="domain">[('state', 'in', ['paid', 'done', 'invoiced'])]</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_revenue_shop')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('view_graph_revenue_shop')})]"/>
+    </record>
+
+    <!-- ================= Bestsellers ================= -->
+    <record id="view_pivot_bestsellers" model="ir.ui.view">
+        <field name="name">nextx.report.pos.bestsellers.pivot</field>
+        <field name="model">report.pos.order</field>
+        <field name="arch" type="xml">
+            <pivot string="Bestsellers" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="config_id" type="col"/>
+                <field name="product_qty" type="measure"/>
+                <field name="price_total" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="action_bestsellers" model="ir.actions.act_window">
+        <field name="name">Bestsellers</field>
+        <field name="res_model">report.pos.order</field>
+        <field name="view_mode">pivot</field>
+        <field name="domain">[('state', 'in', ['paid', 'done', 'invoiced'])]</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_bestsellers')})]"/>
+    </record>
+
+    <!-- ================= Sales per seller ================= -->
+    <record id="view_pivot_sellers" model="ir.ui.view">
+        <field name="name">nextx.report.pos.sellers.pivot</field>
+        <field name="model">report.pos.order</field>
+        <field name="arch" type="xml">
+            <pivot string="Omzet per verkoper" sample="1">
+                <field name="user_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="price_total" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="action_sellers" model="ir.actions.act_window">
+        <field name="name">Omzet per verkoper</field>
+        <field name="res_model">report.pos.order</field>
+        <field name="view_mode">pivot</field>
+        <field name="domain">[('state', 'in', ['paid', 'done', 'invoiced'])]</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_sellers')})]"/>
+    </record>
+
+    <!-- ================= Stock per shop ================= -->
+    <record id="view_pivot_stock_shop" model="ir.ui.view">
+        <field name="name">nextx.stock.quant.shop.pivot</field>
+        <field name="model">stock.quant</field>
+        <field name="arch" type="xml">
+            <pivot string="Voorraad per winkel" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="location_id" type="col"/>
+                <field name="quantity" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="action_stock_shop" model="ir.actions.act_window">
+        <field name="name">Voorraad per winkel</field>
+        <field name="res_model">stock.quant</field>
+        <field name="view_mode">pivot</field>
+        <field name="domain">[('location_id.usage', '=', 'internal')]</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_stock_shop')})]"/>
+    </record>
+
+    <!-- ================= Web and quotation orders ================= -->
+    <record id="view_pivot_web_orders" model="ir.ui.view">
+        <field name="name">nextx.report.sale.pivot</field>
+        <field name="model">sale.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Bestellingen" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="product_uom_qty" type="measure"/>
+                <field name="price_subtotal" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="action_web_orders" model="ir.actions.act_window">
+        <field name="name">Bestellingen (webshop en offertes)</field>
+        <field name="res_model">sale.report</field>
+        <field name="view_mode">pivot</field>
+        <field name="domain">[('state', 'in', ['sale', 'done'])]</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_web_orders')})]"/>
+    </record>
+
+    <!-- ================= Purchases ================= -->
+    <record id="view_pivot_purchases" model="ir.ui.view">
+        <field name="name">nextx.report.purchase.pivot</field>
+        <field name="model">purchase.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Inkoop" sample="1">
+                <field name="partner_id" type="row"/>
+                <field name="date_approve" interval="month" type="col"/>
+                <field name="qty_ordered" type="measure"/>
+                <field name="qty_received" type="measure"/>
+                <field name="price_total" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+    <record id="action_purchases" model="ir.actions.act_window">
+        <field name="name">Inkoop per leverancier</field>
+        <field name="res_model">purchase.report</field>
+        <field name="view_mode">pivot</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'pivot', 'view_id': ref('view_pivot_purchases')})]"/>
+    </record>
+
+    <!-- ================= Menu ================= -->
+    <menuitem id="menu_reports_root" name="Rapporten" sequence="30"
+              groups="point_of_sale.group_pos_manager"
+              web_icon="nextx_reports,static/description/icon.png"/>
+    <menuitem id="menu_revenue_shop" parent="menu_reports_root" name="Omzet per winkel" action="action_revenue_shop" sequence="10"/>
+    <menuitem id="menu_bestsellers" parent="menu_reports_root" name="Bestsellers" action="action_bestsellers" sequence="20"/>
+    <menuitem id="menu_sellers" parent="menu_reports_root" name="Omzet per verkoper" action="action_sellers" sequence="30"/>
+    <menuitem id="menu_stock_shop" parent="menu_reports_root" name="Voorraad per winkel" action="action_stock_shop" sequence="40"/>
+    <menuitem id="menu_web_orders" parent="menu_reports_root" name="Bestellingen" action="action_web_orders" sequence="50"/>
+    <menuitem id="menu_purchases" parent="menu_reports_root" name="Inkoop" action="action_purchases" sequence="60"/>
+</odoo>

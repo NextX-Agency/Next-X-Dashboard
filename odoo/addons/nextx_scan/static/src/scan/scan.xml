@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="nextx_scan.Scan">
+        <div class="nx_scan">
+            <div class="nx_scan_inner">
+                <div class="nx_scan_tabs">
+                    <button t-foreach="this.modes" t-as="mode" t-key="mode.id" type="button"
+                            class="nx_scan_tab" t-att-class="{ active: this.state.mode === mode.id }"
+                            t-on-click="() => this.setMode(mode.id)" t-out="mode.label"/>
+                </div>
+                <p class="nx_scan_hint" t-out="this.hint"/>
+
+                <div class="nx_scan_row" t-if="this.state.mode === 'count' or this.state.mode === 'transfer'">
+                    <label class="nx_scan_field">
+                        <span t-out="this.state.mode === 'count' ? 'Locatie' : 'Van'"/>
+                        <select t-on-change="this.setLocation">
+                            <option t-foreach="this.state.locations" t-as="loc" t-key="loc.id" t-att-value="loc.id"
+                                    t-att-selected="loc.id === this.state.locationId" t-out="loc.name"/>
+                        </select>
+                    </label>
+                    <label class="nx_scan_field" t-if="this.state.mode === 'transfer'">
+                        <span>Naar</span>
+                        <select t-on-change="this.setDest">
+                            <option t-foreach="this.state.locations" t-as="loc" t-key="loc.id" t-att-value="loc.id"
+                                    t-att-selected="loc.id === this.state.destId" t-out="loc.name"/>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="nx_scan_row" t-if="this.state.mode === 'receive'">
+                    <label class="nx_scan_field">
+                        <span>Ontvangst</span>
+                        <select t-on-change="this.selectReceipt">
+                            <option value="0">Kies een ontvangst…</option>
+                            <option t-foreach="this.state.receipts" t-as="rec" t-key="rec.id" t-att-value="rec.id"
+                                    t-att-selected="rec.id === this.state.receiptId"
+                                    t-out="rec.name + ' · ' + (rec.partner || '') + (rec.origin ? ' · ' + rec.origin : '')"/>
+                        </select>
+                    </label>
+                    <p t-if="!this.state.receipts.length" class="nx_scan_hint">Geen open ontvangsten.</p>
+                </div>
+
+                <div class="nx_scan_input_row">
+                    <input class="nx_scan_input" type="text" inputmode="none" autocomplete="off" autocapitalize="off"
+                           placeholder="Scan of typ een barcode en druk Enter" t-ref="this.scanInput"
+                           t-on-keydown="this.onScanKeydown"/>
+                    <button type="button" class="nx_scan_camera" t-on-click="this.openCamera">Camera</button>
+                </div>
+
+                <div t-if="this.state.message" class="nx_scan_msg" t-att-class="'nx_scan_msg_' + this.state.message.type"
+                     t-out="this.state.message.text"/>
+
+                <div t-if="this.state.mode === 'lookup' and this.state.product" class="nx_scan_card">
+                    <div class="nx_scan_card_head">
+                        <img t-att-src="'/web/image/product.product/' + this.state.product.id + '/image_128'" alt=""/>
+                        <div>
+                            <div class="nx_scan_name" t-out="this.state.product.name"/>
+                            <div class="nx_scan_sub" t-out="this.state.product.barcode"/>
+                            <div class="nx_scan_price" t-out="this.state.product.currency + ' ' + this.state.product.price.toFixed(2)"/>
+                        </div>
+                    </div>
+                    <table class="nx_scan_table">
+                        <tr t-foreach="this.state.product.stock" t-as="row" t-key="row.location_id">
+                            <td t-out="row.location"/>
+                            <td class="nx_num" t-out="row.quantity"/>
+                        </tr>
+                        <tr t-if="!this.state.product.stock.length"><td colspan="2">Niet op voorraad.</td></tr>
+                    </table>
+                </div>
+
+                <t t-if="this.state.mode !== 'lookup'">
+                    <div class="nx_scan_lines">
+                        <div t-foreach="this.state.lines" t-as="line" t-key="line.product_id" class="nx_scan_line">
+                            <div class="nx_scan_line_name">
+                                <span t-out="line.name"/>
+                                <small t-if="line.demand !== undefined" t-out="'verwacht ' + line.demand"/>
+                            </div>
+                            <div class="nx_scan_qty">
+                                <button type="button" t-on-click="() => this.changeQty(line, -1)">−</button>
+                                <input type="number" min="0" t-att-value="line.qty" t-on-change="(ev) => this.setQty(line, ev)"/>
+                                <button type="button" t-on-click="() => this.changeQty(line, 1)">+</button>
+                                <button type="button" class="nx_scan_remove" t-if="line.demand === undefined" t-on-click="() => this.removeLine(line)">×</button>
+                            </div>
+                        </div>
+                        <div t-if="!this.state.lines.length" class="nx_scan_empty">Nog niets gescand.</div>
+                    </div>
+                    <div class="nx_scan_footer">
+                        <span t-out="'Totaal: ' + this.totalQty"/>
+                        <button type="button" class="nx_scan_confirm" t-att-disabled="!this.canConfirm" t-on-click="this.confirm">Bevestigen</button>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>
