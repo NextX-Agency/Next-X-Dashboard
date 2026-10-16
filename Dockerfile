@@ -34,6 +34,9 @@ RUN pnpm build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
+# Record the exact source commit in the image so a running container can be traced to Git.
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.revision=$GIT_COMMIT
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
