@@ -1635,7 +1635,10 @@ describe('NextX migration planner', () => {
     expect(settings?.values.hero_body).toBeNull();
     expect(settings?.values.hero_title).toBe('Everyday audio, ready today');
     expect(plan.conflicts).toContainEqual(
-      expect.objectContaining({ kind: 'WATCH_COPY_DROPPED', entityKey: 'main:hero_subtitle' }),
+      expect.objectContaining({
+        kind: 'WATCH_COPY_DROPPED',
+        entityKey: 'main:settings.hero_subtitle',
+      }),
     );
   });
 

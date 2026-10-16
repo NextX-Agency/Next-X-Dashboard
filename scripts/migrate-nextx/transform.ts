@@ -1378,7 +1378,7 @@ function storeSettingRecords(builder: PlanBuilder, snapshot: LegacySnapshot): Ma
       // Customer-facing copy that mentions watches is cleared (explicit null so a previously
       // imported value is overwritten) and reported; see audioSafeCopy.
       values[targetColumn] = COPY_SETTING_KEYS.has(sourceKey)
-        ? audioSafeCopy(builder, 'main', sourceKey, value)
+        ? audioSafeCopy(builder, 'main', `settings.${sourceKey}`, value)
         : sourceKey.endsWith('_url')
           ? mapLegacyMediaUrl(builder, snapshot, value, 'storeSettings', sourceKey)
           : value;
