@@ -81,6 +81,21 @@ Still **UNVERIFIED**: restore of the pre-import dumps, why the 16:52 import left
 media (Storage) contents and backup, TLS and certificate details, cron jobs inside the app,
 email delivery, Supabase auth user list, offsite backup.
 
+## Why the target has no history (verified from `~/nextx-migration/run-20261016T165518Z/`)
+
+- The run produced `dry-run.*` and `import.*`, but `import.json` records `validation.mode: "offline"`.
+  It checked the plan (3,227 source rows, 1,934 planned operations, 0 fatal, 77 warnings, 99 info)
+  and wrote **nothing** to the database. This is the "offline PASS is not an import" case.
+- Host gates that did run live and passed: self-hosting, Supabase runtime, RLS, Storage upload/read/delete
+  smoke test, and a `pg_dump` of the (data-less) target restored into a scratch database. The restore
+  proves the mechanism on an empty target, not on a populated one.
+- Planned operations include sales 166, sale items 334, ledger entries 523, customers 10, expenses 91,
+  commissions 130, inventory movements 53, reservations 20 plus 30 archived. Source `sale_payments`
+  and `sale_refunds` tables are empty (payments are derived from sales), and source `invoices` is 0.
+- The source snapshot used is `~/nextx-migration/source-snapshot.json` (1.9 MB, taken 16:31Z on
+  16 Oct, mode 600). It contains customer data and is **stale**; take a fresh read-only snapshot
+  before the real import, and delete old copies once accepted.
+
 ## Open items
 
 1. Decide how staging gets the branch: a pinned-commit build on the VPS (see runbook TBD).
