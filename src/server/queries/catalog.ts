@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import { type Cents, toDecimalString } from '@/lib/money';
+import { cleanPublicCopy } from '@/lib/public-copy';
 import { db } from '../db/client';
 import {
   getRequestStorefront,
@@ -475,7 +476,7 @@ export async function listCatalogProducts(
     id: text(row.id),
     name: text(row.name),
     slug: text(row.public_slug),
-    summary: maybe(row.summary),
+    summary: cleanPublicCopy(row.summary),
     categoryName: maybe(row.category_name),
     categorySlug: maybe(row.category_slug),
     brandName: maybe(row.brand_name),
@@ -634,7 +635,7 @@ export async function listCatalogBundles(limit = 6): Promise<CatalogBundle[]> {
     id: text(row.id),
     slug: text(row.slug),
     name: text(row.name),
-    summary: maybe(row.summary),
+    summary: cleanPublicCopy(row.summary),
     priceCents: num(row.price_cents),
     availability: num(row.availability),
   }));
@@ -850,8 +851,8 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
     code: text(row.code),
     name: text(row.name),
     slug: text(row.public_slug),
-    summary: maybe(row.summary),
-    description: maybe(row.description),
+    summary: cleanPublicCopy(row.summary),
+    description: cleanPublicCopy(row.description),
     specs,
     seoTitle: maybe(row.seo_title),
     seoDescription: maybe(row.seo_description),
@@ -888,7 +889,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
     related: related.map((item) => ({
       name: text(item.name),
       slug: text(item.slug),
-      summary: maybe(item.summary),
+      summary: cleanPublicCopy(item.summary),
       relationshipType: text(item.relationship_type),
     })),
   };
