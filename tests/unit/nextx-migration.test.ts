@@ -1596,6 +1596,29 @@ describe('NextX migration planner', () => {
     ).toMatchObject({ prefix: 'INV-', last_value: 9876, padding: 4 });
   });
 
+  it('drops legacy storefront copy that mentions watches and reports it', () => {
+    const snapshot = structuredClone(sanitized) as {
+      storeSettings: Array<{ key: string; value: string; updatedAt: string }>;
+    };
+    const updatedAt = '2026-09-20T12:00:00.000Z';
+    snapshot.storeSettings.push(
+      { key: 'audio_store_description', value: 'Van IEMs tot Invicta-horloges.', updatedAt },
+      { key: 'watches_store_description', value: 'Invicta horloges', updatedAt },
+    );
+    const plan = buildMigrationPlan(snapshot);
+    const storefront = (slug: string) =>
+      plan.operations.find((o) => o.table === 'storefronts' && o.values.slug === slug);
+
+    expect(storefront('audio')?.values.description).toBeNull();
+    expect(storefront('watches')?.values.description).toBe('Invicta horloges');
+    expect(plan.conflicts).toContainEqual(
+      expect.objectContaining({
+        kind: 'WATCH_COPY_DROPPED',
+        entityKey: 'audio:store_description',
+      }),
+    );
+  });
+
   it('maps open finance obligations and preserves typed storefront settings', () => {
     const plan = buildMigrationPlan(sanitized);
     const obligation = plan.operations.find(
@@ -1630,6 +1653,14 @@ describe('NextX migration planner', () => {
     });
     expect(watches?.values.hero_image_url).toBe('/fixture/watches-hero.webp');
     expect(watches?.values.status).toBe('inactive');
+    // NextX quotes in SRD: a storefront whose products carry SRD prices must sell in SRD
+    // from the SRD price list, not from a converted USD list.
+    const srdList = plan.operations.find(
+      (operation) => operation.table === 'price_lists' && operation.values.currency === 'SRD',
+    );
+    expect(srdList).toBeDefined();
+    expect(audio?.values.default_currency).toBe('SRD');
+    expect(audio?.values.default_price_list_id).toBe(srdList?.values.id);
     expect(
       plan.operations
         .filter(

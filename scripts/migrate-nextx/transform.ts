@@ -1216,6 +1216,32 @@ function bundleRecords(
   return bundleTargets;
 }
 
+const WATCH_COPY_PATTERN = /\b(watch(?:es)?|horloges?|invicta|smartwatch)\b/i;
+
+/**
+ * NextX no longer sells watches. Legacy store copy that still mentions them must not
+ * reach a customer-facing storefront, so it is dropped (the app then shows its reviewed
+ * audio copy) and surfaced as a warning for the owner. The watch storefront keeps its
+ * copy because it is inactive and only informs staff history.
+ */
+function audioSafeCopy(
+  builder: PlanBuilder,
+  type: 'main' | 'audio' | 'watches',
+  key: string,
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  if (type === 'watches' || !WATCH_COPY_PATTERN.test(value)) return value;
+  builder.conflict({
+    severity: 'warning',
+    kind: 'WATCH_COPY_DROPPED',
+    entityType: 'storeSettings',
+    entityKey: `${type}:${key}`,
+    message: 'Legacy storefront copy mentions watches and was not imported; the audio fallback copy applies',
+  });
+  return null;
+}
+
 function storefrontRecords(
   builder: PlanBuilder,
   snapshot: LegacySnapshot,
@@ -1231,9 +1257,24 @@ function storefrontRecords(
     const id = rowId(row);
     if (id) locationTypes.set(id, catalogType(firstDefined(row, 'catalogType', 'catalog_type', 'type')));
   }
+  const srdPriceListId = builder.id('price_lists', 'SRD');
+  const srdPricedVariants = new Set<string>();
+  for (const operation of builder.operations) {
+    if (operation.table === 'price_list_items' && operation.values.price_list_id === srdPriceListId) {
+      srdPricedVariants.add(String(operation.values.variant_id));
+    }
+  }
   for (const type of types) {
     const id = builder.id('storefronts', type);
-    const priceListId = builder.id('price_lists', 'USD');
+    // NextX quotes customers in SRD. A storefront sells in SRD whenever any of its
+    // products carries a legacy SRD price; USD stays the fallback for USD-only catalogs.
+    const sellsInSrd = [...productIds].some(([legacyItemId]) => {
+      const item = snapshot.items.find((candidate) => rowId(candidate) === legacyItemId);
+      const itemType = catalogType(item ? firstDefined(item, 'catalogType', 'catalog_type', 'type') : 'main');
+      return itemType === type && srdPricedVariants.has(builder.id('product_variants', legacyItemId));
+    });
+    const currency = sellsInSrd ? 'SRD' : 'USD';
+    const priceListId = builder.id('price_lists', currency);
     storefrontIds.set(type, id);
     builder.map('storefronts', type, 'storefronts', id, 'DERIVE', 'Derived from legacy catalogType');
     const settingPrefix = type === 'main' ? '' : `${type}_`;
@@ -1244,10 +1285,10 @@ function storefrontRecords(
       slug: type,
       // Keep watch history and catalog identities without offering them for sale.
       status: type === 'watches' ? 'inactive' : 'active',
-      default_currency: 'USD',
+      default_currency: currency,
       default_locale: 'en-SR',
       default_price_list_id: priceListId,
-      description: settings.get(`${settingPrefix}store_description`) ?? (type === 'main' ? null : settings.get('store_description') ?? null),
+      description: audioSafeCopy(builder, type, 'store_description', settings.get(`${settingPrefix}store_description`) ?? (type === 'main' ? null : settings.get('store_description') ?? null)),
       logo_url: mapLegacyMediaUrl(
         builder,
         snapshot,
@@ -1255,8 +1296,8 @@ function storefrontRecords(
         'storeSettings',
         `${settingPrefix}store_logo_url`,
       ),
-      hero_title: settings.get(`${settingPrefix}hero_title`) ?? (type === 'main' ? null : settings.get('hero_title') ?? null),
-      hero_subtitle: settings.get(`${settingPrefix}hero_subtitle`) ?? (type === 'main' ? null : settings.get('hero_subtitle') ?? null),
+      hero_title: audioSafeCopy(builder, type, 'hero_title', settings.get(`${settingPrefix}hero_title`) ?? (type === 'main' ? null : settings.get('hero_title') ?? null)),
+      hero_subtitle: audioSafeCopy(builder, type, 'hero_subtitle', settings.get(`${settingPrefix}hero_subtitle`) ?? (type === 'main' ? null : settings.get('hero_subtitle') ?? null)),
       hero_image_url: mapLegacyMediaUrl(builder, snapshot, settings.get(`${settingPrefix}hero_image_url`), 'storeSettings', `${settingPrefix}hero_image_url`),
       hero_mobile_image_url: mapLegacyMediaUrl(builder, snapshot, settings.get(`${settingPrefix}hero_mobile_image_url`), 'storeSettings', `${settingPrefix}hero_mobile_image_url`),
     };
