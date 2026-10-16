@@ -1619,6 +1619,26 @@ describe('NextX migration planner', () => {
     );
   });
 
+  it('clears settings-level copy that mentions watches', () => {
+    const snapshot = structuredClone(sanitized) as {
+      storeSettings: Array<{ key: string; value: string; updatedAt: string }>;
+    };
+    const updatedAt = '2026-09-20T12:00:00.000Z';
+    snapshot.storeSettings.push({
+      key: 'hero_subtitle',
+      value: 'Van IEMs tot Invicta-horloges.',
+      updatedAt,
+    });
+    const plan = buildMigrationPlan(snapshot);
+    const settings = plan.operations.find((o) => o.table === 'settings');
+
+    expect(settings?.values.hero_body).toBeNull();
+    expect(settings?.values.hero_title).toBe('Everyday audio, ready today');
+    expect(plan.conflicts).toContainEqual(
+      expect.objectContaining({ kind: 'WATCH_COPY_DROPPED', entityKey: 'main:hero_subtitle' }),
+    );
+  });
+
   it('maps open finance obligations and preserves typed storefront settings', () => {
     const plan = buildMigrationPlan(sanitized);
     const obligation = plan.operations.find(

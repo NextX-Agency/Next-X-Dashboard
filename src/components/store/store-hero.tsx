@@ -15,11 +15,14 @@ import { getRequestStorefront } from '@/server/services/storefront';
  * two actions, catalogue underneath: the wash (`store-hero-field`) carries
  * the visual interest instead of a literal photo.
  */
+/** Placeholder greetings from the legacy shop ("Welkom", "Welcome To NextX") say nothing about the offer. */
+const GENERIC_GREETING = /^\s*(welkom|welcome)\b/i;
+
 export async function StoreHero() {
   const [settings, storefront] = await Promise.all([getSettings(), getRequestStorefront()]);
   const configuredTitle = storefront?.heroTitle?.trim() || settings?.heroTitle?.trim() || '';
   const heroTitle =
-    configuredTitle && configuredTitle.toLowerCase() !== 'welkom'
+    configuredTitle && !GENERIC_GREETING.test(configuredTitle)
       ? configuredTitle
       : storefront?.slug === 'audio'
         ? 'Geluid dat\nklopt.'

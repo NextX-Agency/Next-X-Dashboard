@@ -1216,6 +1216,7 @@ function bundleRecords(
   return bundleTargets;
 }
 
+const COPY_SETTING_KEYS = new Set(['store_description', 'hero_title', 'hero_subtitle']);
 const WATCH_COPY_PATTERN = /\b(watch(?:es)?|horloges?|invicta|smartwatch)\b/i;
 
 /**
@@ -1374,9 +1375,13 @@ function storeSettingRecords(builder: PlanBuilder, snapshot: LegacySnapshot): Ma
   for (const [sourceKey, targetColumn] of mappedFields) {
     const value = settings.get(sourceKey);
     if (value !== undefined) {
-      values[targetColumn] = sourceKey.endsWith('_url')
-        ? mapLegacyMediaUrl(builder, snapshot, value, 'storeSettings', sourceKey)
-        : value;
+      // Customer-facing copy that mentions watches is cleared (explicit null so a previously
+      // imported value is overwritten) and reported; see audioSafeCopy.
+      values[targetColumn] = COPY_SETTING_KEYS.has(sourceKey)
+        ? audioSafeCopy(builder, 'main', sourceKey, value)
+        : sourceKey.endsWith('_url')
+          ? mapLegacyMediaUrl(builder, snapshot, value, 'storeSettings', sourceKey)
+          : value;
     }
   }
   const sourceCurrency = settings.get('store_currency');

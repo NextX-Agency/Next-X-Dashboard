@@ -23,6 +23,8 @@ const PUBLIC_PREFIX_PATHS = [
   '/p',
   '/audio',
   '/watches',
+  // Legacy shop URLs: next.config redirects or rewrites them (to a slug page or a 410).
+  '/catalog',
   '/blog',
   '/faq',
   '/testimonials',
@@ -41,7 +43,7 @@ const DATABASE_FREE_EXACT_PATHS = new Set([
   '/opengraph-image',
 ]);
 
-const DATABASE_FREE_PREFIX_PATHS = ['/auth', '/watches'];
+const DATABASE_FREE_PREFIX_PATHS = ['/auth', '/watches', '/catalog'];
 
 function matchesPath(pathname: string, path: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);

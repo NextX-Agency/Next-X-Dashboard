@@ -88,3 +88,36 @@ Screenshots of the 410 page at desktop and 375px width were taken and read corre
 Rendered titles, canonicals, sitemap and structured data on the **production host**
 (it does not exist yet); redirect behaviour on the VPS (needs a deployed build);
 Search Console indexing state of the 24 dead URLs.
+
+## Update: staging deploy of `a750a6e` and what it exposed
+
+Deployed and imported on staging (exit 0, 794 batches, 1,934 operations, online validation `pass`).
+Direct checks of `https://nextx.nextxagency.com` afterwards:
+
+| Check | Result |
+|---|---|
+| `<title>` | `NEXT X Audio · NextX Dashboard 2.0` (was `· Nextly`) |
+| Product JSON-LD (KZ ZSN Pro 2) | `SRD 1500.00`, `InStock` (was `USD 39.50`, `OutOfStock`) |
+| `/watches`, `/watches/<id>` | `410` |
+| Hero text | **Still showed "Welcome To NextX" and "…Invicta-horloges"**: that copy lives in the `settings` row (`hero_title`, `hero_body`), which the first guard did not cover. |
+| `robots.txt` | **Still `Allow: /`**: Next prerendered it at build, before `NEXTX_ENVIRONMENT` existed. |
+| `/catalog/<audio id>` | **`/audio/<uuid>` with 200, no HTTP redirect**: the product page's `permanentRedirect` runs inside a streamed `<Suspense>`, so it becomes a client-side redirect (Next documents this). |
+| `/audio/<unknown>` | **200 + `noindex`** (soft 404), same streaming contract. |
+
+Fixed in the next commit, each verified against a production build (built without staging variables,
+run with `NEXTX_ENVIRONMENT=staging`):
+
+- Settings-level copy that mentions watches is cleared with an explicit `null` and reported; generic
+  "Welkom/Welcome" hero titles are ignored at render time.
+- `robots.txt` and the sitemap are request-time routes; staging returns `Disallow: /` and an empty sitemap.
+- Exact single-hop **308** redirects for all 15 legacy audio ids, from both `/catalog/<id>` and
+  `/audio/<id>`: **30 of 30** verified.
+- All 19 known retired watch ids return a real **410** from both `/catalog/<id>` and `/audio/<id>`:
+  **38 of 38** verified. They are excluded from the generic `/catalog/:id` redirect.
+- `/catalog` is public and database-free so these rules apply before authentication.
+
+**Residual (not fixed):** a product slug that does not exist returns `200` with `noindex`, not `404`,
+because the lookup happens inside `<Suspense>`. Next documents that this is not indexable. A true 404
+needs an existence check before the first `<Suspense>` on `/p/[slug]` and `/audio/[slug]`; that is a
+page restructure under `cacheComponents` and should be done and measured separately.
+Unknown non-shop paths redirect to `/login` (307), the dashboard's design for unauthenticated hosts.

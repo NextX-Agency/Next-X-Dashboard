@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { connection } from 'next/server';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 
 /**
@@ -28,7 +29,12 @@ const PRIVATE_PATHS = [
   '/audio/cart',
 ];
 
-export default function robots(): MetadataRoute.Robots {
+/**
+ * `connection()` makes this a request-time route. Without it Next prerenders robots.txt at
+ * build, before NEXTX_ENVIRONMENT exists, and a staging host would publish the public rules.
+ */
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  await connection();
   if (isStagingEnvironment()) {
     return { rules: [{ userAgent: '*', disallow: '/' }] };
   }

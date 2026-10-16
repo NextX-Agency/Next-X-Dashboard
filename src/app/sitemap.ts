@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { connection } from 'next/server';
-import { publicAppUrl } from '@/lib/env';
+import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import {
   storefrontPagePath,
   storefrontProductPath,
@@ -19,6 +19,8 @@ import { listActiveStorefronts } from '@/server/services/storefront';
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection();
+  // Staging must not advertise URLs to crawlers; robots.txt disallows it too.
+  if (isStagingEnvironment()) return [];
   const appUrl = new URL(publicAppUrl()).toString();
   const audioUrl = new URL('/audio', appUrl).toString();
   const storefronts = await listActiveStorefronts();

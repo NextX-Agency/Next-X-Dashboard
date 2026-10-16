@@ -28,6 +28,7 @@ describe('route access policy', () => {
       '/d/quote/token',
       '/watches',
       '/watches/watch-id',
+      '/catalog/legacy-id',
     ]) {
       expect(isPublicPath(pathname), pathname).toBe(true);
     }
@@ -60,6 +61,7 @@ describe('route access policy', () => {
       '/watches',
       '/watches/watch-id',
       '/watches/cart',
+      '/catalog/legacy-id',
     ]) {
       expect(isDatabaseFreePath(pathname), pathname).toBe(true);
     }

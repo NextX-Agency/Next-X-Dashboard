@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import { isPublicAppUrlAllowed, isSupabaseUrlAllowed } from './src/lib/env';
+import { LEGACY_AUDIO_REDIRECTS, LEGACY_RETIRED_WATCH_IDS } from './src/lib/legacy-url-map';
 
 assertProductionBuildEnvironment();
 
@@ -20,17 +21,37 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
 
   async redirects() {
+    // Retired watch ids are excluded from the generic rule so the rewrite below can
+    // answer them with 410 instead of a redirect chain that ends in a 404.
+    const retired = LEGACY_RETIRED_WATCH_IDS.join('|');
     return [
       // NextX sells audio only: the root opens the audio shop. Retired watch URLs
       // are not redirected; src/app/watches answers them with 410 Gone.
       { source: '/', destination: '/audio', permanent: false },
+      // Exact, single-hop permanent redirects for the legacy audio products.
+      ...LEGACY_AUDIO_REDIRECTS.flatMap(([id, slug]) => [
+        { source: `/catalog/${id}`, destination: `/audio/${slug}`, permanent: true },
+        { source: `/audio/${id}`, destination: `/audio/${slug}`, permanent: true },
+      ]),
       { source: '/catalog', destination: '/audio', permanent: true },
       {
-        source: '/catalog/:legacyItemId',
+        source: `/catalog/:legacyItemId((?!(?:${retired})$)[^/]+)`,
         destination: '/audio/:legacyItemId',
         permanent: true,
       },
     ];
+  },
+
+  async rewrites() {
+    // Legacy watch product URLs: a real 410 (the route handler in src/app/watches).
+    return {
+      beforeFiles: LEGACY_RETIRED_WATCH_IDS.flatMap((id) => [
+        { source: `/catalog/${id}`, destination: '/watches/retired' },
+        { source: `/audio/${id}`, destination: '/watches/retired' },
+      ]),
+      afterFiles: [],
+      fallback: [],
+    };
   },
 
   experimental: {
