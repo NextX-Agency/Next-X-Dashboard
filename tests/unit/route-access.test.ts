@@ -26,6 +26,8 @@ describe('route access policy', () => {
       '/testimonials',
       '/d/invoice/token',
       '/d/quote/token',
+      '/watches',
+      '/watches/watch-id',
     ]) {
       expect(isPublicPath(pathname), pathname).toBe(true);
     }
@@ -55,6 +57,9 @@ describe('route access policy', () => {
       '/sitemap.xml',
       '/icon',
       '/opengraph-image',
+      '/watches',
+      '/watches/watch-id',
+      '/watches/cart',
     ]) {
       expect(isDatabaseFreePath(pathname), pathname).toBe(true);
     }
@@ -66,10 +71,6 @@ describe('route access policy', () => {
       '/audio/camera-id',
       '/audio/cart',
       '/audio/setups/wifi-starter',
-      '/watches',
-      '/watches/watch-id',
-      '/watches/cart',
-      '/watches/setups/watch-starter',
       '/blog',
       '/blog/audio-tips',
       '/faq',

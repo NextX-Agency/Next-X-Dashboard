@@ -21,12 +21,9 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      // NextX sells audio only: the root opens the audio shop, and the retired
-      // watches storefront sends old links there. Not permanent, so a future
-      // product line can reclaim these paths without fighting cached 308s.
+      // NextX sells audio only: the root opens the audio shop. Retired watch URLs
+      // are not redirected; src/app/watches answers them with 410 Gone.
       { source: '/', destination: '/audio', permanent: false },
-      { source: '/watches', destination: '/audio', permanent: false },
-      { source: '/watches/:path*', destination: '/audio', permanent: false },
       { source: '/catalog', destination: '/audio', permanent: true },
       {
         source: '/catalog/:legacyItemId',

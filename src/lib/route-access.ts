@@ -22,6 +22,7 @@ const PUBLIC_PREFIX_PATHS = [
   '/auth',
   '/p',
   '/audio',
+  '/watches',
   '/blog',
   '/faq',
   '/testimonials',
@@ -40,7 +41,7 @@ const DATABASE_FREE_EXACT_PATHS = new Set([
   '/opengraph-image',
 ]);
 
-const DATABASE_FREE_PREFIX_PATHS = ['/auth'];
+const DATABASE_FREE_PREFIX_PATHS = ['/auth', '/watches'];
 
 function matchesPath(pathname: string, path: string): boolean {
   return pathname === path || pathname.startsWith(`${path}/`);
