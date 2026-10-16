@@ -1,0 +1,4 @@
+ALTER TABLE "legacy_stock_transfer_archive" ALTER COLUMN "variant_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "legacy_stock_transfer_archive" ADD COLUMN "bundle_id" uuid;--> statement-breakpoint
+ALTER TABLE "legacy_stock_transfer_archive" ADD CONSTRAINT "legacy_stock_transfer_archive_bundle_id_bundles_id_fk" FOREIGN KEY ("bundle_id") REFERENCES "public"."bundles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "legacy_stock_transfer_archive" ADD CONSTRAINT "legacy_stock_transfer_archive_single_catalog_target" CHECK (("legacy_stock_transfer_archive"."variant_id" IS NOT NULL) <> ("legacy_stock_transfer_archive"."bundle_id" IS NOT NULL));

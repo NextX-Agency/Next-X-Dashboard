@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "sourceSystem": "nextx",
+    "schemaVersion": "prisma-main",
+    "exportedAt": "2026-09-20T12:00:00.000Z",
+    "sourceTableInventoryComplete": true,
+    "sourceTableCounts": {}
+  },
+  "locations": [{ "id": "location-1", "name": "Conflict Branch" }],
+  "items": [
+    {
+      "id": "item-1",
+      "name": "First item",
+      "sku": "DUPLICATE-SKU",
+      "sellingPriceUsd": "10.00"
+    },
+    {
+      "id": "item-2",
+      "name": "Second item",
+      "sku": "DUPLICATE-SKU",
+      "sellingPriceUsd": "12.00"
+    }
+  ],
+  "stock": [
+    { "id": "stock-negative", "itemId": "item-1", "locationId": "location-1", "quantity": -2 }
+  ],
+  "sales": [
+    {
+      "id": "sale-invalid",
+      "locationId": "location-1",
+      "currency": "EUR",
+      "totalAmount": "10.00",
+      "status": "completed"
+    }
+  ],
+  "saleItems": []
+}

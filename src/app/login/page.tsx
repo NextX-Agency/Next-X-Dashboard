@@ -1,168 +1,82 @@
-'use client'
+import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { Wordmark } from '@/components/shell/wordmark';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoginForm } from './login-form';
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/AuthContext'
-import { getDefaultRedirect } from '@/lib/routes'
-import { Eye, EyeOff, Lock, Mail, Loader2 } from 'lucide-react'
-
-function LoginForm() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { login, isAuthenticated, loading: authLoading, isAdmin, user } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      // Check if there's a 'from' parameter to return to
-      const from = searchParams.get('from')
-      // Only use 'from' if user is admin, otherwise redirect based on role
-      if (from && isAdmin) {
-        router.replace(from)
-      } else {
-        router.replace(getDefaultRedirect(user?.role ?? 'user'))
-      }
-    }
-  }, [isAuthenticated, isAdmin, router, searchParams, user?.role])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    const result = await login(email, password)
-    
-    if (result.success) {
-      // Use the redirectTo from login result for proper role-based redirect
-      router.replace(result.redirectTo || '/')
-    } else {
-      setError(result.error || 'Login failed')
-    }
-    
-    setLoading(false)
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen min-h-[100dvh] flex items-center justify-center bg-background p-4 sm:p-6">
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-5 sm:p-8">
-          {/* Logo/Header */}
-          <div className="text-center mb-6 sm:mb-8">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-              <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Welcome Back</h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Sign in to continue</p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-5 sm:mb-6 p-3 sm:p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm flex items-start gap-2">
-              <span className="text-xs mt-0.5">⚠</span>
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                <input
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@example.com"
-                  required
-                  className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-base min-h-[48px]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full pl-10 sm:pl-12 pr-12 py-3 sm:py-3 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors text-base min-h-[48px]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-1"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 sm:py-3 min-h-[48px] bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-base touch-manipulation"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-
-          {/* Footer */}
-          <p className="mt-5 sm:mt-6 text-center text-sm text-muted-foreground">
-            Contact admin if you need access
-          </p>
-        </div>
-
-        {/* Public Catalog Link */}
-        <div className="mt-5 sm:mt-6 text-center">
-          <Link
-            href="/catalog"
-            className="text-primary hover:underline text-sm font-medium inline-flex items-center gap-1 min-h-[44px] px-4"
-          >
-            View Public Catalog →
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
+export const metadata: Metadata = { title: 'Sign in' };
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,480px)]">
+      {/* The plate. A single quiet field of the brand palette, only ever seen
+          here, so the working application stays near-monochrome. */}
+      <aside className="relative hidden overflow-hidden border-line-subtle border-r bg-sunken lg:block">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            backgroundImage:
+              'radial-gradient(120% 90% at 12% 8%, var(--nx-chart-3) 0%, transparent 55%), radial-gradient(90% 80% at 88% 92%, var(--nx-chart-4) 0%, transparent 50%), radial-gradient(70% 70% at 60% 40%, var(--nx-chart-1) 0%, transparent 60%)',
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'linear-gradient(var(--nx-border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--nx-border-subtle) 1px, transparent 1px)',
+            backgroundSize: '48px 48px',
+            maskImage: 'radial-gradient(80% 70% at 50% 45%, black, transparent)',
+          }}
+        />
+
+        <div className="relative flex h-full flex-col justify-between p-10">
+          <Wordmark />
+          <div className="max-w-sm">
+            <p className="text-[22px] text-ink leading-snug tracking-[-0.02em]">
+              Every unit, every rate, every cent accounted for.
+            </p>
+            <p className="mt-3 text-[13px] text-ink-3 leading-relaxed">
+              Purchase orders costed with freight and fees included, stock valued at what it
+              actually cost, and a cash ledger that cannot drift from the documents behind it.
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      <main className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[320px]">
+          <div className="lg:hidden">
+            <Wordmark />
+          </div>
+          <h1 className="mt-8 font-medium text-[18px] text-ink tracking-[-0.02em] lg:mt-0">
+            Sign in
+          </h1>
+          <p className="mt-1 mb-6 text-[13px] text-ink-3">
+            Use your NextX team email and password to continue.
+          </p>
+          <Suspense fallback={<LoginFormSkeleton />}>
+            <LoginForm />
+          </Suspense>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function LoginFormSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="space-y-1.5">
+        <Skeleton className="h-[11px] w-20" />
+        <Skeleton className="h-9 w-full" />
       </div>
-    }>
-      <LoginForm />
-    </Suspense>
-  )
+      <div className="space-y-1.5">
+        <Skeleton className="h-[11px] w-20" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+      <Skeleton className="mt-1 h-9 w-full" />
+    </div>
+  );
 }

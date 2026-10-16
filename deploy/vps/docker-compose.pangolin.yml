@@ -1,0 +1,13 @@
+# Layered on deploy/supabase/docker-compose.yml by deploy/vps/deploy-nextx.sh.
+#
+# Adds a second host binding for the two public services on the Docker bridge
+# gateway that the local Pangolin site reaches (172.18.0.1, pangolin_frontend).
+# The loopback bindings from the base file stay. Postgres and the pooler are
+# never bound here: they remain private to the Compose network.
+services:
+  api-gw:
+    ports:
+      - "${PANGOLIN_HOST_IP:?set PANGOLIN_HOST_IP}:${API_GW_HTTP_HOST_PORT:-18000}:8000/tcp"
+  web:
+    ports:
+      - "${PANGOLIN_HOST_IP:?set PANGOLIN_HOST_IP}:${NEXTLY_APP_HOST_PORT:-13000}:3000"

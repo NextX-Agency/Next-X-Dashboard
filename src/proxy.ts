@@ -1,181 +1,132 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr';
+import type { User } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
+import { isLocalRehearsalConnection, isServerEnvironmentValid } from '@/lib/env';
+import { logServerError, REQUEST_ID_HEADER, withRequestId } from '@/lib/observability';
+import { isApiPath, isDatabaseFreePath, isPublicPath } from '@/lib/route-access';
 
 /**
- * Proxy for server-side route protection
+ * Session refresh at the network boundary.
  *
- * Note: This proxy provides an additional layer of security by checking
- * cookies for session data. The primary authentication is handled client-side
- * by AuthGuard, but this prevents unnecessary server-side rendering of protected pages.
+ * In Next.js 16 this file replaces middleware.ts and runs on the Node.js
+ * runtime. It refreshes the Supabase auth cookie and protects the private app
+ * shell. Server layouts and actions remain the real authorization boundary.
  */
+export default async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const requestId = request.headers.get(REQUEST_ID_HEADER) ?? crypto.randomUUID();
 
-// Public routes that don't require any authentication
-const PUBLIC_ROUTES = ['/', '/catalog', '/audio', '/watches', '/login', '/blog', '/faq', '/testimonials']
-const PUBLIC_PREFIXES = ['/blog/', '/p/', '/catalog/', '/audio/', '/watches/']
+  const next = () => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(REQUEST_ID_HEADER, requestId);
+    requestHeaders.delete('x-nextx-storefront');
+    if (pathname === '/audio' || pathname.startsWith('/audio/')) {
+      requestHeaders.set('x-nextx-storefront', 'audio');
+    }
+    return withRequestId(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      requestId,
+    );
+  };
 
-// Admin routes that require admin role
-const ADMIN_ROUTES = [
-  '/dashboard', '/items', '/stock', '/orders', '/sales', '/expenses',
-  '/budgets', '/wallets', '/finance', '/finance/review', '/commissions', '/exchange', '/locations',
-  '/reports', '/performance', '/settings', '/activity', '/reservations', '/invoices',
-  '/upload-example', '/migrate', '/team'
-]
-const ADMIN_PREFIXES = ['/api/']
+  // Route handlers own their response format and authentication contract. An
+  // API caller must never receive a 307 to an HTML login page.
+  if (isApiPath(pathname)) {
+    return next();
+  }
 
-// Protected API routes
-const PROTECTED_API_PREFIXES = [
-  '/api/commissions',
-  '/api/dashboard',
-  '/api/invoices',
-  '/api/reports', '/api/reports/export',
-  '/api/sales',
-  '/api/stock',
-  '/api/orders',
-  '/api/wallets',
-  '/api/budgets',
-  '/api/expenses',
-  '/api/reservations',
-  '/api/upload', '/api/delete', '/api/migrate', '/api/create-commission',
-  '/api/get-sale-info', '/api/debug-reservations', '/api/debug-profit',
-  '/api/backup/export', '/api/backup/save', '/api/backup/list',
-  '/api/backup/delete', '/api/backup/restore', '/api/backup/validate', '/api/backup/self-check',
-  '/api/backup/download',
-  '/api/activity',
-  '/api/cron/recurring-expenses',
-  '/api/cron/depreciation',
-  '/api/cron/payouts',
-  '/api/dev/terminal-history'
-]
-
-function isPublicRoute(pathname: string): boolean {
-  if (PUBLIC_ROUTES.includes(pathname)) return true
-  return PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))
-}
-
-function isAdminRoute(pathname: string): boolean {
-  if (ADMIN_ROUTES.includes(pathname)) return true
-  return ADMIN_PREFIXES.some(prefix => pathname.startsWith(prefix))
-}
-
-function isProtectedApiRoute(pathname: string): boolean {
-  return PROTECTED_API_PREFIXES.some(prefix => pathname.startsWith(prefix))
-}
-
-function hasCronAuthorization(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  return Boolean(secret && request.headers.get('authorization') === `Bearer ${secret}`)
-}
-
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Skip proxy for static files and Next.js internals
+  // A database-dependent page cannot succeed without its runtime connection.
+  // Database-free pages remain reachable so the setup and sign-in explanations
+  // can be used to repair the environment.
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.includes('.')
+    (!process.env.DATABASE_URL || !isServerEnvironmentValid()) &&
+    !isDatabaseFreePath(pathname)
   ) {
-    return NextResponse.next()
+    const url = request.nextUrl.clone();
+    url.pathname = '/setup';
+    url.search = '';
+    return withRequestId(NextResponse.redirect(url), requestId);
   }
 
-  // Public routes - allow all access
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next()
+  // Public pages and token documents do not need a Supabase session. Avoiding
+  // the auth round-trip here keeps public documents available despite stale
+  // browser cookies.
+  if (isPublicPath(pathname) && pathname !== '/login') {
+    return next();
   }
 
-  // The session is opaque and verified in route handlers. Proxy only checks
-  // presence because middleware cannot safely query the database here.
-  const sessionCookie = request.cookies.get('nextics_session')
-
-  // For API routes
-  if (pathname.startsWith('/api/')) {
-    // Check if it's a protected API route
-    if (isProtectedApiRoute(pathname)) {
-      if (pathname.startsWith('/api/cron/') && hasCronAuthorization(request)) {
-        return NextResponse.next()
-      }
-      // For API routes, we'll let the API handler do the full validation
-      // The proxy just checks for basic auth presence
-      if (!sessionCookie) {
-        return NextResponse.json(
-          { error: 'Unauthorized', message: 'Authentication required' },
-          { status: 401 }
-        )
-      }
-
+  const rehearsalAuthUserId = process.env.NEXTLY_LOCAL_REHEARSAL_AUTH_USER_ID;
+  const localRehearsalAuth =
+    process.env.NEXTLY_LOCAL_REHEARSAL === '1' &&
+    isLocalRehearsalConnection(process.env.DATABASE_URL) &&
+    Boolean(rehearsalAuthUserId);
+  if (localRehearsalAuth) {
+    if (pathname === '/login') {
+      const url = request.nextUrl.clone();
+      url.pathname = '/dashboard';
+      url.search = '';
+      return withRequestId(NextResponse.redirect(url, 307), requestId);
     }
-    return NextResponse.next()
+    return next();
   }
 
-  // For admin routes, check session
-  if (isAdminRoute(pathname)) {
-    if (!sessionCookie) {
-      // No session, redirect to login
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('from', pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-
+  let response = next();
+  // getUser, not getSession: it revalidates the token with Supabase rather than
+  // trusting a cookie the browser handed us.
+  let user: User | null = null;
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '',
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            for (const { name, value } of cookiesToSet) {
+              request.cookies.set(name, value);
+            }
+            response = next();
+            for (const { name, value, options } of cookiesToSet) {
+              response.cookies.set(name, value, options);
+            }
+          },
+        },
+      },
+    );
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    logServerError('proxy.auth-check', requestId, error);
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/error';
+    url.search = '';
+    url.searchParams.set('reason', 'service-unavailable');
+    return withRequestId(NextResponse.redirect(url), requestId);
   }
 
-  return NextResponse.next()
+  if (!user && pathname !== '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('next', pathname);
+    return withRequestId(NextResponse.redirect(url), requestId);
+  }
+
+  if (user && pathname === '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    url.search = '';
+    return withRequestId(NextResponse.redirect(url), requestId);
+  }
+
+  response.headers.set(REQUEST_ID_HEADER, requestId);
+  return response;
 }
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/items/:path*',
-    '/seller/:path*',
-    '/stock/:path*',
-    '/orders/:path*',
-    '/sales/:path*',
-    '/expenses/:path*',
-    '/budgets/:path*',
-    '/wallets/:path*',
-    '/finance/:path*',
-    '/commissions/:path*',
-    '/exchange/:path*',
-    '/locations/:path*',
-    '/reports/:path*',
-    '/performance/:path*',
-    '/settings/:path*',
-    '/activity/:path*',
-    '/reservations/:path*',
-    '/invoices/:path*',
-    '/upload-example/:path*',
-    '/migrate/:path*',
-    '/team/:path*',
-    '/api/commissions/:path*',
-    '/api/dashboard/:path*',
-    '/api/invoices/:path*',
-    '/api/reports/:path*',
-    '/api/sales/:path*',
-    '/api/stock/:path*',
-    '/api/seller/:path*',
-    '/api/orders/:path*',
-    '/api/wallets/:path*',
-    '/api/budgets/:path*',
-    '/api/expenses/:path*',
-    '/api/reservations/:path*',
-    '/api/upload/:path*',
-    '/api/delete/:path*',
-    '/api/migrate/:path*',
-    '/api/create-commission/:path*',
-    '/api/get-sale-info/:path*',
-    '/api/debug-reservations/:path*',
-    '/api/debug-profit/:path*',
-    '/api/backup/export/:path*',
-    '/api/backup/save/:path*',
-    '/api/backup/list/:path*',
-    '/api/backup/delete/:path*',
-    '/api/backup/restore/:path*',
-    '/api/backup/validate/:path*',
-    '/api/backup/self-check/:path*',
-    '/api/backup/download/:path*',
-    '/api/activity/:path*',
-    '/api/cron/recurring-expenses/:path*',
-    '/api/cron/depreciation/:path*',
-    '/api/cron/payouts/:path*',
-    '/api/dev/terminal-history/:path*',
+    // Everything except static assets and image optimisation output.
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)',
   ],
-}
+};

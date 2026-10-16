@@ -1,0 +1,74 @@
+import { headers } from 'next/headers';
+import type { ReactNode } from 'react';
+import { MemberProvider } from '@/components/providers/member-provider';
+import { SetupBanner } from '@/components/shell/setup-banner';
+import { Sidebar } from '@/components/shell/sidebar';
+import { Topbar } from '@/components/shell/topbar';
+import { REQUEST_ID_HEADER } from '@/lib/observability';
+import { requireMember } from '@/server/auth';
+import {
+  getUnreadNotificationCount,
+  listNotificationsForMember,
+} from '@/server/services/notifications';
+
+/**
+ * The application shell.
+ *
+ * Fixed 232px rail on large screens, off-canvas below. The rail is deliberately
+ * narrow: this app is read at a glance and the content deserves the width.
+ *
+ * requireMember runs here rather than in each page, so a new route is protected
+ * by existing rather than by remembering to add a guard. Server Actions still
+ * authorise independently: a layout cannot protect a POST.
+ */
+
+/**
+ * These routes are genuinely dynamic and say so.
+ *
+ * The auth check reads cookies before anything renders, which Cache Components
+ * correctly refuses to prerender. Deferring it into a Suspense boundary would
+ * technically restore a static shell, but it would also let a signed-in
+ * non-member start rendering pages before the guard resolved. A login-gated
+ * dashboard has little to gain from a prerendered shell and everything to lose
+ * from a guard that runs late, so the whole segment blocks.
+ *
+ * The public routes (/login, /auth/error, /no-access) keep partial
+ * prerendering, because those are the ones a cold visitor actually waits on.
+ */
+export const instant = false;
+export default async function AppLayout({ children }: { children: ReactNode }) {
+  const requestId = (await headers()).get(REQUEST_ID_HEADER) ?? 'app-layout';
+  const member = await requireMember(requestId);
+  const currentMember = { fullName: member.fullName, email: member.email, role: member.role };
+  const [recentNotifications, unreadNotificationCount] = await Promise.all([
+    listNotificationsForMember(member.id),
+    getUnreadNotificationCount(member.id),
+  ]);
+  const notificationItems = recentNotifications.map((notification) => ({
+    id: notification.id,
+    title: notification.title,
+    message: notification.message,
+    readAt: notification.readAt?.toISOString() ?? null,
+    createdAt: notification.createdAt.toISOString(),
+  }));
+
+  return (
+    <MemberProvider member={currentMember}>
+      <div className="min-h-dvh lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden h-dvh border-line-subtle border-r bg-sunken lg:block">
+          <Sidebar />
+        </aside>
+
+        <div className="flex min-w-0 flex-col">
+          <Topbar
+            member={currentMember}
+            notifications={notificationItems}
+            unreadCount={unreadNotificationCount}
+          />
+          <SetupBanner />
+          <main className="flex-1 px-4 py-6 lg:px-6">{children}</main>
+        </div>
+      </div>
+    </MemberProvider>
+  );
+}

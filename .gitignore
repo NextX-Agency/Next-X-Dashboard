@@ -1,57 +1,37 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+node_modules/
+.pnpm-store/
 
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
+# next
+.next/
+.next-build/
+out/
 next-env.d.ts
 
-# prisma
-/prisma/*.db
-/prisma/*.db-journal
+# env
+.env
+.env.local
+.env*.local
+.vercel
 
-# Supabase CLI cache
-/supabase/.temp/
+# build / cache
+*.tsbuildinfo
+.turbo/
+coverage/
+test-results/
+tests/e2e/.auth/
+playwright-report/
+blob-report/
 
-# Local production database exports. Never commit live data.
-/backups/
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
 
-# Local restore-verification cluster (scripts/restore-verification)
-/.t01-verify/
+# migration reports can contain source checksums and operational state
+migration-reports/
 
-# Claude Code local machine settings
-.claude/settings.local.json
+# disposable local PostgreSQL rehearsal cluster
+.local-rehearsal/

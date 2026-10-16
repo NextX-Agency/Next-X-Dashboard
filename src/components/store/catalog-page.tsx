@@ -1,0 +1,442 @@
+import { Package, PackageSearch } from 'lucide-react';
+import Link from 'next/link';
+import { Suspense } from 'react';
+import { EmptyState } from '@/components/patterns/empty-state';
+import { ListSearch } from '@/components/patterns/list-toolbar';
+import { CatalogAvailability } from '@/components/store/catalog-availability';
+import { CatalogFilters } from '@/components/store/catalog-filters';
+import { CatalogSort } from '@/components/store/catalog-sort';
+import { CatalogSpotlight } from '@/components/store/catalog-spotlight';
+import { CategoryPills } from '@/components/store/category-pills';
+import { ProductCard } from '@/components/store/product-card';
+import { HowBuyingWorks, StoreHero, StoreValues } from '@/components/store/store-hero';
+import { StorePrice } from '@/components/store/store-price';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { RateMicros } from '@/lib/fx';
+import type { RawSearchParams } from '@/lib/list-params';
+import { storefrontPagePath } from '@/lib/storefront-domain';
+import {
+  type CatalogSort as CatalogSortValue,
+  listCatalogBundles,
+  listCatalogCategories,
+  listCatalogFilterOptions,
+  listCatalogProducts,
+  listHomepageCollections,
+} from '@/server/queries/catalog';
+import { getCurrentRate } from '@/server/queries/overview';
+import { getSettings } from '@/server/queries/reference';
+import { getRequestStorefront } from '@/server/services/storefront';
+
+const CATALOG_SORTS = ['newest', 'name', 'price-asc', 'price-desc'];
+
+function isCatalogSort(value: string | undefined): value is CatalogSortValue {
+  return Boolean(value) && CATALOG_SORTS.includes(value as string);
+}
+
+/**
+ * The storefront home — Fairphone's shape, in Northlight.
+ *
+ * Promise first (the hero), then the catalogue with its categories as
+ * pills, then the three things this shop can honestly promise (the value
+ * band). `searchParams` is passed down unawaited so the hero and the
+ * toolbar's shell stay part of the static prerender; only the pieces that
+ * read live data are Suspense-wrapped and stream.
+ */
+export function CatalogPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  return (
+    <>
+      <StoreHero />
+
+      <Suspense fallback={null}>
+        <AvailableNowSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <GoalCollections />
+      </Suspense>
+      <Suspense fallback={null}>
+        <BundleSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <NewArrivalsSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ComingNextSection />
+      </Suspense>
+      <Suspense fallback={null}>
+        <HowBuyingWorks />
+      </Suspense>
+
+      <section
+        id="catalog"
+        className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 pb-16 lg:px-6 lg:pb-20"
+      >
+        <div className="mb-6 flex flex-col gap-4">
+          <Suspense fallback={<PillsSkeleton />}>
+            <CatalogPills />
+          </Suspense>
+          <Suspense fallback={<ToolbarSkeleton />}>
+            <CatalogToolbar />
+          </Suspense>
+        </div>
+
+        <Suspense fallback={<CatalogSkeleton />}>
+          <CatalogGrid searchParams={searchParams} />
+        </Suspense>
+
+        <StoreValues />
+      </section>
+    </>
+  );
+}
+
+export default CatalogPage;
+
+async function BundleSection() {
+  const [settings, storefront] = await Promise.all([getSettings(), getRequestStorefront()]);
+  if (!settings?.homepageFeaturedBundlesEnabled) return null;
+  const [bundles, rate] = await Promise.all([
+    listCatalogBundles(settings.homepageFeaturedBundlesLimit),
+    getCurrentRate(),
+  ]);
+  if (!bundles.length) return null;
+  return (
+    <section id="setups" className="mx-auto mb-12 w-full max-w-6xl scroll-mt-20 px-4 lg:px-6">
+      <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
+        Starter setups
+      </p>
+      <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-ink">
+        A complete place to start.
+      </h2>
+      <div className="mt-4 grid gap-px border border-line-subtle bg-line-subtle sm:grid-cols-2 lg:grid-cols-3">
+        {bundles.map((bundle) => (
+          <Link
+            key={bundle.id}
+            href={storefrontPagePath(storefront?.slug, `setups/${bundle.slug}`) as never}
+            className="bg-base p-5 transition-colors hover:bg-hover"
+          >
+            <h3 className="font-semibold text-ink">{bundle.name}</h3>
+            {bundle.summary ? (
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{bundle.summary}</p>
+            ) : null}
+            <p className="mt-3 text-[11px] text-ink-3">
+              {bundle.availability > 0
+                ? `${bundle.availability} setup${bundle.availability === 1 ? '' : 's'} available`
+                : 'Currently unavailable'}
+            </p>
+            <div className="mt-3">
+              <StorePrice usdCents={bundle.priceCents} srdRate={rate?.rateMicros} size="md" />
+            </div>
+            <p className="mt-4 text-[11px] font-semibold text-accent">View this setup →</p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function AvailableNowSection() {
+  const settings = await getSettings();
+  if (!settings?.homepageAvailableNowEnabled) return null;
+  const [products, rate] = await Promise.all([
+    listCatalogProducts({
+      availability: 'in-stock',
+      limit: settings.homepageAvailableNowLimit,
+    }),
+    getCurrentRate(),
+  ]);
+  if (!products.length) return null;
+  return (
+    <ProductStrip
+      eyebrow="Available right now"
+      title="On the shelf in Paramaribo."
+      products={products}
+      rate={rate?.rateMicros}
+      whatsapp={settings.whatsapp}
+    />
+  );
+}
+
+async function GoalCollections() {
+  const collections = await listHomepageCollections();
+  if (!collections.length) return null;
+  return (
+    <section className="mx-auto mb-12 w-full max-w-6xl px-4 lg:px-6">
+      <div className="mb-4 flex items-baseline justify-between">
+        <div>
+          <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
+            Shop by goal
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-ink">
+            What do you want your home to do?
+          </h2>
+        </div>
+      </div>
+      <div className="grid gap-px overflow-hidden border border-line-subtle bg-line-subtle sm:grid-cols-2 lg:grid-cols-3">
+        {collections.map((collection) => (
+          <Link
+            key={collection.slug}
+            href={`/?collection=${collection.slug}` as never}
+            className="bg-base p-5 transition-colors hover:bg-hover"
+          >
+            <h3 className="font-semibold text-ink">{collection.name}</h3>
+            {collection.description ? (
+              <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
+                {collection.description}
+              </p>
+            ) : null}
+            <p className="mt-3 text-[11px] text-ink-4">
+              {collection.productCount} product{collection.productCount === 1 ? '' : 's'} →
+            </p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function NewArrivalsSection() {
+  const settings = await getSettings();
+  if (!settings?.homepageJustArrivedEnabled) return null;
+  const [products, rate] = await Promise.all([
+    listCatalogProducts({ newArrival: true, limit: settings.homepageJustArrivedLimit }),
+    getCurrentRate(),
+  ]);
+  if (!products.length) return null;
+  return (
+    <ProductStrip
+      eyebrow="Just arrived"
+      title="New products, with a real arrival window."
+      products={products}
+      rate={rate?.rateMicros}
+      whatsapp={settings.whatsapp}
+    />
+  );
+}
+
+async function ComingNextSection() {
+  const settings = await getSettings();
+  if (!settings?.homepageComingNextEnabled) return null;
+  const [products, rate] = await Promise.all([
+    listCatalogProducts({ availability: 'incoming', limit: settings.homepageComingNextLimit }),
+    getCurrentRate(),
+  ]);
+  if (!products.length) return null;
+  return (
+    <ProductStrip
+      eyebrow="Coming next"
+      title="Already on the way to Paramaribo."
+      products={products}
+      rate={rate?.rateMicros}
+      whatsapp={settings.whatsapp}
+    />
+  );
+}
+
+function ProductStrip({
+  eyebrow,
+  title,
+  products,
+  rate,
+  whatsapp,
+}: {
+  eyebrow: string;
+  title: string;
+  products: Awaited<ReturnType<typeof listCatalogProducts>>;
+  rate: RateMicros | undefined;
+  whatsapp: string | null;
+}) {
+  return (
+    <section className="mx-auto mb-12 w-full max-w-6xl px-4 lg:px-6">
+      <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-ink">{title}</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} srdRate={rate} whatsapp={whatsapp} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function CatalogPills() {
+  const categories = await listCatalogCategories();
+  // A single real category next to "Everything" filters nothing — the row
+  // only earns its place once there's an actual choice to make.
+  if (categories.length < 2) return null;
+  return <CategoryPills categories={categories} />;
+}
+
+function PillsSkeleton() {
+  return (
+    <div className="flex gap-2" aria-hidden="true">
+      <Skeleton className="h-8 w-24 rounded-full" />
+      <Skeleton className="h-8 w-28 rounded-full" />
+      <Skeleton className="h-8 w-20 rounded-full" />
+    </div>
+  );
+}
+
+async function CatalogToolbar() {
+  const options = await listCatalogFilterOptions();
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <ListSearch placeholder="Search products" size="md" />
+        <div className="ml-auto flex gap-2">
+          <CatalogAvailability />
+          <CatalogSort />
+        </div>
+      </div>
+      <CatalogFilters options={options} />
+    </div>
+  );
+}
+
+function ToolbarSkeleton() {
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-hidden="true">
+      <Skeleton className="h-11 min-w-[200px] flex-1 rounded-full sm:max-w-[280px]" />
+      <Skeleton className="ml-auto h-11 w-[180px] rounded-full" />
+    </div>
+  );
+}
+
+async function CatalogGrid({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const raw = await searchParams;
+  const q = typeof raw.q === 'string' ? raw.q : undefined;
+  const category = typeof raw.category === 'string' ? raw.category : undefined;
+  const collection = typeof raw.collection === 'string' ? raw.collection : undefined;
+  const brand = typeof raw.brand === 'string' ? raw.brand : undefined;
+  const platform = typeof raw.platform === 'string' ? raw.platform : undefined;
+  const protocol = typeof raw.protocol === 'string' ? raw.protocol : undefined;
+  const hub = raw.hub === 'required' || raw.hub === 'not-required' ? raw.hub : undefined;
+  const indoorOutdoor =
+    raw.indoorOutdoor === 'indoor' ||
+    raw.indoorOutdoor === 'outdoor' ||
+    raw.indoorOutdoor === 'indoor-outdoor'
+      ? raw.indoorOutdoor
+      : undefined;
+  const newArrival = raw.new === 'true';
+  const price =
+    raw.price === 'under-50' ||
+    raw.price === '50-100' ||
+    raw.price === '100-250' ||
+    raw.price === '250-plus'
+      ? raw.price
+      : undefined;
+  const availability =
+    raw.availability === 'in-stock' || raw.availability === 'incoming'
+      ? raw.availability
+      : undefined;
+  const sortRaw = typeof raw.sort === 'string' ? raw.sort : undefined;
+  const sort = isCatalogSort(sortRaw) ? sortRaw : undefined;
+
+  const [products, rate, settings] = await Promise.all([
+    listCatalogProducts({
+      q,
+      category,
+      collection,
+      brand,
+      platform,
+      protocol,
+      hub,
+      indoorOutdoor,
+      newArrival,
+      price,
+      availability,
+      sort,
+    }),
+    getCurrentRate(),
+    getSettings(),
+  ]);
+
+  if (products.length === 0) {
+    const filtered = Boolean(
+      q ||
+        category ||
+        collection ||
+        brand ||
+        platform ||
+        protocol ||
+        hub ||
+        indoorOutdoor ||
+        newArrival ||
+        price ||
+        availability,
+    );
+    return (
+      <EmptyState
+        Icon={filtered ? PackageSearch : Package}
+        title={filtered ? 'Nothing matches that' : 'Nothing published yet'}
+        description={
+          filtered
+            ? `No products match ${q ? `"${q}"` : 'that filter'}. Try a different search or clear the category.`
+            : 'Products appear here the moment they are published to the catalog, with price, pictures and availability straight from the books.'
+        }
+        action={
+          filtered ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/">Clear filters</Link>
+            </Button>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  // A young catalog forced into a grid built for dozens is what makes it
+  // read as empty rather than curated — below this size it gets the more
+  // spacious, editorial spotlight treatment instead (`catalog-spotlight.tsx`).
+  if (products.length <= 3) {
+    return (
+      <CatalogSpotlight
+        products={products}
+        srdRate={rate?.rateMicros}
+        whatsapp={settings?.whatsapp ?? null}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {products.map((product) => (
+        <ProductCard
+          key={product.id}
+          product={product}
+          srdRate={rate?.rateMicros}
+          whatsapp={settings?.whatsapp ?? null}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Shaped after the spotlight's one-product feature rather than the 4+ grid
+ *  — today's catalog (and the near-term one) is far more likely to land
+ *  there. Crossing the 4-item threshold costs one acceptable one-time
+ *  reflow rather than an extra pre-count query or new client state just to
+ *  pick the right skeleton. */
+function CatalogSkeleton() {
+  return (
+    <div
+      className="store-card grid overflow-hidden lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]"
+      aria-hidden="true"
+    >
+      <Skeleton className="aspect-square w-full rounded-none lg:aspect-auto" />
+      <div className="space-y-3 p-8 lg:p-12">
+        <Skeleton className="h-[11px] w-24" />
+        <Skeleton className="h-[26px] w-3/4" />
+        <Skeleton className="h-[14px] w-full" />
+        <Skeleton className="h-[14px] w-2/3" />
+        <Skeleton className="mt-2 h-[30px] w-32" />
+        <div className="mt-3 flex gap-3">
+          <Skeleton className="h-11 w-40 rounded-full" />
+          <Skeleton className="h-4 w-28" />
+        </div>
+      </div>
+    </div>
+  );
+}

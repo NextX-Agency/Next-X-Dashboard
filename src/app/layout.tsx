@@ -1,239 +1,51 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { CurrencyProvider } from "@/lib/CurrencyContext";
-import { AuthProvider } from "@/lib/AuthContext";
-import { LayoutWrapper } from "@/components/LayoutWrapper";
-import { SiteAnalyticsTracker } from "@/components/SiteAnalyticsTracker";
+import type { Metadata, Viewport } from 'next';
+import { Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import type { ReactNode } from 'react';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { Toaster } from '@/components/providers/toaster';
+import { publicAppUrl } from '@/lib/env';
+import './globals.css';
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
-
-// Site-wide UI face. globals.css has always asked for Inter but nothing loaded it,
-// so every visitor fell back to whatever system font their device had.
-// Three weights only: headings run on Archivo, so a 700 Inter file would be
-// downloaded and almost never drawn.
-const inter = Inter({
+// Instrument Sans over Inter/Geist: those two are the visual signature of
+// generated dashboards. JetBrains Mono carries every number in the app.
+const sans = Instrument_Sans({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
   display: 'swap',
-})
+  variable: '--font-instrument-sans',
+});
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
 
 export const metadata: Metadata = {
-  // Primary SEO - Optimized for "NextX Suriname"
-  title: {
-    default: "NextX Suriname | Premium Audio & In-Ear Monitors Shop",
-    template: "%s | NextX Suriname"
-  },
-  description: "NextX Suriname - Your trusted source for premium in-ear monitors, KZ earphones, and audio accessories in Suriname. Local pickup in Commewijne, easy WhatsApp ordering. Shop quality audio gear today!",
-  keywords: [
-    "NextX Suriname",
-    "NextX",
-    "audio shop Suriname",
-    "in-ear monitors Suriname",
-    "IEM Suriname",
-    "KZ earphones Suriname",
-    "headphones Suriname",
-    "audio accessories Suriname",
-    "buy earphones Suriname",
-    "earbuds Suriname",
-    "audio gear Commewijne",
-    "WhatsApp order Suriname"
-  ],
-  
-  // Branding
-  applicationName: "NextX Suriname",
-  authors: [{ name: "NextX Suriname" }],
-  creator: "NextX Suriname",
-  publisher: "NextX Suriname",
-  
-  // Indexing & Crawling
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  
-  // Canonical & Alternates
-  metadataBase: new URL(BASE_URL),
-  alternates: {
-    canonical: '/',
-    languages: {
-      'nl-SR': '/',
-      'en-SR': '/',
-    },
-  },
-  
-  // Open Graph - Social Sharing
-  openGraph: {
-    type: 'website',
-    locale: 'nl_SR',
-    alternateLocale: 'en_SR',
-    url: BASE_URL,
-    siteName: 'NextX Suriname',
-    title: 'NextX Suriname | Premium Audio & In-Ear Monitors Shop',
-    description: 'NextX Suriname - Your trusted source for premium in-ear monitors, KZ earphones, and audio accessories in Suriname. Local pickup, WhatsApp ordering.',
-    images: [
-      {
-        url: `${BASE_URL}/og-image.png`,
-        width: 1200,
-        height: 630,
-        alt: 'NextX Suriname - Premium Audio Shop',
-        type: 'image/png',
-      },
-    ],
-  },
-  
-  // Twitter Card
-  twitter: {
-    card: 'summary_large_image',
-    title: 'NextX Suriname | Premium Audio & In-Ear Monitors',
-    description: 'Your trusted source for premium in-ear monitors and audio accessories in Suriname. Local pickup, WhatsApp ordering.',
-    images: [`${BASE_URL}/og-image.png`],
-    creator: '@nextxsuriname',
-    site: '@nextxsuriname',
-  },
-  
-  // Icons - Next.js will automatically use /app/icon.svg
-  icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
-  },
-  
-  // Verification (add your verification codes)
-  verification: {
-    // google: 'your-google-verification-code',
-    // yandex: 'your-yandex-verification-code',
-    // bing: 'your-bing-verification-code',
-  },
-  
-  // Category
-  category: 'E-commerce',
-  
-  // Additional meta
-  other: {
-    'geo.region': 'SR',
-    'geo.placename': 'Suriname',
-    'geo.position': '5.8664;-55.1668',
-    'ICBM': '5.8664, -55.1668',
-    'og:locale:alternate': 'en_SR',
-    'format-detection': 'telephone=no',
-  },
+  metadataBase: new URL(publicAppUrl()),
+  title: { default: 'NextX Dashboard 2.0', template: '%s · NextX Dashboard 2.0' },
+  description: 'NextX operations, inventory, orders, storefront and finance.',
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
-  userScalable: true,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#111111' },
+    { media: '(prefers-color-scheme: light)', color: '#f7fafc' },
+    { media: '(prefers-color-scheme: dark)', color: '#080d13' },
   ],
-}
+};
 
-// Organization Schema for Google Knowledge Panel
-const organizationSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  '@id': `${BASE_URL}/#organization`,
-  name: 'NextX Suriname',
-  alternateName: 'NextX',
-  url: BASE_URL,
-  logo: {
-    '@type': 'ImageObject',
-    url: `${BASE_URL}/nextx-logo-light.png`,
-    width: 512,
-    height: 512,
-  },
-  image: `${BASE_URL}/nextx-logo-light.png`,
-  description: 'NextX Suriname - Premium in-ear monitors and audio accessories shop in Suriname',
-  address: {
-    '@type': 'PostalAddress',
-    addressLocality: 'Commewijne',
-    addressRegion: 'Commewijne',
-    addressCountry: 'SR',
-  },
-  geo: {
-    '@type': 'GeoCoordinates',
-    latitude: '5.8664',
-    longitude: '-55.1668',
-  },
-  contactPoint: {
-    '@type': 'ContactPoint',
-    contactType: 'customer service',
-    availableLanguage: ['Dutch', 'English'],
-  },
-  sameAs: [],
-  areaServed: {
-    '@type': 'Country',
-    name: 'Suriname',
-  },
-}
-
-// WebSite Schema for Sitelinks Search Box
-const websiteSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  '@id': `${BASE_URL}/#website`,
-  name: 'NextX Suriname',
-  alternateName: 'NextX',
-  url: BASE_URL,
-  description: 'Premium in-ear monitors and audio accessories in Suriname',
-  publisher: {
-    '@id': `${BASE_URL}/#organization`,
-  },
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: {
-      '@type': 'EntryPoint',
-      urlTemplate: `${BASE_URL}/catalog?search={search_term_string}`,
-    },
-    'query-input': 'required name=search_term_string',
-  },
-  inLanguage: ['nl', 'en'],
-}
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="nl" dir="ltr" className={inter.variable}>
-      <head>
-        {/* DNS Prefetch for faster loading */}
-        <link rel="dns-prefetch" href="//wa.me" />
-        
-        {/* Organization Schema */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
-        
-        {/* WebSite Schema */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-        />
-      </head>
-      <body className="antialiased">
-        <AuthProvider>
-          <CurrencyProvider>
-            <SiteAnalyticsTracker />
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
-          </CurrencyProvider>
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+      <body className="min-h-dvh bg-base text-ink antialiased">
+        <NuqsAdapter>
+          <ThemeProvider>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );
 }
-

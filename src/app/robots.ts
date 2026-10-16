@@ -1,53 +1,42 @@
-import { MetadataRoute } from 'next'
+import type { MetadataRoute } from 'next';
+import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 
-// Dynamic robots.txt generation for Next.js
-// This will be automatically served at /robots.txt
-
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shop-nextx.com'
+/**
+ * Only the storefront is meant to be found. The root layout already sends
+ * `noindex` on every route `(store)` doesn't override; this just tells
+ * crawlers not to bother requesting the rest at all.
+ */
+const PRIVATE_PATHS = [
+  '/dashboard',
+  '/products',
+  '/customers',
+  '/sales',
+  '/purchase-orders',
+  '/inventory',
+  '/ledger',
+  '/expenses',
+  '/owners',
+  '/reports',
+  '/settings',
+  '/categories',
+  '/suppliers',
+  '/login',
+  '/setup',
+  '/design-system',
+  '/api',
+  '/cart',
+  '/audio/cart',
+];
 
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: [
-      {
-        userAgent: '*',
-        allow: '/',
-        disallow: [
-          '/api/',
-          '/dashboard/',
-          '/admin/',
-          '/login/',
-          '/settings/',
-          '/orders/',
-          '/invoices/',
-          '/reports/',
-          '/stock/',
-          '/items/',
-          '/expenses/',
-          '/wallets/',
-          '/commissions/',
-          '/reservations/',
-          '/sales/',
-          '/budgets/',
-          '/exchange/',
-          '/locations/',
-          '/activity/',
-          '/migrate/',
-          '/recalculate-commissions/',
-          '/upload-example/',
-        ],
-      },
-      {
-        userAgent: 'Googlebot',
-        allow: '/',
-        disallow: [
-          '/api/',
-          '/dashboard/',
-          '/admin/',
-          '/login/',
-        ],
-      },
-    ],
-    sitemap: `${BASE_URL}/sitemap.xml`,
-    host: BASE_URL,
+  if (isStagingEnvironment()) {
+    return { rules: [{ userAgent: '*', disallow: '/' }] };
   }
+
+  const appUrl = publicAppUrl();
+
+  return {
+    rules: [{ userAgent: '*', allow: ['/', '/p/'], disallow: PRIVATE_PATHS }],
+    sitemap: `${appUrl}/sitemap.xml`,
+  };
 }

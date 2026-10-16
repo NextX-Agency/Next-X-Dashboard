@@ -1,0 +1,554 @@
+'use server';
+
+import { eq, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import { publicAppUrl } from '@/lib/env';
+import {
+  brandSchema,
+  categorySchema,
+  customerSchema,
+  memberSchema,
+  supplierSchema,
+  uuid,
+} from '@/lib/schemas';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { db } from '../db/client';
+import {
+  brands,
+  categories,
+  customers,
+  members,
+  purchaseOrders,
+  sales,
+  suppliers,
+} from '../db/schema';
+import { logActivity } from '../services/posting';
+import { ActionError, ownerAction, writeAction } from './client';
+
+/**
+ * Allocate the next code in a `K001`-style series.
+ *
+ * Padded and sequential so the codes sort correctly and read as a series. This
+ * one takes MAX + 1 rather than a counter table, because unlike a purchase
+ * order number a customer code carries no audit weight and a gap in it means
+ * nothing.
+ */
+async function nextCode(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  table: 'customers' | 'products',
+  prefix: string,
+): Promise<string> {
+  // MAX+1 is only safe when allocations for the same series are serialized.
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${table}:${prefix}`}))`);
+  const rows = await tx.execute<{ next: string }>(sql`
+    SELECT COALESCE(MAX(NULLIF(regexp_replace(code, '\\D', '', 'g'), '')::bigint), 0) + 1 AS next
+      FROM ${sql.raw(table)}
+     WHERE code ~ ${`^${prefix}[0-9]+$`}
+  `);
+  return `${prefix}${String(Number(rows[0]?.next ?? 1)).padStart(3, '0')}`;
+}
+
+export const createCustomer = writeAction
+  .metadata({ action: 'created', entity: 'customer' })
+  .inputSchema(customerSchema)
+  .action(async ({ parsedInput: input, ctx }) => {
+    const result = await db.transaction(async (tx) => {
+      const code = await nextCode(tx, 'customers', 'K');
+
+      const [customer] = await tx
+        .insert(customers)
+        .values({
+          code,
+          name: input.name,
+          phone: input.phone ?? null,
+          email: input.email?.toLowerCase() ?? null,
+          addressLine: input.addressLine ?? null,
+          city: input.city ?? null,
+          notes: input.notes ?? null,
+        })
+        .returning();
+
+      if (!customer) throw new ActionError('Could not create the customer.');
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'created customer',
+        entityType: 'customer',
+        entityId: customer.id,
+        entityLabel: customer.name,
+      });
+
+      return { id: customer.id, code: customer.code, name: customer.name };
+    });
+    return result;
+  });
+
+export const updateCustomer = writeAction
+  .metadata({ action: 'updated', entity: 'customer' })
+  .inputSchema(customerSchema.extend({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(customers)
+        .where(eq(customers.id, input.id))
+        .limit(1);
+
+      if (!existing) throw new ActionError('That customer no longer exists.');
+
+      await tx
+        .update(customers)
+        .set({
+          name: input.name,
+          phone: input.phone ?? null,
+          email: input.email?.toLowerCase() ?? null,
+          addressLine: input.addressLine ?? null,
+          city: input.city ?? null,
+          notes: input.notes ?? null,
+        })
+        .where(eq(customers.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'updated customer',
+        entityType: 'customer',
+        entityId: input.id,
+        entityLabel: input.name,
+      });
+    });
+    return { name: input.name };
+  });
+
+/**
+ * Refused if any non-void sale references this customer. A void sale is kept
+ * as a record that something *didn't* happen and carries no revenue, so it is
+ * not a reason to refuse — but a real sale is, since `sales.customer_id`
+ * being `ON DELETE SET NULL` would otherwise silently turn a past order into
+ * a walk-in's.
+ */
+export const deleteCustomer = ownerAction
+  .metadata({ action: 'deleted', entity: 'customer' })
+  .inputSchema(z.object({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    const name = await db.transaction(async (tx) => {
+      const [customer] = await tx
+        .select()
+        .from(customers)
+        .where(eq(customers.id, input.id))
+        .limit(1);
+
+      if (!customer) throw new ActionError('That customer no longer exists.');
+
+      const [sale] = await tx
+        .select({ id: sales.id })
+        .from(sales)
+        .where(sql`${sales.customerId} = ${input.id} AND ${sales.status} != 'void'`)
+        .limit(1);
+
+      if (sale) {
+        throw new ActionError(
+          'This customer has sales on the books. That history stays, so the customer cannot be deleted.',
+        );
+      }
+
+      await tx.delete(customers).where(eq(customers.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'deleted customer',
+        entityType: 'customer',
+        entityLabel: customer.name,
+      });
+
+      return customer.name;
+    });
+    return { name };
+  });
+
+export const createCategory = writeAction
+  .metadata({ action: 'created', entity: 'category' })
+  .inputSchema(categorySchema)
+  .action(async ({ parsedInput: input, ctx }) => {
+    const result = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .select({ max: sql<string>`COALESCE(MAX(position), 0)::text` })
+        .from(categories);
+
+      const [category] = await tx
+        .insert(categories)
+        .values({
+          name: input.name,
+          slug: input.slug,
+          description: input.description ?? null,
+          storefrontDescription: input.storefrontDescription ?? null,
+          imageUrl: input.imageUrl ?? null,
+          position: input.position ?? Number(row?.max ?? 0) + 1,
+          showInStorefrontNav: input.showInStorefrontNav,
+          featured: input.featured,
+        })
+        .returning();
+
+      if (!category) throw new ActionError('Could not create the category.');
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'created category',
+        entityType: 'category',
+        entityId: category.id,
+        entityLabel: category.name,
+      });
+
+      return { id: category.id, name: category.name };
+    });
+    return result;
+  });
+
+export const createBrand = writeAction
+  .metadata({ action: 'created', entity: 'brand' })
+  .inputSchema(brandSchema)
+  .action(async ({ parsedInput: input, ctx }) => {
+    return db.transaction(async (tx) => {
+      const [brand] = await tx
+        .insert(brands)
+        .values({
+          name: input.name,
+          slug: input.slug,
+          website: input.website ?? null,
+          description: input.description ?? null,
+          active: input.active,
+        })
+        .returning({ id: brands.id, name: brands.name });
+      if (!brand) throw new ActionError('Could not create the brand.');
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'created brand',
+        entityType: 'brand',
+        entityId: brand.id,
+        entityLabel: brand.name,
+      });
+      return brand;
+    });
+  });
+
+export const updateCategory = writeAction
+  .metadata({ action: 'updated', entity: 'category' })
+  .inputSchema(categorySchema.extend({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!existing) throw new ActionError('That category no longer exists.');
+
+      await tx
+        .update(categories)
+        .set({
+          name: input.name,
+          slug: input.slug,
+          description: input.description ?? null,
+          storefrontDescription: input.storefrontDescription ?? null,
+          imageUrl: input.imageUrl ?? null,
+          position: input.position ?? existing.position,
+          showInStorefrontNav: input.showInStorefrontNav,
+          featured: input.featured,
+        })
+        .where(eq(categories.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'updated category',
+        entityType: 'category',
+        entityId: input.id,
+        entityLabel: input.name,
+      });
+    });
+    return { name: input.name };
+  });
+
+/** Always permitted: `products.category_id` is `ON DELETE SET NULL`, so a
+ *  category with products still just detaches them rather than orphaning
+ *  anything. `listCategories`' `productCount` is what tells the confirm
+ *  dialog to say so before this ever runs. */
+export const deleteCategory = ownerAction
+  .metadata({ action: 'deleted', entity: 'category' })
+  .inputSchema(z.object({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    const name = await db.transaction(async (tx) => {
+      const [category] = await tx
+        .select()
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (!category) throw new ActionError('That category no longer exists.');
+
+      await tx.delete(categories).where(eq(categories.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'deleted category',
+        entityType: 'category',
+        entityLabel: category.name,
+      });
+
+      return category.name;
+    });
+    return { name };
+  });
+
+export const createSupplier = writeAction
+  .metadata({ action: 'created', entity: 'supplier' })
+  .inputSchema(supplierSchema)
+  .action(async ({ parsedInput: input, ctx }) => {
+    const result = await db.transaction(async (tx) => {
+      const [supplier] = await tx
+        .insert(suppliers)
+        .values({
+          name: input.name,
+          kind: input.kind,
+          website: input.website ?? null,
+          leadTimeDays: input.leadTimeDays,
+          notes: input.notes ?? null,
+        })
+        .returning();
+
+      if (!supplier) throw new ActionError('Could not create the supplier.');
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'created supplier',
+        entityType: 'supplier',
+        entityId: supplier.id,
+        entityLabel: supplier.name,
+      });
+
+      return { id: supplier.id, name: supplier.name };
+    });
+    return result;
+  });
+
+export const updateSupplier = writeAction
+  .metadata({ action: 'updated', entity: 'supplier' })
+  .inputSchema(supplierSchema.extend({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.id, input.id))
+        .limit(1);
+
+      if (!existing) throw new ActionError('That supplier no longer exists.');
+
+      await tx
+        .update(suppliers)
+        .set({
+          name: input.name,
+          kind: input.kind,
+          website: input.website ?? null,
+          leadTimeDays: input.leadTimeDays,
+          notes: input.notes ?? null,
+        })
+        .where(eq(suppliers.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'updated supplier',
+        entityType: 'supplier',
+        entityId: input.id,
+        entityLabel: input.name,
+      });
+    });
+    return { name: input.name };
+  });
+
+/**
+ * Refused if any purchase order references this supplier — a supplier with
+ * trading history is a fact about the past, and `purchase_orders.supplier_id`
+ * being `ON DELETE SET NULL` would otherwise silently detach every order from
+ * who it was bought from. Products referencing it (also `SET NULL`) are not
+ * a reason to refuse; `listSuppliers`' `productCount` tells the confirm
+ * dialog to warn about that instead.
+ */
+export const deleteSupplier = ownerAction
+  .metadata({ action: 'deleted', entity: 'supplier' })
+  .inputSchema(z.object({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    const name = await db.transaction(async (tx) => {
+      const [supplier] = await tx
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.id, input.id))
+        .limit(1);
+
+      if (!supplier) throw new ActionError('That supplier no longer exists.');
+
+      const [order] = await tx
+        .select({ id: purchaseOrders.id })
+        .from(purchaseOrders)
+        .where(eq(purchaseOrders.supplierId, input.id))
+        .limit(1);
+
+      if (order) {
+        throw new ActionError(
+          'This supplier has purchase order history. That stays on the books, so the supplier cannot be deleted.',
+        );
+      }
+
+      await tx.delete(suppliers).where(eq(suppliers.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'deleted supplier',
+        entityType: 'supplier',
+        entityLabel: supplier.name,
+      });
+
+      return supplier.name;
+    });
+    return { name };
+  });
+
+export const updateMember = ownerAction
+  .metadata({ action: 'updated', entity: 'member' })
+  .inputSchema(memberSchema.extend({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(members)
+        .where(eq(members.id, input.id))
+        .limit(1);
+
+      if (!existing) throw new ActionError('That member no longer exists.');
+
+      // Removing the last owner would lock everyone out of team management and
+      // settings, with no way back in through the interface.
+      if (existing.role === 'owner' && input.role !== 'owner') {
+        // Lock the owner set before counting it. Without this, two concurrent
+        // demotions could both observe two owners and leave none.
+        await tx.execute(
+          sql`SELECT id FROM members WHERE role = 'owner' ORDER BY id FOR UPDATE`,
+        );
+        const [row] = await tx
+          .select({ count: sql<string>`COUNT(*)::text` })
+          .from(members)
+          .where(eq(members.role, 'owner'));
+        if (Number(row?.count ?? 0) <= 1) {
+          throw new ActionError('Nextly needs at least one owner.');
+        }
+      }
+
+      await tx
+        .update(members)
+        .set({
+          fullName: input.fullName,
+          email: input.email.toLowerCase(),
+          role: input.role,
+          isPrincipal: input.isPrincipal,
+        })
+        .where(eq(members.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'updated member',
+        entityType: 'member',
+        entityId: input.id,
+        entityLabel: input.fullName,
+      });
+    });
+    return { fullName: input.fullName };
+  });
+
+/** Invite a new member through Supabase Auth, then create the matching books
+ * row. The auth user is linked immediately so the first sign-in cannot claim
+ * an unintended case-variant email row. */
+export const inviteMember = ownerAction
+  .metadata({ action: 'invited', entity: 'member' })
+  .inputSchema(memberSchema)
+  .action(async ({ parsedInput: input, ctx }) => {
+    const email = input.email.toLowerCase();
+    const [existing] = await db
+      .select({ id: members.id })
+      .from(members)
+      .where(sql`lower(${members.email}) = ${email}`)
+      .limit(1);
+
+    if (existing) throw new ActionError('A team member with that email already exists.');
+
+    const admin = createAdminClient();
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${publicAppUrl()}/auth/callback`,
+    });
+    if (error || !data.user) {
+      throw new ActionError(error?.message ?? 'Supabase could not send the invitation.');
+    }
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [member] = await tx
+          .insert(members)
+          .values({
+            authUserId: data.user.id,
+            email,
+            fullName: input.fullName,
+            role: input.role,
+            isPrincipal: input.isPrincipal,
+          })
+          .returning({ id: members.id, fullName: members.fullName });
+
+        if (!member) throw new ActionError('Could not create the invited team member.');
+
+        await logActivity(tx, {
+          memberId: ctx.member.id,
+          action: 'invited team member',
+          entityType: 'member',
+          entityId: member.id,
+          entityLabel: member.fullName,
+        });
+
+        return member;
+      });
+
+      return result;
+    } catch (error) {
+      // Avoid leaving an auth account without a corresponding books row when
+      // a database constraint or connection failure happens after inviting.
+      await admin.auth.admin.deleteUser(data.user.id);
+      throw error;
+    }
+  });
+
+export const removeMember = ownerAction
+  .metadata({ action: 'removed', entity: 'member' })
+  .inputSchema(z.object({ id: uuid }))
+  .action(async ({ parsedInput: input, ctx }) => {
+    const fullName = await db.transaction(async (tx) => {
+      const [member] = await tx.select().from(members).where(eq(members.id, input.id)).limit(1);
+
+      if (!member) throw new ActionError('That member no longer exists.');
+      if (member.id === ctx.member.id) {
+        throw new ActionError('You cannot remove your own access.');
+      }
+      if (member.isPrincipal) {
+        throw new ActionError(
+          'This person holds capital in the business. Change their role to read-only instead.',
+        );
+      }
+
+      await tx.delete(members).where(eq(members.id, input.id));
+
+      await logActivity(tx, {
+        memberId: ctx.member.id,
+        action: 'removed member',
+        entityType: 'member',
+        entityLabel: member.fullName,
+      });
+
+      return member.fullName;
+    });
+    return { fullName };
+  });

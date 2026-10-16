@@ -1,0 +1,24 @@
+import type { Metadata } from 'next';
+import { OrderForm } from '@/components/forms/order-form';
+import { PageHeader } from '@/components/patterns/page-header';
+import {
+  listCustomerOptions,
+  listLocationOptions,
+  listVariantOptions,
+} from '@/server/queries/pickers';
+
+export const metadata: Metadata = { title: 'New order' };
+
+export default async function NewOrderPage() {
+  const [variants, customers, locations] = await Promise.all([
+    listVariantOptions(),
+    listCustomerOptions(),
+    listLocationOptions(),
+  ]);
+  return (
+    <>
+      <PageHeader title="New order" action={null} />
+      <OrderForm variants={variants} customers={customers} locations={locations} />
+    </>
+  );
+}

@@ -1,0 +1,15 @@
+.git
+.next
+node_modules
+.env*
+!.env.example
+*.log
+coverage
+playwright-report
+test-results
+migration-reports
+.local-rehearsal
+.vercel
+.turbo
+# The app build does not need Supabase Compose files, local credentials or data.
+deploy/supabase

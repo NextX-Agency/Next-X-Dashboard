@@ -1,8 +1,0 @@
-export { WatchesHeader } from './WatchesHeader'
-export { WatchesHero } from './WatchesHero'
-export { WatchesCategoryNav } from './WatchesCategoryNav'
-export { WatchProductCard } from './WatchProductCard'
-export { WatchQuickViewModal } from './WatchQuickViewModal'
-export { WatchCartDrawer } from './WatchCartDrawer'
-export { WatchesFooter } from './WatchesFooter'
-export { WatchesAgencySection } from './WatchesAgencySection'

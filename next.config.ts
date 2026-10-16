@@ -1,102 +1,91 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+import { isPublicAppUrlAllowed, isSupabaseUrlAllowed } from './src/lib/env';
+
+assertProductionBuildEnvironment();
 
 const nextConfig: NextConfig = {
-  // Image optimization - DO NOT set unoptimized globally; handled per-component
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '*.public.blob.vercel-storage.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        // Allow localhost blob previews in dev
-        protocol: 'http',
-        hostname: 'localhost',
-      },
-    ],
-    // Enable modern image formats for maximum compression
-    formats: ['image/avif', 'image/webp'],
-    // Standard responsive breakpoints
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    qualities: [75, 88, 92, 95, 100],
-    // Aggressive caching: images cached for 1 year
-    minimumCacheTTL: 31536000,
-    // Allow SVG (logo)
-    dangerouslyAllowSVG: true,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-  },
-  
-  // Compression for better performance
-  compress: true,
-  
-  // Power optimizations
-  poweredByHeader: false,
-  
-  // Strict mode for better React patterns
-  reactStrictMode: true,
+  output: 'standalone',
+  // Everything is dynamic unless explicitly marked `'use cache'`, and nothing
+  // is: this dashboard's figures are live, every write invalidates them, and
+  // caching them made `next build` reach for the database, which turned a
+  // transient connection problem into a failed deploy. Kept on for the
+  // Partial Prerendering it gives the public routes, and because dynamic by
+  // default is the correct posture for a set of books.
+  cacheComponents: true,
 
-  // Experimental options for faster builds
-  experimental: {
-    // Optimize package imports to reduce bundle size
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    // Increase image proxy timeout from default 7s to 15s for Vercel blob storage
-    proxyTimeout: 15_000,
-  },
-  
-  // Headers for SEO, security and caching
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
-      },
-      {
-        // Cache static assets aggressively (1 year, immutable)
-        source: '/(.*)\\.(ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)',
-        headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-        ],
-      },
-      {
-        // API catalog: short cache to keep products fresh but reduce DB hits
-        source: '/api/catalog',
-        headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=120' },
-        ],
-      },
-      {
-        source: '/catalog/:path*',
-        headers: [
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'X-Robots-Tag', value: 'index, follow, max-image-preview:large, max-snippet:-1' },
-        ],
-      },
-    ];
-  },
-  
+  // Automatic memoization. Costs build time, buys us render time on the
+  // chart-heavy Overview route.
+  reactCompiler: true,
+
+  typedRoutes: true,
+
   async redirects() {
     return [
+      // NextX sells audio only: the root opens the audio shop, and the retired
+      // watches storefront sends old links there. Not permanent, so a future
+      // product line can reclaim these paths without fighting cached 308s.
+      { source: '/', destination: '/audio', permanent: false },
+      { source: '/watches', destination: '/audio', permanent: false },
+      { source: '/watches/:path*', destination: '/audio', permanent: false },
+      { source: '/catalog', destination: '/audio', permanent: true },
       {
-        source: '/catalog',
-        destination: '/audio',
-        permanent: true,
-      },
-      {
-        source: '/catalog/:id',
-        destination: '/audio/:id',
+        source: '/catalog/:legacyItemId',
+        destination: '/audio/:legacyItemId',
         permanent: true,
       },
     ];
   },
+
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+  },
+
+  images: {
+    // Only self-hosted Storage is allowed for public catalog media.
+    // `images.domains` is deprecated in Next 16.
+    remotePatterns: supabaseStorageImagePattern(),
+    formats: ['image/avif', 'image/webp'],
+  },
 };
+
+function supabaseStorageImagePattern(): NonNullable<NextConfig['images']>['remotePatterns'] {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!rawUrl) return [];
+  try {
+    const url = new URL(rawUrl);
+    return [
+      {
+        protocol: url.protocol.slice(0, -1) as 'http' | 'https',
+        hostname: url.hostname,
+        ...(url.port ? { port: url.port } : {}),
+        pathname: '/storage/v1/object/public/nextly-product-images/**',
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function assertProductionBuildEnvironment(): void {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!supabaseUrl || !isSupabaseUrlAllowed(supabaseUrl)) {
+    throw new Error(
+      'Production images must be built with the HTTPS API/Auth/Storage URL of the self-hosted Supabase stack.',
+    );
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()) {
+    throw new Error(
+      'Production image builds require the self-hosted Supabase publishable key.',
+    );
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!appUrl || !isPublicAppUrlAllowed(appUrl)) {
+    throw new Error('Production image builds require the HTTPS NextX application URL.');
+  }
+}
 
 export default nextConfig;

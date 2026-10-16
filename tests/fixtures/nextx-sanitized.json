@@ -1,0 +1,412 @@
+{
+  "metadata": {
+    "sourceSystem": "nextx",
+    "schemaVersion": "prisma-main",
+    "exportedAt": "2026-09-20T12:00:00.000Z",
+    "openingBalanceAt": "2026-01-01T00:00:00.000Z",
+    "sourceTableInventoryComplete": true,
+    "sourceTableCounts": {}
+  },
+  "companies": [{ "id": "company-1", "name": "Sanitized NextX Agency", "baseCurrency": "SRD" }],
+  "users": [
+    {
+      "id": "user-1",
+      "email": "operator@example.invalid",
+      "name": "Migration Operator",
+      "role": "admin"
+    }
+  ],
+  "locations": [
+    { "id": "location-main", "name": "Main Branch", "catalogType": "all", "isActive": true },
+    {
+      "id": "location-watches",
+      "name": "Watch Counter",
+      "catalogType": "watches",
+      "isActive": true
+    }
+  ],
+  "categories": [
+    { "id": "category-audio", "name": "Audio", "catalogType": "audio" },
+    { "id": "category-watches", "name": "Watches", "catalogType": "watches" }
+  ],
+  "items": [
+    {
+      "id": "item-watch-1",
+      "name": "Sanitized Watch",
+      "brand": "Example",
+      "categoryId": "category-watches",
+      "catalogType": "watches",
+      "sku": "WATCH-001",
+      "purchasePriceUsd": "120.00",
+      "sellingPriceUsd": "220.00",
+      "sellingPriceSrd": "8470.00",
+      "isPublic": true
+    },
+    {
+      "id": "item-audio-1",
+      "name": "Sanitized IEM",
+      "categoryId": "category-audio",
+      "catalogType": "audio",
+      "purchasePriceUsd": "40.00",
+      "sellingPriceUsd": "75.00",
+      "sellingPriceSrd": "2887.50",
+      "isPublic": true
+    }
+  ],
+  "stock": [
+    {
+      "id": "stock-watch-main",
+      "itemId": "item-watch-1",
+      "locationId": "location-main",
+      "quantity": 3,
+      "updatedAt": "2026-09-18T10:00:00.000Z"
+    },
+    {
+      "id": "stock-watch-counter",
+      "itemId": "item-watch-1",
+      "locationId": "location-watches",
+      "quantity": 5,
+      "updatedAt": "2026-09-18T10:00:00.000Z"
+    },
+    {
+      "id": "stock-audio-main",
+      "itemId": "item-audio-1",
+      "locationId": "location-main",
+      "quantity": 10,
+      "updatedAt": "2026-09-18T10:00:00.000Z"
+    }
+  ],
+  "stockTransfers": [
+    {
+      "id": "transfer-stock-1",
+      "itemId": "item-watch-1",
+      "fromLocationId": "location-main",
+      "toLocationId": "location-watches",
+      "quantity": 2,
+      "createdAt": "2026-08-01T10:00:00.000Z"
+    }
+  ],
+  "exchangeRates": [
+    {
+      "id": "rate-1",
+      "usdToSrd": "38.5",
+      "setAt": "2026-09-01T00:00:00.000Z",
+      "isActive": true
+    }
+  ],
+  "clients": [
+    {
+      "id": "client-1",
+      "name": "Sanitized Customer",
+      "email": "customer@example.invalid",
+      "phone": "+5975550100",
+      "location_id": "location-main"
+    }
+  ],
+  "sales": [
+    {
+      "id": "sale-full",
+      "locationId": "location-watches",
+      "clientId": "client-1",
+      "currency": "SRD",
+      "exchangeRate": "38.5",
+      "totalAmount": "8470.00",
+      "paymentMethod": "cash",
+      "status": "completed",
+      "catalogType": "watches",
+      "invoiceNumber": "NX-HIST-0001",
+      "createdAt": "2026-09-10T12:00:00.000Z",
+      "walletId": "wallet-srd"
+    },
+    {
+      "id": "sale-partial",
+      "locationId": "location-main",
+      "clientId": "client-1",
+      "currency": "USD",
+      "totalAmount": "75.00",
+      "paymentMethod": "bank_transfer",
+      "status": "posted",
+      "catalogType": "audio",
+      "invoiceNumber": "NX-HIST-0002",
+      "createdAt": "2026-09-11T12:00:00.000Z",
+      "walletId": "wallet-usd"
+    }
+  ],
+  "saleItems": [
+    {
+      "id": "sale-item-full",
+      "saleId": "sale-full",
+      "itemId": "item-watch-1",
+      "quantity": 1,
+      "unitPrice": "8470.00",
+      "subtotal": "8470.00"
+    },
+    {
+      "id": "sale-item-partial",
+      "saleId": "sale-partial",
+      "itemId": "item-audio-1",
+      "quantity": 1,
+      "unitPrice": "75.00",
+      "subtotal": "75.00"
+    }
+  ],
+  "salePayments": [
+    {
+      "id": "payment-full",
+      "saleId": "sale-full",
+      "amount": "8470.00",
+      "currency": "SRD",
+      "method": "cash",
+      "walletId": "wallet-srd",
+      "receivedAt": "2026-09-10T12:05:00.000Z"
+    },
+    {
+      "id": "payment-partial",
+      "saleId": "sale-partial",
+      "amount": "35.00",
+      "currency": "USD",
+      "method": "bank_transfer",
+      "walletId": "wallet-usd",
+      "receivedAt": "2026-09-11T12:05:00.000Z"
+    }
+  ],
+  "saleRefunds": [
+    {
+      "id": "refund-full",
+      "saleId": "sale-full",
+      "amount": "100.00",
+      "currency": "SRD",
+      "method": "cash",
+      "walletId": "wallet-srd",
+      "reason": "Sanitized return",
+      "refundedAt": "2026-09-12T12:00:00.000Z"
+    }
+  ],
+  "wallets": [
+    {
+      "id": "wallet-srd",
+      "personName": "Main Cash SRD",
+      "type": "cash",
+      "currency": "SRD",
+      "balance": "8370.00",
+      "location_id": "location-main",
+      "isActive": true
+    },
+    {
+      "id": "wallet-srd-2",
+      "personName": "Counter Cash SRD",
+      "type": "cash",
+      "currency": "SRD",
+      "balance": "500.00",
+      "location_id": "location-watches",
+      "isActive": true
+    },
+    {
+      "id": "wallet-usd",
+      "personName": "Bank USD",
+      "type": "bank",
+      "currency": "USD",
+      "balance": "535.00",
+      "location_id": "location-main",
+      "isActive": true
+    }
+  ],
+  "walletTransactions": [
+    {
+      "id": "payment-full",
+      "walletId": "wallet-srd",
+      "saleId": "sale-full",
+      "type": "credit",
+      "amount": "8470.00",
+      "currency": "SRD",
+      "createdAt": "2026-09-10T12:05:00.000Z"
+    },
+    {
+      "id": "payment-partial",
+      "walletId": "wallet-usd",
+      "saleId": "sale-partial",
+      "type": "credit",
+      "amount": "35.00",
+      "currency": "USD",
+      "createdAt": "2026-09-11T12:05:00.000Z"
+    },
+    {
+      "id": "expense-tx-1",
+      "walletId": "wallet-srd",
+      "type": "expense",
+      "amount": "100.00",
+      "currency": "SRD",
+      "referenceType": "expense",
+      "referenceId": "expense-1",
+      "createdAt": "2026-09-13T12:00:00.000Z"
+    },
+    {
+      "id": "transfer-out-1",
+      "walletId": "wallet-srd",
+      "type": "transfer_out",
+      "amount": "500.00",
+      "currency": "SRD",
+      "referenceType": "transfer",
+      "referenceId": "transfer-1",
+      "createdAt": "2026-09-14T12:00:00.000Z"
+    },
+    {
+      "id": "transfer-in-1",
+      "walletId": "wallet-srd-2",
+      "type": "transfer_in",
+      "amount": "500.00",
+      "currency": "SRD",
+      "referenceType": "transfer",
+      "referenceId": "transfer-1",
+      "createdAt": "2026-09-14T12:00:00.000Z"
+    }
+  ],
+  "financeLedgerEntries": [
+    {
+      "id": "ledger-payment-full",
+      "walletTransactionId": "payment-full",
+      "walletId": "wallet-srd",
+      "eventType": "sale_payment",
+      "direction": "in",
+      "amount": "8470.00",
+      "currency": "SRD",
+      "sourceType": "sale",
+      "createdAt": "2026-09-10T12:05:00.000Z"
+    },
+    {
+      "id": "ledger-expense-1",
+      "walletTransactionId": "expense-tx-1",
+      "walletId": "wallet-srd",
+      "eventType": "expense",
+      "direction": "out",
+      "amount": "100.00",
+      "currency": "SRD",
+      "sourceType": "expense",
+      "createdAt": "2026-09-13T12:00:00.000Z"
+    },
+    {
+      "id": "ledger-capital-1",
+      "walletId": "wallet-usd",
+      "eventType": "owner_contribution",
+      "direction": "in",
+      "amount": "500.00",
+      "currency": "USD",
+      "sourceType": "manual",
+      "category": "owner_contribution",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "expense-1",
+      "description": "Sanitized transport",
+      "category": "Transport",
+      "amount": "100.00",
+      "currency": "SRD",
+      "walletId": "wallet-srd",
+      "locationId": "location-main",
+      "walletTransactionId": "expense-tx-1",
+      "paymentMethod": "cash",
+      "createdAt": "2026-09-13T12:00:00.000Z"
+    },
+    {
+      "id": "expense-voided",
+      "description": "Voided legacy expense",
+      "category": "Transport",
+      "amount": "10.00",
+      "currency": "USD",
+      "walletId": "wallet-usd",
+      "status": "voided",
+      "voidedAt": "2026-09-15T12:00:00.000Z",
+      "voidReason": "Sanitized correction"
+    }
+  ],
+  "walletReconciliations": [
+    {
+      "id": "reconciliation-1",
+      "walletId": "wallet-srd",
+      "confirmedBalance": "8370.00",
+      "status": "confirmed",
+      "reconciledAt": "2026-09-15T18:00:00.000Z",
+      "note": "Sanitized statement checkpoint"
+    }
+  ],
+  "invoiceSequences": [
+    {
+      "prefix": "INV",
+      "lastNumber": 163,
+      "updatedAt": "2026-09-22T16:30:00.000Z"
+    }
+  ],
+  "invoices": [
+    {
+      "id": "invoice-1",
+      "saleId": "sale-full",
+      "invoiceNumber": "NX-HIST-0001",
+      "issuedAt": "2026-09-10T12:00:00.000Z"
+    },
+    {
+      "id": "invoice-2",
+      "saleId": "sale-partial",
+      "invoiceNumber": "NX-HIST-0002",
+      "issuedAt": "2026-09-11T12:00:00.000Z"
+    }
+  ],
+  "reservations": [
+    {
+      "id": "reservation-1",
+      "clientId": "client-1",
+      "itemId": "item-audio-1",
+      "locationId": "location-main",
+      "quantity": 1,
+      "status": "pending",
+      "originalPrice": "75.00",
+      "currency": "USD",
+      "createdAt": "2026-09-16T12:00:00.000Z"
+    }
+  ],
+  "commissions": [],
+  "budgets": [],
+  "activityLogs": [],
+  "notifications": [],
+  "purchaseOrders": [],
+  "purchaseOrderItems": [],
+  "financeObligations": [
+    {
+      "id": "obligation-receivable-1",
+      "type": "receivable",
+      "counterpartyName": "Fixture customer",
+      "locationId": "location-main",
+      "currency": "USD",
+      "originalAmount": "125.00",
+      "paidAmount": "40.00",
+      "status": "partial",
+      "dueDate": "2026-10-15",
+      "issuedAt": "2026-09-01T12:00:00.000Z",
+      "notes": "Sanitized opening balance",
+      "sourceType": "manual",
+      "sourceId": null,
+      "createdAt": "2026-09-01T12:00:00.000Z",
+      "updatedAt": "2026-09-10T12:00:00.000Z"
+    }
+  ],
+  "storeSettings": [
+    { "key": "store_name", "value": "NextX", "updatedAt": "2026-09-20T12:00:00.000Z" },
+    { "key": "store_currency", "value": "SRD", "updatedAt": "2026-09-20T12:00:00.000Z" },
+    {
+      "key": "hero_title",
+      "value": "Everyday audio, ready today",
+      "updatedAt": "2026-09-20T12:00:00.000Z"
+    },
+    {
+      "key": "audio_hero_title",
+      "value": "Clear sound for the commute",
+      "updatedAt": "2026-09-20T12:00:00.000Z"
+    },
+    {
+      "key": "watches_hero_image_url",
+      "value": "/fixture/watches-hero.webp",
+      "updatedAt": "2026-09-20T12:00:00.000Z"
+    }
+  ]
+}

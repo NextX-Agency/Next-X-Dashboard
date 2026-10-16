@@ -1,0 +1,190 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   NextX Dashboard 2.0 design tokens
+   ──────────────────────────────────────────────────────────────────────────
+   The neutral ramp is NOT grey. Every surface, border and text colour is
+   tinted toward hue 207° — the hue of #125488 from the brand palette. That
+   single decision is what stops the shell reading as a default template.
+
+   Chrome is near-monochrome. NextX orange is the interactive accent.
+   The five palette colours are reserved for data visualisation only.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --nx-bg-sunken: hsl(205 28% 95.5%);
+  --nx-bg-base: hsl(205 30% 98.5%);
+  --nx-bg-raised: hsl(0 0% 100%);
+  --nx-bg-overlay: hsl(0 0% 100%);
+  --nx-bg-inset: hsl(205 26% 96.8%);
+  --nx-bg-hover: hsl(207 26% 94.5%);
+  --nx-bg-active: hsl(207 26% 91.5%);
+
+  /* ── Borders ──────────────────────────────────────────────────────────── */
+  --nx-border-subtle: hsl(207 22% 91%);
+  --nx-border: hsl(207 20% 85%);
+  --nx-border-strong: hsl(207 18% 71%);
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --nx-text: hsl(207 48% 11%);
+  --nx-text-secondary: hsl(207 16% 38%);
+  --nx-text-tertiary: hsl(207 14% 52%);
+  --nx-text-faint: hsl(207 13% 64%);
+
+  /* ── Accent (interactive) ─────────────────────────────────────────────── */
+  /* Darker than the logo orange so text and buttons clear WCAG AA on white. */
+  --nx-accent: #c45200;
+  --nx-accent-hover: #a83d00;
+  --nx-accent-fg: hsl(0 0% 100%);
+  --nx-accent-muted: #fff1e4;
+  --nx-accent-border: #f5bf8e;
+  --nx-ring: #c45200;
+
+  /* ── Semantic (money has direction) ───────────────────────────────────── */
+  --nx-positive: hsl(179 78% 27%);
+  --nx-positive-muted: hsl(179 52% 93%);
+  --nx-negative: hsl(4 68% 46%);
+  --nx-negative-muted: hsl(4 76% 96%);
+  --nx-warning: hsl(33 88% 38%);
+  --nx-warning-muted: hsl(40 90% 94%);
+  --nx-info: hsl(203 67% 42%);
+  --nx-info-muted: hsl(203 72% 94%);
+
+  /* ── Data visualisation — the brand palette, used ONLY here ───────────── */
+  --nx-chart-1: #125488;
+  --nx-chart-2: #2a93d5;
+  --nx-chart-3: #37caec;
+  --nx-chart-4: #3dd9d6;
+  --nx-chart-5: #8fc7c6;
+  --nx-chart-grid: hsl(207 20% 89%);
+  --nx-chart-axis: hsl(207 14% 56%);
+
+  /* ── Elevation — one step, borders do the rest ────────────────────────── */
+  --nx-shadow-raised:
+    0 1px 2px -1px hsl(207 40% 20% / 0.1), 0 2px 6px -2px hsl(207 40% 20% / 0.08);
+  --nx-shadow-overlay:
+    0 4px 12px -2px hsl(207 40% 18% / 0.12), 0 12px 32px -8px hsl(207 40% 18% / 0.14);
+  --nx-highlight: transparent;
+
+  color-scheme: light;
+}
+
+.dark {
+  --nx-bg-sunken: hsl(207 45% 3.5%);
+  --nx-bg-base: hsl(207 42% 5.5%);
+  --nx-bg-raised: hsl(207 32% 8.5%);
+  --nx-bg-overlay: hsl(207 30% 11%);
+  --nx-bg-inset: hsl(207 36% 7%);
+  --nx-bg-hover: hsl(207 28% 13%);
+  --nx-bg-active: hsl(207 26% 16.5%);
+
+  --nx-border-subtle: hsl(207 22% 15.5%);
+  --nx-border: hsl(207 20% 20.5%);
+  --nx-border-strong: hsl(207 18% 31%);
+
+  --nx-text: hsl(200 30% 96%);
+  --nx-text-secondary: hsl(205 14% 68%);
+  --nx-text-tertiary: hsl(207 12% 52%);
+  --nx-text-faint: hsl(207 12% 52%);
+
+  --nx-accent: #f7931e;
+  --nx-accent-hover: #ffad4d;
+  --nx-accent-fg: #1b1108;
+  --nx-accent-muted: #35200f;
+  --nx-accent-border: #784317;
+  --nx-ring: #f7931e;
+
+  --nx-positive: hsl(179 67% 55%);
+  --nx-positive-muted: hsl(179 44% 13%);
+  --nx-negative: hsl(4 82% 66%);
+  --nx-negative-muted: hsl(4 44% 15%);
+  --nx-warning: hsl(38 92% 62%);
+  --nx-warning-muted: hsl(38 48% 14%);
+  --nx-info: hsl(203 67% 58%);
+  --nx-info-muted: hsl(203 48% 14%);
+
+  --nx-chart-1: #1b6fb0;
+  --nx-chart-2: #2a93d5;
+  --nx-chart-3: #37caec;
+  --nx-chart-4: #3dd9d6;
+  --nx-chart-5: #add9d8;
+  --nx-chart-grid: hsl(207 20% 17%);
+  --nx-chart-axis: hsl(207 12% 45%);
+
+  /* Dark surfaces get a hairline top highlight instead of a drop shadow —
+     shadows are invisible on near-black and just add mud. */
+  --nx-shadow-raised: none;
+  --nx-shadow-overlay:
+    0 8px 24px -6px hsl(207 60% 2% / 0.6), 0 20px 48px -12px hsl(207 60% 2% / 0.5);
+  --nx-highlight: hsl(207 30% 100% / 0.055);
+
+  color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Storefront skin — "Northlight"
+   ──────────────────────────────────────────────────────────────────────────
+   The public shop is not the dashboard. Where Instrument is dense and
+   near-monochrome, the storefront is open, white and cool: a light-blue
+   tinted canvas under the product moments (the Fairphone move — product on a
+   soft colour field, never on chrome), navy #125488 as the interactive
+   accent, and the bright cyan #37CAEC reserved for highlights a visitor
+   should notice (stock pills, the hero underline).
+
+   Scoped under `.nx-store` on the store layout root: every utility inside
+   the storefront re-skins through the live var references `@theme inline`
+   keeps, with zero changes to dashboard components. Light only — the store
+   layout forces the light theme (see (store)/layout.tsx).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.nx-store {
+  /* ── Surfaces — white base, light-blue fields ─────────────────────────
+     Back to a blue family after a warm-amber detour: this is IoT/smart-
+     home hardware, and blue is the category's near-universal signal for
+     "connected" — the amber retint read as artisanal/organic rather than
+     tech, which fought the product instead of selling it. The accent
+     itself is a lighter, softer blue than the original dark navy (named
+     "baby blue" directly) rather than a full revert. */
+  --nx-bg-sunken: hsl(204 58% 96.5%);
+  --nx-bg-base: hsl(0 0% 100%);
+  --nx-bg-raised: hsl(0 0% 100%);
+  --nx-bg-overlay: hsl(0 0% 100%);
+  --nx-bg-inset: hsl(204 66% 96.5%);
+  --nx-bg-hover: hsl(204 58% 94%);
+  --nx-bg-active: hsl(204 56% 91%);
+
+  /* ── Borders — cooler, lighter hairlines ────────────────────────────── */
+  --nx-border-subtle: hsl(206 42% 91%);
+  --nx-border: hsl(206 36% 85%);
+  --nx-border-strong: hsl(206 30% 71%);
+
+  /* ── Text — navy-tinted ink ─────────────────────────────────────────── */
+  --nx-text: hsl(208 50% 12%);
+  --nx-text-secondary: hsl(208 22% 36%);
+  --nx-text-tertiary: hsl(208 16% 48%);
+  --nx-text-faint: hsl(208 14% 60%);
+
+  /* ── Accent — a soft "baby blue", confident on white but noticeably
+     lighter than a corporate navy ──────────────────────────────────────── */
+  --nx-accent: #c45200;
+  --nx-accent-hover: #a83d00;
+  --nx-accent-fg: hsl(0 0% 100%);
+  --nx-accent-muted: #fff1e4;
+  --nx-accent-border: #f5bf8e;
+  --nx-ring: #c45200;
+
+  /* ── Highlight — the actual pastel "baby blue", used sparingly ───────── */
+  --nx-store-bright: #f7931e;
+  --nx-store-bright-soft: #fff1e4;
+
+  /* ── Navy — the footer's cool contrast block and hero ink ───────────── */
+  --nx-store-navy: hsl(208 50% 12%);
+  --nx-store-navy-soft: hsl(208 36% 22%);
+  --nx-store-navy-line: hsl(208 30% 32%);
+
+  /* ── Elevation — softer and airier than the dashboard's single step ─── */
+  --nx-shadow-raised:
+    0 2px 6px -2px hsl(206 60% 30% / 0.08), 0 10px 28px -10px hsl(206 60% 30% / 0.12);
+  --nx-shadow-overlay:
+    0 6px 16px -4px hsl(206 60% 24% / 0.12), 0 20px 48px -12px hsl(206 60% 24% / 0.16);
+  --nx-highlight: transparent;
+}
