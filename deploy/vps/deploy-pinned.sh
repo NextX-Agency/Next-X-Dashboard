@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Deploy an exact, pinned Git commit of NextX to the staging stack on this VPS.
 #
-#   sudo bash ~/nextx/deploy/vps/deploy-pinned.sh <full-commit-sha> [snapshot.json]
+#   sudo bash ~/nextx/deploy/vps/deploy-pinned.sh <full-commit-sha> [snapshot.json] [deploy-nextx.sh options]
 #
 # Refuses to run unless ~/nextx is checked out at exactly <full-commit-sha> with a
 # clean working tree, so the image is traceable to Git. Before building it tags the
@@ -33,6 +33,8 @@ fi
 export GIT_COMMIT="$COMMIT"
 ARGS=()
 [ -n "$SNAPSHOT" ] && ARGS+=(--migrate "$SNAPSHOT")
+# Anything after the snapshot goes to deploy-nextx.sh, e.g. --user 'you@example.com,owner,Your Name'.
+ARGS+=("${@:3}")
 set +e
 bash "$SRC/deploy/vps/deploy-nextx.sh" "${ARGS[@]}"
 STATUS=$?

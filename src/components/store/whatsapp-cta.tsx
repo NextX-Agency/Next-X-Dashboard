@@ -21,7 +21,7 @@ import { whatsappLink } from '@/lib/whatsapp';
 export function WhatsAppCta({
   number,
   message,
-  label = 'Ask on WhatsApp',
+  label = 'Bestel via WhatsApp',
   size = 'md',
   className,
 }: {
@@ -39,11 +39,11 @@ export function WhatsAppCta({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${label} (opens WhatsApp)`}
+      aria-label={`${label} (opent WhatsApp)`}
       className={cn(
         'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-control font-medium whitespace-nowrap',
-        'bg-[#25D366] text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.22)]',
-        'transition-[filter,translate] duration-150 ease-out-instrument hover:brightness-[0.94]',
+        'bg-[#157a3d] text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.22)]',
+        'transition-[filter,translate] duration-150 ease-out-instrument hover:brightness-110',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px',
         '[&_svg]:size-4 [&_svg]:shrink-0',
         size === 'sm' ? 'h-7 px-2.5 text-[12px]' : 'h-9 px-4 text-[13px]',

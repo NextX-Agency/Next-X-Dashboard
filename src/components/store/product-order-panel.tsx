@@ -49,7 +49,7 @@ export function ProductOrderPanel({
   const canAdd = ready && inStock && cartQuantity + quantity <= variant.onHand;
   const price =
     variant.priceCurrency === 'SRD'
-      ? `${formatMoney(variant.listPriceCents, 'SRD', { bare: true })} SRD`
+      ? `${formatMoney(variant.listPriceCents, 'SRD', { bare: true, whole: variant.listPriceCents % 100 === 0 })} SRD`
       : srdRate && srdRate > 0
         ? `${formatMoney(fromBase(variant.listPriceCents, srdRate), 'SRD', { bare: true })} SRD`
         : formatMoney(variant.listPriceCents, 'USD');
@@ -61,7 +61,7 @@ export function ProductOrderPanel({
         srdRate={srdRate}
         size="xl"
       />
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className={variants.length > 1 ? 'mt-3 flex flex-wrap gap-2' : 'hidden'}>
         {variants.map((item) => (
           <button
             key={item.id}
@@ -78,13 +78,13 @@ export function ProductOrderPanel({
         ))}
       </div>
       <p className="mt-3 text-[12px] text-ink-3">
-        {inStock ? `${variant.onHand} available in Paramaribo` : 'This option is sold out'}
+        {inStock ? `${variant.onHand} op voorraad` : 'Niet op voorraad'}
       </p>
       <div className="mt-3">
         {inStock ? (
           <div className="flex flex-wrap items-center gap-2">
             <label className="sr-only" htmlFor="store-cart-quantity">
-              Quantity
+              Aantal
             </label>
             <input
               id="store-cart-quantity"
@@ -125,41 +125,43 @@ export function ProductOrderPanel({
                 });
                 setCartMessage(
                   added
-                    ? `${quantity} ${variant.name} added to your cart.`
-                    : 'Your cart quantity now matches the available stock.',
+                    ? `${quantity} × ${productName} toegevoegd aan je winkelwagen.`
+                    : 'Je winkelwagen bevat al alle beschikbare voorraad.',
                 );
               }}
             >
               <ShoppingBag aria-hidden="true" />
-              Add to cart
+              In winkelwagen
             </Button>
             <WhatsAppCta
               number={whatsapp}
-              message={`Hi NextX, I’d like to ${inStock ? 'order' : 'ask about restocking'} the ${productName} – ${variant.name}${variant.sku ? ` (SKU ${variant.sku})` : ''}. I saw it listed for ${price}${inStock ? ' and currently in stock' : ''}.`}
-              label="Ask on WhatsApp"
+              message={`Hallo NextX, ik wil graag de ${productName}${variants.length > 1 ? ` – ${variant.name}` : ''}${variant.sku ? ` (SKU ${variant.sku})` : ''} bestellen. Op de website staat hij voor ${price} en volgens de website is hij op voorraad. Kunnen jullie dit bevestigen?`}
+              label="Bestel via WhatsApp"
               className="h-11 rounded-full px-6 text-[14px]"
             />
           </div>
         ) : (
           <WhatsAppCta
             number={whatsapp}
-            message={`Hi NextX, I’d like to ask about restocking the ${productName} – ${variant.name}${variant.sku ? ` (SKU ${variant.sku})` : ''}. I saw it listed for ${price}.`}
-            label="Ask about restock"
+            message={`Hallo NextX, ik wil graag weten wanneer de ${productName}${variants.length > 1 ? ` – ${variant.name}` : ''}${variant.sku ? ` (SKU ${variant.sku})` : ''} weer op voorraad komt. Op de website staat hij voor ${price}.`}
+            label="Vraag naar nieuwe voorraad"
             className="h-11 rounded-full px-6 text-[14px]"
           />
         )}
         <p aria-live="polite" className="mt-2 min-h-4 text-[12px] text-ink-3">
           {cartMessage ||
             (inStock && cartQuantity >= variant.onHand
-              ? 'Your cart already contains all available stock for this option.'
+              ? 'Je winkelwagen bevat al alle beschikbare voorraad van dit product.'
               : '')}
         </p>
       </div>
       {!inStock && restockNotificationsEnabled ? (
         <section className="mt-4 border-t border-line-subtle pt-4">
-          <h2 className="text-[14px] font-semibold text-ink">Notify me when it’s back</h2>
+          <h2 className="text-[14px] font-semibold text-ink">
+            Laat het me weten als hij terug is
+          </h2>
           <p className="mt-1 text-[12px] text-ink-3">
-            We’ll keep your request for the NextX team. Nothing is sent automatically.
+            Je verzoek gaat naar het NextX-team. Er wordt niets automatisch verstuurd.
           </p>
           <RestockRequestForm productId={productId} variantId={variant.id} />
         </section>

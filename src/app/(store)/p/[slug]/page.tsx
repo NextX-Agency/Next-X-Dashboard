@@ -8,6 +8,7 @@ import { ProductOrderPanel } from '@/components/store/product-order-panel';
 import { StorePrice } from '@/components/store/store-price';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cardSummary } from '@/lib/public-copy';
 import { storefrontPagePath, storefrontProductPath } from '@/lib/storefront-domain';
 import { type CatalogProduct, getCatalogProduct } from '@/server/queries/catalog';
 import { getCurrentRate } from '@/server/queries/overview';
@@ -68,6 +69,7 @@ async function Loader({ params }: { params: Params }) {
         .filter(Boolean)
     : [];
   const specs = Object.entries(product.specs);
+  const blurb = cardSummary(product.summary, product.name);
   const offers = product.variants
     .filter((variant) => variant.listPriceCents > 0)
     .map((variant) => ({
@@ -109,7 +111,7 @@ async function Loader({ params }: { params: Params }) {
           href={storefrontPagePath(storefront?.slug) as never}
           className="rounded-control transition-colors hover:text-accent"
         >
-          Catalog
+          Alle producten
         </Link>
         {product.categoryName ? (
           <>
@@ -171,9 +173,7 @@ async function Loader({ params }: { params: Params }) {
                 className={`size-1.5 rounded-full ${inStock ? 'bg-store-bright' : 'bg-ink-4'}`}
                 aria-hidden="true"
               />
-              {inStock
-                ? `${onHand} in stock, collect today`
-                : 'Sold out, ask about the next shipment'}
+              {inStock ? `${onHand} op voorraad` : 'Uitverkocht'}
             </span>
           </div>
 
@@ -190,8 +190,8 @@ async function Loader({ params }: { params: Params }) {
             {product.name}
           </h1>
 
-          {product.summary ? (
-            <p className="mt-2 text-[13px] text-ink-3 leading-relaxed">{product.summary}</p>
+          {blurb ? (
+            <p className="mt-2 text-[14px] text-ink-2 leading-relaxed">{blurb}</p>
           ) : null}
 
           <div className="mt-4">
@@ -211,7 +211,7 @@ async function Loader({ params }: { params: Params }) {
               this product; owners answer it from /quotes. */}
           <details className="group mt-3">
             <summary className="cursor-pointer list-none text-[12px] text-ink-3 underline-offset-4 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-              Or request a quote by email
+              Of vraag een offerte aan per e-mail
             </summary>
             <div className="mt-3">
               <QuoteRequestForm productId={product.id} productName={product.name} />
@@ -223,16 +223,16 @@ async function Loader({ params }: { params: Params }) {
           product.compatibility.ecosystems.length ? (
             <section className="mt-6 border-t border-line-subtle pt-5">
               <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                Compatibility
+                Compatibiliteit
               </h2>
               <Compatibility
-                label="Works with"
+                label="Werkt met"
                 values={[
                   ...product.compatibility.platforms,
                   ...product.compatibility.ecosystems,
                 ]}
               />
-              <Compatibility label="Connection" values={product.compatibility.protocols} />
+              <Compatibility label="Verbinding" values={product.compatibility.protocols} />
             </section>
           ) : null}
 
@@ -240,12 +240,12 @@ async function Loader({ params }: { params: Params }) {
             <Requirements values={product.buyerRequirements} />
           ) : null}
           {product.keyFeatures.length ? (
-            <ListSection title="Key features" values={product.keyFeatures} />
+            <ListSection title="Belangrijkste kenmerken" values={product.keyFeatures} />
           ) : null}
           {product.nextlyTake ? (
             <section className="mt-6 border-l-2 border-store-bright pl-4">
               <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                NextX’s perspective
+                Onze mening
               </h2>
               <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
                 {product.nextlyTake}
@@ -253,12 +253,12 @@ async function Loader({ params }: { params: Params }) {
             </section>
           ) : null}
           {product.boxContents.length ? (
-            <ListSection title="What’s in the box" values={product.boxContents} />
+            <ListSection title="Wat zit er in de doos" values={product.boxContents} />
           ) : null}
           {product.faqItems.length ? (
             <section className="mt-6 border-t border-line-subtle pt-5">
               <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                Questions answered
+                Veelgestelde vragen
               </h2>
               <dl className="mt-3 divide-y divide-line-subtle border-y border-line-subtle">
                 {product.faqItems.map((item) => (
@@ -275,7 +275,10 @@ async function Loader({ params }: { params: Params }) {
           <GettingOrder settings={settings} warrantyMonths={product.warrantyMonths} />
 
           {paragraphs.length > 0 ? (
-            <div className="mt-5 space-y-3">
+            <div className="mt-6 space-y-3 border-t border-line-subtle pt-5">
+              <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
+                Over dit product
+              </h2>
               {paragraphs.map((paragraph) => (
                 <p
                   key={paragraph.slice(0, 48)}
@@ -290,7 +293,7 @@ async function Loader({ params }: { params: Params }) {
           {product.variants.length > 1 ? (
             <section className="mt-6">
               <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                Options
+                Opties
               </h2>
               <ul className="divide-y divide-line-subtle overflow-hidden rounded-card border border-line-subtle bg-raised">
                 {product.variants.map((variant) => (
@@ -301,7 +304,7 @@ async function Loader({ params }: { params: Params }) {
                     <span className="text-[13px] text-ink">{variant.name}</span>
                     <span className="flex items-center gap-3">
                       <Badge tone={variant.onHand > 0 ? 'positive' : 'neutral'}>
-                        {variant.onHand > 0 ? `${variant.onHand} in stock` : 'Sold out'}
+                        {variant.onHand > 0 ? `${variant.onHand} op voorraad` : 'Uitverkocht'}
                       </Badge>
                       <StorePrice
                         amountCents={variant.listPriceCents}
@@ -319,7 +322,7 @@ async function Loader({ params }: { params: Params }) {
           {specs.length > 0 ? (
             <section className="mt-6">
               <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                Specifications
+                Specificaties
               </h2>
               <dl className="divide-y divide-line-subtle overflow-hidden rounded-card border border-line-subtle bg-raised">
                 {specs.map(([name, value]) => (
@@ -391,16 +394,16 @@ function GettingOrder({
   return (
     <section className="mt-6 border-t border-line-subtle pt-5">
       <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-        Getting your order
+        Bestellen en ophalen
       </h2>
       {settings?.pickupEnabled ? (
         <p className="mt-2 text-[13px] text-ink-2">
-          <strong>Pickup.</strong>{' '}
+          <strong>Ophalen.</strong>{' '}
           {[
             settings.pickupLabel,
             settings.pickupDetails,
             settings.sameDayPickupEnabled
-              ? `Same-day pickup${settings.pickupCutoffTime ? ` before ${settings.pickupCutoffTime}` : ''}.`
+              ? `Dezelfde dag ophalen${settings.pickupCutoffTime ? ` vóór ${settings.pickupCutoffTime}` : ''}.`
               : null,
           ]
             .filter(Boolean)
@@ -409,7 +412,7 @@ function GettingOrder({
       ) : null}
       {settings?.deliveryEnabled ? (
         <p className="mt-2 text-[13px] text-ink-2">
-          <strong>Delivery.</strong>{' '}
+          <strong>Bezorgen.</strong>{' '}
           {[
             settings.deliveryDetails,
             settings.deliveryAreas,
@@ -422,7 +425,7 @@ function GettingOrder({
       ) : null}
       {methods.length ? (
         <p className="mt-2 text-[13px] text-ink-2">
-          <strong>Payment.</strong>{' '}
+          <strong>Betalen.</strong>{' '}
           {methods
             .map((method) =>
               method.details ? `${method.name} (${method.details})` : method.name,
@@ -432,8 +435,8 @@ function GettingOrder({
       ) : null}
       {warrantyMonths > 0 ? (
         <p className="mt-2 text-[13px] text-ink-2">
-          <strong>Warranty.</strong> {warrantyMonths} month{warrantyMonths === 1 ? '' : 's'}{' '}
-          from the day of sale.
+          <strong>Garantie.</strong> {warrantyMonths}{' '}
+          {warrantyMonths === 1 ? 'maand' : 'maanden'} vanaf de dag van aankoop.
         </p>
       ) : null}
     </section>
@@ -441,21 +444,21 @@ function GettingOrder({
 }
 function Requirements({ values }: { values: Record<string, unknown> }) {
   const labels: Record<string, string> = {
-    hubRequired: 'Hub required',
+    hubRequired: 'Hub nodig',
     hubName: 'Hub',
-    appRequired: 'App required',
+    appRequired: 'App nodig',
     appName: 'App',
-    accountRequired: 'Account required',
-    wifiRequired: 'Wi-Fi required',
-    wifiBands: 'Wi-Fi bands',
-    subscription: 'Subscription',
-    subscriptionNotes: 'Subscription notes',
-    indoorOutdoor: 'Use',
-    powerSource: 'Power',
-    batteryType: 'Battery',
-    neutralWireRequired: 'Neutral wire required',
-    installationNotes: 'Installation',
-    regionalNotes: 'Regional notes',
+    accountRequired: 'Account nodig',
+    wifiRequired: 'Wi-Fi nodig',
+    wifiBands: 'Wi-Fi-banden',
+    subscription: 'Abonnement',
+    subscriptionNotes: 'Opmerking abonnement',
+    indoorOutdoor: 'Gebruik',
+    powerSource: 'Voeding',
+    batteryType: 'Batterij',
+    neutralWireRequired: 'Nulleider nodig',
+    installationNotes: 'Installatie',
+    regionalNotes: 'Regionale opmerking',
   };
   const entries = Object.entries(values).filter(
     ([key, value]) =>
@@ -468,7 +471,7 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
   return (
     <section className="mt-6 border-t border-line-subtle pt-5">
       <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-        Before you buy
+        Goed om te weten
       </h2>
       <dl className="mt-2 space-y-1.5">
         {entries.map(([key, value]) => (
@@ -479,8 +482,8 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
                 ? value.join(', ')
                 : typeof value === 'boolean'
                   ? value
-                    ? 'Yes'
-                    : 'No'
+                    ? 'Ja'
+                    : 'Nee'
                   : String(value)}
             </dd>
           </div>
@@ -491,12 +494,12 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
 }
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
-  accessory: 'Accessories',
-  works_with: 'Works well with',
-  alternative: 'Alternatives',
-  cheaper_alternative: 'Lower-cost alternatives',
-  premium_alternative: 'Premium alternatives',
-  required_accessory: 'Required accessories',
+  accessory: 'Accessoires',
+  works_with: 'Past goed bij',
+  alternative: 'Alternatieven',
+  cheaper_alternative: 'Goedkopere alternatieven',
+  premium_alternative: 'Betere alternatieven',
+  required_accessory: 'Benodigde accessoires',
 };
 
 function RelatedProducts({
@@ -517,13 +520,13 @@ function RelatedProducts({
   return (
     <section className="mt-8 border-t border-line-subtle pt-5">
       <h2 className="font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-        Related products
+        Gerelateerde producten
       </h2>
       <div className="mt-3 space-y-5">
         {Object.entries(groups).map(([type, group]) => (
           <div key={type}>
             <h3 className="text-[12px] font-medium text-ink">
-              {RELATIONSHIP_LABELS[type] ?? 'Related products'}
+              {RELATIONSHIP_LABELS[type] ?? 'Gerelateerde producten'}
             </h3>
             <div className="mt-2 space-y-2">
               {group.map((item) => (

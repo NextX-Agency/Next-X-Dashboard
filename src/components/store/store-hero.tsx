@@ -31,16 +31,16 @@ export async function StoreHero() {
     storefront?.heroSubtitle?.trim() ||
     settings?.heroBody?.trim() ||
     (storefront?.slug === 'audio'
-      ? 'In-ear monitors, oordopjes en accessoires voor wie verschil hoort. Bestel via WhatsApp, haal op in Commewijne.'
-      : 'Premium audiophile gear, selected by NextX in Suriname.');
+      ? 'In-ear monitors, oordopjes en accessoires voor wie verschil hoort. Bestel via WhatsApp en haal je bestelling op na bevestiging.'
+      : 'In-ear monitors, oordopjes en accessoires. Bestel via WhatsApp.');
   const storeName = storefront?.name ?? settings?.businessName ?? 'NextX';
 
   const catalogLabel =
     storefront?.slug === 'audio'
       ? 'Bekijk de collectie'
       : storefront?.slug === 'main' || !storefront
-        ? 'Explore NextX'
-        : `Shop ${storefront.slug}`;
+        ? 'Bekijk NextX'
+        : `Bekijk ${storefront.slug}`;
   return (
     <section className="store-hero-field mb-10 w-full px-4 pt-16 pb-14 lg:px-6 lg:pt-20 lg:pb-16">
       <div className="mx-auto max-w-3xl text-center">
@@ -79,10 +79,9 @@ export async function StoreHero() {
           </Suspense>
         </div>
         <ul className="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px] font-medium text-ink-3">
-          <li>Local stock in Paramaribo</li>
-          <li>SRD pricing</li>
-          {settings?.pickupEnabled ? <li>Pickup available</li> : null}
-          {settings?.whatsapp ? <li>WhatsApp support</li> : null}
+          <li>Prijzen in SRD</li>
+          {settings?.pickupEnabled ? <li>Afhalen mogelijk</li> : null}
+          {settings?.whatsapp ? <li>Bestellen via WhatsApp</li> : null}
         </ul>
       </div>
     </section>
@@ -94,8 +93,8 @@ async function HeroWhatsApp({ businessName }: { businessName: string }) {
   return (
     <WhatsAppCta
       number={settings?.whatsapp ?? null}
-      message={`Hi ${businessName}, I have a question about your catalog.`}
-      label={`Ask ${businessName}`}
+      message={`Hallo ${businessName}, ik heb een vraag over jullie assortiment.`}
+      label="Stel een vraag via WhatsApp"
       className="h-11 rounded-full px-6 text-[14px]"
     />
   );
@@ -106,7 +105,7 @@ async function HeroWhatsApp({ businessName }: { businessName: string }) {
 function HeroCtaFallback() {
   return (
     <span className="inline-flex h-11 items-center rounded-full border border-line bg-raised px-6 text-[14px] font-medium text-ink-3">
-      Ask NextX
+      Stel een vraag
     </span>
   );
 }
@@ -119,31 +118,30 @@ function HeroCtaFallback() {
  *  that can drift from the settings row. */
 export async function StoreValues() {
   const settings = await getSettings();
-  const supportTitle = settings?.supportTitle?.trim() || 'Need help choosing?';
+  const supportTitle = settings?.supportTitle?.trim() || 'Hulp bij kiezen?';
   const supportBody =
-    settings?.supportBody?.trim() ||
-    'Tell us what you are looking for and we will help you choose.';
+    settings?.supportBody?.trim() || 'Vertel ons wat je zoekt, dan helpen we je kiezen.';
   return (
     <section id="support" className="mt-16 border-line-subtle border-t pt-12">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start lg:gap-16">
         <div>
           <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
-            Real stock
+            Voorraad
           </p>
           <p className="mt-3 text-[26px] font-semibold text-ink leading-[1.15] tracking-[-0.02em] sm:text-[32px]">
-            On the shelf, not on a promise. Availability comes straight from NextX inventory. If
-            a product says in stock, it is physically here in Paramaribo.
+            De voorraad op deze site komt uit de administratie van NextX en kan snel veranderen.
+            Een bestelling is pas definitief als NextX die via WhatsApp bevestigt.
           </p>
         </div>
 
         <dl className="grid gap-6 lg:border-l lg:border-line-subtle lg:pl-10">
           <div>
             <dt className="text-[11px] font-medium text-ink-4 tracking-[0.08em] uppercase">
-              Local prices
+              Prijzen
             </dt>
             <dd className="mt-1.5 text-[14px] text-ink-2 leading-relaxed">
-              Priced in SRD at the current rate, with the USD figure underneath. No surprises at
-              the counter.
+              Prijzen staan in SRD. Het USD-bedrag eronder is een indicatie op basis van de
+              actuele koers.
             </dd>
           </div>
           <div className="border-line-subtle border-t pt-6">
@@ -162,10 +160,10 @@ export async function StoreValues() {
 export async function HowBuyingWorks() {
   const settings = await getSettings();
   const collectionStep = settings?.pickupEnabled
-    ? 'Collect your order or arrange delivery with NextX.'
+    ? 'Haal je bestelling op of spreek bezorging af met NextX.'
     : settings?.deliveryEnabled
-      ? 'Arrange delivery with NextX.'
-      : 'Confirm pickup or delivery with NextX.';
+      ? 'Spreek bezorging af met NextX.'
+      : 'Bevestig ophalen of bezorgen met NextX.';
 
   return (
     <section
@@ -173,14 +171,22 @@ export async function HowBuyingWorks() {
       className="mx-auto mb-12 w-full max-w-6xl scroll-mt-20 border-line-subtle border-y px-4 py-8 lg:px-6"
     >
       <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
-        How buying works
+        Zo bestel je
       </p>
       <ol className="mt-4 grid gap-5 sm:grid-cols-4">
         {[
-          ['1', 'Choose', 'Find a product that fits what you are looking for.'],
-          ['2', 'Message or order', 'Ask a question or place your order with NextX.'],
-          ['3', 'Confirm', 'We confirm the option, price and availability.'],
-          ['4', 'Collect or receive', collectionStep],
+          ['1', 'Kies', 'Kies het product dat bij je past.'],
+          [
+            '2',
+            'Stuur je bestelling',
+            'Stuur je winkelwagen of een vraag via WhatsApp naar NextX.',
+          ],
+          [
+            '3',
+            'Bevestiging',
+            'NextX bevestigt de prijs en de voorraad. Pas daarna is je bestelling definitief.',
+          ],
+          ['4', 'Ophalen of ontvangen', collectionStep],
         ].map(([number, title, body]) => (
           <li key={number} className="border-line-subtle border-l pl-3">
             <span className="text-[11px] font-semibold text-accent">{number}</span>
@@ -217,14 +223,16 @@ export function StoreFooterBanner({ storefrontSlug }: { storefrontSlug?: string 
             <p className="text-[15px] font-semibold text-white tracking-[-0.01em]">
               NextX Audio
             </p>
-            <p className="text-[12px] text-white/60">Premium sound, selected in Suriname.</p>
+            <p className="text-[12px] text-white/60">
+              In-ear monitors, oordopjes en accessoires.
+            </p>
           </div>
         </div>
         <Link
           href={catalogHref as never}
           className="inline-flex h-10 items-center rounded-full bg-store-bright px-6 text-[13px] font-bold text-store-navy shadow-lg shadow-black/20 transition-[filter] duration-150 ease-out-instrument hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          {isBrandEntry ? 'Explore Audio' : 'Browse the catalog'}
+          {isBrandEntry ? 'Bekijk de audio-collectie' : 'Bekijk de collectie'}
         </Link>
       </div>
     </div>

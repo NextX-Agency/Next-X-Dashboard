@@ -26,11 +26,11 @@ export function CategoryPills({
   return (
     <div
       role="tablist"
-      aria-label="Filter by category"
+      aria-label="Categorieën"
       className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0"
     >
       <Pill active={active === ''} onClick={() => setState({ category: null, page: null })}>
-        Everything
+        Alles
       </Pill>
       {categories.map((cat) => (
         <Pill

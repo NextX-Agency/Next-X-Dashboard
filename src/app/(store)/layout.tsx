@@ -1,4 +1,4 @@
-import type { Metadata, Route } from 'next';
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -6,6 +6,7 @@ import { StoreCartLink } from '@/components/store/store-cart-link';
 import { StoreCartProvider } from '@/components/store/store-cart-provider';
 import { StoreFooterBanner } from '@/components/store/store-hero';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
+import { AUDIO_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
 import { storefrontPagePath, storefrontPublicOrigin } from '@/lib/storefront-domain';
 import { whatsappDigits } from '@/lib/whatsapp';
 import { listCatalogBundles, listCatalogCategories } from '@/server/queries/catalog';
@@ -56,6 +57,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const staging = isStagingEnvironment();
   return {
     metadataBase: new URL(storefrontPublicOrigin(storefront?.domain, publicAppUrl(), staging)),
+    // The root layout's title template belongs to the staff dashboard; the shop has its own.
+    title: { default: 'NextX Audio', template: '%s · NextX' },
+    description: AUDIO_DESCRIPTION,
+    openGraph: { siteName: 'NextX', type: 'website' },
     robots: { index: !staging, follow: !staging },
   };
 }
@@ -106,6 +111,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   width={160}
                   height={36}
                   className="h-auto max-h-9 w-auto max-w-40 object-contain"
+                  priority
                 />
               ) : (
                 <Image
@@ -118,7 +124,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                 />
               )}
             </Link>
-            <nav aria-label="Catalog sections" className="hidden items-center gap-1 md:flex">
+            <nav aria-label="Productcategorieën" className="hidden items-center gap-1 md:flex">
               {visibleCategories.slice(0, 4).map((category) => (
                 <Link
                   key={category.slug}
@@ -141,7 +147,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   href={catalogHref as never}
                   className="rounded-full px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  All products
+                  Alle producten
                 </Link>
               ) : null}
             </nav>
@@ -154,14 +160,14 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   rel="noopener noreferrer"
                   className="hidden rounded-full bg-store-bright px-4 py-1.5 text-[13px] font-semibold text-store-navy transition-[filter] duration-150 ease-out-instrument hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline-flex"
                 >
-                  WhatsApp us
+                  WhatsApp
                 </a>
               ) : null}
               <Link
                 href="/login"
                 className="rounded-control text-[13px] text-ink-3 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                Sign in
+                Medewerkers
               </Link>
             </div>
           </div>
@@ -192,15 +198,13 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   />
                 )}
                 <p className="mt-3 max-w-[40ch] text-[13px] text-ink-3 leading-relaxed">
-                  {storefront?.description ??
-                    settings?.storeDescription ??
-                    'Premium audio, selected by NextX in Suriname.'}
+                  {storefrontDescription(storefront?.description, settings?.storeDescription)}
                 </p>
               </div>
 
               <div className="text-[13px]">
                 <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  Shop
+                  Winkel
                 </h2>
                 <ul className="space-y-1 text-ink-3">
                   {visibleCategories.slice(0, 5).map((category) => (
@@ -221,7 +225,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                         href={`${storefrontPagePath(storefront?.slug)}#setups` as never}
                         className="transition-colors hover:text-accent"
                       >
-                        Starter setups
+                        Sets
                       </Link>
                     </li>
                   ) : null}
@@ -231,7 +235,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                         href={catalogHref as never}
                         className="transition-colors hover:text-accent"
                       >
-                        All products
+                        Alle producten
                       </Link>
                     </li>
                   ) : null}
@@ -240,23 +244,15 @@ export default async function StoreLayout({ children }: { children: ReactNode })
 
               <div className="text-[13px]">
                 <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  Help
+                  Hulp
                 </h2>
                 <ul className="space-y-1 text-ink-3">
-                  <li>
-                    <Link
-                      href={catalogHref as never}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Compatibility
-                    </Link>
-                  </li>
                   <li>
                     <Link
                       href={`${storefrontPagePath(storefront?.slug)}#buying` as never}
                       className="transition-colors hover:text-accent"
                     >
-                      Pickup &amp; delivery
+                      Ophalen en bezorgen
                     </Link>
                   </li>
                   <li>
@@ -264,36 +260,11 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                       href={`${storefrontPagePath(storefront?.slug)}#support` as never}
                       className="transition-colors hover:text-accent"
                     >
-                      Warranty &amp; support
+                      Hulp bij kiezen
                     </Link>
                   </li>
                 </ul>
-                <ul className="mt-4 space-y-1 border-t border-line-subtle pt-3 text-ink-3">
-                  <li>
-                    <Link
-                      href={'/faq' as Route}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Veelgestelde vragen
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href={'/testimonials' as Route}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Klantervaringen
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href={'/blog' as Route}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Blog
-                    </Link>
-                  </li>
-                </ul>
+                {/* FAQ, reviews and blog have no content yet: not linked, and noindex, until they do. */}
               </div>
 
               <div className="text-[13px]">
@@ -301,7 +272,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   NextX
                 </h2>
                 <ul className="space-y-1 text-ink-3">
-                  {address ? <li>{address}</li> : <li>Paramaribo, Suriname</li>}
+                  {address ? <li>{address}</li> : null}
                   {settings?.openingHours ? <li>{settings.openingHours}</li> : null}
                   {settings?.phone ? (
                     <li>
@@ -356,7 +327,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
                   © {year} {settings?.businessName ?? 'NextX'}
                 </p>
                 <p className="tabular">
-                  Prices in {storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
+                  Prijzen in {storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
                 </p>
               </div>
             </div>

@@ -14,16 +14,16 @@ export function CatalogAvailability() {
   );
   return (
     <Select
-      aria-label="Availability"
+      aria-label="Beschikbaarheid"
       value={availability ?? ''}
       onChange={(event) =>
         setState({ availability: (event.target.value || null) as Availability | null })
       }
       className="h-11 w-auto min-w-[148px] rounded-full border-line-subtle pl-4 text-[14px]"
     >
-      <option value="">All availability</option>
-      <option value="in-stock">In stock</option>
-      <option value="incoming">Coming next</option>
+      <option value="">Alle producten</option>
+      <option value="in-stock">Op voorraad</option>
+      <option value="incoming">Binnenkort verwacht</option>
     </Select>
   );
 }

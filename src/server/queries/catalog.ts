@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import { type Cents, toDecimalString } from '@/lib/money';
+import { priceTierThresholds } from '@/lib/price-tiers';
 import { cleanPublicCopy } from '@/lib/public-copy';
 import { db } from '../db/client';
 import {
@@ -66,6 +67,8 @@ export type CatalogFilterOptions = {
   brands: { name: string; slug: string }[];
   platforms: string[];
   protocols: string[];
+  /** The storefront's currency, which the price-range filter is expressed in. */
+  priceCurrency: 'USD' | 'SRD';
 };
 
 export type StorePickupLocation = { id: string; name: string };
@@ -398,6 +401,7 @@ export async function listCatalogProducts(
   const indoorOutdoor = params.indoorOutdoor ?? null;
   const newArrival = params.newArrival ?? false;
   const priceBucket = params.price ?? null;
+  const [tierLow, tierMid, tierHigh] = priceTierThresholds(storefront.defaultCurrency);
   const availability = params.availability ?? null;
   const likeQuery = params.q?.trim() ? `%${params.q.trim()}%` : null;
   const order = CATALOG_SORT_CLAUSES[params.sort ?? 'newest'];
@@ -462,10 +466,10 @@ export async function listCatalogProducts(
       AND (${indoorOutdoor}::text IS NULL OR p.buyer_requirements->>'indoorOutdoor' = ${indoorOutdoor})
       AND (NOT ${newArrival} OR p.new_until >= CURRENT_DATE)
       AND (${priceBucket}::text IS NULL
-        OR (${priceBucket} = 'under-50' AND price.min_price < 5000)
-        OR (${priceBucket} = '50-100' AND price.min_price >= 5000 AND price.min_price < 10000)
-        OR (${priceBucket} = '100-250' AND price.min_price >= 10000 AND price.min_price < 25000)
-        OR (${priceBucket} = '250-plus' AND price.min_price >= 25000))
+        OR (${priceBucket} = 'under-50' AND price.min_price < ${tierLow})
+        OR (${priceBucket} = '50-100' AND price.min_price >= ${tierLow} AND price.min_price < ${tierMid})
+        OR (${priceBucket} = '100-250' AND price.min_price >= ${tierMid} AND price.min_price < ${tierHigh})
+        OR (${priceBucket} = '250-plus' AND price.min_price >= ${tierHigh}))
       AND (${availability}::text IS NULL OR (${availability} = 'in-stock' AND EXISTS (SELECT 1 FROM product_variants av WHERE av.product_id = p.id AND av.is_active AND ${stockAvailableSql(storefront.id, 'av.id')} > 0)) OR (${availability} = 'incoming' AND EXISTS (SELECT 1 FROM purchase_order_items ai JOIN purchase_orders ao ON ao.id = ai.purchase_order_id JOIN product_variants av ON av.id = ai.variant_id WHERE av.product_id = p.id AND ao.status IN ('ordered', 'shipped') AND ai.quantity > ai.quantity_received)))
       AND (${likeQuery}::text IS NULL OR p.name ILIKE ${likeQuery} OR p.summary ILIKE ${likeQuery} OR p.model_number ILIKE ${likeQuery} OR b.name ILIKE ${likeQuery} OR p.key_features::text ILIKE ${likeQuery} OR p.compatibility::text ILIKE ${likeQuery})
     ORDER BY ${order}
@@ -505,9 +509,13 @@ export async function listCatalogProducts(
 /** Filter values are derived from public catalog data; an empty choice is
  * never shown just because it exists in an internal product draft. */
 export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> {
-  if (!isDatabaseConfigured()) return { brands: [], platforms: [], protocols: [] };
+  if (!isDatabaseConfigured()) {
+    return { brands: [], platforms: [], protocols: [], priceCurrency: 'SRD' };
+  }
   const storefront = await getRequestStorefront();
-  if (!storefront?.defaultPriceListId) return { brands: [], platforms: [], protocols: [] };
+  if (!storefront?.defaultPriceListId) {
+    return { brands: [], platforms: [], protocols: [], priceCurrency: 'SRD' };
+  }
   const [brands, platforms, protocols] = await Promise.all([
     db.execute<Record<string, string>>(
       sql`SELECT DISTINCT b.name, b.slug
@@ -544,6 +552,7 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
     brands: brands.map((row) => ({ name: text(row.name), slug: text(row.slug) })),
     platforms: platforms.map((row) => text(row.name)),
     protocols: protocols.map((row) => text(row.name)),
+    priceCurrency: storefront.defaultCurrency,
   };
 }
 

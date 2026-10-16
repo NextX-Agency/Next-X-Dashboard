@@ -33,7 +33,7 @@ export function StorePrice({
   currency?: 'USD' | 'SRD';
   srdRate?: RateMicros;
   size?: keyof typeof sizes;
-  /** e.g. "from" for a product whose variants span a price range. */
+  /** e.g. "vanaf" for a product whose variants span a price range. */
   prefix?: string;
   className?: string;
 }) {
@@ -56,7 +56,7 @@ export function StorePrice({
           )}
         >
           {headlineCurrency === 'SRD'
-            ? `${formatMoney(srnCents, 'SRD', { bare: true })} SRD`
+            ? `${formatMoney(srnCents, 'SRD', { bare: true, whole: srnCents % 100 === 0 })} SRD`
             : formatMoney(amount, 'USD')}
         </span>
       </span>

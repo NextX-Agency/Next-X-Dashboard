@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import type { RateMicros } from '@/lib/fx';
+import { cardSummary } from '@/lib/public-copy';
 import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
 import { getRequestStorefront } from '@/server/services/storefront';
@@ -43,15 +44,11 @@ export async function ProductCard({
   const hasRange = product.maxPriceCents > product.minPriceCents;
   const isNew = product.newUntil ? Date.parse(product.newUntil) >= Date.now() : false;
   const spotlight = size === 'spotlight';
+  const blurb = cardSummary(product.summary, product.name);
   const quickSignals = [
     ...product.compatibility.platforms,
     ...product.compatibility.protocols,
     ...product.compatibility.ecosystems,
-    ...(product.buyerRequirements.hubRequired === false ? ['No hub required'] : []),
-    ...(product.buyerRequirements.indoorOutdoor === 'outdoor' ? ['Outdoor'] : []),
-    ...(product.buyerRequirements.indoorOutdoor === 'indoor-outdoor'
-      ? ['Indoor & outdoor']
-      : []),
   ].slice(0, 3);
 
   return (
@@ -84,15 +81,15 @@ export async function ProductCard({
       </div>
 
       <div className={cn('flex flex-1 flex-col gap-1.5', spotlight ? 'p-6 pt-5' : 'p-5 pt-4')}>
-        <div className="flex items-center justify-between gap-2 text-[10px] font-semibold tracking-[0.06em] text-ink-4 uppercase">
+        <div className="flex items-center justify-between gap-2 text-[11px] font-semibold tracking-[0.06em] text-ink-4 uppercase">
           <span>
             {inStock
-              ? `${product.onHand} in stock`
+              ? `${product.onHand} op voorraad`
               : product.incoming > 0
-                ? `${product.incoming} on the way`
-                : 'Sold out'}
+                ? `${product.incoming} onderweg`
+                : 'Uitverkocht'}
           </span>
-          {isNew && inStock ? <span className="text-accent">New</span> : null}
+          {isNew && inStock ? <span className="text-accent">Nieuw</span> : null}
         </div>
         {product.brandName || product.categoryName ? (
           <p className="text-[11px] font-medium text-ink-4 tracking-[0.08em] uppercase">
@@ -115,16 +112,14 @@ export async function ProductCard({
         >
           {product.name}
         </Link>
-        {product.summary ? (
-          <p className="line-clamp-2 text-[13px] text-ink-3 leading-relaxed">
-            {product.summary}
-          </p>
+        {blurb ? (
+          <p className="line-clamp-2 text-[13px] text-ink-3 leading-relaxed">{blurb}</p>
         ) : null}
         {!inStock && product.incoming > 0 ? (
           <p className="text-[11px] text-ink-3">
             {product.expectedAt
-              ? `Expected around ${new Intl.DateTimeFormat('en-SR', { day: 'numeric', month: 'short' }).format(new Date(product.expectedAt))}`
-              : 'Incoming stock confirmed'}
+              ? `Verwacht rond ${new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short' }).format(new Date(product.expectedAt))}`
+              : 'Onderweg, datum nog niet bekend'}
           </p>
         ) : null}
         {quickSignals.length ? (
@@ -132,7 +127,7 @@ export async function ProductCard({
             {quickSignals.map((item) => (
               <span
                 key={item}
-                className="rounded-control border border-line px-1.5 py-0.5 text-[10px] text-ink-3"
+                className="rounded-control border border-line px-1.5 py-0.5 text-[11px] text-ink-3"
               >
                 {item}
               </span>
@@ -146,15 +141,15 @@ export async function ProductCard({
             currency={product.priceCurrency}
             srdRate={srdRate}
             size={spotlight ? 'lg' : 'md'}
-            prefix={hasRange ? 'from' : undefined}
+            prefix={hasRange ? 'vanaf' : undefined}
           />
         </div>
         <WhatsAppCta
           number={whatsapp}
-          message={`Hi NextX, I’m interested in ${product.name}${
-            inStock ? '. Is it in stock?' : '. When is the next delivery expected?'
+          message={`Hallo NextX, ik ben geïnteresseerd in de ${product.name}${
+            inStock ? '. Is hij op voorraad?' : '. Wanneer komt hij weer binnen?'
           }`}
-          label={inStock ? 'Ask NextX' : 'Ask about restock'}
+          label={inStock ? 'Bestel via WhatsApp' : 'Vraag naar voorraad'}
           size="md"
           className={cn('relative z-10 mt-2 self-stretch rounded-full', spotlight && 'h-10')}
         />

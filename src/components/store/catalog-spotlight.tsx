@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/store/product-card';
 import { StorePrice } from '@/components/store/store-price';
 import { WhatsAppCta } from '@/components/store/whatsapp-cta';
 import type { RateMicros } from '@/lib/fx';
+import { cardSummary } from '@/lib/public-copy';
 import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
 import { getRequestStorefront } from '@/server/services/storefront';
@@ -70,6 +71,7 @@ async function FeaturedProduct({
   const storefront = await getRequestStorefront();
   const productHref = storefrontProductPath(storefront?.slug, product.slug);
   const inStock = product.onHand > 0;
+  const blurb = cardSummary(product.summary, product.name);
   const hasRange = product.maxPriceCents > product.minPriceCents;
 
   return (
@@ -98,8 +100,8 @@ async function FeaturedProduct({
           {inStock
             ? `${product.onHand} in stock`
             : product.incoming > 0
-              ? `${product.incoming} on the way`
-              : 'Sold out'}
+              ? `${product.incoming} onderweg`
+              : 'Uitverkocht'}
         </p>
         {product.categoryName ? (
           <p className="text-[11px] font-medium text-ink-4 tracking-[0.08em] uppercase">
@@ -109,32 +111,30 @@ async function FeaturedProduct({
         <p className="text-[24px] font-semibold text-ink leading-tight tracking-[-0.02em] lg:text-[28px]">
           {product.name}
         </p>
-        {product.summary ? (
-          <p className="text-[14px] text-ink-3 leading-relaxed">{product.summary}</p>
-        ) : null}
+        {blurb ? <p className="text-[14px] text-ink-3 leading-relaxed">{blurb}</p> : null}
         <div className="mt-1">
           <StorePrice
             amountCents={product.minPriceCents}
             currency={product.priceCurrency}
             srdRate={srdRate}
             size="xl"
-            prefix={hasRange ? 'from' : undefined}
+            prefix={hasRange ? 'vanaf' : undefined}
           />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <WhatsAppCta
             number={whatsapp}
-            message={`Hi NextX, I’m interested in ${product.name}${
-              inStock ? '. Is it in stock?' : '. When is the next delivery expected?'
+            message={`Hallo NextX, ik ben geïnteresseerd in de ${product.name}${
+              inStock ? '. Is hij op voorraad?' : '. Wanneer komt hij weer binnen?'
             }`}
-            label={inStock ? 'Ask on WhatsApp' : 'Ask about restock'}
+            label={inStock ? 'Bestel via WhatsApp' : 'Vraag naar voorraad'}
             className="h-11 rounded-full px-6 text-[14px]"
           />
           <Link
             href={productHref as Route}
             className="text-[13px] text-ink-3 underline-offset-4 transition-colors hover:text-accent hover:underline"
           >
-            View full details →
+            Bekijk alle details →
           </Link>
         </div>
       </div>

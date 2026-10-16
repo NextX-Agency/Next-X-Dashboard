@@ -42,8 +42,8 @@ export function QuoteRequestForm({
   const { execute, isPending } = useAction(createQuoteRequest, {
     onSuccess: () => setSent(true),
     onError: ({ error }) => {
-      toast.error(error.serverError ?? 'Could not send the request', {
-        description: error.validationErrors ? 'Check the highlighted fields.' : undefined,
+      toast.error(error.serverError ?? 'Het verzoek kon niet worden verstuurd', {
+        description: error.validationErrors ? 'Controleer de gemarkeerde velden.' : undefined,
       });
     },
   });
@@ -86,7 +86,7 @@ export function QuoteRequestForm({
       }}
     >
       <FieldRow>
-        <Field label="Your name" htmlFor="quote-name" required>
+        <Field label="Je naam" htmlFor="quote-name" required>
           <Input
             id="quote-name"
             required
@@ -94,30 +94,35 @@ export function QuoteRequestForm({
             maxLength={120}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="How should we address you?"
+            placeholder="Hoe mogen we je noemen?"
           />
         </Field>
-        <Field label="Phone or email" htmlFor="quote-contact" required hint="We reply here">
+        <Field
+          label="Telefoon of e-mail"
+          htmlFor="quote-contact"
+          required
+          hint="Hier antwoorden we"
+        >
           <Input
             id="quote-contact"
             required
             maxLength={200}
             value={contact}
             onChange={(event) => setContact(event.target.value)}
-            placeholder="WhatsApp number or email"
+            placeholder="WhatsApp-nummer of e-mailadres"
           />
         </Field>
       </FieldRow>
 
       <FieldRow>
         {showPicker ? (
-          <Field label="Item" htmlFor="quote-product">
+          <Field label="Product" htmlFor="quote-product">
             <Select
               id="quote-product"
               value={picked}
               onChange={(event) => setPicked(event.target.value)}
             >
-              <option value="">Something else / not sure</option>
+              <option value="">Iets anders / weet ik nog niet</option>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name}
@@ -126,7 +131,7 @@ export function QuoteRequestForm({
             </Select>
           </Field>
         ) : (
-          <Field label="Item" htmlFor="quote-item">
+          <Field label="Product" htmlFor="quote-item">
             <Input
               id="quote-item"
               readOnly
@@ -136,7 +141,7 @@ export function QuoteRequestForm({
             />
           </Field>
         )}
-        <Field label="Quantity" htmlFor="quote-quantity">
+        <Field label="Aantal" htmlFor="quote-quantity">
           <Input
             id="quote-quantity"
             type="number"
@@ -151,21 +156,21 @@ export function QuoteRequestForm({
         </Field>
       </FieldRow>
 
-      <Field label="What do you need?" htmlFor="quote-details">
+      <Field label="Wat heb je nodig?" htmlFor="quote-details">
         <Textarea
           id="quote-details"
           rows={4}
           maxLength={2000}
           value={details}
           onChange={(event) => setDetails(event.target.value)}
-          placeholder="Colour, storage, delivery day…"
+          placeholder="Kleur, aantal, gewenste dag…"
         />
       </Field>
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-[11px] text-ink-4">Prices are confirmed by phone or email.</p>
         <Button type="submit" variant="primary" size="lg" disabled={isPending}>
-          {isPending ? 'Sending…' : 'Request a quote'}
+          {isPending ? 'Versturen…' : 'Offerte aanvragen'}
         </Button>
       </div>
     </form>

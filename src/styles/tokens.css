@@ -121,14 +121,13 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Storefront skin — "Northlight"
+   Storefront skin: warm ink and neutral, NextX orange accent
    ──────────────────────────────────────────────────────────────────────────
    The public shop is not the dashboard. Where Instrument is dense and
-   near-monochrome, the storefront is open, white and cool: a light-blue
-   tinted canvas under the product moments (the Fairphone move — product on a
-   soft colour field, never on chrome), navy #125488 as the interactive
-   accent, and the bright cyan #37CAEC reserved for highlights a visitor
-   should notice (stock pills, the hero underline).
+   near-monochrome, the storefront is open and white: a warm neutral
+   field under the product moments (product on a soft field, never on chrome),
+   NextX orange as the interactive accent, and the logo orange reserved for
+   highlights a visitor should notice (stock dots, the hero underline).
 
    Scoped under `.nx-store` on the store layout root: every utility inside
    the storefront re-skins through the live var references `@theme inline`
@@ -137,54 +136,52 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 .nx-store {
-  /* ── Surfaces — white base, light-blue fields ─────────────────────────
-     Back to a blue family after a warm-amber detour: this is IoT/smart-
-     home hardware, and blue is the category's near-universal signal for
-     "connected" — the amber retint read as artisanal/organic rather than
-     tech, which fought the product instead of selling it. The accent
-     itself is a lighter, softer blue than the original dark navy (named
-     "baby blue" directly) rather than a full revert. */
-  --nx-bg-sunken: hsl(204 58% 96.5%);
+  /* ── Surfaces: white base, warm neutral fields ────────────────────────
+     NextX is an orange and ink brand. The storefront neutrals are warm
+     greys (hue 30) so the logo orange sits on its own colour family
+     instead of competing with a blue wash. */
+  --nx-bg-sunken: #f4f2f0;
   --nx-bg-base: hsl(0 0% 100%);
   --nx-bg-raised: hsl(0 0% 100%);
   --nx-bg-overlay: hsl(0 0% 100%);
-  --nx-bg-inset: hsl(204 66% 96.5%);
-  --nx-bg-hover: hsl(204 58% 94%);
-  --nx-bg-active: hsl(204 56% 91%);
+  --nx-bg-inset: #f8f6f4;
+  --nx-bg-hover: #f0edeb;
+  --nx-bg-active: #e9e5e2;
 
-  /* ── Borders — cooler, lighter hairlines ────────────────────────────── */
-  --nx-border-subtle: hsl(206 42% 91%);
-  --nx-border: hsl(206 36% 85%);
-  --nx-border-strong: hsl(206 30% 71%);
+  /* ── Borders ──────────────────────────────────────────────────────── */
+  --nx-border-subtle: #ece8e4;
+  --nx-border: #ded9d4;
+  --nx-border-strong: #b9b2ab;
 
-  /* ── Text — navy-tinted ink ─────────────────────────────────────────── */
-  --nx-text: hsl(208 50% 12%);
-  --nx-text-secondary: hsl(208 22% 36%);
-  --nx-text-tertiary: hsl(208 16% 48%);
-  --nx-text-faint: hsl(208 14% 60%);
+  /* ── Text: warm ink. Every step is at least 4.9:1 on white and on the
+     neutral fields (WCAG AA), including the faintest label colour. ─── */
+  --nx-text: #1f1814;
+  --nx-text-secondary: #58504b;
+  --nx-text-tertiary: #67605b;
+  --nx-text-faint: #6e6863;
 
-  /* ── Accent — a soft "baby blue", confident on white but noticeably
-     lighter than a corporate navy ──────────────────────────────────────── */
-  --nx-accent: #c45200;
-  --nx-accent-hover: #a83d00;
+  /* ── Accent: NextX orange, darkened from the logo orange so text and
+     buttons clear AA on white (5.2:1) and on the neutral fields (4.7:1). */
+  --nx-accent: #b84a00;
+  --nx-accent-hover: #993c00;
   --nx-accent-fg: hsl(0 0% 100%);
   --nx-accent-muted: #fff1e4;
   --nx-accent-border: #f5bf8e;
-  --nx-ring: #c45200;
+  --nx-ring: #b84a00;
 
-  /* ── Highlight — the actual pastel "baby blue", used sparingly ───────── */
+  /* ── Highlight: the logo orange, used sparingly for stock dots ─────── */
   --nx-store-bright: #f7931e;
   --nx-store-bright-soft: #fff1e4;
 
-  /* ── Navy — the footer's cool contrast block and hero ink ───────────── */
-  --nx-store-navy: hsl(208 50% 12%);
-  --nx-store-navy-soft: hsl(208 36% 22%);
-  --nx-store-navy-line: hsl(208 30% 32%);
+  /* ── Ink: the footer's dark block and hero text ──────────────────── */
+  --nx-store-navy: #1f1814;
+  --nx-store-navy-soft: #3a302a;
+  --nx-store-navy-line: #5a4d44;
 
   /* ── Elevation — softer and airier than the dashboard's single step ─── */
   --nx-shadow-raised:
-    0 2px 6px -2px hsl(206 60% 30% / 0.08), 0 10px 28px -10px hsl(206 60% 30% / 0.12);
+    0 2px 6px -2px hsl(24 30% 20% / 0.08), 0 10px 28px -10px hsl(24 30% 20% / 0.12);
   --nx-shadow-overlay:
-    0 6px 16px -4px hsl(206 60% 24% / 0.12), 0 20px 48px -12px hsl(206 60% 24% / 0.16);
+    0 6px 16px -4px hsl(24 30% 16% / 0.12), 0 20px 48px -12px hsl(24 30% 16% / 0.16);
   --nx-highlight: transparent;
 }

@@ -1,6 +1,6 @@
 import { Package, PackageSearch } from 'lucide-react';
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { cache, Suspense } from 'react';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ListSearch } from '@/components/patterns/list-toolbar';
 import { CatalogAvailability } from '@/components/store/catalog-availability';
@@ -27,6 +27,14 @@ import {
 import { getCurrentRate } from '@/server/queries/overview';
 import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront } from '@/server/services/storefront';
+
+/**
+ * The curated strips (available now, just arrived, coming next) only earn their place once the
+ * catalog is large enough that a strip is a subset of it. Below this size they would show the
+ * same products again directly above the full grid.
+ */
+const STRIP_MIN_CATALOG = 24;
+const catalogSize = cache(async () => (await listCatalogProducts({})).length);
 
 const CATALOG_SORTS = ['newest', 'name', 'price-asc', 'price-desc'];
 
@@ -102,11 +110,9 @@ async function BundleSection() {
   if (!bundles.length) return null;
   return (
     <section id="setups" className="mx-auto mb-12 w-full max-w-6xl scroll-mt-20 px-4 lg:px-6">
-      <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
-        Starter setups
-      </p>
+      <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">Sets</p>
       <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-ink">
-        A complete place to start.
+        Alles voor een complete start.
       </h2>
       <div className="mt-4 grid gap-px border border-line-subtle bg-line-subtle sm:grid-cols-2 lg:grid-cols-3">
         {bundles.map((bundle) => (
@@ -121,13 +127,13 @@ async function BundleSection() {
             ) : null}
             <p className="mt-3 text-[11px] text-ink-3">
               {bundle.availability > 0
-                ? `${bundle.availability} setup${bundle.availability === 1 ? '' : 's'} available`
-                : 'Currently unavailable'}
+                ? `${bundle.availability} ${bundle.availability === 1 ? 'set' : 'sets'} beschikbaar`
+                : 'Momenteel niet beschikbaar'}
             </p>
             <div className="mt-3">
               <StorePrice usdCents={bundle.priceCents} srdRate={rate?.rateMicros} size="md" />
             </div>
-            <p className="mt-4 text-[11px] font-semibold text-accent">View this setup →</p>
+            <p className="mt-4 text-[11px] font-semibold text-accent">Bekijk deze set →</p>
           </Link>
         ))}
       </div>
@@ -138,6 +144,7 @@ async function BundleSection() {
 async function AvailableNowSection() {
   const settings = await getSettings();
   if (!settings?.homepageAvailableNowEnabled) return null;
+  if ((await catalogSize()) < STRIP_MIN_CATALOG) return null;
   const [products, rate] = await Promise.all([
     listCatalogProducts({
       availability: 'in-stock',
@@ -148,8 +155,8 @@ async function AvailableNowSection() {
   if (!products.length) return null;
   return (
     <ProductStrip
-      eyebrow="Available right now"
-      title="On the shelf in Paramaribo."
+      eyebrow="Nu op voorraad"
+      title="Direct beschikbaar."
       products={products}
       rate={rate?.rateMicros}
       whatsapp={settings.whatsapp}
@@ -165,10 +172,10 @@ async function GoalCollections() {
       <div className="mb-4 flex items-baseline justify-between">
         <div>
           <p className="text-[11px] font-semibold text-accent tracking-[0.08em] uppercase">
-            Shop by goal
+            Collecties
           </p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-ink">
-            What do you want your home to do?
+            Kies een collectie
           </h2>
         </div>
       </div>
@@ -186,7 +193,8 @@ async function GoalCollections() {
               </p>
             ) : null}
             <p className="mt-3 text-[11px] text-ink-4">
-              {collection.productCount} product{collection.productCount === 1 ? '' : 's'} →
+              {collection.productCount}{' '}
+              {collection.productCount === 1 ? 'product' : 'producten'} →
             </p>
           </Link>
         ))}
@@ -198,6 +206,7 @@ async function GoalCollections() {
 async function NewArrivalsSection() {
   const settings = await getSettings();
   if (!settings?.homepageJustArrivedEnabled) return null;
+  if ((await catalogSize()) < STRIP_MIN_CATALOG) return null;
   const [products, rate] = await Promise.all([
     listCatalogProducts({ newArrival: true, limit: settings.homepageJustArrivedLimit }),
     getCurrentRate(),
@@ -205,8 +214,8 @@ async function NewArrivalsSection() {
   if (!products.length) return null;
   return (
     <ProductStrip
-      eyebrow="Just arrived"
-      title="New products, with a real arrival window."
+      eyebrow="Nieuw"
+      title="Net binnen."
       products={products}
       rate={rate?.rateMicros}
       whatsapp={settings.whatsapp}
@@ -217,6 +226,7 @@ async function NewArrivalsSection() {
 async function ComingNextSection() {
   const settings = await getSettings();
   if (!settings?.homepageComingNextEnabled) return null;
+  if ((await catalogSize()) < STRIP_MIN_CATALOG) return null;
   const [products, rate] = await Promise.all([
     listCatalogProducts({ availability: 'incoming', limit: settings.homepageComingNextLimit }),
     getCurrentRate(),
@@ -224,8 +234,8 @@ async function ComingNextSection() {
   if (!products.length) return null;
   return (
     <ProductStrip
-      eyebrow="Coming next"
-      title="Already on the way to Paramaribo."
+      eyebrow="Binnenkort"
+      title="Verwachte levering."
       products={products}
       rate={rate?.rateMicros}
       whatsapp={settings.whatsapp}
@@ -284,7 +294,7 @@ async function CatalogToolbar() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        <ListSearch placeholder="Search products" size="md" />
+        <ListSearch placeholder="Zoek producten" size="md" />
         <div className="ml-auto flex gap-2">
           <CatalogAvailability />
           <CatalogSort />
@@ -370,16 +380,16 @@ async function CatalogGrid({ searchParams }: { searchParams: Promise<RawSearchPa
     return (
       <EmptyState
         Icon={filtered ? PackageSearch : Package}
-        title={filtered ? 'Nothing matches that' : 'Nothing published yet'}
+        title={filtered ? 'Niets gevonden' : 'Nog geen producten'}
         description={
           filtered
-            ? `No products match ${q ? `"${q}"` : 'that filter'}. Try a different search or clear the category.`
-            : 'Products appear here the moment they are published to the catalog, with price, pictures and availability straight from the books.'
+            ? `Geen producten gevonden voor ${q ? `"${q}"` : 'dit filter'}. Probeer een andere zoekterm of wis de categorie.`
+            : 'Zodra producten zijn gepubliceerd, verschijnen ze hier met prijs, foto’s en voorraad.'
         }
         action={
           filtered ? (
             <Button asChild variant="secondary" size="sm">
-              <Link href="/">Clear filters</Link>
+              <Link href="/audio">Filters wissen</Link>
             </Button>
           ) : undefined
         }

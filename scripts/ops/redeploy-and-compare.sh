@@ -32,7 +32,7 @@ extra() {
 }
 
 echo "== before"; counts > "$OUT/counts-before.txt"; extra > "$OUT/extra-before.txt"; wc -l "$OUT"/*-before.txt
-bash "$SRC/deploy/vps/deploy-pinned.sh" "$COMMIT" "$SNAPSHOT" 2>&1 | tee "$OUT/deploy.log" | tail -5
+bash "$SRC/deploy/vps/deploy-pinned.sh" "$COMMIT" "$SNAPSHOT" "${@:3}" 2>&1 | tee "$OUT/deploy.log" | tail -5
 echo "== after"; counts > "$OUT/counts-after.txt"; extra > "$OUT/extra-after.txt"
 if diff -u "$OUT/counts-before.txt" "$OUT/counts-after.txt" > "$OUT/counts.diff"; then echo "IDEMPOTENT: no row count changed"; else echo "COUNTS CHANGED:"; cat "$OUT/counts.diff"; fi
 diff -u "$OUT/extra-before.txt" "$OUT/extra-after.txt" > "$OUT/extra.diff" && echo "IDEMPOTENT: balances, sales and ledger totals unchanged" || { echo "TOTALS CHANGED:"; cat "$OUT/extra.diff"; }

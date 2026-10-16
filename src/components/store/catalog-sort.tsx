@@ -13,10 +13,10 @@ const CATALOG_SORTS = ['newest', 'name', 'price-asc', 'price-desc'] as const;
 type CatalogSortValue = (typeof CATALOG_SORTS)[number];
 
 const LABELS: Record<CatalogSortValue, string> = {
-  newest: 'Newest',
-  name: 'Name, A–Z',
-  'price-asc': 'Price, low to high',
-  'price-desc': 'Price, high to low',
+  newest: 'Nieuwste eerst',
+  name: 'Naam, A–Z',
+  'price-asc': 'Prijs, laag naar hoog',
+  'price-desc': 'Prijs, hoog naar laag',
 };
 
 export function CatalogSort() {
@@ -27,7 +27,7 @@ export function CatalogSort() {
 
   return (
     <Select
-      aria-label="Sort by"
+      aria-label="Sorteren"
       value={sort}
       onChange={(event) => setState({ sort: event.target.value as CatalogSortValue })}
       className="h-11 w-auto min-w-[180px] rounded-full border-line-subtle pl-4 text-[14px]"

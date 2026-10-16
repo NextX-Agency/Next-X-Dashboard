@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { CatalogPage } from '@/components/store/catalog-page';
 import type { RawSearchParams } from '@/lib/list-params';
+import { storefrontDescription } from '@/lib/store-copy';
 import { getStorefrontBySlug } from '@/server/services/storefront';
 
 export async function generateMetadata(): Promise<Metadata> {
   const storefront = await getStorefrontBySlug('audio', true);
   return {
     title: storefront?.name ?? 'Audio',
-    description: storefront?.description ?? 'Shop audio products available in Paramaribo.',
+    description: storefrontDescription(storefront?.description),
     alternates: { canonical: '/audio' },
   };
 }

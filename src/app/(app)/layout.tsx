@@ -54,7 +54,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <MemberProvider member={currentMember}>
-      <div className="min-h-dvh lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+      <div lang="en" className="min-h-dvh lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="sticky top-0 hidden h-dvh border-line-subtle border-r bg-sunken lg:block">
           <Sidebar />
         </aside>
