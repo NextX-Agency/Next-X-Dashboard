@@ -43,7 +43,7 @@ The VPS build observed during audit used Next.js 16.2.11, while the local D:/Nex
 - Planned imported watch storefronts as inactive with hidden products and blocked public resolution of a watch storefront, while retaining historical data.
 - Removed the redirecting root, retired watches and empty editorial pages from the audio sitemap. Empty FAQ, testimonials and blog pages now request noindex until real content exists.
 
-The old dashboard main checkout and the live VPS were not modified by these changes. The new work is being collected on the Git-valid branch name **nextx-dashboard-2.0** because Git branch names cannot contain spaces.
+The old dashboard main checkout and the live VPS were not modified by these changes. The Nextly-derived source and this audit were pushed to [nextx-dashboard-2.0](https://github.com/NextX-Agency/Next-X-Dashboard/tree/nextx-dashboard-2.0). Git branch names cannot contain spaces.
 
 ## Migration sequence
 
