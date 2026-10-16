@@ -11,7 +11,7 @@ selected or verified. DNS remains unchanged.
 | `/` | Nextly NextX brand entry page | The root now restores the legacy Audio/Watches choice using the checked-in NextX brand assets. Verify rendered metadata, links and mobile layout on staging. |
 | `/catalog` | `/audio` | The audited legacy route uses the audio catalog client and `catalog_type = 'audio'`; preserve that intent with a permanent redirect. |
 | `/audio` | `/audio` | Local route resolves the Audio storefront; verify source copy, SEO and hero in staging. |
-| `/watches` | `/watches` | Local route resolves the Watches storefront; verify source copy, SEO and hero in staging. |
+| `/watches`, `/watches/*` | `410 Gone` | Superseded 16 Oct 2026: NextX is audio only. Retired watch URLs answer 410 with a link to `/audio`; see `docs/audits/2026-10-16-seo-and-url-inventory.md`. |
 | `/p/[slug]` | `/p/[new-slug]` | Product slug resolves in the current storefront; legacy ids resolve through the imported `product_variants.attributes.legacy_id` mapping and receive a permanent redirect to the new canonical path. |
 | `/catalog/[id]`, `/audio/[id]`, `/watches/[id]` | `/p/[new-slug]` | The legacy catalog route is audio; its IDs permanently redirect through `/audio/[id]`, then the shared canonical product query resolves imported legacy IDs within that storefront and redirects to the new slug. |
 | `/faq` | `/faq` | Preserve the public FAQ URL and its clear empty state; the source FAQ table has no live rows. Contact uses the configured NextX WhatsApp number when one is available. |
