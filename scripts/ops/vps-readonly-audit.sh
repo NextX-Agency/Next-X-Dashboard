@@ -20,7 +20,8 @@ if [ -n "$APP" ]; then
 fi
 
 echo; echo "== postgres row counts, every public table (read-only)"
-DB=$(docker ps --format '{{.Names}} {{.Image}}' | grep -i 'supabase/postgres' | awk '{print $1}' | head -1)
+DB=$(docker ps --format '{{.Names}} {{.Image}}' | awk '$2 ~ /^supabase\/postgres:/ {print $1}' | head -1)
+echo "db container: ${DB:-none}"
 if [ -n "$DB" ]; then
   docker exec "$DB" psql -U postgres -d postgres -At -c \
     "SET default_transaction_read_only = on;
@@ -33,6 +34,23 @@ if [ -n "$DB" ]; then
   docker exec "$DB" psql -U postgres -d postgres -At -c \
     "SET default_transaction_read_only = on; SELECT count(*), max(created_at) FROM drizzle.__drizzle_migrations;" 2>&1 | head -3
 fi
+
+echo; echo "== how the web image was built (no env values)"
+docker inspect -f 'compose project dir={{index .Config.Labels "com.docker.compose.project.working_dir"}} config={{index .Config.Labels "com.docker.compose.project.config_files"}}' nextx-web-1 2>/dev/null
+docker image inspect nextx-web -f 'image created={{.Created}} id={{.Id}} labels={{json .Config.Labels}}' 2>/dev/null
+docker exec nextx-web-1 sh -c 'cat .next/BUILD_ID 2>/dev/null; echo; ls -la server.js 2>/dev/null' 2>&1 | head -4
+
+echo; echo "== Coolify applications: source repo, branch, commit (no secrets selected)"
+docker exec coolify-db psql -U coolify -d coolify -At -F ' | ' -c "SELECT name, git_repository, git_branch, git_commit_sha, build_pack, updated_at FROM applications ORDER BY updated_at DESC LIMIT 10;" 2>&1 | head -12
+docker exec coolify-db psql -U coolify -d coolify -At -F ' | ' -c "SELECT name, git_repository, git_branch, git_commit_sha, updated_at FROM applications WHERE name ILIKE '%nextx%' OR name ILIKE '%nextly%';" 2>&1 | head -5
+
+echo; echo "== backups detail"
+ls -la /var/backups/nextx 2>&1 | head -20
+echo "-- cron file"; cat /etc/cron.d/nextx-assist-staging-backup 2>&1 | grep -v '^#' | head -10
+echo "-- backup scripts"; ls -la /usr/local/bin /opt 2>/dev/null | grep -i -E 'backup|nextx' | head
+
+echo; echo "== resource use (snapshot)"
+docker stats --no-stream --format '{{.Name}}\tCPU {{.CPUPerc}}\tMEM {{.MemUsage}}' 2>/dev/null | head -30
 
 echo; echo "== published ports (look for DB ports bound to 0.0.0.0)"
 ss -ltnp 2>/dev/null | awk 'NR==1 || /0\.0\.0\.0|\[::\]/' | head -30
