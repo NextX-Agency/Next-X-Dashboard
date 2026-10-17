@@ -15,6 +15,10 @@ describe('route access policy', () => {
       '/sitemap.xml',
       '/icon',
       '/opengraph-image',
+      '/shop',
+      '/products/camera',
+      '/cart',
+      '/setups/wifi-starter',
       '/p/camera',
       '/audio',
       '/audio/camera-id',
@@ -35,7 +39,16 @@ describe('route access policy', () => {
   });
 
   it('does not make lookalike paths public', () => {
-    for (const pathname of ['/login-help', '/setup-old', '/products', '/api/export']) {
+    for (const pathname of [
+      '/login-help',
+      '/setup-old',
+      '/items',
+      '/items/new',
+      '/shopping',
+      '/cartography',
+      '/productsx',
+      '/api/export',
+    ]) {
       expect(isPublicPath(pathname), pathname).toBe(false);
     }
   });
@@ -68,6 +81,10 @@ describe('route access policy', () => {
 
     for (const pathname of [
       '/',
+      '/shop',
+      '/products/camera',
+      '/cart',
+      '/setups/wifi-starter',
       '/p/camera',
       '/audio',
       '/audio/camera-id',

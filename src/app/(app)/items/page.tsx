@@ -71,7 +71,7 @@ export default function ProductsPage({
           <>
             <ExportCsvLink entity="products" searchParams={searchParams} />
             <Button asChild variant="primary">
-              <Link href="/products/new">Add product</Link>
+              <Link href="/items/new">Add product</Link>
             </Button>
           </>
         }
@@ -133,7 +133,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
         description="Add a product, give it a variant for each colour or size, and it becomes available to buy on a purchase order and to sell."
         action={
           <Button asChild variant="primary" size="sm">
-            <Link href="/products/new">Add product</Link>
+            <Link href="/items/new">Add product</Link>
           </Button>
         }
       />
@@ -148,7 +148,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
         description="Try a different search or clear the status filter."
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link href="/products">Clear filters</Link>
+            <Link href="/items">Clear filters</Link>
           </Button>
         }
       />
@@ -223,9 +223,9 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
             <TBody>
               {result.rows.map((row) => (
                 <TR key={row.id}>
-                  <TD className="text-ink">
+                  <TD className="min-w-[220px] text-ink">
                     <Link
-                      href={`/products/${row.id}` as Route}
+                      href={`/items/${row.id}` as Route}
                       className="inline-flex items-center gap-2 rounded-row hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
                     >
                       {row.imageCount === 0 ? (
@@ -301,7 +301,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
         {result.rows.map((row) => (
           <MobileRow key={row.id}>
             <Link
-              href={`/products/${row.id}` as Route}
+              href={`/items/${row.id}` as Route}
               className="flex flex-col gap-2 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <MobileRowHeader>
@@ -389,5 +389,5 @@ function buildHref(query: {
   if (query.dir) params.set('dir', query.dir);
   if (query.page && query.page > 1) params.set('page', String(query.page));
   const search = params.toString();
-  return (search ? `/products?${search}` : '/products') as Route;
+  return (search ? `/items?${search}` : '/items') as Route;
 }

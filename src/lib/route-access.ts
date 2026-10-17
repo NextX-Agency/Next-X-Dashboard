@@ -20,11 +20,15 @@ const PUBLIC_EXACT_PATHS = new Set([
 
 const PUBLIC_PREFIX_PATHS = [
   '/auth',
-  '/p',
-  '/audio',
+  '/shop',
+  '/products',
+  '/cart',
+  '/setups',
   '/watches',
-  // Legacy shop URLs: next.config redirects or rewrites them (to a slug page or a 410).
+  // Legacy shop URLs: next.config redirects or rewrites them (to the new page or a 410).
+  '/audio',
   '/catalog',
+  '/p',
   '/blog',
   '/faq',
   '/testimonials',

@@ -43,7 +43,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         description="Stock and cost are never edited here. They are the consequence of purchase orders and sales."
         action={
           <Button asChild variant="ghost">
-            <Link href="/products">Back</Link>
+            <Link href="/items">Back</Link>
           </Button>
         }
       />
@@ -82,7 +82,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
       {product.catalogPublished ? (
         <div className="flex justify-end">
           <Button asChild variant="ghost" size="sm">
-            <Link href={`/p/${product.slug}` as Route} target="_blank">
+            <Link href={`/products/${product.slug}` as Route} target="_blank">
               <ExternalLink className="size-3.5" /> View in catalog
             </Link>
           </Button>

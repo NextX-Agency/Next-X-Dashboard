@@ -50,7 +50,7 @@ test('create a product, receive an order, sell it, and watch the books move', as
   const productName = `E2E Test Camera ${run}`;
 
   // ── Create a product ─────────────────────────────────────────────────
-  await page.goto('/products/new');
+  await page.goto('/items/new');
   // Not { exact: true }: Field renders a required label as "Name*"
   // (components/ui/field.tsx appends the asterisk to the label text itself).
   await page.getByLabel('Name').fill(productName);
@@ -58,7 +58,7 @@ test('create a product, receive an order, sell it, and watch the books move', as
   await page.getByLabel('SKU', { exact: true }).fill(sku);
   await page.getByLabel('Sell (USD)', { exact: true }).fill('49.99');
   await page.getByRole('button', { name: 'Create product' }).click();
-  await expect(page).toHaveURL('/products');
+  await expect(page).toHaveURL('/items');
   await expect(page.getByText(`${productName} created`)).toBeVisible();
 
   // ── Raise a purchase order for 10 units ──────────────────────────────

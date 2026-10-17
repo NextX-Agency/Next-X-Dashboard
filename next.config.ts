@@ -21,24 +21,33 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
 
   async redirects() {
-    // Retired watch ids are excluded from the generic rule so the rewrite below can
+    // Retired watch ids are excluded from the generic rules so the rewrite below can
     // answer them with 410 instead of a redirect chain that ends in a 404.
     const retired = LEGACY_RETIRED_WATCH_IDS.join('|');
+    // Every rule is a single permanent hop to the canonical URL (docs/NEXTX_URL_MIGRATION.md).
     return [
-      // NextX sells audio only: the root opens the audio shop. Retired watch URLs
-      // are not redirected; src/app/watches answers them with 410 Gone.
-      { source: '/', destination: '/audio', permanent: false },
-      // Exact, single-hop permanent redirects for the legacy audio products.
+      // Exact legacy audio products go straight to their canonical slug.
       ...LEGACY_AUDIO_REDIRECTS.flatMap(([id, slug]) => [
-        { source: `/catalog/${id}`, destination: `/audio/${slug}`, permanent: true },
-        { source: `/audio/${id}`, destination: `/audio/${slug}`, permanent: true },
+        { source: `/catalog/${id}`, destination: `/products/${slug}`, permanent: true },
+        { source: `/audio/${id}`, destination: `/products/${slug}`, permanent: true },
       ]),
-      { source: '/catalog', destination: '/audio', permanent: true },
+      { source: '/catalog', destination: '/shop', permanent: true },
+      { source: '/audio', destination: '/shop', permanent: true },
+      { source: '/audio/cart', destination: '/cart', permanent: true },
+      { source: '/audio/setups/:slug', destination: '/setups/:slug', permanent: true },
       {
         source: `/catalog/:legacyItemId((?!(?:${retired})$)[^/]+)`,
-        destination: '/audio/:legacyItemId',
+        destination: '/products/:legacyItemId',
         permanent: true,
       },
+      {
+        source: `/audio/:slug((?!(?:cart|${retired})$)[^/]+)`,
+        destination: '/products/:slug',
+        permanent: true,
+      },
+      { source: '/p/:slug', destination: '/products/:slug', permanent: true },
+      // `/products` itself is not a public page; the catalogue lives at /shop.
+      { source: '/products', destination: '/shop', permanent: true },
     ];
   },
 

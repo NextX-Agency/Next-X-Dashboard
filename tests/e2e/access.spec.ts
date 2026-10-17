@@ -28,8 +28,8 @@ const privateRoutes = [
   '/inventory',
   '/ledger',
   '/owners',
-  '/products',
-  '/products/new',
+  '/items',
+  '/items/new',
   '/purchase-orders',
   '/purchase-orders/new',
   '/quotes',
@@ -46,7 +46,7 @@ const privateRoutes = [
 ];
 
 const detailRoutes = [
-  { key: 'E2E_PRODUCT_ID', prefix: '/products/' },
+  { key: 'E2E_PRODUCT_ID', prefix: '/items/' },
   { key: 'E2E_CUSTOMER_ID', prefix: '/customers/' },
   { key: 'E2E_SALE_ID', prefix: '/sales/' },
   { key: 'E2E_PURCHASE_ORDER_ID', prefix: '/purchase-orders/' },
@@ -71,7 +71,7 @@ test('invalid public identifiers return intentional not-found responses', async 
   request,
 }) => {
   for (const route of [
-    '/p/not-a-real-product',
+    '/products/not-a-real-product',
     '/setups/not-a-real-setup',
     '/d/invoice/not-a-real-token',
     '/d/quote/not-a-real-token',
@@ -93,7 +93,7 @@ test('owner can open every authenticated index and create route', async ({ page 
 
 test('valid public product and document links render without login', async ({ request }) => {
   const fixtures = [
-    process.env.E2E_PRODUCT_SLUG ? `/p/${process.env.E2E_PRODUCT_SLUG}` : null,
+    process.env.E2E_PRODUCT_SLUG ? `/products/${process.env.E2E_PRODUCT_SLUG}` : null,
     process.env.E2E_BUNDLE_SLUG ? `/setups/${process.env.E2E_BUNDLE_SLUG}` : null,
     process.env.E2E_INVOICE_TOKEN ? `/d/invoice/${process.env.E2E_INVOICE_TOKEN}` : null,
     process.env.E2E_QUOTE_TOKEN ? `/d/quote/${process.env.E2E_QUOTE_TOKEN}` : null,
@@ -163,7 +163,7 @@ test('viewer sessions remain readable but are refused by write UI', async ({ bro
     await expect(page).toHaveURL('/dashboard');
     await expect(page.getByText('Read only')).toBeVisible();
 
-    await page.goto('/products/new');
+    await page.goto('/items/new');
     await page.getByLabel('Name').fill(`Viewer access check ${Date.now()}`);
     await page.getByLabel('SKU', { exact: true }).fill(`VIEWER-${Date.now()}`);
     await page.getByLabel('Sell (USD)', { exact: true }).fill('1.00');

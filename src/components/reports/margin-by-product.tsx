@@ -62,7 +62,7 @@ export async function MarginByProduct({
                 <TR key={row.productId}>
                   <TD className="whitespace-nowrap text-ink">
                     <Link
-                      href={`/products/${row.productId}` as Route}
+                      href={`/items/${row.productId}` as Route}
                       className="hover:text-accent hover:underline"
                     >
                       {row.name}

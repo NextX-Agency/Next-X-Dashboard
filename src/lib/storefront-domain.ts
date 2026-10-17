@@ -28,20 +28,24 @@ export function storefrontPublicOrigin(
   return `https://${domain}`;
 }
 
-/** Keep product URLs on the matching legacy storefront path when possible. */
+/** Public URL structure. It is the same for every storefront: the store is
+ * NextX, not any one product family, so the path never carries a category. */
+export const SHOP_PATH = '/shop';
+export const CART_PATH = '/cart';
+
+/** Canonical product URL. The storefront argument is kept so callers need not change. */
 export function storefrontProductPath(
-  storefrontSlug: string | null | undefined,
+  _storefrontSlug: string | null | undefined,
   productSlug: string,
 ): string {
-  const root = storefrontSlug === 'audio' ? `/${storefrontSlug}` : '/p';
-  return `${root}/${encodeURIComponent(productSlug)}`;
+  return `/products/${encodeURIComponent(productSlug)}`;
 }
 
+/** The catalogue page, or another public page such as `cart` or `setups/<slug>`. */
 export function storefrontPagePath(
-  storefrontSlug: string | null | undefined,
+  _storefrontSlug: string | null | undefined,
   path = '',
 ): string {
-  const root = storefrontSlug === 'audio' ? `/${storefrontSlug}` : '';
-  const suffix = path ? `/${path.replace(/^\/+/, '')}` : '';
-  return `${root}${suffix}` || '/';
+  const suffix = path.replace(/^\/+/, '');
+  return suffix ? `/${suffix}` : SHOP_PATH;
 }

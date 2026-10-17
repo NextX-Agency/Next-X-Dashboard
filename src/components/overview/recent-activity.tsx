@@ -20,7 +20,7 @@ import { listActivity } from '@/server/queries/activity';
 const ENTITY_ROUTES: Record<string, string> = {
   sale: '/sales',
   purchase_order: '/purchase-orders',
-  product: '/products',
+  product: '/items',
   customer: '/customers',
   supplier: '/suppliers',
 };

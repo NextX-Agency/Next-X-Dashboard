@@ -22,6 +22,9 @@ test('public static pages load without a session or error boundary', async ({
     await expect(page.getByText('Nextly could not load this page')).toHaveCount(0);
   }
 
+  const home = await request.get('/', { maxRedirects: 0 });
+  expect(home.status(), 'the home page is a page, not a redirect').toBe(200);
+
   const robotsResponse = await request.get('/robots.txt');
   const robotsText = await robotsResponse.text();
   if (process.env.NEXTX_ENVIRONMENT === 'staging') {
@@ -31,12 +34,16 @@ test('public static pages load without a session or error boundary', async ({
   }
 });
 
-test('legacy public catalog URLs permanently redirect to current audio routes', async ({
+test('legacy public URLs permanently redirect to the neutral shop routes', async ({
   request,
 }) => {
   const routes = [
-    ['/catalog', '/audio'],
-    ['/catalog/legacy-product-id', '/audio/legacy-product-id'],
+    ['/catalog', '/shop'],
+    ['/audio', '/shop'],
+    ['/audio/cart', '/cart'],
+    ['/catalog/legacy-product-id', '/products/legacy-product-id'],
+    ['/audio/some-slug', '/products/some-slug'],
+    ['/p/some-slug', '/products/some-slug'],
   ] as const;
 
   for (const [path, destination] of routes) {

@@ -105,7 +105,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
               {supplier.products.map((product) => (
                 <Link
                   key={product.id}
-                  href={`/products/${product.id}` as Route}
+                  href={`/items/${product.id}` as Route}
                   className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-hover"
                 >
                   <span className="text-[13px] text-ink">{product.name}</span>

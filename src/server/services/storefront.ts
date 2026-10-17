@@ -146,7 +146,7 @@ export async function resolveStorefront(hostname: string | null | undefined) {
              description, logo_url, hero_title, hero_subtitle, hero_image_url, hero_mobile_image_url,
              default_locale, default_price_list_id, allow_pickup::text, allow_delivery::text
         FROM storefronts
-       WHERE status = 'active' AND domain IS NULL
+       WHERE status = 'active' AND domain IS NULL AND slug <> 'watches'
        ORDER BY (slug = 'main') DESC, name
        LIMIT 1
     `);
@@ -155,14 +155,21 @@ export async function resolveStorefront(hostname: string | null | undefined) {
   return null;
 }
 
-/** Request-scoped storefront context for the public App Router tree. */
+/**
+ * Request-scoped storefront context for the public App Router tree.
+ *
+ * The public URLs carry no storefront name (`/shop`, `/products/<slug>`): the
+ * storefront comes from the request host. A host with no matching storefront
+ * (a staging hostname, a preview URL) falls back to the one active storefront
+ * that is not retired, so the shop still renders and the retired Watches
+ * storefront can never be selected by accident.
+ */
 export const getRequestStorefront = cache(async () => {
   const requestHeaders = await headers();
-  const routeSlug = requestHeaders.get('x-nextx-storefront');
-  if (routeSlug === 'audio') {
-    return getStorefrontBySlug(routeSlug, true);
-  }
-  return resolveStorefront(requestHeaders.get('host'));
+  const byHost = await resolveStorefront(requestHeaders.get('host'));
+  if (byHost) return byHost;
+  const active = await listActiveStorefronts();
+  return active.find((storefront) => storefront.slug !== 'watches') ?? null;
 });
 
 export async function getStorefrontAvailability(

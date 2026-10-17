@@ -38,7 +38,7 @@ export async function MarginLeaders({ limit = 5 }: { limit?: number }) {
       {rows.map((row) => (
         <li key={row.productId}>
           <Link
-            href={`/products/${row.productId}` as Route}
+            href={`/items/${row.productId}` as Route}
             className="block px-4 py-2.5 transition-colors hover:bg-hover"
           >
             <div className="flex items-baseline justify-between gap-3">

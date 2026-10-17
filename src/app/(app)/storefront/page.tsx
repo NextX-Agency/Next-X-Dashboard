@@ -73,7 +73,7 @@ export default async function StorefrontPage() {
         <Link className="text-accent hover:underline" href="/settings">
           Storefront settings
         </Link>
-        <Link className="text-accent hover:underline" href="/products">
+        <Link className="text-accent hover:underline" href="/items">
           Improve catalog products
         </Link>
       </div>

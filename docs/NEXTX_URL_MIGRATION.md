@@ -4,31 +4,74 @@ Legacy canonical origin: `https://shop-nextx.com`, verified in NextX page
 metadata, sitemap and storefront code. The final Nextly origin has not been
 selected or verified. DNS remains unchanged.
 
-## URL mapping implemented locally; staging verification pending
+## Public URL structure (implemented 2026-10-17, verified locally, not yet on staging)
 
-| Existing NextX URL | Nextly destination | Rule |
-|---|---|---|
-| `/` | Nextly NextX brand entry page | The root now restores the legacy Audio/Watches choice using the checked-in NextX brand assets. Verify rendered metadata, links and mobile layout on staging. |
-| `/catalog` | `/audio` | The audited legacy route uses the audio catalog client and `catalog_type = 'audio'`; preserve that intent with a permanent redirect. |
-| `/audio` | `/audio` | Local route resolves the Audio storefront; verify source copy, SEO and hero in staging. |
-| `/watches`, `/watches/*` | `410 Gone` | Superseded 16 Oct 2026: NextX is audio only. Retired watch URLs answer 410 with a link to `/audio`; see `docs/audits/2026-10-16-seo-and-url-inventory.md`. |
-| `/p/[slug]` | `/p/[new-slug]` | Product slug resolves in the current storefront; legacy ids resolve through the imported `product_variants.attributes.legacy_id` mapping and receive a permanent redirect to the new canonical path. |
-| `/catalog/[id]`, `/audio/[id]`, `/watches/[id]` | `/p/[new-slug]` | The legacy catalog route is audio; its IDs permanently redirect through `/audio/[id]`, then the shared canonical product query resolves imported legacy IDs within that storefront and redirects to the new slug. |
-| `/faq` | `/faq` | Preserve the public FAQ URL and its clear empty state; the source FAQ table has no live rows. Contact uses the configured NextX WhatsApp number when one is available. |
-| `/testimonials` | `/testimonials` | Preserve the public customer-review URL and empty state; the source testimonials table has no live rows. The share-review action uses configured NextX contact details when available. |
-| `/blog` | `/blog` | Preserve the public blog landing URL and empty state. No live `blog_posts` or `blog_categories` tables or article records were found in the source schema. |
-| `/blog/[slug]` | 404 with a link to `/blog` | No published legacy posts exist to migrate; unknown article links receive an intentional not-found response. |
-| `/invoices` | Authenticated NextX invoice workspace | This is a dashboard route, not a public share URL. The legacy App Router has no public invoice-token route. Map public links only if an existing issued-link inventory proves they exist. |
-| Public invoice shares | No verified legacy route; Nextly has `/invoice/[id]` and `/d/invoice/[token]` | Do not invent legacy URLs. If issued public links are found, preserve valid access and test revocation/redaction before cutover. |
-| `/shop`, `/store` | No legacy App Router route found | No redirect is configured; revisit only if access logs establish real legacy traffic on either path. |
+The store is **NextX**, not any one product family. No public URL, header link or footer link names a
+category. Product families appear only as `?category=` filters built from products that are actually
+published.
 
-The local tree now has a NextX-branded `/` entry page, public `/audio`,
-`/watches`, FAQ, testimonial, blog, cart and product routes. The request
-storefront is derived from the path in the server proxy, and legacy item IDs
-resolve through the imported variant metadata before canonical redirect. Route
-code has not been exercised against staging data. Do not put multiple stores
-behind a single generic catalog while old links still identify a specific
-brand.
+| URL | Purpose |
+|---|---|
+| `/` | NextX home page (a real page, never a redirect) |
+| `/shop` | Catalogue: search, category, brand, price, availability, sort |
+| `/products/[slug]` | Product page. Canonical for every product |
+| `/setups/[slug]` | Bundle ("set") page |
+| `/cart` | Cart and WhatsApp order hand-off. `noindex` |
+| `/faq`, `/testimonials`, `/blog` | Kept; empty-state pages, `noindex` until they have content |
+| `/dashboard` and the rest of the staff app | Protected. Staff products moved from `/products` to `/items` so `/products/[slug]` could be public |
+| `/login` | Staff sign-in. Linked only from the footer |
+
+### Redirect matrix
+
+Every rule is one permanent (308) hop to a canonical URL, defined in `next.config.ts` and covered by
+`tests/unit/legacy-url-and-indexing.test.ts`, `tests/unit/legacy-url-map.test.ts` and
+`tests/e2e/store-local.spec.ts`. Query strings are preserved.
+
+| Old URL | New URL | Status | Notes |
+|---|---|---|---|
+| `/audio` | `/shop` | 308 | |
+| `/audio/[slug]` | `/products/[slug]` | 308 | Excludes `cart` and retired watch ids |
+| `/audio/[legacy-id]` (15 known ids) | `/products/[canonical-slug]` | 308 | Exact map in `src/lib/legacy-url-map.ts` |
+| `/audio/cart` | `/cart` | 308 | |
+| `/audio/setups/[slug]` | `/setups/[slug]` | 308 | |
+| `/catalog` | `/shop` | 308 | |
+| `/catalog/[legacy-id]` (known) | `/products/[canonical-slug]` | 308 | Single hop |
+| `/catalog/[other-id]` | `/products/[other-id]` | 308 | The product page resolves imported legacy ids and redirects once more to the canonical slug if different |
+| `/p/[slug]` | `/products/[slug]` | 308 | |
+| `/products` | `/shop` | 308 | Not a public page |
+| `/watches`, `/watches/*` | none | **410** | Retired. Not redirected |
+| `/catalog/[retired-watch-id]`, `/audio/[retired-watch-id]` | none | **410** | 19 ids, rewritten to the retired page |
+| unknown `/products/[slug]` | none | **404** | A real HTTP 404, `noindex` |
+
+Checks: no rule's destination is another rule's source (no chains or loops); the root is never
+redirected; robots and sitemap list only `/`, `/shop` and `/products/*`; the product page emits
+`rel=canonical` and `Product` JSON-LD with price, currency and availability per variant.
+
+The old unknown-product behaviour (HTTP 200 with `noindex`) came from reading the product inside a
+Suspense boundary after the status line was already sent. The product page now reads the product
+before streaming (`export const instant = false`), so a missing product is a genuine 404.
+
+### Watches: owner checkpoint (open)
+
+On 16 Oct 2026 the owner decided NextX no longer sells watches. This restructure does **not** reverse
+that. What it does instead:
+
+- Watches stay out of the public shop: the retired storefront is never selected as the request
+  storefront, is excluded from the sitemap, and its URLs answer 410.
+- Watch products, stock, orders and finance history are untouched in the database.
+- The structure is category-neutral. If the owner later decides to sell watches again, that is a
+  publication decision (publish products, set the storefront active, remove the 410 rewrite), not a
+  routing or design change.
+
+**Decision needed from the owner:** keep Watches retired (current behaviour), or plan a relaunch. No
+code assumes either answer.
+
+### Still unverified on staging
+
+Staging is still running an older build, so none of the above has been observed there. Verify after
+the pinned deploy: the redirect table above with `curl -I`, `/` returning 200, `/products/<unknown>`
+returning 404, the sitemap and robots on the production host, and the rendered canonical host (never a
+staging hostname or an IP address).
 
 ## Checked-in static assets
 

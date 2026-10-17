@@ -12,25 +12,46 @@ vi.mock('next/server', async (importOriginal) => ({
 describe('legacy public URLs and staging indexing', () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it('permanently maps audited legacy audio catalog URLs to the audio storefront', async () => {
-    const redirects = await nextConfig.redirects?.();
+  it('permanently maps legacy catalog and audio URLs to the neutral /shop and /products URLs', async () => {
+    const redirects = (await nextConfig.redirects?.()) ?? [];
 
     expect(redirects).toEqual(
       expect.arrayContaining([
-        { source: '/catalog', destination: '/audio', permanent: true },
+        { source: '/catalog', destination: '/shop', permanent: true },
+        { source: '/audio', destination: '/shop', permanent: true },
+        { source: '/audio/cart', destination: '/cart', permanent: true },
+        { source: '/audio/setups/:slug', destination: '/setups/:slug', permanent: true },
+        { source: '/p/:slug', destination: '/products/:slug', permanent: true },
         expect.objectContaining({
           source: expect.stringContaining('/catalog/:legacyItemId'),
-          destination: '/audio/:legacyItemId',
+          destination: '/products/:legacyItemId',
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source: expect.stringContaining('/audio/:slug'),
+          destination: '/products/:slug',
           permanent: true,
         }),
       ]),
     );
-    expect(redirects).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ source: '/shop' }),
-        expect.objectContaining({ source: '/store' }),
-      ]),
-    );
+  });
+
+  it('never redirects the root: the home page is a real page, not a hop to a category', async () => {
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+    expect(redirects.some((rule) => rule.source === '/')).toBe(false);
+  });
+
+  it('has no redirect loops or chains: no destination is itself a redirect source', async () => {
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+    const literalSources = new Set(redirects.map((rule) => rule.source));
+    for (const rule of redirects) {
+      expect(
+        literalSources.has(rule.destination),
+        `${rule.source} -> ${rule.destination}`,
+      ).toBe(false);
+      // A parameterised destination must land on a canonical page, never back on a legacy root.
+      expect(rule.destination).toMatch(/^\/(shop|cart|setups|products)/);
+    }
   });
 
   it('keeps the staging storefront out of search indexes', async () => {
@@ -48,6 +69,12 @@ describe('legacy public URLs and staging indexing', () => {
 
     const rules = await robots();
     expect(rules.sitemap).toBe('https://www.shop-nextx.com/sitemap.xml');
-    expect(rules.rules).toMatchObject([{ userAgent: '*', allow: ['/', '/p/'] }]);
+    expect(rules.rules).toMatchObject([
+      { userAgent: '*', allow: ['/', '/shop', '/products/'] },
+    ]);
+    const disallowed = (rules.rules as { disallow: string[] }[])[0]?.disallow ?? [];
+    expect(disallowed).toContain('/cart');
+    expect(disallowed).toContain('/items');
+    expect(disallowed).not.toContain('/products');
   });
 });

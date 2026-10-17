@@ -27,7 +27,7 @@ const ACTIONS = [
     label: 'Raise a purchase order',
     keywords: 'buy po amazon aliexpress restock',
   },
-  { href: '/products/new', label: 'Add a product', keywords: 'sku variant catalog item' },
+  { href: '/items/new', label: 'Add a product', keywords: 'sku variant catalog item' },
   { href: '/expenses?new=1', label: 'Log an expense', keywords: 'cost marketing tools spend' },
   {
     href: '/ledger?new=1',

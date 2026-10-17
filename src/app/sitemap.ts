@@ -22,51 +22,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Staging must not advertise URLs to crawlers; robots.txt disallows it too.
   if (isStagingEnvironment()) return [];
   const appUrl = new URL(publicAppUrl()).toString();
-  const audioUrl = new URL('/audio', appUrl).toString();
-  const storefronts = await listActiveStorefronts();
-  const entries = await Promise.all(
-    storefronts
-      .filter((storefront) => {
-        // Watches remain in historical operations data, but are no longer sold.
-        if (storefront.slug === 'watches') return false;
-        const origin = storefrontPublicOrigin(
-          storefront.domain,
-          appUrl,
-          process.env.NEXTX_ENVIRONMENT === 'staging',
-        );
-        return origin !== appUrl || ['main', 'audio'].includes(storefront.slug);
-      })
-      .map(async (storefront) => {
-        const origin = storefrontPublicOrigin(
-          storefront.domain,
-          appUrl,
-          process.env.NEXTX_ENVIRONMENT === 'staging',
-        );
-        const products = await listCatalogProducts({ storefrontSlug: storefront.slug });
-        const pagePath = storefrontPagePath(storefront.slug);
-        return {
-          pageUrl: new URL(pagePath, origin).toString(),
-          products: products.map((product) => ({
-            url: new URL(
-              storefrontProductPath(storefront.slug, product.slug),
-              origin,
-            ).toString(),
-            changeFrequency: 'weekly' as const,
-            priority: 0.8,
-          })),
-        };
-      }),
+  const storefronts = (await listActiveStorefronts()).filter(
+    // Watches remain in historical operations data, but are not published.
+    (storefront) => storefront.slug !== 'watches',
   );
+  // Only a storefront with its own domain is served from another origin; the rest share the app host.
+  const origins = new Map<string, string>();
+  for (const storefront of storefronts) {
+    const origin = storefrontPublicOrigin(storefront.domain, appUrl, false);
+    if (!origins.has(origin)) origins.set(origin, storefront.slug);
+  }
 
-  return [
-    { url: audioUrl, changeFrequency: 'daily', priority: 1 },
-    ...entries
-      .filter(({ pageUrl }) => pageUrl !== appUrl && pageUrl !== audioUrl)
-      .map(({ pageUrl }) => ({
-        url: pageUrl,
-        changeFrequency: 'daily' as const,
-        priority: 0.9,
-      })),
-    ...entries.flatMap(({ products }) => products),
-  ];
+  const entries = await Promise.all(
+    [...origins].map(async ([origin, slug]) => {
+      const products = await listCatalogProducts({ storefrontSlug: slug });
+      return [
+        {
+          url: new URL('/', origin).toString(),
+          changeFrequency: 'daily' as const,
+          priority: 1,
+        },
+        {
+          url: new URL(storefrontPagePath(slug), origin).toString(),
+          changeFrequency: 'daily' as const,
+          priority: 0.9,
+        },
+        ...products.map((product) => ({
+          url: new URL(storefrontProductPath(slug, product.slug), origin).toString(),
+          changeFrequency: 'weekly' as const,
+          priority: 0.8,
+        })),
+      ];
+    }),
+  );
+  return entries.flat();
 }

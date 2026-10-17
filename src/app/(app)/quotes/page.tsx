@@ -146,7 +146,7 @@ async function QuotesTable({ searchParams }: { searchParams: Promise<RawSearchPa
                     {row.productName ? (
                       row.productSlug ? (
                         <Link
-                          href={`/p/${row.productSlug}` as Route}
+                          href={`/products/${row.productSlug}` as Route}
                           className="hover:text-accent hover:underline"
                         >
                           {row.productName}

@@ -29,7 +29,7 @@ export async function InventoryHealth() {
         description="Once a product has variants and a received purchase order, its stock position appears here."
         action={
           <Button asChild variant="primary" size="sm">
-            <Link href="/products">Add a product</Link>
+            <Link href="/items">Add a product</Link>
           </Button>
         }
       />

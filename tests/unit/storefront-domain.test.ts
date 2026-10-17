@@ -22,11 +22,14 @@ describe('storefront domain resolution', () => {
     expect(isStorefrontDomain('shop..example.com')).toBe(false);
   });
 
-  it('keeps product links inside their brand storefront routes', () => {
-    expect(storefrontProductPath('audio', 'earbuds')).toBe('/audio/earbuds');
-    expect(storefrontProductPath('main', 'camera')).toBe('/p/camera');
-    expect(storefrontPagePath('audio', 'cart')).toBe('/audio/cart');
-    expect(storefrontPagePath('main', 'cart')).toBe('/cart');
+  it('uses one category-neutral URL structure for every storefront', () => {
+    expect(storefrontProductPath('audio', 'earbuds')).toBe('/products/earbuds');
+    expect(storefrontProductPath('main', 'camera')).toBe('/products/camera');
+    expect(storefrontProductPath(null, 'a b')).toBe('/products/a%20b');
+    expect(storefrontPagePath('audio')).toBe('/shop');
+    expect(storefrontPagePath('main')).toBe('/shop');
+    expect(storefrontPagePath('audio', 'cart')).toBe('/cart');
+    expect(storefrontPagePath('main', 'setups/starter')).toBe('/setups/starter');
   });
 
   it('keeps staging canonicals on staging and validates production custom domains', () => {

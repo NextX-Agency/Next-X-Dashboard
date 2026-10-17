@@ -21,7 +21,7 @@ export default function NewProductPage() {
         description="A product is what a customer recognises. Each colour, size or pack is a variant, and the variant is what carries stock, cost and price."
         action={
           <Button asChild variant="ghost">
-            <Link href="/products">Cancel</Link>
+            <Link href="/items">Cancel</Link>
           </Button>
         }
       />

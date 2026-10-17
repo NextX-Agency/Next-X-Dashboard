@@ -23,8 +23,8 @@ a:focus-visible{outline:3px solid #1b1a18;outline-offset:3px}
 <body>
 <main>
 <h1>NextX verkoopt geen horloges meer</h1>
-<p>Deze pagina bestaat niet meer. NextX richt zich op audio: in-ear monitors, oordopjes en accessoires, te bestellen via WhatsApp en af te halen in Suriname.</p>
-<a href="/audio">Bekijk de audio-collectie</a>
+<p>Deze pagina bestaat niet meer. Bekijk in de winkel wat NextX nu verkoopt.</p>
+<a href="/shop">Bekijk de collectie</a>
 </main>
 </body>
 </html>`;

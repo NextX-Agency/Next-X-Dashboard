@@ -53,7 +53,7 @@ export const NAVIGATION: NavGroup[] = [
     label: 'Catalog',
     items: [
       {
-        href: '/products',
+        href: '/items',
         label: 'Products',
         Icon: Package,
         keywords: ['sku', 'variant', 'item', 'price', 'images'],

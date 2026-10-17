@@ -245,7 +245,7 @@ export function ProductForm({
   const { execute, isPending } = useAction(action, {
     onSuccess({ data }) {
       toast.success(isEdit ? `${data?.name} updated` : `${data?.name} created`);
-      router.push('/products');
+      router.push('/items');
       router.refresh();
     },
     onError({ error }) {

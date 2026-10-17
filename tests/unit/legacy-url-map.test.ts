@@ -24,7 +24,7 @@ describe('legacy shop URL map', () => {
       for (const root of ['catalog', 'audio']) {
         expect(redirects).toContainEqual({
           source: `/${root}/${id}`,
-          destination: `/audio/${slug}`,
+          destination: `/products/${slug}`,
           permanent: true,
         });
       }

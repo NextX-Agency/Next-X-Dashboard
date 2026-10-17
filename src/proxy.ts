@@ -20,9 +20,6 @@ export default async function proxy(request: NextRequest) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set(REQUEST_ID_HEADER, requestId);
     requestHeaders.delete('x-nextx-storefront');
-    if (pathname === '/audio' || pathname.startsWith('/audio/')) {
-      requestHeaders.set('x-nextx-storefront', 'audio');
-    }
     return withRequestId(
       NextResponse.next({ request: { headers: requestHeaders } }),
       requestId,

@@ -9,7 +9,7 @@ import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
  */
 const PRIVATE_PATHS = [
   '/dashboard',
-  '/products',
+  '/items',
   '/customers',
   '/sales',
   '/purchase-orders',
@@ -26,7 +26,7 @@ const PRIVATE_PATHS = [
   '/design-system',
   '/api',
   '/cart',
-  '/audio/cart',
+  '/no-access',
 ];
 
 /**
@@ -42,7 +42,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const appUrl = publicAppUrl();
 
   return {
-    rules: [{ userAgent: '*', allow: ['/', '/p/'], disallow: PRIVATE_PATHS }],
+    rules: [{ userAgent: '*', allow: ['/', '/shop', '/products/'], disallow: PRIVATE_PATHS }],
     sitemap: `${appUrl}/sitemap.xml`,
   };
 }
