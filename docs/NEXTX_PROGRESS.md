@@ -8,7 +8,7 @@ Last updated 2026-10-17. Update this file at the end of every session.
 |---|---|---|
 | Source of truth | Worktree `C:/Users/lrano/Documents/Codex/2026-10-16/i-w/work/nextx-dashboard-2.0`, branch `nextx-dashboard-2.0`. `D:/Nextly` is the upstream starting point and `D:/Next-X-Dashboard` is the old `main` (untouched). | `git worktree list` |
 | Local HEAD | 85e04b9 plus the docs commit(s) after it | `git log` |
-| GitHub `origin/nextx-dashboard-2.0` | 8899c82. **Six commits (a750a6e … 85e04b9) are not pushed.** Pushing needs owner approval. | `git ls-remote` |
+| GitHub `origin/nextx-dashboard-2.0` | 8899c82. Pushed to ee0e409 on 2026-10-17 with owner approval (fast-forward, no force). | `git ls-remote` |
 | Staging build | **Not 85e04b9.** Rendered `/audio` still has strings removed in 85e04b9. Exact deployed commit unknown. | Browser check 2026-10-17 |
 | Typecheck / unit tests | `tsc` clean, 232 of 232 tests pass | Run 2026-10-17 |
 | Lint / production build / e2e | Not re-run this session | |
@@ -16,8 +16,7 @@ Last updated 2026-10-17. Update this file at the end of every session.
 ## Blockers (need the owner)
 
 1. **Staging deploy.** `deploy/vps/deploy-pinned.sh` must run as root on the VPS, and refuses to run unless
-   `~/nextx` is checked out at the exact commit. That needs (a) approval to push the six commits to GitHub
-   (or another agreed way to get them onto the VPS) and (b) the owner entering the sudo password in their
+   `~/nextx` is checked out at the exact commit. The commits are now on GitHub, so that needs only the owner entering the sudo password in their
    own terminal. The old terminal tab `c6` no longer exists. No VPS username is recorded in the repo, so
    no SSH was attempted beyond a single key-auth probe, which was refused (tried with the local Windows username, which is probably not the VPS account).
 2. **Authenticated testing.** No staging login or role sessions are available, so no role testing, no
