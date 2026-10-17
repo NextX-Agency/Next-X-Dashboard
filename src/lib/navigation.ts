@@ -4,6 +4,7 @@ import {
   ClipboardList,
   Coins,
   FileText,
+  History,
   Home,
   LayoutDashboard,
   List,
@@ -228,6 +229,12 @@ export const NAVIGATION: NavGroup[] = [
         label: 'Reports',
         Icon: FileText,
         keywords: ['profit and loss', 'p&l', 'margin by product', 'fx exposure'],
+      },
+      {
+        href: '/activity' as Route,
+        label: 'Activity log',
+        Icon: History,
+        keywords: ['audit', 'history', 'who did what', 'changes', 'trail', 'log'],
       },
       {
         href: '/owners',

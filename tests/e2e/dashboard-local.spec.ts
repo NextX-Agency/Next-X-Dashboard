@@ -73,6 +73,7 @@ test('every dashboard page loads for the owner without console errors', async ({
     '/owners',
     '/storefront',
     '/storefronts',
+    '/activity',
     '/settings',
   ];
   for (const path of paths) {
@@ -160,4 +161,18 @@ test('log an expense: it needs a classification, then appears in the list and th
   await expect(page.getByRole('table').getByText('Packaging tape (e2e)')).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test('the activity log (owners only) shows what was just done and filters by record', async ({
+  page,
+}) => {
+  await page.goto('/activity', { waitUntil: 'networkidle' });
+  await expect(page.getByRole('heading', { level: 1, name: 'Activity log' })).toBeVisible();
+  await expect(page.getByText(/logged expense/).first()).toBeVisible();
+  await expect(page.getByText(/confirmed sale/).first()).toBeVisible();
+  await page.goto('/activity?entity=expense', { waitUntil: 'networkidle' });
+  await expect(page.getByText(/logged expense/).first()).toBeVisible();
+  await expect(page.getByText(/confirmed sale/)).toHaveCount(0);
+  await page.goto('/activity?q=zzz-no-such-thing', { waitUntil: 'networkidle' });
+  await expect(page.getByText('Nothing matches')).toBeVisible();
 });

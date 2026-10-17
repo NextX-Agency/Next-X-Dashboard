@@ -37,7 +37,7 @@ Status key: **M** migrated · **B** migrated but broken · **P** partial · **X*
 | 24 | `Account`, `JournalEntry`, `JournalLine`, `FixedAsset`, `InvestmentHolding`, `FxRevaluationRun` | General ledger | Retained as read-only archive only | D | Documented as deferred; reconcile opening journals to wallets before retiring the source. |
 | 25 | `/reports` | Management reports | `/reports` | U | Must reconcile to the ledger. Not proven. |
 | 26 | `/performance` | Sales/staff performance | Inside `/reports` / dashboard | P | Check for per-seller and per-product views. |
-| 27 | `/activity`, `ActivityLog` | Who did what | `activity_logs` is written by `server/services/posting.ts`; **no viewer page** | **P** | The audit trail exists but nobody can read it from the UI. Add an owner-only activity page. Low-risk, read-only, and can be built without schema changes. |
+| 27 | `/activity`, `ActivityLog` | Who did what | `activity_logs` is written by `server/services/posting.ts`; **no viewer page** | **Done 2026-10-17** | Owner-only read-only `/activity` page (search, record filter, paging, recorded changes). Built without schema changes; the owner gate is by inspection only, not yet tested with a non-owner session. |
 | 28 | `/team`, `User`, `AppSession` | Staff accounts | `/settings` + `invite-member-sheet`, Supabase Auth | P | Passwords/sessions are not migrated by design; the owner must be re-invited. |
 | 29 | `/settings`, `StoreSetting` (34 keys) | Business config | `/settings`, `/storefront*` | U | All 34 values archived; supported ones transformed. Pickup location text is still contradictory (below). |
 | 30 | `Client` | Customers | `/customers`, `/customers/[id]` | U | |

@@ -17,7 +17,8 @@ const DUTCH_WORDS = new Set(
    bezorgd medewerkers klantervaringen artikelen artikel stuk stuks horloges collectie
    verlengkabel kabel afneembaar verzilverd bedrade bedraad draadloos draadloze oor oren geluid
    koptelefoon oordopjes lengte kleur zwart wit rood blauw groen geel grijs batterij oplaadbaar doos
-   inhoud meegeleverd inclusief gebruik snoer aansluiting versie maat gewicht afmetingen materiaal`
+   inhoud meegeleverd inclusief gebruik snoer aansluiting versie maat gewicht afmetingen materiaal
+   publiek`
     .split(/\s+/)
     .filter(Boolean),
 );

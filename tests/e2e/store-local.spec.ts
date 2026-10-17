@@ -99,7 +99,14 @@ test.describe('catalogue and product page', () => {
       .locator('script[type="application/ld+json"]')
       .first()
       .textContent();
-    expect(JSON.parse(jsonLd ?? '{}')['@type']).toBe('Product');
+    const product = JSON.parse(jsonLd ?? '{}');
+    expect(product['@type']).toBe('Product');
+    // Structured data: absolute URLs, SRD, and no Dutch placeholder variant name.
+    expect(product.url).toMatch(/^https?:\/\//);
+    for (const image of product.image) expect(image).toMatch(/^https?:\/\//);
+    expect(product.offers[0].priceCurrency).toBe('SRD');
+    expect(JSON.stringify(product)).not.toMatch(/Standaard/);
+    expect(dutchWords(JSON.stringify(product))).toEqual([]);
   });
 
   test('cart: quantity, totals and the WhatsApp message stay accurate', async ({ page }) => {

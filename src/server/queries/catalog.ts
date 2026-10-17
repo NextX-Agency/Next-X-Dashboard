@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { publicName } from '@/lib/english-content';
 import { isDatabaseConfigured } from '@/lib/env';
+import { likeContains } from '@/lib/like';
 import { type Cents, toDecimalString } from '@/lib/money';
 import { priceTierThresholds } from '@/lib/price-tiers';
 import { cleanPublicCopy } from '@/lib/public-copy';
@@ -178,11 +179,6 @@ export function publicPriceVisibility(
   `;
 }
 
-/** `%query%` with the LIKE wildcards in the query itself escaped, so "50%" or "a_b" search for what was typed. */
-function containsPattern(query: string): string {
-  return `%${query.trim().replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
-}
-
 export type CatalogVariantSearchItem = {
   productId: string;
   variantId: string;
@@ -201,7 +197,7 @@ export async function searchCatalogVariantsForStorefront(
   input: { query: string; limit: number },
 ): Promise<CatalogVariantSearchItem[]> {
   if (!isDatabaseConfigured() || !storefront.defaultPriceListId) return [];
-  const likeQuery = containsPattern(input.query);
+  const likeQuery = likeContains(input.query);
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT p.id AS product_id,
            v.id AS variant_id,
@@ -411,7 +407,7 @@ export async function listCatalogProducts(
   const priceBucket = params.price ?? null;
   const [tierLow, tierMid, tierHigh] = priceTierThresholds(storefront.defaultCurrency);
   const availability = params.availability ?? null;
-  const likeQuery = params.q?.trim() ? containsPattern(params.q) : null;
+  const likeQuery = params.q?.trim() ? likeContains(params.q) : null;
   const order = CATALOG_SORT_CLAUSES[params.sort ?? 'newest'];
   const limit = params.limit ?? null;
 

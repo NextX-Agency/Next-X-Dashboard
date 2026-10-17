@@ -69,6 +69,7 @@ async function recordsMode() {
       'bundles',
       'categories',
       'brands',
+      'price_lists',
       'settings',
       'storefronts',
       'storefront_products',

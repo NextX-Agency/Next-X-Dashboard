@@ -1,6 +1,6 @@
 # NextX design system: "Rustig"
 
-Status: implemented 2026-10-17, chosen by the owner from three working previews
+Status: implemented 2026-10-17 and made English the same day, chosen by the owner from three working previews
 (`docs/design-review/CREATIVE_DIRECTION.md`). It replaces the blue "Instrument" dashboard skin, the
 "Northlight" storefront skin and the charcoal-and-orange redesign, all rejected. This document describes
 what the code does. The sources of truth are `src/styles/tokens.css`, `src/app/globals.css` and the
@@ -47,23 +47,29 @@ tabular figures (`.tabular` inside `.nx-store`), never mono.
 
 ## Money on the storefront
 
-SRD leads and always carries its code: `SRD 4.850`, never a bare `$`, which would read as USD. Dutch
-thousands separator. When an exchange rate is set the USD indication follows in small type
-(`≈ $126`). `formatSrd()` in `components/store/store-price.tsx` is the single formatter; the cart and
-the WhatsApp message use it too.
+SRD leads and always carries its code: `SRD 4,850`, never a bare `$`, which would read as USD. English
+separators (comma thousands, point decimals), formatted by `src/lib/store-money.ts`. When an exchange rate is set the USD indication follows in small type
+(`≈ $126`). `formatSrd()` in `lib/store-money.ts` is the single formatter; the cart and the WhatsApp message use it
+too. The page language is `en-SR`; dates and numbers are formatted as `en-GB` (no `en-SR` data in `Intl`).
+
+## Language
+
+The public shop is English, the staff dashboard is English. All shop wording lives in the components and in
+`lib/store-messages.ts` (WhatsApp). A guard test fails the build if Dutch returns. See
+`docs/NEXTX_ENGLISH_CONTENT.md`.
 
 ## Components
 
 **Storefront**
-- *Header:* logo, a wide search field (`/shop?q=`), "Vragen?" (WhatsApp), the cart. Phones put search
-  under the logo and add a four-tab bar (Home, Winkel, Mand, WhatsApp).
+- *Header:* logo, a wide search field (`/shop?q=`), "Questions?" (WhatsApp), the cart. Phones put search
+  under the logo and add a four-tab bar (Home, Shop, Cart, WhatsApp).
 - *Category chips:* links to `/shop?category=`, with counts; the filter a customer uses first.
 - *Product card:* photograph on the soft field (multiplied, so white cut-outs sit on it), name, **price as
   the largest thing**, a stock pill, one action. The whole card is one link.
-- *Stock pill* (`stock-pill.tsx`): "Op voorraad", "Nog n" only at 2 or fewer, "Uitverkocht"/"Onderweg".
+- *Stock pill* (`stock-pill.tsx`): "In stock", "Only n left" only at 2 or fewer, "Sold out" / "On the way".
   Counts above that are never shown.
-- *"Bijna uitverkocht":* a strip on the home page built from real stock at 2 or fewer.
-- *Product page:* large photograph, price and stock, quantity and add, WhatsApp, **stock per pickup
+- *"Low stock":* a strip on the home page built from real stock at 2 or fewer.
+- *Product page:* large photograph (press to enlarge), price and stock, quantity and add, WhatsApp, **stock per pickup
   location**, description, specifications. On phones the add button lives in a bar fixed to the bottom.
 - *Buttons:* `.nx-btn` 48 px; `-primary` (black), `-line` (outline), `-signal` (orange, reserved for
   "back in stock" style signals), `-sm`.

@@ -6,8 +6,14 @@ import { QuoteRequestForm } from '@/components/forms/quote-request-form';
 import { ProductGallery } from '@/components/store/product-gallery';
 import { ProductOrderPanel } from '@/components/store/product-order-panel';
 import { publicParagraphs, publicSpecs, publicText } from '@/lib/english-content';
+import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import { cardSummary } from '@/lib/public-copy';
-import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
+import { variantLabel } from '@/lib/store-messages';
+import {
+  SHOP_PATH,
+  storefrontProductPath,
+  storefrontPublicOrigin,
+} from '@/lib/storefront-domain';
 import { type CatalogProduct, getCatalogProduct } from '@/server/queries/catalog';
 import { getCurrentRate } from '@/server/queries/overview';
 import { getSettings } from '@/server/queries/reference';
@@ -92,12 +98,21 @@ export default async function ProductPage({ params }: { params: Params }) {
   const context = [showBrand ? product.brandName : null, product.categoryName]
     .filter(Boolean)
     .join(' · ');
+  // Structured data needs absolute URLs. A placeholder variant name ("Default") is left out.
+  const origin = storefrontPublicOrigin(
+    storefront?.domain,
+    publicAppUrl(),
+    isStagingEnvironment(),
+  );
+  const absolute = (path: string) => new URL(path, origin).toString();
+  const productUrl = absolute(storefrontProductPath(null, product.slug));
   const offers = product.variants
     .filter((variant) => variant.listPriceCents > 0)
     .map((variant) => ({
       '@type': 'Offer',
+      url: productUrl,
       sku: variant.sku,
-      name: variant.name,
+      ...(variantLabel(variant.name) ? { name: variantLabel(variant.name) } : {}),
       priceCurrency: variant.priceCurrency,
       price: (variant.listPriceCents / 100).toFixed(2),
       availability:
@@ -109,8 +124,9 @@ export default async function ProductPage({ params }: { params: Params }) {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
+    url: productUrl,
     description: product.seoDescription ?? metaDescription(product),
-    image: product.images.map((image) => image.url),
+    image: product.images.map((image) => absolute(image.url)),
     brand: product.brandName ? { '@type': 'Brand', name: product.brandName } : undefined,
     ...(offers.length ? { offers } : {}),
   };
