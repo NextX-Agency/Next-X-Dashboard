@@ -1,8 +1,10 @@
+import { publicText } from '@/lib/english-content';
+
 /**
- * Reviewed storefront copy. Customer-facing text is Dutch, and every claim here is something the
+ * Reviewed storefront copy. Customer-facing text is English, and every claim here is something the
  * operation can back up: what is sold, how orders are placed, and in which currency.
  */
-export const STORE_DESCRIPTION = 'NextX in Suriname. Bestel via WhatsApp; prijzen in SRD.';
+export const STORE_DESCRIPTION = 'NextX in Suriname. Order via WhatsApp; prices in SRD.';
 
 /**
  * The imported legacy shop description is generic marketing ("zorgvuldig geselecteerd assortiment
@@ -13,7 +15,7 @@ const LEGACY_BOILERPLATE = /zorgvuldig geselecteerd assortiment premium producte
 
 export function storefrontDescription(...candidates: Array<string | null | undefined>): string {
   for (const candidate of candidates) {
-    const text = candidate?.trim();
+    const text = publicText(candidate?.trim());
     if (text && !LEGACY_BOILERPLATE.test(text)) return text;
   }
   return STORE_DESCRIPTION;

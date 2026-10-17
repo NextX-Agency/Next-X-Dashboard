@@ -2,6 +2,7 @@ import { MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { enquiryMessage } from '@/lib/store-messages';
 import { whatsappLink } from '@/lib/whatsapp';
 import { StoreCartLink } from './store-cart-link';
 import { StoreHeaderSearch } from './store-header-search';
@@ -18,13 +19,13 @@ export function StoreHeader({
   storeName: string;
   whatsapp: string | null;
 }) {
-  const ask = whatsappLink(whatsapp, `Hallo ${storeName}, ik heb een vraag.`);
+  const ask = whatsappLink(whatsapp, enquiryMessage(storeName));
   return (
     <header className="sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-[1320px] items-center gap-3 px-4 sm:gap-6 lg:px-8">
         <Link
           href="/"
-          aria-label={`${storeName}, naar de homepage`}
+          aria-label={`${storeName}, go to the homepage`}
           className="inline-flex shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
         >
           <Image
@@ -49,7 +50,7 @@ export function StoreHeader({
               rel="noopener noreferrer"
               className="hidden h-10 items-center gap-2 rounded-[10px] px-3 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring md:inline-flex"
             >
-              <MessageCircle aria-hidden="true" className="size-[18px]" /> Vragen?
+              <MessageCircle aria-hidden="true" className="size-[18px]" /> Questions?
             </a>
           ) : null}
           <StoreCartLink />

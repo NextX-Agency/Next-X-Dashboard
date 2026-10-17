@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { dutchWords } from '../../src/lib/language-audit';
 
 /**
  * Storefront behaviour against the local design fixture (scripts/rehearsal/visual-seed.sql: the live
@@ -13,7 +14,7 @@ test.skip(
   'needs the synthetic visual fixture on the local rehearsal database',
 );
 
-const PRODUCT = { slug: 'kz-as16-pro-x', name: 'KZ AS16 Pro X', price: 'SRD 3.000' };
+const PRODUCT = { slug: 'kz-as16-pro-x', name: 'KZ AS16 Pro X', price: 'SRD 3,000' };
 
 test.describe('neutral storefront structure', () => {
   test('the home page is a real page with the NextX brand, not a redirect to a category', async ({
@@ -22,11 +23,11 @@ test.describe('neutral storefront structure', () => {
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole('link', { name: /naar de homepage/ })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Categorieën' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /go to the homepage/ })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Categories' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     // No staff link in the customer header.
-    await expect(page.locator('header').getByText('Medewerkers')).toHaveCount(0);
+    await expect(page.locator('header').getByText('Staff sign-in')).toHaveCount(0);
   });
 
   test('no public URL carries a product family', async ({ page }) => {
@@ -67,7 +68,7 @@ test.describe('neutral storefront structure', () => {
 test.describe('catalogue and product page', () => {
   test('filters by category and search through the URL', async ({ page }) => {
     await page.goto('/shop');
-    await expect(page.getByRole('heading', { level: 1, name: 'Alle producten' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'All products' })).toBeVisible();
     await page
       .getByRole('link', { name: /^In-Ear Accessories/ })
       .first()
@@ -83,15 +84,15 @@ test.describe('catalogue and product page', () => {
     for (const text of await cards.allInnerTexts())
       expect(text.toLowerCase()).toContain('essager');
 
-    await page.goto('/shop?q=zzzgeenresultaat');
-    await expect(page.getByRole('heading', { name: 'Niets gevonden' })).toBeVisible();
+    await page.goto('/shop?q=zzznoresults');
+    await expect(page.getByRole('heading', { name: 'Nothing found' })).toBeVisible();
   });
 
   test('a product shows its price in SRD, stock and canonical metadata', async ({ page }) => {
     await page.goto(`/products/${PRODUCT.slug}`);
     await expect(page.getByRole('heading', { level: 1, name: PRODUCT.name })).toBeVisible();
     await expect(page.getByText(PRODUCT.price, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(/Nog 2|Op voorraad/).first()).toBeVisible();
+    await expect(page.getByText(/Only 2 left|In stock/).first()).toBeVisible();
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
     expect(canonical).toContain(`/products/${PRODUCT.slug}`);
     const jsonLd = await page
@@ -103,35 +104,88 @@ test.describe('catalogue and product page', () => {
 
   test('cart: quantity, totals and the WhatsApp message stay accurate', async ({ page }) => {
     await page.goto(`/products/${PRODUCT.slug}`);
-    await page.getByRole('button', { name: 'Meer' }).click();
-    await page.getByRole('button', { name: 'In winkelwagen' }).click();
-    await expect(page.getByText(/2 × KZ AS16 Pro X toegevoegd/)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Winkelwagen, 2 artikelen' })).toBeVisible();
+    await page.getByRole('button', { name: 'Increase quantity' }).click();
+    await page.getByRole('button', { name: 'Add to cart' }).first().click();
+    await expect(page.getByText(/2 × KZ AS16 Pro X added to your cart/)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Cart, 2 items' })).toBeVisible();
 
     await page.goto('/cart');
-    await expect(page.getByRole('heading', { name: 'Winkelwagen', exact: true })).toBeVisible();
-    await expect(page.getByText('Prijs en voorraad zojuist gecontroleerd')).toBeVisible();
-    // 2 x SRD 3.000
-    await expect(page.getByText('SRD 6.000').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cart', exact: true })).toBeVisible();
+    await expect(page.getByText('Price and stock just checked')).toBeVisible();
+    // 2 x SRD 3,000
+    await expect(page.getByText('SRD 6,000').first()).toBeVisible();
 
-    await page.getByLabel('Naam', { exact: true }).fill('Testklant');
-    await page.getByLabel('Telefoon', { exact: true }).fill('+597 8000000');
-    const order = page.getByRole('link', { name: /Verstuur bestelling via WhatsApp/ });
+    await page.getByLabel('Name', { exact: true }).fill('Test customer');
+    await page.getByLabel('Phone', { exact: true }).fill('+597 8000000');
+    const order = page.getByRole('link', { name: /Send order via WhatsApp/ });
     await expect(order).toBeVisible();
     const message = decodeURIComponent((await order.getAttribute('href')) ?? '');
-    expect(message).toContain('KZ AS16 Pro X');
-    expect(message).toContain('2');
-    expect(message).toContain('SRD 6.000');
-    expect(message).toContain('Testklant');
+    expect(message).toContain("Hello NextX, I'd like to order the following items:");
+    expect(message).toContain('1. KZ AS16 Pro X');
+    expect(message).toContain('2 × SRD 3,000 = SRD 6,000');
+    expect(message).toContain('Estimated total: SRD 6,000');
+    expect(message).toContain('Name: Test customer');
+    expect(message).toContain('Please confirm current stock and the final price.');
+    expect(message).toContain('Stock is only reserved once the shop confirms my order.');
+    // The whole message is English: no Dutch survives into the link.
+    expect(message).not.toMatch(/\b(Hallo|Naam|Totaal|bestellen|voorraad)\b/i);
   });
 
   test('cart cannot exceed available stock', async ({ page }) => {
     await page.goto('/products/m-vave-sws12'); // 2 in stock
     for (let i = 0; i < 5; i++) {
-      const plus = page.getByRole('button', { name: 'Meer' });
+      const plus = page.getByRole('button', { name: 'Increase quantity' });
       if (await plus.isEnabled()) await plus.click();
     }
     await expect(page.locator('#store-cart-quantity')).toHaveValue('2');
+  });
+});
+
+test.describe('English throughout', () => {
+  test('every public page renders without Dutch, including stored product copy', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.goto('/shop');
+    const productPaths = await page
+      .locator('a[href^="/products/"]')
+      .evaluateAll((links) => [
+        ...new Set(links.map((link) => link.getAttribute('href') ?? '')),
+      ]);
+    expect(productPaths.length).toBeGreaterThanOrEqual(10);
+
+    const paths = [
+      '/',
+      '/shop',
+      '/cart',
+      '/faq',
+      '/blog',
+      '/testimonials',
+      '/products/nope',
+      ...productPaths,
+    ];
+    const problems: string[] = [];
+    for (const path of paths) {
+      await page.goto(path, { waitUntil: 'networkidle' });
+      const text = await page.locator('body').innerText();
+      const words = dutchWords(text);
+      if (words.length) problems.push(`${path}: ${words.join(', ')}`);
+      const lang = await page.locator('html').getAttribute('lang');
+      if (lang !== 'en-SR') problems.push(`${path}: html lang is ${lang}`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  test('metadata is English too', async ({ page }) => {
+    for (const path of ['/', '/shop', `/products/${PRODUCT.slug}`]) {
+      await page.goto(path);
+      const title = await page.title();
+      const description = await page
+        .locator('meta[name="description"]')
+        .getAttribute('content');
+      expect(dutchWords(`${title} ${description ?? ''}`), path).toEqual([]);
+      expect(description, path).toBeTruthy();
+    }
   });
 });
 
@@ -153,8 +207,8 @@ test.describe('responsive layout', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     await page
-      .getByRole('navigation', { name: 'Snelnavigatie' })
-      .getByRole('link', { name: 'Winkel' })
+      .getByRole('navigation', { name: 'Quick navigation' })
+      .getByRole('link', { name: 'Shop' })
       .click();
     await expect(page).toHaveURL(/\/shop$/);
   });

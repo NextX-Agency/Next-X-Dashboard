@@ -57,7 +57,7 @@ export function ProductCard({
         )}
         {isNew && inStock ? (
           <span className="absolute top-3 left-3 rounded-full bg-night px-2.5 py-1 font-semibold text-[11px] text-night-ink">
-            Nieuw
+            New
           </span>
         ) : null}
       </div>
@@ -78,7 +78,7 @@ export function ProductCard({
           currency={product.priceCurrency}
           srdRate={srdRate}
           size="card"
-          prefix={hasRange ? 'vanaf' : undefined}
+          prefix={hasRange ? 'from' : undefined}
           className="mt-1"
         />
         <div className="mt-2.5">
@@ -91,7 +91,7 @@ export function ProductCard({
             inStock ? 'bg-night text-night-ink' : 'border border-line-strong text-ink',
           )}
         >
-          {inStock ? 'Bekijk' : 'Meld mij als hij terug is'}
+          {inStock ? 'View product' : 'See availability'}
         </span>
       </div>
     </article>

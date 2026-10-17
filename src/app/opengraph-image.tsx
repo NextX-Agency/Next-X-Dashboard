@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'NextX: shop online, bestel via WhatsApp';
+export const alt = 'NextX: shop online, order via WhatsApp';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -35,10 +35,10 @@ export default function Image() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', fontSize: 56, fontWeight: 700, letterSpacing: -2 }}>
-          Shop online, bestel via WhatsApp.
+          Shop online, order via WhatsApp.
         </div>
         <div style={{ display: 'flex', fontSize: 26, color: '#b7b0a6' }}>
-          Prijzen in SRD · Suriname
+          Prices in SRD · Suriname
         </div>
       </div>
     </div>,

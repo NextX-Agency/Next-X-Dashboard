@@ -5,12 +5,12 @@
  * Watch history stays available to staff inside the dashboard.
  */
 const RETIRED_PAGE = `<!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Horloges niet meer beschikbaar | NextX</title>
+<title>Watches no longer available | NextX</title>
 <style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fafaf8;color:#1b1a18;font:16px/1.55 system-ui,sans-serif}
 main{max-width:34rem;padding:2rem 1.25rem}
@@ -22,9 +22,9 @@ a:focus-visible{outline:3px solid #1b1a18;outline-offset:3px}
 </head>
 <body>
 <main>
-<h1>NextX verkoopt geen horloges meer</h1>
-<p>Deze pagina bestaat niet meer. Bekijk in de winkel wat NextX nu verkoopt.</p>
-<a href="/shop">Bekijk de collectie</a>
+<h1>NextX no longer sells watches</h1>
+<p>This page no longer exists. See what NextX sells now.</p>
+<a href="/shop">Browse the shop</a>
 </main>
 </body>
 </html>`;

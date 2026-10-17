@@ -51,12 +51,12 @@ test.describe('storefront catalog', () => {
     page,
   }) => {
     await page.goto('/shop');
-    await page.getByLabel('Beschikbaarheid').selectOption('in-stock');
+    await page.getByRole('switch', { name: 'In-stock items only' }).click();
     await expect(page).toHaveURL(/availability=in-stock/);
 
     await page.goto(`/products/${productSlug}`);
     const whatsapp = page.getByRole('link', {
-      name: /Bestel via WhatsApp|Vraag naar nieuwe voorraad/,
+      name: /Order via WhatsApp|Ask when it is back/,
     });
     await expect(whatsapp).toBeVisible();
     const href = await whatsapp.getAttribute('href');
@@ -87,11 +87,13 @@ test.describe('storefront demand capture', () => {
     const variant = process.env.E2E_RESTOCK_VARIANT_NAME as string;
     await page.goto(`/products/${slug}`);
     await page.getByRole('button', { name: variant }).click();
-    await expect(page.getByText('This option is sold out')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Tell me when it is back in stock' }),
+    ).toBeVisible();
     await page
       .getByLabel('WhatsApp number or email')
       .fill(`5978${Date.now().toString().slice(-6)}`);
-    await page.getByRole('button', { name: 'Notify me' }).click();
+    await page.getByRole('button', { name: 'Keep me posted' }).click();
     await expect(page.getByText("We'll keep your request for the team.")).toBeVisible();
   });
 });
@@ -112,30 +114,28 @@ test.describe('storefront cart', () => {
   }) => {
     await page.goto(`/products/${productSlug}`);
     await page.getByRole('button', { name: variantName as string, exact: true }).click();
-    await page.getByLabel('Aantal').fill('1');
-    await page.getByRole('button', { name: 'In winkelwagen' }).click();
-    await expect(page.getByText(/toegevoegd aan je winkelwagen/)).toBeVisible();
+    await page.getByLabel('Quantity').fill('1');
+    await page.getByRole('button', { name: 'Add to cart' }).first().click();
+    await expect(page.getByText(/added to your cart/)).toBeVisible();
 
     await page.goto(`/products/${secondProductSlug}`);
     await page.getByRole('button', { name: secondVariantName as string, exact: true }).click();
-    await page.getByLabel('Aantal').fill('1');
-    await page.getByRole('button', { name: 'In winkelwagen' }).click();
-    await expect(page.getByText(/toegevoegd aan je winkelwagen/)).toBeVisible();
+    await page.getByLabel('Quantity').fill('1');
+    await page.getByRole('button', { name: 'Add to cart' }).first().click();
+    await expect(page.getByText(/added to your cart/)).toBeVisible();
 
     await page.goto('/cart');
-    await expect(page.getByRole('heading', { name: 'Winkelwagen', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Bestellen via WhatsApp' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Winkelwagen, 2 artikelen' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cart', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Order via WhatsApp' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Cart, 2 items' })).toBeVisible();
     await expect(
-      page.getByText('Prijs en voorraad zojuist gecontroleerd', { exact: false }),
+      page.getByText('Price and stock just checked', { exact: false }),
     ).toBeVisible();
-    await page.getByLabel('Naam', { exact: true }).fill('Staging Cart Check');
-    await page.getByLabel('Telefoon', { exact: true }).fill('+597 8123456');
-    await page
-      .getByLabel('Opmerking', { exact: true })
-      .fill('Please confirm this test enquiry.');
+    await page.getByLabel('Name', { exact: true }).fill('Staging Cart Check');
+    await page.getByLabel('Phone', { exact: true }).fill('+597 8123456');
+    await page.getByLabel('Notes', { exact: true }).fill('Please confirm this test enquiry.');
 
-    const orderLink = page.getByRole('link', { name: /Verstuur bestelling via WhatsApp/ });
+    const orderLink = page.getByRole('link', { name: /Send order via WhatsApp/ });
     await expect(orderLink).toBeVisible();
     const href = await orderLink.getAttribute('href');
     expect(href).toContain('wa.me');
@@ -143,8 +143,8 @@ test.describe('storefront cart', () => {
     expect(message).toContain('Staging Cart Check');
     expect(message).toContain('+597 8123456');
     expect(message).toContain('Please confirm this test enquiry.');
-    expect(message).toContain('Totaal (indicatief)');
-    expect(message).toContain('De voorraad is gecontroleerd maar wordt pas na bevestiging');
+    expect(message).toContain('Estimated total');
+    expect(message).toContain('Stock is only reserved once the shop confirms my order.');
     if (productName) expect(message).toContain(productName);
     if (secondProductName) expect(message).toContain(secondProductName);
   });

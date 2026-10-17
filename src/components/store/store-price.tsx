@@ -1,10 +1,11 @@
 import { cn } from '@/lib/cn';
 import { fromBase, type RateMicros, toBase } from '@/lib/fx';
 import { type Cents, formatMoney } from '@/lib/money';
+import { formatSrd } from '@/lib/store-money';
 
 /**
  * A storefront price. SRD leads (customers pay in SRD) and is always written with its code,
- * `SRD 4.850`, never a bare `$` that could be read as USD. When a rate is configured the USD figure
+ * `SRD 4,850`, never a bare `$` that could be read as USD. When a rate is configured the USD figure
  * follows as a quiet indication. The price is the largest thing on a card.
  */
 const sizes = {
@@ -15,17 +16,7 @@ const sizes = {
   xl: { primary: 'text-[40px]', secondary: 'text-[14px]' },
 } as const;
 
-const srdFormatter = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 });
-const srdFormatterCents = new Intl.NumberFormat('nl-NL', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-/** `SRD 4.850`, or `SRD 4.850,50` when there are cents. */
-export function formatSrd(cents: Cents): string {
-  const units = cents / 100;
-  return `SRD ${cents % 100 === 0 ? srdFormatter.format(units) : srdFormatterCents.format(units)}`;
-}
+export { formatSrd };
 
 export function StorePrice({
   usdCents,
@@ -43,7 +34,7 @@ export function StorePrice({
   currency?: 'USD' | 'SRD';
   srdRate?: RateMicros;
   size?: keyof typeof sizes;
-  /** e.g. "vanaf" for a product whose variants span a price range. */
+  /** e.g. "from" for a product whose variants span a price range. */
   prefix?: string;
   className?: string;
 }) {

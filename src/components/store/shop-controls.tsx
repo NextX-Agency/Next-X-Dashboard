@@ -17,10 +17,10 @@ export type ShopFilterOptions = {
 
 const SORTS = ['newest', 'name', 'price-asc', 'price-desc'] as const;
 const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
-  newest: 'Nieuwste eerst',
-  name: 'Naam, A–Z',
-  'price-asc': 'Prijs, laag naar hoog',
-  'price-desc': 'Prijs, hoog naar laag',
+  newest: 'Newest first',
+  name: 'Name, A–Z',
+  'price-asc': 'Price, low to high',
+  'price-desc': 'Price, high to low',
 };
 const AVAILABILITY = ['in-stock', 'incoming'] as const;
 
@@ -63,12 +63,12 @@ export function ShopToolbar({ filters }: { filters: ReactNode }) {
             className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${onlyInStock ? 'left-[18px]' : 'left-0.5'}`}
           />
         </span>
-        Alleen op voorraad
+        In-stock items only
       </button>
       <div className="flex items-center gap-2">
         <SelectShell>
           <select
-            aria-label="Sorteren"
+            aria-label="Sort by"
             value={state.sort}
             onChange={(event) =>
               setState({ sort: event.target.value as (typeof SORTS)[number] })
@@ -119,20 +119,15 @@ function FiltersDrawer({ children }: { children: ReactNode }) {
           <div className="flex h-16 shrink-0 items-center justify-between border-line border-b px-5">
             <Dialog.Title className="nx-label text-ink-2">Filters</Dialog.Title>
             <Dialog.Description className="sr-only">
-              Beperk de producten in de winkel.
+              Narrow down the products in the shop.
             </Dialog.Description>
-            <Dialog.Close
-              aria-label="Sluiten"
-              className="-mr-2 grid size-10 place-items-center"
-            >
+            <Dialog.Close aria-label="Close" className="-mr-2 grid size-10 place-items-center">
               <X className="size-5" />
             </Dialog.Close>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
           <div className="shrink-0 border-line border-t p-4">
-            <Dialog.Close className="nx-btn nx-btn-primary w-full">
-              Toon resultaten
-            </Dialog.Close>
+            <Dialog.Close className="nx-btn nx-btn-primary w-full">Show results</Dialog.Close>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
@@ -150,9 +145,9 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
   return (
     <div className="space-y-8">
       {data.categories.length >= 2 ? (
-        <Group title="Categorie">
+        <Group title="Category">
           <Choice active={!state.category} onClick={() => set('category', null)}>
-            Alles
+            All
           </Choice>
           {data.categories.map((category) => (
             <Choice
@@ -170,7 +165,7 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
       ) : null}
 
       {data.brands.length >= 2 ? (
-        <Group title="Merk">
+        <Group title="Brand">
           {data.brands.map((brand) => (
             <Choice
               key={brand.slug}
@@ -183,7 +178,7 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
         </Group>
       ) : null}
 
-      <Group title="Prijs">
+      <Group title="Price">
         {PRICE_TIER_KEYS.map((key) => (
           <Choice
             key={key}
@@ -196,7 +191,7 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
       </Group>
 
       {data.platforms.length ? (
-        <Group title="Werkt met">
+        <Group title="Works with">
           {data.platforms.map((platform) => (
             <Choice
               key={platform}
@@ -210,7 +205,7 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
       ) : null}
 
       {data.protocols.length ? (
-        <Group title="Verbinding">
+        <Group title="Connection">
           {data.protocols.map((protocol) => (
             <Choice
               key={protocol}
@@ -223,12 +218,12 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
         </Group>
       ) : null}
 
-      <Group title="Nieuw">
+      <Group title="New arrivals">
         <Choice
           active={state.new === 'true'}
           onClick={() => set('new', state.new === 'true' ? null : 'true')}
         >
-          Alleen nieuw
+          New arrivals only
         </Choice>
       </Group>
     </div>
@@ -290,11 +285,11 @@ export function ActiveFilters({
   if (state.price) chips.push({ key: 'price', label: labels.price ?? state.price });
   if (state.platform) chips.push({ key: 'platform', label: state.platform });
   if (state.protocol) chips.push({ key: 'protocol', label: state.protocol });
-  if (state.new) chips.push({ key: 'new', label: 'Nieuw' });
+  if (state.new) chips.push({ key: 'new', label: 'New' });
   if (state.availability)
     chips.push({
       key: 'availability',
-      label: state.availability === 'in-stock' ? 'Op voorraad' : 'Binnenkort',
+      label: state.availability === 'in-stock' ? 'In stock' : 'Coming soon',
     });
   if (!chips.length) return null;
   return (
@@ -303,11 +298,12 @@ export function ActiveFilters({
         <button
           key={chip.key}
           type="button"
+          aria-label={`Remove filter: ${chip.label}`}
           onClick={() => setState({ [chip.key]: null, page: null })}
           className="inline-flex h-8 items-center gap-1.5 rounded-full bg-night px-3 font-semibold text-[13px] text-night-ink hover:bg-night-2"
         >
           {chip.label}
-          <X aria-label="Verwijder filter" className="size-3.5" />
+          <X aria-hidden="true" className="size-3.5" />
         </button>
       ))}
       <button
@@ -327,7 +323,7 @@ export function ActiveFilters({
         }
         className="px-1 text-[13px] font-medium text-ink underline underline-offset-4 hover:text-accent"
       >
-        Alles wissen
+        Clear all
       </button>
     </div>
   );

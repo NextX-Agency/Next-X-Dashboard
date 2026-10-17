@@ -7,6 +7,7 @@ import { ActiveFilters, ShopFilters, ShopToolbar } from '@/components/store/shop
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RawSearchParams } from '@/lib/list-params';
 import { priceTierLabels } from '@/lib/price-tiers';
+import { plural } from '@/lib/store-money';
 import { SHOP_PATH } from '@/lib/storefront-domain';
 import {
   type CatalogSort,
@@ -92,10 +93,10 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
     <>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
         <h1 className="nx-display text-[clamp(28px,4vw,40px)]">
-          {activeCategory?.name ?? 'Alle producten'}
+          {activeCategory?.name ?? 'All products'}
         </h1>
         <p className="tabular pb-1 text-[14px] text-ink-3">
-          {products.length} {products.length === 1 ? 'product' : 'producten'}
+          {plural(products.length, 'product')}
         </p>
       </header>
 
@@ -118,7 +119,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         />
       </div>
 
-      <section aria-label="Producten" className="mt-5">
+      <section aria-label="Products" className="mt-5">
         {products.length === 0 ? (
           <EmptyResults filtered={filtered} query={q} />
         ) : (
@@ -145,17 +146,17 @@ function EmptyResults({ filtered, query }: { filtered: boolean; query: string | 
       <PackageSearch aria-hidden="true" className="size-8 text-ink-3" />
       <div>
         <h2 className="nx-display text-[24px]">
-          {filtered ? 'Niets gevonden' : 'Nog geen producten'}
+          {filtered ? 'Nothing found' : 'No products yet'}
         </h2>
         <p className="mt-2 max-w-[48ch] text-[15px] text-ink-2">
           {filtered
-            ? `Geen producten gevonden${query ? ` voor “${query}”` : ' met deze filters'}. Probeer een andere zoekterm of verwijder een filter.`
-            : 'Zodra producten zijn gepubliceerd, verschijnen ze hier met prijs, foto’s en voorraad.'}
+            ? `No products found${query ? ` for “${query}”` : ' with these filters'}. Try a different search or remove a filter.`
+            : 'Products will appear here with their price, photos and stock once they are published.'}
         </p>
       </div>
       {filtered ? (
         <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
-          Filters wissen
+          Clear filters
         </Link>
       ) : null}
     </div>

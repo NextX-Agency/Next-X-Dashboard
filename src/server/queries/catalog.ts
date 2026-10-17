@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { publicName } from '@/lib/english-content';
 import { isDatabaseConfigured } from '@/lib/env';
 import { type Cents, toDecimalString } from '@/lib/money';
 import { priceTierThresholds } from '@/lib/price-tiers';
@@ -177,6 +178,11 @@ export function publicPriceVisibility(
   `;
 }
 
+/** `%query%` with the LIKE wildcards in the query itself escaped, so "50%" or "a_b" search for what was typed. */
+function containsPattern(query: string): string {
+  return `%${query.trim().replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
 export type CatalogVariantSearchItem = {
   productId: string;
   variantId: string;
@@ -195,7 +201,7 @@ export async function searchCatalogVariantsForStorefront(
   input: { query: string; limit: number },
 ): Promise<CatalogVariantSearchItem[]> {
   if (!isDatabaseConfigured() || !storefront.defaultPriceListId) return [];
-  const likeQuery = `%${input.query.trim()}%`;
+  const likeQuery = containsPattern(input.query);
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT p.id AS product_id,
            v.id AS variant_id,
@@ -231,7 +237,7 @@ export async function searchCatalogVariantsForStorefront(
   return rows.map((row) => ({
     productId: text(row.product_id),
     variantId: text(row.variant_id),
-    name: text(row.name),
+    name: publicName(text(row.name)),
     variantName: text(row.variant_name),
     sku: text(row.sku),
     description: maybe(row.description),
@@ -285,7 +291,7 @@ export async function getCatalogVariantForStorefront(
   return {
     productId: text(row.product_id),
     variantId: text(row.variant_id),
-    name: text(row.name),
+    name: publicName(text(row.name)),
     variantName: text(row.variant_name),
     sku: text(row.sku),
     description: maybe(row.description),
@@ -355,7 +361,7 @@ export async function getPublicStoreCartQuote(
   return rows.map((row) => ({
     productId: text(row.product_id),
     productSlug: text(row.product_slug),
-    productName: text(row.product_name),
+    productName: publicName(text(row.product_name)),
     variantId: text(row.variant_id),
     variantName: text(row.variant_name),
     sku: text(row.sku),
@@ -405,7 +411,7 @@ export async function listCatalogProducts(
   const priceBucket = params.price ?? null;
   const [tierLow, tierMid, tierHigh] = priceTierThresholds(storefront.defaultCurrency);
   const availability = params.availability ?? null;
-  const likeQuery = params.q?.trim() ? `%${params.q.trim()}%` : null;
+  const likeQuery = params.q?.trim() ? containsPattern(params.q) : null;
   const order = CATALOG_SORT_CLAUSES[params.sort ?? 'newest'];
   const limit = params.limit ?? null;
 
@@ -474,14 +480,14 @@ export async function listCatalogProducts(
         OR (${priceBucket} = '100-250' AND price.min_price >= ${tierMid} AND price.min_price < ${tierHigh})
         OR (${priceBucket} = '250-plus' AND price.min_price >= ${tierHigh}))
       AND (${availability}::text IS NULL OR (${availability} = 'in-stock' AND EXISTS (SELECT 1 FROM product_variants av WHERE av.product_id = p.id AND av.is_active AND ${stockAvailableSql(storefront.id, 'av.id')} > 0)) OR (${availability} = 'incoming' AND EXISTS (SELECT 1 FROM purchase_order_items ai JOIN purchase_orders ao ON ao.id = ai.purchase_order_id JOIN product_variants av ON av.id = ai.variant_id WHERE av.product_id = p.id AND ao.status IN ('ordered', 'shipped') AND ai.quantity > ai.quantity_received)))
-      AND (${likeQuery}::text IS NULL OR p.name ILIKE ${likeQuery} OR p.summary ILIKE ${likeQuery} OR p.model_number ILIKE ${likeQuery} OR b.name ILIKE ${likeQuery} OR p.key_features::text ILIKE ${likeQuery} OR p.compatibility::text ILIKE ${likeQuery})
+      AND (${likeQuery}::text IS NULL OR p.name ILIKE ${likeQuery} OR sp.title_override ILIKE ${likeQuery} OR p.summary ILIKE ${likeQuery} OR p.model_number ILIKE ${likeQuery} OR b.name ILIKE ${likeQuery} OR p.key_features::text ILIKE ${likeQuery} OR p.compatibility::text ILIKE ${likeQuery})
     ORDER BY ${order}
     LIMIT ${limit}
   `);
 
   return rows.map((row) => ({
     id: text(row.id),
-    name: text(row.name),
+    name: publicName(text(row.name)),
     slug: text(row.public_slug),
     summary: cleanPublicCopy(row.summary),
     categoryName: maybe(row.category_name),
@@ -687,7 +693,7 @@ export async function getCatalogBundle(slug: string) {
          ORDER BY p.name, v.name`,
   );
   const items = components.map((row) => ({
-    productName: text(row.product_name),
+    productName: publicName(text(row.product_name)),
     variantName: text(row.variant_name),
     quantity: num(row.quantity),
     onHand: num(row.on_hand),
@@ -862,7 +868,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
   return {
     id: text(row.id),
     code: text(row.code),
-    name: text(row.name),
+    name: publicName(text(row.name)),
     slug: text(row.public_slug),
     summary: cleanPublicCopy(row.summary),
     description: cleanPublicCopy(row.description),
@@ -900,7 +906,7 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
       isPrimary: bool(image.is_primary),
     })),
     related: related.map((item) => ({
-      name: text(item.name),
+      name: publicName(text(item.name)),
       slug: text(item.slug),
       summary: cleanPublicCopy(item.summary),
       relationshipType: text(item.relationship_type),

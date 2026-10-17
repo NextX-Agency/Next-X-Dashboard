@@ -6,6 +6,9 @@ import { ProductCard } from '@/components/store/product-card';
 import { LOW_STOCK_AT } from '@/components/store/stock-pill';
 import { StorePrice } from '@/components/store/store-price';
 import { Skeleton } from '@/components/ui/skeleton';
+import { publicText } from '@/lib/english-content';
+import { assortmentMessage } from '@/lib/store-messages';
+import { plural } from '@/lib/store-money';
 import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { whatsappLink } from '@/lib/whatsapp';
 import {
@@ -54,15 +57,17 @@ async function HomeContent() {
     .slice(0, HOME_PRODUCTS);
 
   const facts = [
-    settings?.whatsapp ? 'Bestel via WhatsApp' : null,
-    settings?.pickupEnabled ? settings.pickupLabel?.trim() || 'Ophalen mogelijk' : null,
-    settings?.deliveryEnabled ? 'Bezorgen mogelijk' : null,
-    `Prijzen in ${storefront?.defaultCurrency ?? 'SRD'}`,
+    settings?.whatsapp ? 'Order via WhatsApp' : null,
+    settings?.pickupEnabled
+      ? publicText(settings.pickupLabel?.trim()) || 'Pickup available'
+      : null,
+    settings?.deliveryEnabled ? 'Delivery available' : null,
+    `Prices in ${storefront?.defaultCurrency ?? 'SRD'}`,
   ].filter((fact): fact is string => Boolean(fact));
 
   return (
     <div className="mx-auto w-full max-w-[1320px] px-4 pt-5 pb-16 lg:px-8 lg:pt-8 lg:pb-24">
-      <h1 className="sr-only">{settings?.businessName ?? 'NextX'}: producten en bestellen</h1>
+      <h1 className="sr-only">{settings?.businessName ?? 'NextX'}: products and ordering</h1>
       <CategoryChips categories={categories} total={products.length} />
 
       <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-ink-3">
@@ -73,10 +78,10 @@ async function HomeContent() {
 
       {lastPieces.length ? (
         <section
-          aria-label="Laatste stuks"
+          aria-label="Low stock"
           className="mt-5 rounded-tile bg-accent-muted p-4 sm:flex sm:items-baseline sm:gap-6"
         >
-          <h2 className="font-bold text-[14px] text-accent">Bijna uitverkocht</h2>
+          <h2 className="font-bold text-[14px] text-accent">Low stock</h2>
           <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[14px] sm:mt-0">
             {lastPieces.map((product) => (
               <li key={product.id}>
@@ -86,7 +91,7 @@ async function HomeContent() {
                 >
                   {product.name}
                 </Link>{' '}
-                <span className="text-accent">· Nog {product.onHand}</span>
+                <span className="text-accent">· Only {product.onHand} left</span>
               </li>
             ))}
           </ul>
@@ -104,7 +109,7 @@ async function HomeContent() {
       {products.length > shown.length ? (
         <div className="mt-8 flex justify-center">
           <Link href={SHOP_PATH as never} className="nx-btn nx-btn-line px-8">
-            Bekijk alle {products.length} producten <ArrowRight />
+            View all {plural(products.length, 'product')} <ArrowRight />
           </Link>
         </div>
       ) : null}
@@ -117,9 +122,10 @@ async function HomeContent() {
         pickup={Boolean(settings?.pickupEnabled)}
         delivery={Boolean(settings?.deliveryEnabled)}
         whatsapp={settings?.whatsapp ?? null}
-        supportTitle={settings?.supportTitle?.trim() || 'Hulp bij kiezen?'}
+        supportTitle={publicText(settings?.supportTitle?.trim()) || 'Need help choosing?'}
         supportBody={
-          settings?.supportBody?.trim() || 'Vertel ons wat je zoekt, dan helpen we je kiezen.'
+          publicText(settings?.supportBody?.trim()) ||
+          'Tell us what you are looking for and we will help you choose.'
         }
         businessName={settings?.businessName ?? 'NextX'}
       />
@@ -134,7 +140,7 @@ async function Sets({ srdRate }: { srdRate: number | undefined }) {
   if (!bundles.length) return null;
   return (
     <section id="sets" className="mt-16 scroll-mt-24">
-      <h2 className="nx-display text-[26px]">Sets</h2>
+      <h2 className="nx-display text-[26px]">Bundles</h2>
       <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {bundles.map((bundle) => (
           <li key={bundle.id}>
@@ -174,25 +180,28 @@ function HowOrdering({
 }) {
   const collection =
     pickup && delivery
-      ? 'Haal je bestelling op of spreek bezorging af.'
+      ? 'Collect your order, or arrange delivery.'
       : pickup
-        ? 'Haal je bestelling op na bevestiging.'
+        ? 'Collect your order once it is confirmed.'
         : delivery
-          ? 'Spreek bezorging af met NextX.'
-          : 'Bevestig ophalen of bezorgen met NextX.';
+          ? 'Arrange delivery with NextX.'
+          : 'Confirm pickup or delivery with NextX.';
   const steps: [string, string][] = [
-    ['Kies', 'Zet het product in je mand.'],
-    ['Verstuur', 'Stuur je mand via WhatsApp naar NextX.'],
-    ['Bevestiging', 'NextX bevestigt prijs en voorraad. Pas dan is je bestelling definitief.'],
-    ['Ontvangen', collection],
+    ['Choose', 'Add the products you want to your cart.'],
+    ['Send', 'Send your cart to NextX on WhatsApp.'],
+    [
+      'Confirmation',
+      'NextX confirms price and stock. Your order is only final once confirmed.',
+    ],
+    ['Receive', collection],
   ];
-  const help = whatsappLink(
-    whatsapp,
-    `Hallo ${businessName}, ik heb een vraag over jullie assortiment.`,
-  );
+  const help = whatsappLink(whatsapp, assortmentMessage(businessName));
   return (
-    <section id="bestellen" className="mt-16 scroll-mt-24 rounded-tile bg-sunken p-5 sm:p-8">
-      <h2 className="nx-display text-[24px] sm:text-[28px]">Zo bestel je</h2>
+    <section
+      id="how-ordering-works"
+      className="mt-16 scroll-mt-24 rounded-tile bg-sunken p-5 sm:p-8"
+    >
+      <h2 className="nx-display text-[24px] sm:text-[28px]">How ordering works</h2>
       <ol className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {steps.map(([title, body], index) => (
           <li key={title}>
@@ -216,7 +225,7 @@ function HowOrdering({
             rel="noopener noreferrer"
             className="nx-btn nx-btn-primary shrink-0"
           >
-            Stuur een bericht
+            Send a message
           </a>
         </div>
       ) : null}

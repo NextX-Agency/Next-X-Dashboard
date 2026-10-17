@@ -46,7 +46,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
-      lang="nl"
+      lang="en-SR"
       suppressHydrationWarning
       className={`${sans.variable} ${mono.variable} ${display.variable}`}
     >

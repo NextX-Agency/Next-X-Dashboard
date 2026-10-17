@@ -19,8 +19,8 @@ describe('whatsappDigits', () => {
 
 describe('whatsappLink', () => {
   it('builds a wa.me link with an encoded message', () => {
-    const href = whatsappLink('+597 84-12-34', 'Hallo Nextly, SKU A-1');
-    expect(href).toBe('https://wa.me/597841234?text=Hallo%20Nextly%2C%20SKU%20A-1');
+    const href = whatsappLink('+597 84-12-34', 'Hello Nextly, SKU A-1');
+    expect(href).toBe('https://wa.me/597841234?text=Hello%20Nextly%2C%20SKU%20A-1');
   });
 
   it('returns null without a valid number so callers hide the CTA', () => {

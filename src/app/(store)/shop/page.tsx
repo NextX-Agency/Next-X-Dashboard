@@ -7,7 +7,7 @@ import { getRequestStorefront } from '@/server/services/storefront';
 export async function generateMetadata(): Promise<Metadata> {
   const storefront = await getRequestStorefront();
   return {
-    title: 'Winkel',
+    title: 'Shop',
     description: storefrontDescription(storefront?.description),
     alternates: { canonical: '/shop' },
   };

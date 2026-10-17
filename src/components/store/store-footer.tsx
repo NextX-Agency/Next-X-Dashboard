@@ -56,22 +56,22 @@ export function StoreFooter({
             {description}
           </p>
         </div>
-        <nav aria-label="Winkel" className="text-[14px]">
-          <h2 className="font-bold text-[13px] text-ink">Winkel</h2>
+        <nav aria-label="Shop" className="text-[14px]">
+          <h2 className="font-bold text-[13px] text-ink">Shop</h2>
           <ul className="mt-3 space-y-2">
             <li>
               <Link href="/shop" className={link}>
-                Alle producten
+                All products
               </Link>
             </li>
             <li>
               <Link href="/cart" className={link}>
-                Winkelmand
+                Cart
               </Link>
             </li>
             <li>
-              <Link href={'/#bestellen' as never} className={link}>
-                Zo bestel je
+              <Link href={'/#how-ordering-works' as never} className={link}>
+                How ordering works
               </Link>
             </li>
           </ul>
@@ -125,10 +125,10 @@ export function StoreFooter({
       <div className="border-line border-t">
         <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between gap-4 px-4 py-4 text-[12px] text-ink-3 lg:px-8">
           <p>
-            © {year} {settings?.businessName ?? 'NextX'} · Prijzen in {currency}
+            © {year} {settings?.businessName ?? 'NextX'} · Prices in {currency}
           </p>
           <Link href="/login" className={link}>
-            Medewerkers
+            Staff sign-in
           </Link>
         </div>
       </div>

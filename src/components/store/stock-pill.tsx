@@ -4,8 +4,8 @@ import { cn } from '@/lib/cn';
 export const LOW_STOCK_AT = 2;
 
 /**
- * Stock in plain language. Counts are shown only when they are low, because "Nog 2" is genuinely
- * useful and "Nog 40" is just noise (and a number the shop may not want to publish).
+ * Stock in plain language. Counts are shown only when they are low, because "Only 2 left" is genuinely
+ * useful and "40 left" is just noise (and a number the shop may not want to publish).
  */
 export function StockPill({
   onHand,
@@ -20,11 +20,11 @@ export function StockPill({
   const low = !out && onHand <= LOW_STOCK_AT;
   const label = out
     ? incoming > 0
-      ? 'Onderweg'
-      : 'Uitverkocht'
+      ? 'On the way'
+      : 'Sold out'
     : low
-      ? `Nog ${onHand}`
-      : 'Op voorraad';
+      ? `Only ${onHand} left`
+      : 'In stock';
   return (
     <span
       className={cn(

@@ -25,16 +25,16 @@ export function priceTierThresholds(
 export function priceTierLabels(currency: PriceCurrency): Record<PriceTierKey, string> {
   return currency === 'SRD'
     ? {
-        'under-50': 'Onder SRD 500',
-        '50-100': 'SRD 500 – 1.000',
-        '100-250': 'SRD 1.000 – 2.000',
-        '250-plus': 'SRD 2.000 of meer',
+        'under-50': 'Under SRD 500',
+        '50-100': 'SRD 500 – 1,000',
+        '100-250': 'SRD 1,000 – 2,000',
+        '250-plus': 'SRD 2,000 or more',
       }
     : {
-        'under-50': 'Onder US$50',
+        'under-50': 'Under US$50',
         '50-100': 'US$50 – 100',
         '100-250': 'US$100 – 250',
-        '250-plus': 'US$250 of meer',
+        '250-plus': 'US$250 or more',
       };
 }
 

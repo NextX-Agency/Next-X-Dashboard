@@ -20,14 +20,14 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
     { key: 'home', label: 'Home', href: '/', Icon: Home, active: pathname === '/' },
     {
       key: 'shop',
-      label: 'Winkel',
+      label: 'Shop',
       href: SHOP_PATH,
       Icon: Package,
       active: pathname === SHOP_PATH,
     },
     {
       key: 'cart',
-      label: 'Mand',
+      label: 'Cart',
       href: CART_PATH,
       Icon: ShoppingBag,
       active: pathname === CART_PATH,
@@ -43,7 +43,7 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
 
   return (
     <nav
-      aria-label="Snelnavigatie"
+      aria-label="Quick navigation"
       className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-line border-t bg-base/97 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
     >
       {tabs.map(({ key, label, href, Icon, active }) => (

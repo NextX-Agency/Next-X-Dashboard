@@ -23,7 +23,7 @@ export function RestockRequestForm({
       toast.success("We'll keep your request for the team.");
     },
     onError: ({ error }) =>
-      toast.error(error.serverError ?? 'Je verzoek kon niet worden opgeslagen.'),
+      toast.error(error.serverError ?? 'Your request could not be saved.'),
   });
   return (
     <form
@@ -54,7 +54,7 @@ export function RestockRequestForm({
         required
         value={contact}
         onChange={(event) => setContact(event.target.value)}
-        placeholder={channel === 'email' ? 'jij@voorbeeld.com' : 'WhatsApp-nummer'}
+        placeholder={channel === 'email' ? 'you@example.com' : 'WhatsApp number'}
       />
       <select
         value={channel}
@@ -62,10 +62,10 @@ export function RestockRequestForm({
         className="h-10 rounded-control border border-line bg-raised px-2 text-[12px] text-ink"
       >
         <option value="whatsapp">WhatsApp</option>
-        <option value="email">E-mail</option>
+        <option value="email">Email</option>
       </select>
       <Button type="submit" disabled={isPending} variant="secondary">
-        {isPending ? 'Opslaan…' : 'Houd me op de hoogte'}
+        {isPending ? 'Saving…' : 'Keep me posted'}
       </Button>
     </form>
   );

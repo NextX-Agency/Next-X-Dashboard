@@ -6,6 +6,7 @@ import { StoreHeader } from '@/components/store/store-header';
 import { StoreTabBar } from '@/components/store/store-tab-bar';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
+import { enquiryMessage } from '@/lib/store-messages';
 import { storefrontPublicOrigin } from '@/lib/storefront-domain';
 import { whatsappLink } from '@/lib/whatsapp';
 import { getSettings } from '@/server/queries/reference';
@@ -47,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // The root layout's title template belongs to the staff dashboard; the shop has its own.
     title: { default: 'NextX', template: '%s · NextX' },
     description: STORE_DESCRIPTION,
-    openGraph: { siteName: 'NextX', type: 'website' },
+    openGraph: { siteName: 'NextX', type: 'website', description: STORE_DESCRIPTION },
     robots: { index: !staging, follow: !staging },
   };
 }
@@ -81,10 +82,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
           year={year}
         />
         <StoreTabBar
-          whatsappHref={whatsappLink(
-            settings?.whatsapp,
-            `Hallo ${storeName}, ik heb een vraag.`,
-          )}
+          whatsappHref={whatsappLink(settings?.whatsapp, enquiryMessage(storeName))}
         />
       </div>
     </StoreCartProvider>

@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { QuoteRequestForm } from '@/components/forms/quote-request-form';
 import { ProductGallery } from '@/components/store/product-gallery';
 import { ProductOrderPanel } from '@/components/store/product-order-panel';
+import { publicParagraphs, publicSpecs, publicText } from '@/lib/english-content';
 import { cardSummary } from '@/lib/public-copy';
 import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { type CatalogProduct, getCatalogProduct } from '@/server/queries/catalog';
@@ -17,19 +18,26 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const product = await getCatalogProduct(slug);
   // Unknown slugs render the not-found page; it must never be indexed.
-  if (!product)
-    return { title: 'Product niet gevonden', robots: { index: false, follow: false } };
+  if (!product) return { title: 'Product not found', robots: { index: false, follow: false } };
 
   return {
     title: product.seoTitle ?? product.name,
-    description: product.seoDescription ?? product.summary ?? undefined,
+    description: product.seoDescription ?? metaDescription(product) ?? undefined,
     alternates: { canonical: storefrontProductPath(null, product.slug) },
     openGraph: {
       type: 'website',
       title: product.seoTitle ?? product.name,
+      description: product.seoDescription ?? metaDescription(product) ?? undefined,
       images: product.images[0] ? [{ url: product.images[0].url }] : undefined,
     },
   };
+}
+
+/** A search-result description from the first paragraph of the (English) copy, when the owner wrote none. */
+function metaDescription(product: CatalogProduct): string | undefined {
+  const source = product.summary ?? publicParagraphs(product.description)[0];
+  const text = cardSummary(source, product.name);
+  return text ?? undefined;
 }
 
 // The product is read before anything is sent, not behind a Suspense boundary, so an
@@ -74,13 +82,8 @@ export default async function ProductPage({ params }: { params: Params }) {
   const locations = storefront?.allowPickup ? await pickupStock(storefront.id, product) : [];
   const srdRate = rate?.rateMicros;
   const whatsapp = settings?.whatsapp ?? null;
-  const paragraphs = product.description
-    ? product.description
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean)
-    : [];
-  const specs = Object.entries(product.specs);
+  const paragraphs = publicParagraphs(product.description);
+  const specs = publicSpecs(product.specs);
   const blurb = cardSummary(product.summary, product.name);
   const showBrand =
     product.brandName &&
@@ -105,7 +108,7 @@ export default async function ProductPage({ params }: { params: Params }) {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.seoDescription ?? product.summary ?? undefined,
+    description: product.seoDescription ?? metaDescription(product),
     image: product.images.map((image) => image.url),
     brand: product.brandName ? { '@type': 'Brand', name: product.brandName } : undefined,
     ...(offers.length ? { offers } : {}),
@@ -129,11 +132,11 @@ export default async function ProductPage({ params }: { params: Params }) {
       />
 
       <nav
-        aria-label="Kruimelpad"
+        aria-label="Breadcrumb"
         className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-ink-3"
       >
         <Link href={SHOP_PATH as never} className="hover:text-ink hover:underline">
-          Winkel
+          Shop
         </Link>
         {product.categoryName ? (
           <>
@@ -167,6 +170,7 @@ export default async function ProductPage({ params }: { params: Params }) {
               productId={product.id}
               productSlug={product.slug}
               productName={product.name}
+              businessName={settings?.businessName ?? 'NextX'}
               variants={product.variants}
               srdRate={srdRate}
               whatsapp={whatsapp}
@@ -176,7 +180,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
           {locations.length ? (
             <section className="mt-6 rounded-tile border border-line p-4 sm:p-5">
-              <h2 className="font-bold text-[14px]">Ophalen: voorraad per locatie</h2>
+              <h2 className="font-bold text-[14px]">Pickup: stock by location</h2>
               <ul className="mt-3 space-y-3">
                 {locations.map((location) => (
                   <li
@@ -191,9 +195,7 @@ export default async function ProductPage({ params }: { params: Params }) {
                           : 'bg-sunken text-ink-3'
                       }`}
                     >
-                      {location.available > 0
-                        ? `${location.available} beschikbaar`
-                        : 'Geen voorraad'}
+                      {location.available > 0 ? `${location.available} available` : 'No stock'}
                     </span>
                   </li>
                 ))}
@@ -211,7 +213,7 @@ export default async function ProductPage({ params }: { params: Params }) {
               WhatsApp. It files a quote request against this product; owners answer from /quotes. */}
           <details className="group mt-4 border-line border-t py-4">
             <summary className="cursor-pointer list-none font-semibold text-[14px] text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
-              Of vraag een offerte aan per e-mail
+              Or request a quote
             </summary>
             <div className="mt-4">
               <QuoteRequestForm productId={product.id} productName={product.name} />
@@ -226,7 +228,7 @@ export default async function ProductPage({ params }: { params: Params }) {
             <div className="space-y-8">
               {paragraphs.length > 0 ? (
                 <section>
-                  <Heading>Beschrijving</Heading>
+                  <Heading>Description</Heading>
                   <div className="mt-4 max-w-[62ch] space-y-4">
                     {paragraphs.map((paragraph) => (
                       <p
@@ -240,18 +242,18 @@ export default async function ProductPage({ params }: { params: Params }) {
                 </section>
               ) : null}
               {product.keyFeatures.length ? (
-                <ListSection title="Belangrijkste kenmerken" values={product.keyFeatures} />
+                <ListSection title="Key features" values={product.keyFeatures} />
               ) : null}
               {product.nextlyTake ? (
                 <section>
-                  <Heading>Onze mening</Heading>
+                  <Heading>Our take</Heading>
                   <p className="mt-3 max-w-[60ch] text-[15px] text-ink-2 leading-relaxed">
                     {product.nextlyTake}
                   </p>
                 </section>
               ) : null}
               {product.boxContents.length ? (
-                <ListSection title="Wat zit er in de doos" values={product.boxContents} />
+                <ListSection title="What’s in the box" values={product.boxContents} />
               ) : null}
             </div>
           ) : null}
@@ -259,7 +261,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           <div className={`space-y-8 ${hasDetails ? '' : 'lg:col-span-2 lg:max-w-2xl'}`}>
             {specs.length > 0 ? (
               <section>
-                <Heading>Specificaties</Heading>
+                <Heading>Specifications</Heading>
                 <dl className="mt-4 divide-y divide-line border-line border-y">
                   {specs.map(([name, value]) => (
                     <div
@@ -281,7 +283,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
       {product.faqItems.length ? (
         <section className="mt-12 max-w-3xl">
-          <Heading>Veelgestelde vragen</Heading>
+          <Heading>Frequently asked questions</Heading>
           <div className="mt-4 divide-y divide-line border-line border-y">
             {product.faqItems.map((item) => (
               <details key={item.question} className="group py-4">
@@ -312,10 +314,10 @@ function Compatibility({ product }: { product: CatalogProduct }) {
   if (!worksWith.length && !connection.length) return null;
   return (
     <section>
-      <Heading>Compatibiliteit</Heading>
+      <Heading>Compatibility</Heading>
       <div className="mt-4 space-y-4">
-        <Chips label="Werkt met" values={worksWith} />
-        <Chips label="Verbinding" values={connection} />
+        <Chips label="Works with" values={worksWith} />
+        <Chips label="Connection" values={connection} />
       </div>
     </section>
   );
@@ -381,30 +383,30 @@ function GettingOrder({
   const rows: { label: string; body: string }[] = [];
   if (settings?.pickupEnabled && !hasLocations) {
     rows.push({
-      label: 'Ophalen',
+      label: 'Pickup',
       body: sentences([
-        settings.pickupLabel,
-        settings.pickupDetails,
+        publicText(settings.pickupLabel),
+        publicText(settings.pickupDetails),
         settings.sameDayPickupEnabled
-          ? `Dezelfde dag ophalen${settings.pickupCutoffTime ? ` vóór ${settings.pickupCutoffTime}` : ''}`
+          ? `Same-day pickup${settings.pickupCutoffTime ? ` before ${settings.pickupCutoffTime}` : ''}`
           : null,
       ]),
     });
   }
   if (settings?.deliveryEnabled) {
     rows.push({
-      label: 'Bezorgen',
+      label: 'Delivery',
       body: sentences([
-        settings.deliveryDetails,
-        settings.deliveryAreas,
-        settings.deliveryFeeDisplay,
-        settings.deliveryEstimateDisplay,
+        publicText(settings.deliveryDetails),
+        publicText(settings.deliveryAreas),
+        publicText(settings.deliveryFeeDisplay),
+        publicText(settings.deliveryEstimateDisplay),
       ]),
     });
   }
   if (methods.length) {
     rows.push({
-      label: 'Betalen',
+      label: 'Payment',
       body: methods
         .map((method) => (method.details ? `${method.name} (${method.details})` : method.name))
         .join(' · '),
@@ -412,8 +414,8 @@ function GettingOrder({
   }
   if (warrantyMonths > 0) {
     rows.push({
-      label: 'Garantie',
-      body: `${warrantyMonths} ${warrantyMonths === 1 ? 'maand' : 'maanden'} vanaf de dag van aankoop.`,
+      label: 'Warranty',
+      body: `${warrantyMonths} ${warrantyMonths === 1 ? 'month' : 'months'} from the date of purchase.`,
     });
   }
   const visible = rows.filter((row) => row.body);
@@ -432,21 +434,21 @@ function GettingOrder({
 
 function Requirements({ values }: { values: Record<string, unknown> }) {
   const labels: Record<string, string> = {
-    hubRequired: 'Hub nodig',
+    hubRequired: 'Hub required',
     hubName: 'Hub',
-    appRequired: 'App nodig',
+    appRequired: 'App required',
     appName: 'App',
-    accountRequired: 'Account nodig',
-    wifiRequired: 'Wi-Fi nodig',
-    wifiBands: 'Wi-Fi-banden',
-    subscription: 'Abonnement',
-    subscriptionNotes: 'Opmerking abonnement',
-    indoorOutdoor: 'Gebruik',
-    powerSource: 'Voeding',
-    batteryType: 'Batterij',
-    neutralWireRequired: 'Nulleider nodig',
-    installationNotes: 'Installatie',
-    regionalNotes: 'Regionale opmerking',
+    accountRequired: 'Account required',
+    wifiRequired: 'Wi-Fi required',
+    wifiBands: 'Wi-Fi bands',
+    subscription: 'Subscription',
+    subscriptionNotes: 'Subscription notes',
+    indoorOutdoor: 'Use',
+    powerSource: 'Power',
+    batteryType: 'Battery',
+    neutralWireRequired: 'Neutral wire required',
+    installationNotes: 'Installation',
+    regionalNotes: 'Regional notes',
   };
   const entries = Object.entries(values).filter(
     ([key, value]) =>
@@ -458,7 +460,7 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
   if (!entries.length) return null;
   return (
     <section>
-      <Heading>Goed om te weten</Heading>
+      <Heading>Good to know</Heading>
       <dl className="mt-4 divide-y divide-line border-line border-y">
         {entries.map(([key, value]) => (
           <div key={key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-4 py-3">
@@ -468,8 +470,8 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
                 ? value.join(', ')
                 : typeof value === 'boolean'
                   ? value
-                    ? 'Ja'
-                    : 'Nee'
+                    ? 'Yes'
+                    : 'No'
                   : String(value)}
             </dd>
           </div>
@@ -480,12 +482,12 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
 }
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
-  accessory: 'Accessoires',
-  works_with: 'Past goed bij',
-  alternative: 'Alternatieven',
-  cheaper_alternative: 'Goedkopere alternatieven',
-  premium_alternative: 'Betere alternatieven',
-  required_accessory: 'Benodigde accessoires',
+  accessory: 'Accessories',
+  works_with: 'Works well with',
+  alternative: 'Alternatives',
+  cheaper_alternative: 'Lower-priced alternatives',
+  premium_alternative: 'Premium alternatives',
+  required_accessory: 'Required accessories',
 };
 
 /** Only curated relationships set by staff; there is no "you may also like" filler. */
@@ -500,12 +502,12 @@ function RelatedProducts({ items }: { items: CatalogProduct['related'] }) {
 
   return (
     <section className="mt-12 border-line border-t pt-10">
-      <Heading>Gerelateerde producten</Heading>
+      <Heading>Related products</Heading>
       <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(groups).map(([type, group]) => (
           <div key={type}>
             <h3 className="font-semibold text-[13px] text-ink-3">
-              {RELATIONSHIP_LABELS[type] ?? 'Gerelateerde producten'}
+              {RELATIONSHIP_LABELS[type] ?? 'Related products'}
             </h3>
             <ul className="mt-3 divide-y divide-line border-line border-y">
               {group.map((item) => (

@@ -48,12 +48,12 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
       </div>
 
       {images.length > 1 ? (
-        <ul className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Productfoto’s">
+        <ul className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Product photos">
           {images.map((image, imageIndex) => (
             <li key={image.url} className="shrink-0">
               <button
                 type="button"
-                aria-label={`Toon foto ${imageIndex + 1} van ${images.length}`}
+                aria-label={`Show photo ${imageIndex + 1} of ${images.length}`}
                 aria-current={imageIndex === index}
                 onClick={() => setIndex(imageIndex)}
                 className={cn(

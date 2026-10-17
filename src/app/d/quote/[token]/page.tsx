@@ -49,9 +49,7 @@ export default async function PublicQuotePage({
           </div>
         </header>
         <section className="border-b border-line py-6 text-[13px]">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-ink-4">
-            Prepared for / Voor
-          </p>
+          <p className="text-[11px] uppercase tracking-[0.08em] text-ink-4">Prepared for</p>
           <p className="mt-1">{quote.customerName}</p>
           <p className="text-ink-3">{quote.customerContact}</p>
         </section>

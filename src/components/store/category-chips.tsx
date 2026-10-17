@@ -13,7 +13,7 @@ export function CategoryChips({
 }: {
   categories: { slug: string; name: string; count: number }[];
   total: number;
-  /** Slug of the selected category; `null` highlights "Alles". `undefined` highlights nothing (home). */
+  /** Slug of the selected category; `null` highlights "All". `undefined` highlights nothing (home). */
   active?: string | null;
 }) {
   if (categories.length < 2) return null;
@@ -27,7 +27,7 @@ export function CategoryChips({
     );
   return (
     <nav
-      aria-label="Categorieën"
+      aria-label="Categories"
       className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0"
     >
       <Link
@@ -35,8 +35,7 @@ export function CategoryChips({
         aria-current={active === null ? 'page' : undefined}
         className={chip(active === null)}
       >
-        Alles{' '}
-        <span className={active === null ? 'text-night-ink-2' : 'text-ink-3'}>{total}</span>
+        All <span className={active === null ? 'text-night-ink-2' : 'text-ink-3'}>{total}</span>
       </Link>
       {categories.map((category) => {
         const selected = active === category.slug;

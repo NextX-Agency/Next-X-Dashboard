@@ -4,18 +4,17 @@ import { MessageCircle, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { fromBase, type RateMicros } from '@/lib/fx';
-import { formatMoney } from '@/lib/money';
+import type { RateMicros } from '@/lib/fx';
 import {
   applyStoreCartQuote,
   type StoreCartLine,
   type StoreCartQuoteLine,
   storeCartSubtotal,
 } from '@/lib/store-cart';
+import { cartOrderMessage, customerMoney, variantLabel } from '@/lib/store-messages';
 import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { whatsappDigits, whatsappLink } from '@/lib/whatsapp';
 import { useStoreCart } from './store-cart-provider';
-import { formatSrd } from './store-price';
 
 type PickupLocation = { id: string; name: string };
 type CartQuoteState =
@@ -40,38 +39,8 @@ function paramariboDate(offsetDays = 0) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
-function formatPickupDate(value: string) {
-  const [year = 0, month = 1, day = 1] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day, 15));
-  return new Intl.DateTimeFormat('nl-SR', {
-    timeZone: 'America/Paramaribo',
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
-}
-
-/** A single-variant product carries the placeholder variant name "Default"; never show it. */
-function variantLabel(name: string): string | null {
-  const trimmed = name.trim();
-  // "Standaard" / "Default" says nothing to a customer; the SKU beside it is enough.
-  return trimmed && !/^(default|standaard|standard|std)$/i.test(trimmed) ? trimmed : null;
-}
-
 function fieldClassName() {
   return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none';
-}
-
-function formatCustomerMoney(
-  amountCents: number,
-  currency: 'USD' | 'SRD',
-  srdRate?: RateMicros,
-) {
-  if (currency === 'USD' && srdRate && srdRate > 0) {
-    return `${formatSrd(fromBase(amountCents, srdRate))} (${formatMoney(amountCents, 'USD')})`;
-  }
-  return currency === 'SRD' ? formatSrd(amountCents) : formatMoney(amountCents, currency);
 }
 
 export function StoreCartCheckout({
@@ -174,29 +143,16 @@ export function StoreCartCheckout({
   const whatsappMessage = useMemo(() => {
     if (!lines.length || !quoteReady || !formReady || stockIssue || currencyMismatch)
       return null;
-    const message = [
-      `Hallo ${businessName}, ik wil graag het volgende bestellen:`,
-      '',
-      ...displayLines.flatMap((line, index) => [
-        `${index + 1}. ${line.productName}${variantLabel(line.variantName) ? ` — ${variantLabel(line.variantName)}` : ''}${line.sku ? ` (SKU ${line.sku})` : ''}`,
-        `   ${line.quantity} × ${formatCustomerMoney(line.priceCents, line.currency, srdRate)} = ${formatCustomerMoney(storeCartSubtotal([line], line.currency), line.currency, srdRate)}`,
-      ]),
-      '',
-      ...totals.map(
-        ({ currency, amount }) =>
-          `Totaal (indicatief): ${formatCustomerMoney(amount, currency, srdRate)}`,
-      ),
-      '',
-      ...(customerName.trim() ? [`Naam: ${customerName.trim()}`] : []),
-      ...(customerPhone.trim() ? [`Telefoon: ${customerPhone.trim()}`] : []),
-      `Ophaallocatie: ${selectedLocation?.name ?? fallbackLocation ?? 'Graag met mij afstemmen'}`,
-      `Voorkeursdatum: ${formatPickupDate(requestedPickupDate)}`,
-      ...(notes.trim() ? [`Opmerking: ${notes.trim()}`] : []),
-      '',
-      'Graag de actuele voorraad en definitieve prijs bevestigen.',
-      'De voorraad is gecontroleerd maar wordt pas na bevestiging door de winkel gereserveerd.',
-    ];
-    return message.join('\n');
+    return cartOrderMessage({
+      businessName,
+      lines: displayLines,
+      srdRate,
+      customerName,
+      customerPhone,
+      pickupLocation: selectedLocation?.name ?? fallbackLocation ?? 'Please confirm with me',
+      pickupDate: requestedPickupDate,
+      notes,
+    });
   }, [
     businessName,
     currencyMismatch,
@@ -212,7 +168,6 @@ export function StoreCartCheckout({
     srdRate,
     selectedLocation,
     stockIssue,
-    totals,
   ]);
   const orderUrl =
     whatsappMessage && whatsappNumber ? whatsappLink(whatsappNumber, whatsappMessage) : null;
@@ -220,7 +175,7 @@ export function StoreCartCheckout({
   if (!ready) {
     return (
       <div className="mx-auto w-full max-w-[1320px] px-4 py-16 lg:px-8" aria-live="polite">
-        <p className="nx-label text-ink-3">Je winkelwagen wordt geladen…</p>
+        <p className="nx-label text-ink-3">Loading your cart…</p>
       </div>
     );
   }
@@ -230,18 +185,18 @@ export function StoreCartCheckout({
       <section aria-labelledby="cart-heading" className="min-w-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="nx-label text-ink-3">Je bestelling</p>
+            <p className="nx-label text-ink-3">Your order</p>
             <h1
               id="cart-heading"
               className="nx-display mt-2 text-[clamp(36px,5vw,64px)] text-ink"
             >
-              Winkelwagen
+              Cart
             </h1>
           </div>
           {lines.length ? (
             <Button type="button" variant="ghost" size="sm" onClick={clear}>
               <Trash2 aria-hidden="true" />
-              Winkelwagen legen
+              Empty cart
             </Button>
           ) : null}
         </div>
@@ -250,13 +205,13 @@ export function StoreCartCheckout({
           <div className="mt-8 flex flex-col items-start gap-4 border-line border-y py-14">
             <ShoppingBag aria-hidden="true" className="size-8 text-ink-3" />
             <div>
-              <h2 className="nx-display text-[28px] text-ink">Je winkelwagen is leeg</h2>
+              <h2 className="nx-display text-[28px] text-ink">Your cart is empty</h2>
               <p className="mt-2 max-w-[46ch] text-[15px] text-ink-2">
-                Voeg producten toe om een bestelling voor te bereiden via WhatsApp.
+                Add products to prepare an order for WhatsApp.
               </p>
             </div>
             <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
-              Bekijk producten
+              Browse products
             </Link>
           </div>
         ) : (
@@ -284,23 +239,23 @@ export function StoreCartCheckout({
                     </p>
                     <p className="mt-2 text-[13px] tabular text-ink-2">
                       {!quoteReady
-                        ? 'De actuele prijs verschijnt na de controle.'
+                        ? 'The current price appears once we have checked it.'
                         : quoteUnavailable
-                          ? 'Voor dit product is nu geen prijs beschikbaar.'
-                          : `${formatCustomerMoney(line.priceCents, line.currency, srdRate)} per stuk`}
+                          ? 'No price is available for this product right now.'
+                          : `${customerMoney(line.priceCents, line.currency, srdRate)} each`}
                     </p>
                     {overStock ? (
                       <p className="mt-1 text-[12px] text-negative">
                         {line.available === 0
-                          ? 'Dit product is niet meer beschikbaar. Verwijder het om door te gaan.'
-                          : `Er zijn nog maar ${line.available} beschikbaar. Verlaag het aantal om door te gaan.`}
+                          ? 'This product is no longer available. Remove it to continue.'
+                          : `Only ${line.available} available. Lower the quantity to continue.`}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex items-center border border-ink">
                     <button
                       type="button"
-                      aria-label={`Aantal van ${line.productName} verlagen`}
+                      aria-label={`Decrease quantity of ${line.productName}`}
                       className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
                       disabled={line.quantity <= 1}
                       onClick={() => setQuantity(line.variantId, line.quantity - 1)}
@@ -312,7 +267,7 @@ export function StoreCartCheckout({
                     </span>
                     <button
                       type="button"
-                      aria-label={`Aantal van ${line.productName} verhogen`}
+                      aria-label={`Increase quantity of ${line.productName}`}
                       className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
                       disabled={
                         !quoteReady || line.quantity >= line.available || line.quantity >= 9999
@@ -324,7 +279,7 @@ export function StoreCartCheckout({
                   </div>
                   <p className="w-28 text-right text-[15px] font-semibold tabular text-ink">
                     {quoteReady && !overStock
-                      ? formatCustomerMoney(
+                      ? customerMoney(
                           storeCartSubtotal([line], line.currency),
                           line.currency,
                           srdRate,
@@ -335,7 +290,7 @@ export function StoreCartCheckout({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`${line.productName} verwijderen`}
+                    aria-label={`Remove ${line.productName}`}
                     onClick={() => removeLine(line.variantId)}
                   >
                     <Trash2 aria-hidden="true" />
@@ -349,47 +304,43 @@ export function StoreCartCheckout({
 
       {lines.length ? (
         <aside className="h-fit border-ink border-t-2 bg-raised p-5 sm:p-6 lg:sticky lg:top-24">
-          <h2 className="nx-display text-[24px] text-ink">Bestellen via WhatsApp</h2>
+          <h2 className="nx-display text-[24px] text-ink">Order via WhatsApp</h2>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
-            Stuur je lijst naar {businessName}. Het team bevestigt de voorraad en de definitieve
-            prijs.
+            Send your list to {businessName}. The team confirms stock and the final price.
           </p>
 
           <div className="mt-5 space-y-2 border-line border-y py-4">
             {quoteReady && !stockIssue ? (
               totals.map(({ currency, amount }) => (
                 <div key={currency} className="flex items-baseline justify-between gap-4">
-                  <span className="text-[12px] text-ink-3">Totaal (indicatief)</span>
+                  <span className="text-[12px] text-ink-3">Estimated total</span>
                   <span className="text-[18px] font-semibold tabular text-ink">
-                    {formatCustomerMoney(amount, currency, srdRate)}
+                    {customerMoney(amount, currency, srdRate)}
                   </span>
                 </div>
               ))
             ) : quoteReady ? (
               <p className="text-[12px] text-ink-3">
-                Verlaag of verwijder niet-beschikbare aantallen om een totaal te zien.
+                Lower or remove unavailable quantities to see a total.
               </p>
             ) : (
               <p className="text-[12px] text-ink-3">
-                Het totaal verschijnt zodra de actuele prijzen zijn gecontroleerd.
+                The total appears once current prices have been checked.
               </p>
             )}
           </div>
 
           {quoteReady ? (
             <p className="mt-3 text-[12px] text-ink-3" role="status">
-              Prijs en voorraad zojuist gecontroleerd. De voorraad wordt pas gereserveerd als de
-              winkel je bestelling bevestigt.
+              Price and stock just checked. Stock is only reserved once the shop confirms your
+              order.
             </p>
           ) : quoteError ? (
             <div
               className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
-              <p>
-                Prijs en voorraad konden niet worden gecontroleerd. Probeer het opnieuw voordat
-                je je bestelling verstuurt.
-              </p>
+              <p>We could not check price and stock. Try again before you send your order.</p>
               <Button
                 type="button"
                 variant="ghost"
@@ -397,12 +348,12 @@ export function StoreCartCheckout({
                 className="mt-1 text-negative"
                 onClick={() => setQuoteRetry((retry) => retry + 1)}
               >
-                Opnieuw controleren
+                Check again
               </Button>
             </div>
           ) : (
             <p className="mt-3 text-[12px] text-ink-3" role="status">
-              Prijs en voorraad worden gecontroleerd…
+              Checking price and stock…
             </p>
           )}
 
@@ -411,7 +362,7 @@ export function StoreCartCheckout({
               className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
-              Pas niet-beschikbare artikelen aan of verwijder ze voordat je bestelt.
+              Adjust or remove unavailable items before you order.
             </p>
           ) : null}
           {currencyMismatch ? (
@@ -419,15 +370,14 @@ export function StoreCartCheckout({
               className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
-              De winkelwagen bevat verschillende valuta. Leeg hem en voeg de producten opnieuw
-              toe.
+              Your cart contains different currencies. Empty it and add the products again.
             </p>
           ) : null}
 
           <div className="mt-4 space-y-3">
             <div>
               <label htmlFor="cart-customer-name" className="text-[13px] font-medium text-ink">
-                Naam
+                Name
               </label>
               <input
                 id="cart-customer-name"
@@ -436,12 +386,12 @@ export function StoreCartCheckout({
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 className={fieldClassName()}
-                placeholder="Je naam"
+                placeholder="Your name"
               />
             </div>
             <div>
               <label htmlFor="cart-customer-phone" className="text-[13px] font-medium text-ink">
-                Telefoon
+                Phone
               </label>
               <input
                 id="cart-customer-phone"
@@ -451,7 +401,7 @@ export function StoreCartCheckout({
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
                 className={fieldClassName()}
-                placeholder="Je WhatsApp-nummer"
+                placeholder="Your WhatsApp number"
               />
             </div>
             <div>
@@ -459,7 +409,7 @@ export function StoreCartCheckout({
                 htmlFor="cart-pickup-location"
                 className="text-[13px] font-medium text-ink"
               >
-                Ophaallocatie
+                Pickup location
               </label>
               {locations.length ? (
                 <select
@@ -476,12 +426,14 @@ export function StoreCartCheckout({
                 </select>
               ) : (
                 <p className="mt-1.5 min-h-11 border border-line bg-sunken px-3 py-2.5 text-[14px] text-ink-2">
-                  {fallbackLocation ?? 'Bevestig de ophaallocatie met de winkel'}
+                  {fallbackLocation ?? 'Confirm the pickup location with the shop'}
                 </p>
               )}
             </div>
             <fieldset>
-              <legend className="text-[13px] font-medium text-ink">Gewenste ophaaldatum</legend>
+              <legend className="text-[13px] font-medium text-ink">
+                Preferred pickup date
+              </legend>
               <div className="mt-2 grid grid-cols-3 gap-1 bg-sunken p-1 text-[13px]">
                 {(['today', 'tomorrow', 'custom'] as const).map((value) => (
                   <button
@@ -492,16 +444,16 @@ export function StoreCartCheckout({
                     className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-ink text-on-ink' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
-                      ? 'Kies datum'
+                      ? 'Pick a date'
                       : value === 'today'
-                        ? 'Vandaag'
-                        : 'Morgen'}
+                        ? 'Today'
+                        : 'Tomorrow'}
                   </button>
                 ))}
               </div>
               {pickupDate === 'custom' ? (
                 <input
-                  aria-label="Andere ophaaldatum"
+                  aria-label="Other pickup date"
                   type="date"
                   min={paramariboDate()}
                   value={customDate}
@@ -513,7 +465,7 @@ export function StoreCartCheckout({
             </fieldset>
             <div>
               <label htmlFor="cart-customer-notes" className="text-[13px] font-medium text-ink">
-                Opmerking
+                Notes
               </label>
               <textarea
                 id="cart-customer-notes"
@@ -522,7 +474,7 @@ export function StoreCartCheckout({
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
                 className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
-                placeholder="Is er iets wat de winkel moet weten?"
+                placeholder="Anything the shop should know?"
               />
             </div>
           </div>
@@ -536,7 +488,7 @@ export function StoreCartCheckout({
                 className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
               >
                 <MessageCircle />
-                Verstuur bestelling via WhatsApp
+                Send order via WhatsApp
               </a>
             ) : (
               <Button
@@ -547,20 +499,20 @@ export function StoreCartCheckout({
                 className="h-12 w-full rounded-tile"
               >
                 {!whatsappNumber
-                  ? 'WhatsApp-nummer niet beschikbaar'
+                  ? 'WhatsApp number not available'
                   : quoteError
-                    ? 'Controle van prijs en voorraad mislukt'
+                    ? 'Price and stock check failed'
                     : !quoteReady
-                      ? 'Prijs en voorraad worden gecontroleerd…'
+                      ? 'Checking price and stock…'
                       : stockIssue
-                        ? 'Pas niet-beschikbare artikelen aan'
+                        ? 'Adjust unavailable items'
                         : currencyMismatch
-                          ? 'Leeg de winkelwagen en probeer opnieuw'
-                          : 'Vul je gegevens in'}
+                          ? 'Empty the cart and try again'
+                          : 'Choose a pickup date'}
               </Button>
             )}
             <p className="mt-2 text-center text-[12px] text-ink-3">
-              Je winkelwagen blijft op dit apparaat bewaard tot je hem leegt.
+              Your cart is saved on this device until you empty it.
             </p>
           </div>
         </aside>

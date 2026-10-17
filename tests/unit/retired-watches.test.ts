@@ -10,7 +10,7 @@ describe('retired watch URLs', () => {
     expect(response.headers.get('location')).toBeNull();
     expect(response.headers.get('x-robots-tag')).toContain('noindex');
     expect(body).toContain('href="/shop"');
-    expect(body).toContain('geen horloges');
+    expect(body).toContain('no longer sells watches');
   });
 
   it('answers HEAD requests with the same status and no body', async () => {

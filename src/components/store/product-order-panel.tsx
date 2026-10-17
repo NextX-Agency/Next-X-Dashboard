@@ -9,6 +9,7 @@ import { StorePrice } from '@/components/store/store-price';
 import { WhatsAppCta } from '@/components/store/whatsapp-cta';
 import { cn } from '@/lib/cn';
 import { fromBase } from '@/lib/fx';
+import { productOrderMessage, productRestockMessage } from '@/lib/store-messages';
 import { CART_PATH } from '@/lib/storefront-domain';
 import { useStoreCart } from './store-cart-provider';
 import { formatSrd } from './store-price';
@@ -22,8 +23,8 @@ type Variant = {
   onHand: number;
 };
 
-/** A variant called only "Standaard"/"Default" tells the customer nothing. */
-const MEANINGLESS_VARIANT = /^(standaard|standard|default|std)$/i;
+/** A variant called only "Standard"/"Default" tells the customer nothing. */
+const MEANINGLESS_VARIANT = /^(standaard|standard|default|std)$/i; // 'standaard' = legacy imported name
 
 /**
  * Price, stock, variant, quantity and the two ways to order. Variant selection is local UI state; price
@@ -34,6 +35,7 @@ export function ProductOrderPanel({
   productId,
   productSlug,
   productName,
+  businessName,
   variants,
   srdRate,
   whatsapp,
@@ -42,6 +44,7 @@ export function ProductOrderPanel({
   productId: string;
   productSlug: string;
   productName: string;
+  businessName: string;
   variants: Variant[];
   srdRate?: number;
   whatsapp: string | null | undefined;
@@ -63,9 +66,14 @@ export function ProductOrderPanel({
       ? formatSrd(variant.listPriceCents)
       : srdRate && srdRate > 0
         ? formatSrd(fromBase(variant.listPriceCents, srdRate))
-        : `$${(variant.listPriceCents / 100).toFixed(2)}`;
-  const variantLabel = showVariants ? ` – ${variant.name}` : '';
-  const skuLabel = variant.sku ? ` (SKU ${variant.sku})` : '';
+        : `US$${(variant.listPriceCents / 100).toFixed(2)}`;
+  const messageInput = {
+    businessName,
+    productName,
+    variantName: showVariants ? variant.name : null,
+    sku: variant.sku,
+    price,
+  };
 
   function setQty(next: number) {
     setQuantity(Math.max(1, Math.min(variant?.onHand ?? 1, next)));
@@ -90,8 +98,8 @@ export function ProductOrderPanel({
     setAdded(ok);
     setCartMessage(
       ok
-        ? `${quantity} × ${productName} toegevoegd aan je winkelwagen.`
-        : 'Je winkelwagen bevat al alle beschikbare voorraad.',
+        ? `${quantity} × ${productName} added to your cart.`
+        : 'Your cart already holds all available stock.',
     );
   }
 
@@ -109,7 +117,7 @@ export function ProductOrderPanel({
 
       {showVariants ? (
         <fieldset className="mt-6">
-          <legend className="font-semibold text-[13px] text-ink-3">Uitvoering</legend>
+          <legend className="font-semibold text-[13px] text-ink-3">Option</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {variants.map((item) => {
               const selected = item.id === variant.id;
@@ -149,7 +157,7 @@ export function ProductOrderPanel({
             <div className="flex h-12 shrink-0 items-stretch rounded-[12px] border border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
               <button
                 type="button"
-                aria-label="Minder"
+                aria-label="Decrease quantity"
                 disabled={quantity <= 1}
                 onClick={() => setQty(quantity - 1)}
                 className="grid w-11 place-items-center rounded-l-[12px] hover:bg-hover disabled:opacity-35"
@@ -157,7 +165,7 @@ export function ProductOrderPanel({
                 <Minus className="size-4" />
               </button>
               <label className="sr-only" htmlFor="store-cart-quantity">
-                Aantal
+                Quantity
               </label>
               <input
                 id="store-cart-quantity"
@@ -174,7 +182,7 @@ export function ProductOrderPanel({
               />
               <button
                 type="button"
-                aria-label="Meer"
+                aria-label="Increase quantity"
                 disabled={quantity >= variant.onHand}
                 onClick={() => setQty(quantity + 1)}
                 className="grid w-11 place-items-center rounded-r-[12px] hover:bg-hover disabled:opacity-35"
@@ -189,7 +197,7 @@ export function ProductOrderPanel({
               className="nx-btn nx-btn-primary h-12 flex-1 max-sm:hidden"
             >
               <ShoppingBag aria-hidden="true" />
-              In winkelwagen
+              Add to cart
             </button>
           </div>
         ) : null}
@@ -197,15 +205,15 @@ export function ProductOrderPanel({
         {inStock ? (
           <WhatsAppCta
             number={whatsapp}
-            message={`Hallo NextX, ik wil graag de ${productName}${variantLabel}${skuLabel} bestellen. Op de website staat hij voor ${price} en volgens de website is hij op voorraad. Kunnen jullie dit bevestigen?`}
-            label="Bestel via WhatsApp"
+            message={productOrderMessage(messageInput)}
+            label="Order via WhatsApp"
             className="h-12 w-full"
           />
         ) : (
           <WhatsAppCta
             number={whatsapp}
-            message={`Hallo NextX, ik wil graag weten wanneer de ${productName}${variantLabel}${skuLabel} weer op voorraad komt. Op de website staat hij voor ${price}.`}
-            label="Vraag naar nieuwe voorraad"
+            message={productRestockMessage(messageInput)}
+            label="Ask when it is back"
             tone="primary"
             className="h-12 w-full"
           />
@@ -216,22 +224,22 @@ export function ProductOrderPanel({
             href={CART_PATH as never}
             className="inline-block font-bold text-[14px] text-ink underline underline-offset-4"
           >
-            Naar winkelwagen
+            Go to cart
           </Link>
         ) : null}
         <p aria-live="polite" className="min-h-5 text-[13px] text-ink-2">
           {cartMessage ||
             (inStock && cartQuantity >= variant.onHand
-              ? 'Je winkelwagen bevat al alle beschikbare voorraad van dit product.'
+              ? 'Your cart already holds all available stock of this product.'
               : '')}
         </p>
       </div>
 
       {!inStock && restockNotificationsEnabled ? (
         <section className="mt-2 border-line border-t pt-5">
-          <h2 className="font-bold text-[15px]">Laat het me weten als hij terug is</h2>
+          <h2 className="font-bold text-[15px]">Tell me when it is back in stock</h2>
           <p className="mt-1 text-[13px] text-ink-2">
-            Je verzoek gaat naar het NextX-team. Er wordt niets automatisch verstuurd.
+            Your request goes to the NextX team. Nothing is sent automatically.
           </p>
           <RestockRequestForm productId={productId} variantId={variant.id} />
         </section>
@@ -243,7 +251,7 @@ export function ProductOrderPanel({
           <div className="min-w-0">
             <p className="tabular font-extrabold text-[20px] leading-none">{price}</p>
             <p className="mt-1 text-[12px] text-ink-3">
-              {quantity} stuk{quantity === 1 ? '' : 's'}
+              {quantity} {quantity === 1 ? 'item' : 'items'}
             </p>
           </div>
           <button
@@ -253,7 +261,7 @@ export function ProductOrderPanel({
             className="nx-btn nx-btn-primary h-12 flex-1"
           >
             <ShoppingBag aria-hidden="true" />
-            In winkelwagen
+            Add to cart
           </button>
         </div>
       ) : null}

@@ -14,7 +14,7 @@ import { whatsappLink } from '@/lib/whatsapp';
 export function WhatsAppCta({
   number,
   message,
-  label = 'Bestel via WhatsApp',
+  label = 'Order via WhatsApp',
   tone = 'line',
   className,
 }: {
@@ -32,7 +32,7 @@ export function WhatsAppCta({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${label} (opent WhatsApp)`}
+      aria-label={`${label} (opens WhatsApp)`}
       className={cn(
         'nx-btn',
         tone === 'primary' && 'nx-btn-primary',
