@@ -89,7 +89,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
             <div className="mt-6">
               <WhatsAppCta
                 number={settings?.whatsapp}
-                tone="orange"
+                tone="primary"
                 label={inStock ? 'Bestel deze set' : 'Vraag naar deze set'}
                 message={`Hallo NextX, ik wil graag ${inStock ? 'de set' : 'meer weten over de set'} ${bundle.name} ${inStock ? 'bestellen' : ''}.`.replace(
                   /\s+\./,

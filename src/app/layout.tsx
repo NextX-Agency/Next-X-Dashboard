@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, Instrument_Sans, JetBrains_Mono } from 'next/font/google';
+import { Instrument_Sans, JetBrains_Mono, Manrope } from 'next/font/google';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -21,13 +21,12 @@ const mono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-// The display face echoes the heavy NextX wordmark: Archivo's width axis lets
-// headlines run wide and black while body copy stays in Instrument Sans.
-const display = Archivo({
+// Manrope carries the shop's text and every heading; Instrument Sans stays for the dense staff
+// interface, JetBrains Mono for dashboard figures.
+const display = Manrope({
   subsets: ['latin'],
   display: 'swap',
-  axes: ['wdth'],
-  variable: '--font-archivo',
+  variable: '--font-manrope',
 });
 
 export const metadata: Metadata = {

@@ -2,11 +2,12 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { StoreCartProvider } from '@/components/store/store-cart-provider';
 import { StoreFooter } from '@/components/store/store-footer';
-import { StoreHeader, type StoreNavLink } from '@/components/store/store-header';
+import { StoreHeader } from '@/components/store/store-header';
+import { StoreTabBar } from '@/components/store/store-tab-bar';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
-import { SHOP_PATH, storefrontPublicOrigin } from '@/lib/storefront-domain';
-import { listCatalogBundles, listCatalogCategories } from '@/server/queries/catalog';
+import { storefrontPublicOrigin } from '@/lib/storefront-domain';
+import { whatsappLink } from '@/lib/whatsapp';
 import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront } from '@/server/services/storefront';
 
@@ -32,9 +33,8 @@ async function currentYear(): Promise<number> {
  * `.dark` back on `<html>`. `.nx-store` carries its own opaque values (see
  * tokens.css), which apply whatever class an ancestor has.
  *
- * The shell is category-neutral: the brand is NextX, the nav is built from the
- * categories that actually have public products, and no product family is
- * named anywhere in a URL.
+ * The shell is category-neutral: the brand is NextX, categories are filters built
+ * from products that actually exist, and no product family is named in a URL.
  */
 
 // The dashboard and staging storefronts must not be indexed. A custom public
@@ -59,41 +59,32 @@ export async function generateMetadata(): Promise<Metadata> {
 export const instant = false;
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const [settings, categories, bundles, year, storefront] = await Promise.all([
+  const [settings, year, storefront] = await Promise.all([
     getSettings(),
-    listCatalogCategories(),
-    listCatalogBundles(1),
     currentYear(),
     getRequestStorefront(),
   ]);
-
-  const links: StoreNavLink[] = [
-    { href: SHOP_PATH, label: 'Alle producten' },
-    ...categories.slice(0, 4).map((category) => ({
-      href: `${SHOP_PATH}?category=${category.slug}`,
-      label: category.name,
-    })),
-    ...(bundles.length ? [{ href: '/#sets', label: 'Sets' }] : []),
-  ];
+  const storeName = settings?.businessName ?? 'NextX';
 
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
-      <div className="nx-store flex min-h-dvh flex-col bg-base text-ink">
-        <StoreHeader
-          storeName={settings?.businessName ?? 'NextX'}
-          links={links}
-          whatsapp={settings?.whatsapp ?? null}
-        />
-        <main className="w-full flex-1">{children}</main>
+      <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-manrope)] text-ink">
+        <StoreHeader storeName={storeName} whatsapp={settings?.whatsapp ?? null} />
+        <main className="w-full flex-1 pb-16 sm:pb-0">{children}</main>
         <StoreFooter
           settings={settings}
           description={storefrontDescription(
             storefront?.description,
             settings?.storeDescription,
           )}
-          links={links}
           currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
           year={year}
+        />
+        <StoreTabBar
+          whatsappHref={whatsappLink(
+            settings?.whatsapp,
+            `Hallo ${storeName}, ik heb een vraag.`,
+          )}
         />
       </div>
     </StoreCartProvider>

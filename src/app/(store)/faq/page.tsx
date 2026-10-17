@@ -38,7 +38,7 @@ export default async function FaqPage() {
             href={contact}
             target="_blank"
             rel="noopener noreferrer"
-            className="nx-btn nx-btn-ink mt-5"
+            className="nx-btn nx-btn-primary mt-5"
           >
             Contact via WhatsApp
           </a>

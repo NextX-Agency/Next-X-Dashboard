@@ -14,9 +14,9 @@ type GalleryImage = {
 };
 
 /**
- * Large primary image with a thumbnail rail. Thumbnails are real buttons, so the
- * gallery works from the keyboard; the stage keeps one stable aspect ratio so
- * switching images never shifts the page.
+ * The product photograph on its soft field, with a thumbnail rail when there is more than one. The
+ * field keeps one stable shape so switching photos never shifts the page; photographs are multiplied
+ * onto it so a white-background cut-out sits on the field instead of showing as a white box.
  */
 export function ProductGallery({ images, name }: { images: GalleryImage[]; name: string }) {
   const [index, setIndex] = useState(0);
@@ -24,15 +24,15 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
 
   if (!current) {
     return (
-      <div className="nx-stage grid aspect-square place-items-center">
-        <Package aria-hidden="true" className="size-12 text-night-ink-2" />
+      <div className="grid aspect-square place-items-center rounded-tile bg-sunken">
+        <Package aria-hidden="true" className="size-12 text-ink-4" />
       </div>
     );
   }
 
   return (
     <div>
-      <div className="relative aspect-square overflow-hidden rounded-tile bg-sunken lg:aspect-[5/6]">
+      <div className="relative aspect-square overflow-hidden rounded-tile bg-sunken lg:aspect-[6/5]">
         <Image
           key={current.url}
           src={current.url}
@@ -40,16 +40,11 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
           fill
           priority={index === 0}
           sizes="(max-width: 1024px) 100vw, 56vw"
-          className="animate-in fade-in-0 object-cover mix-blend-multiply duration-300"
+          className="animate-in fade-in-0 object-contain p-[7%] mix-blend-multiply duration-300"
           {...(current.blurDataUrl
             ? { placeholder: 'blur' as const, blurDataURL: current.blurDataUrl }
             : {})}
         />
-        {images.length > 1 ? (
-          <p className="nx-label tabular absolute bottom-3 left-3 bg-night px-2 py-1 text-[10px] text-night-ink">
-            {index + 1} / {images.length}
-          </p>
-        ) : null}
       </div>
 
       {images.length > 1 ? (
@@ -62,11 +57,9 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
                 aria-current={imageIndex === index}
                 onClick={() => setIndex(imageIndex)}
                 className={cn(
-                  'relative block size-16 overflow-hidden rounded-tile bg-sunken outline-offset-2 sm:size-20',
-                  'focus-visible:outline-2 focus-visible:outline-ring',
-                  imageIndex === index
-                    ? 'ring-2 ring-ink ring-offset-2 ring-offset-base'
-                    : 'opacity-70 hover:opacity-100',
+                  'relative block size-16 overflow-hidden rounded-[12px] bg-sunken sm:size-20',
+                  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                  imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',
                 )}
               >
                 <Image
@@ -74,7 +67,7 @@ export function ProductGallery({ images, name }: { images: GalleryImage[]; name:
                   alt=""
                   fill
                   sizes="80px"
-                  className="object-cover mix-blend-multiply"
+                  className="object-contain p-1.5 mix-blend-multiply"
                 />
               </button>
             </li>

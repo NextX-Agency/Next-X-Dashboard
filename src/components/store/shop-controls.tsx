@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 import { parseAsString, parseAsStringEnum, useQueryStates } from 'nuqs';
 import { type ReactNode, useState } from 'react';
 import { cn } from '@/lib/cn';
@@ -40,61 +40,50 @@ const queryState = {
 const options = { shallow: false, history: 'replace' as const, throttleMs: 250 };
 
 const selectClass =
-  'h-11 appearance-none rounded-tile border border-line bg-raised pr-9 pl-3 text-[14px] text-ink focus:border-ink focus:outline-none';
+  'h-11 appearance-none rounded-[10px] border border-line-strong bg-raised pr-9 pl-3.5 font-semibold text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
-/** Search, sort and availability: always visible. */
+/** Availability toggle, sort and the filters sheet. Search lives in the header. */
 export function ShopToolbar({ filters }: { filters: ReactNode }) {
   const [state, setState] = useQueryStates(queryState, options);
+  const onlyInStock = state.availability === 'in-stock';
   return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-      <div className="relative min-w-0 flex-1 basis-56">
-        <Search
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={onlyInStock}
+        onClick={() => setState({ availability: onlyInStock ? null : 'in-stock', page: null })}
+        className="inline-flex h-11 items-center gap-3 font-semibold text-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        <span
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3"
-        />
-        <input
-          type="search"
-          value={state.q}
-          onChange={(event) => setState({ q: event.target.value || null, page: null })}
-          placeholder="Zoek op naam, merk of kenmerk"
-          aria-label="Zoek producten"
-          className="h-11 w-full rounded-tile border border-line bg-raised pr-3 pl-10 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
-        />
+          className={`relative h-6 w-10 rounded-full transition-colors ${onlyInStock ? 'bg-night' : 'bg-line-strong'}`}
+        >
+          <span
+            className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${onlyInStock ? 'left-[18px]' : 'left-0.5'}`}
+          />
+        </span>
+        Alleen op voorraad
+      </button>
+      <div className="flex items-center gap-2">
+        <SelectShell>
+          <select
+            aria-label="Sorteren"
+            value={state.sort}
+            onChange={(event) =>
+              setState({ sort: event.target.value as (typeof SORTS)[number] })
+            }
+            className={selectClass}
+          >
+            {SORTS.map((value) => (
+              <option key={value} value={value}>
+                {SORT_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </SelectShell>
+        <FiltersDrawer>{filters}</FiltersDrawer>
       </div>
-      <SelectShell>
-        <select
-          aria-label="Beschikbaarheid"
-          value={state.availability ?? ''}
-          onChange={(event) =>
-            setState({
-              availability: (event.target.value || null) as
-                | (typeof AVAILABILITY)[number]
-                | null,
-              page: null,
-            })
-          }
-          className={selectClass}
-        >
-          <option value="">Alles</option>
-          <option value="in-stock">Op voorraad</option>
-          <option value="incoming">Binnenkort</option>
-        </select>
-      </SelectShell>
-      <SelectShell>
-        <select
-          aria-label="Sorteren"
-          value={state.sort}
-          onChange={(event) => setState({ sort: event.target.value as (typeof SORTS)[number] })}
-          className={selectClass}
-        >
-          {SORTS.map((value) => (
-            <option key={value} value={value}>
-              {SORT_LABELS[value]}
-            </option>
-          ))}
-        </select>
-      </SelectShell>
-      <FiltersDrawer>{filters}</FiltersDrawer>
     </div>
   );
 }
@@ -120,7 +109,7 @@ function FiltersDrawer({ children }: { children: ReactNode }) {
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
-        <button type="button" className="nx-btn nx-btn-line h-11 lg:hidden">
+        <button type="button" className="nx-btn nx-btn-line nx-btn-sm h-11">
           <SlidersHorizontal /> Filters
         </button>
       </Dialog.Trigger>
@@ -141,7 +130,9 @@ function FiltersDrawer({ children }: { children: ReactNode }) {
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
           <div className="shrink-0 border-line border-t p-4">
-            <Dialog.Close className="nx-btn nx-btn-ink w-full">Toon resultaten</Dialog.Close>
+            <Dialog.Close className="nx-btn nx-btn-primary w-full">
+              Toon resultaten
+            </Dialog.Close>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
@@ -313,7 +304,7 @@ export function ActiveFilters({
           key={chip.key}
           type="button"
           onClick={() => setState({ [chip.key]: null, page: null })}
-          className="inline-flex h-8 items-center gap-1.5 rounded-tile bg-night px-2.5 text-[13px] text-night-ink hover:bg-night-2"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full bg-night px-3 font-semibold text-[13px] text-night-ink hover:bg-night-2"
         >
           {chip.label}
           <X aria-label="Verwijder filter" className="size-3.5" />

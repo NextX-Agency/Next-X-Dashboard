@@ -21,6 +21,7 @@ MSYS_NO_PATHCONV=1 node scripts/design-review/shoot.mjs <label> http://localhost
 |---|---|
 | `before/` | The rejected design: centred hero, identical product cards, blue-tinted dashboard. `/audio`, `/audio/halden-studio-8`, `/audio/cart`, `/dashboard`, `/products`, `/orders` at 390, 768, 1440 |
 | `concepts/` | Three working design previews on the real catalogue, at 390, 768 and 1440 (`preview-<a\|b\|c>[-product\|-dashboard]-fold-<width>.png`, full-page homes at 1440, and `compare-*` side-by-side sheets). Local only: the captures contain the shop's product photographs, so this folder is gitignored and exists only on the machine that made them. Regenerate with the commands above plus `python scripts/design-review/compare.py` |
+| `rustig/` | The implemented design, on the real shop code and the real 15-product catalogue: `/`, `/shop`, product page, cart (filled), at 390, 768 and 1440, plus the dashboard (light, dark, phone). Gitignored: contains the shop's photographs |
 | `after/` | The rebuilt design: `/`, `/shop`, `/products/halden-studio-8`, `/cart` at 390, 768, 1440 (full page), plus first-screen captures of `/dashboard`, `/items`, `/inventory`, `/sales/new`, `/orders` at 1440 |
 
 Each capture also reports horizontal overflow and console errors. At capture time every storefront and

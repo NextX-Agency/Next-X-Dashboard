@@ -203,8 +203,10 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
                 >
                   Stock value
                 </THSort>
-                <TH numeric>Incoming</TH>
-                <TH>Featured</TH>
+                <TH numeric className="hidden 2xl:table-cell">
+                  Incoming
+                </TH>
+                <TH className="hidden 2xl:table-cell">Featured</TH>
                 <THSort
                   href={buildHref({
                     ...query,
@@ -273,10 +275,12 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
                   <TD numeric>
                     <Money cents={row.stockValueCents} size="sm" />
                   </TD>
-                  <TD numeric className="text-ink-3">
+                  <TD numeric className="hidden text-ink-3 2xl:table-cell">
                     {row.incoming}
                   </TD>
-                  <TD>{row.featured ? <Badge tone="accent">Featured</Badge> : '—'}</TD>
+                  <TD className="hidden 2xl:table-cell">
+                    {row.featured ? <Badge tone="accent">Featured</Badge> : '—'}
+                  </TD>
                   <TD className="whitespace-nowrap text-[12px] text-ink-3">
                     {new Intl.DateTimeFormat('en-SR', { dateStyle: 'medium' }).format(
                       new Date(row.updatedAt),

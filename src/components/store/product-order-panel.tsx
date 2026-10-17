@@ -4,6 +4,7 @@ import { Minus, Plus, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { RestockRequestForm } from '@/components/forms/restock-request-form';
+import { StockPill } from '@/components/store/stock-pill';
 import { StorePrice } from '@/components/store/store-price';
 import { WhatsAppCta } from '@/components/store/whatsapp-cta';
 import { cn } from '@/lib/cn';
@@ -24,8 +25,11 @@ type Variant = {
 /** A variant called only "Standaard"/"Default" tells the customer nothing. */
 const MEANINGLESS_VARIANT = /^(standaard|standard|default|std)$/i;
 
-/** Variant selection is intentionally local UI state; price and availability
- * remain from the server's public catalog read model. */
+/**
+ * Price, stock, variant, quantity and the two ways to order. Variant selection is local UI state; price
+ * and availability come from the server's public catalog read model. On phones the add-to-cart button
+ * lives in a bar fixed to the bottom of the screen, so the buy action never scrolls away.
+ */
 export function ProductOrderPanel({
   productId,
   productSlug,
@@ -69,18 +73,43 @@ export function ProductOrderPanel({
     setAdded(false);
   }
 
+  function addToCart() {
+    if (!variant) return;
+    const ok = addLine({
+      productId,
+      productSlug,
+      productName,
+      variantId: variant.id,
+      variantName: variant.name,
+      sku: variant.sku,
+      quantity,
+      priceCents: variant.listPriceCents,
+      currency: variant.priceCurrency,
+      available: variant.onHand,
+    });
+    setAdded(ok);
+    setCartMessage(
+      ok
+        ? `${quantity} × ${productName} toegevoegd aan je winkelwagen.`
+        : 'Je winkelwagen bevat al alle beschikbare voorraad.',
+    );
+  }
+
   return (
     <div>
-      <StorePrice
-        amountCents={variant.listPriceCents}
-        currency={variant.priceCurrency}
-        srdRate={srdRate}
-        size="xl"
-      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <StorePrice
+          amountCents={variant.listPriceCents}
+          currency={variant.priceCurrency}
+          srdRate={srdRate}
+          size="xl"
+        />
+        <StockPill onHand={variant.onHand} />
+      </div>
 
       {showVariants ? (
         <fieldset className="mt-6">
-          <legend className="nx-label text-ink-3">Uitvoering</legend>
+          <legend className="font-semibold text-[13px] text-ink-3">Uitvoering</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {variants.map((item) => {
               const selected = item.id === variant.id;
@@ -96,10 +125,11 @@ export function ProductOrderPanel({
                     setAdded(false);
                   }}
                   className={cn(
-                    'min-h-11 rounded-tile border px-4 text-[14px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                    'min-h-11 rounded-[10px] border px-4 font-semibold text-[14px] transition-colors',
+                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                     selected
-                      ? 'border-ink bg-ink font-semibold text-base'
-                      : 'border-line text-ink-2 hover:border-ink hover:text-ink',
+                      ? 'border-night bg-night text-night-ink'
+                      : 'border-line-strong text-ink hover:border-ink',
                     item.onHand <= 0 && !selected && 'text-ink-3',
                   )}
                 >
@@ -113,24 +143,16 @@ export function ProductOrderPanel({
         </fieldset>
       ) : null}
 
-      <p className="mt-5 flex items-center gap-2 text-[14px] text-ink-2">
-        <span
-          aria-hidden="true"
-          className={cn('size-2 rounded-full', inStock ? 'bg-store-bright' : 'bg-ink-4')}
-        />
-        {inStock ? `${variant.onHand} op voorraad` : 'Niet op voorraad'}
-      </p>
-
-      <div className="mt-6">
+      <div className="mt-6 space-y-3">
         {inStock ? (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex h-12 shrink-0 items-stretch border border-ink">
+          <div className="flex gap-3">
+            <div className="flex h-12 shrink-0 items-stretch rounded-[12px] border border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
               <button
                 type="button"
                 aria-label="Minder"
                 disabled={quantity <= 1}
                 onClick={() => setQty(quantity - 1)}
-                className="grid w-11 place-items-center hover:bg-hover disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-l-[12px] hover:bg-hover disabled:opacity-35"
               >
                 <Minus className="size-4" />
               </button>
@@ -148,14 +170,14 @@ export function ProductOrderPanel({
                   const next = Number.parseInt(event.target.value, 10);
                   setQty(Number.isFinite(next) ? next : 1);
                 }}
-                className="tabular w-12 border-0 bg-transparent text-center text-[15px] font-semibold text-ink [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="tabular w-10 border-0 bg-transparent text-center font-bold text-[15px] text-ink [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="button"
                 aria-label="Meer"
                 disabled={quantity >= variant.onHand}
                 onClick={() => setQty(quantity + 1)}
-                className="grid w-11 place-items-center hover:bg-hover disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-r-[12px] hover:bg-hover disabled:opacity-35"
               >
                 <Plus className="size-4" />
               </button>
@@ -163,27 +185,8 @@ export function ProductOrderPanel({
             <button
               type="button"
               disabled={!canAdd}
-              className="nx-btn nx-btn-orange h-12 flex-1 px-6 text-[15px] sm:flex-none sm:min-w-52"
-              onClick={() => {
-                const ok = addLine({
-                  productId,
-                  productSlug,
-                  productName,
-                  variantId: variant.id,
-                  variantName: variant.name,
-                  sku: variant.sku,
-                  quantity,
-                  priceCents: variant.listPriceCents,
-                  currency: variant.priceCurrency,
-                  available: variant.onHand,
-                });
-                setAdded(ok);
-                setCartMessage(
-                  ok
-                    ? `${quantity} × ${productName} toegevoegd aan je winkelwagen.`
-                    : 'Je winkelwagen bevat al alle beschikbare voorraad.',
-                );
-              }}
+              onClick={addToCart}
+              className="nx-btn nx-btn-primary h-12 flex-1 max-sm:hidden"
             >
               <ShoppingBag aria-hidden="true" />
               In winkelwagen
@@ -191,34 +194,32 @@ export function ProductOrderPanel({
           </div>
         ) : null}
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-          {inStock ? (
-            <WhatsAppCta
-              number={whatsapp}
-              message={`Hallo NextX, ik wil graag de ${productName}${variantLabel}${skuLabel} bestellen. Op de website staat hij voor ${price} en volgens de website is hij op voorraad. Kunnen jullie dit bevestigen?`}
-              label="Bestel via WhatsApp"
-              className="h-12 px-6"
-            />
-          ) : (
-            <WhatsAppCta
-              number={whatsapp}
-              message={`Hallo NextX, ik wil graag weten wanneer de ${productName}${variantLabel}${skuLabel} weer op voorraad komt. Op de website staat hij voor ${price}.`}
-              label="Vraag naar nieuwe voorraad"
-              tone="orange"
-              className="h-12 px-6"
-            />
-          )}
-          {added ? (
-            <Link
-              href={CART_PATH as never}
-              className="text-[14px] font-semibold text-ink underline underline-offset-4 hover:text-accent"
-            >
-              Naar winkelwagen
-            </Link>
-          ) : null}
-        </div>
+        {inStock ? (
+          <WhatsAppCta
+            number={whatsapp}
+            message={`Hallo NextX, ik wil graag de ${productName}${variantLabel}${skuLabel} bestellen. Op de website staat hij voor ${price} en volgens de website is hij op voorraad. Kunnen jullie dit bevestigen?`}
+            label="Bestel via WhatsApp"
+            className="h-12 w-full"
+          />
+        ) : (
+          <WhatsAppCta
+            number={whatsapp}
+            message={`Hallo NextX, ik wil graag weten wanneer de ${productName}${variantLabel}${skuLabel} weer op voorraad komt. Op de website staat hij voor ${price}.`}
+            label="Vraag naar nieuwe voorraad"
+            tone="primary"
+            className="h-12 w-full"
+          />
+        )}
 
-        <p aria-live="polite" className="mt-3 min-h-5 text-[13px] text-ink-2">
+        {added ? (
+          <Link
+            href={CART_PATH as never}
+            className="inline-block font-bold text-[14px] text-ink underline underline-offset-4"
+          >
+            Naar winkelwagen
+          </Link>
+        ) : null}
+        <p aria-live="polite" className="min-h-5 text-[13px] text-ink-2">
           {cartMessage ||
             (inStock && cartQuantity >= variant.onHand
               ? 'Je winkelwagen bevat al alle beschikbare voorraad van dit product.'
@@ -227,15 +228,34 @@ export function ProductOrderPanel({
       </div>
 
       {!inStock && restockNotificationsEnabled ? (
-        <section className="mt-4 border-line border-t pt-5">
-          <h2 className="text-[15px] font-semibold text-ink">
-            Laat het me weten als hij terug is
-          </h2>
+        <section className="mt-2 border-line border-t pt-5">
+          <h2 className="font-bold text-[15px]">Laat het me weten als hij terug is</h2>
           <p className="mt-1 text-[13px] text-ink-2">
             Je verzoek gaat naar het NextX-team. Er wordt niets automatisch verstuurd.
           </p>
           <RestockRequestForm productId={productId} variantId={variant.id} />
         </section>
+      ) : null}
+
+      {/* Phone: the buy action stays on screen. */}
+      {inStock ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-line border-t bg-base p-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
+          <div className="min-w-0">
+            <p className="tabular font-extrabold text-[20px] leading-none">{price}</p>
+            <p className="mt-1 text-[12px] text-ink-3">
+              {quantity} stuk{quantity === 1 ? '' : 's'}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!canAdd}
+            onClick={addToCart}
+            className="nx-btn nx-btn-primary h-12 flex-1"
+          >
+            <ShoppingBag aria-hidden="true" />
+            In winkelwagen
+          </button>
+        </div>
       ) : null}
     </div>
   );

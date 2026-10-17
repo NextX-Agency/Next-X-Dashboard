@@ -13,13 +13,13 @@ export function StoreCartLink() {
       aria-label={
         ready ? `Winkelwagen, ${count} ${count === 1 ? 'artikel' : 'artikelen'}` : 'Winkelwagen'
       }
-      className="relative inline-flex h-10 items-center gap-2 rounded-tile px-2.5 text-night-ink transition-colors hover:bg-night-2 focus-visible:outline-2 focus-visible:outline-store-bright sm:border sm:border-night-line sm:px-3"
+      className="relative inline-flex h-10 items-center gap-2 rounded-[10px] px-2.5 font-semibold text-[14px] text-ink transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring"
     >
       <ShoppingBag aria-hidden="true" className="size-5 sm:size-4" />
-      <span className="hidden text-[14px] font-medium sm:inline">Winkelwagen</span>
+      <span className="hidden sm:inline">Mand</span>
       <span
-        className={`tabular grid min-w-5 place-items-center px-1 text-[11px] font-semibold ${
-          ready && count > 0 ? 'bg-store-bright text-[#0f0e0d]' : 'bg-night-2 text-night-ink-2'
+        className={`tabular grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ${
+          ready && count > 0 ? 'bg-night text-night-ink' : 'bg-sunken text-ink-3'
         }`}
       >
         {ready ? count : '·'}

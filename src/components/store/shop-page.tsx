@@ -1,6 +1,7 @@
 import { PackageSearch } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { CategoryChips } from '@/components/store/category-chips';
 import { ProductCard } from '@/components/store/product-card';
 import { ActiveFilters, ShopFilters, ShopToolbar } from '@/components/store/shop-controls';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,14 +24,13 @@ function one(value: string | string[] | undefined): string | undefined {
 }
 
 /**
- * The catalogue. A page header with the count, a toolbar (search, availability,
- * sort), a filter column on desktop that becomes a sheet on phones, and a grid
- * of product cards. `searchParams` is passed down unawaited so the shell stays
- * part of the static prerender and only the data-reading part streams.
+ * The catalogue: categories as chips, one row of controls (in stock only, sort, more filters), then
+ * the grid. Search is in the header and writes the same `?q=`. `searchParams` is passed down unawaited
+ * so the shell stays part of the static prerender and only the data-reading part streams.
  */
 export function ShopPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 pt-10 pb-20 lg:px-8 lg:pt-14 lg:pb-28">
+    <div className="mx-auto w-full max-w-[1320px] px-4 pt-5 pb-16 lg:px-8 lg:pt-8 lg:pb-24">
       <Suspense fallback={<ShopSkeleton />}>
         <ShopContent searchParams={searchParams} />
       </Suspense>
@@ -54,7 +54,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       : undefined;
   const sort = SORTS.find((value) => value === raw.sort);
 
-  const [products, categories, options, rate] = await Promise.all([
+  const [products, categories, options, rate, everything] = await Promise.all([
     listCatalogProducts({
       q,
       category,
@@ -70,9 +70,10 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
     listCatalogCategories(),
     listCatalogFilterOptions(),
     getCurrentRate(),
+    // The chips show the size of the whole catalogue, not of the current filter.
+    listCatalogProducts({}),
   ]);
 
-  const filterData = { categories, ...options };
   const activeCategory = categories.find((entry) => entry.slug === category);
   const filtered = Boolean(
     q ||
@@ -85,23 +86,28 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       price ||
       availability,
   );
-  const filters = <ShopFilters data={filterData} />;
+  const filters = <ShopFilters data={{ categories: [], ...options }} />;
 
   return (
     <>
-      <header className="flex flex-col gap-3 border-line border-b pb-6">
-        <p className="nx-label text-ink-3">Winkel</p>
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <h1 className="nx-display text-[clamp(36px,6vw,72px)] text-ink">
-            {activeCategory?.name ?? 'Alle producten'}
-          </h1>
-          <p className="tabular pb-1.5 text-[13px] text-ink-3">
-            {products.length} {products.length === 1 ? 'product' : 'producten'}
-          </p>
-        </div>
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
+        <h1 className="nx-display text-[clamp(28px,4vw,40px)]">
+          {activeCategory?.name ?? 'Alle producten'}
+        </h1>
+        <p className="tabular pb-1 text-[14px] text-ink-3">
+          {products.length} {products.length === 1 ? 'product' : 'producten'}
+        </p>
       </header>
 
-      <div className="mt-6 space-y-4">
+      <div className="mt-5">
+        <CategoryChips
+          categories={categories}
+          total={everything.length}
+          active={activeCategory ? activeCategory.slug : null}
+        />
+      </div>
+
+      <div className="mt-3 space-y-3">
         <ShopToolbar filters={filters} />
         <ActiveFilters
           labels={{
@@ -112,39 +118,33 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         />
       </div>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-12">
-        <aside aria-label="Filters" className="hidden lg:block">
-          <div className="sticky top-24">{filters}</div>
-        </aside>
-
-        <section aria-label="Producten">
-          {products.length === 0 ? (
-            <EmptyResults filtered={filtered} query={q} />
-          ) : (
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 lg:gap-x-6">
-              {products.map((product, index) => (
-                <li key={product.id}>
-                  <ProductCard
-                    product={product}
-                    srdRate={rate?.rateMicros}
-                    priority={index < 6}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+      <section aria-label="Producten" className="mt-5">
+        {products.length === 0 ? (
+          <EmptyResults filtered={filtered} query={q} />
+        ) : (
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {products.map((product, index) => (
+              <li key={product.id}>
+                <ProductCard
+                  product={product}
+                  srdRate={rate?.rateMicros}
+                  priority={index < 4}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }
 
 function EmptyResults({ filtered, query }: { filtered: boolean; query: string | undefined }) {
   return (
-    <div className="flex flex-col items-start gap-4 border-line border-y py-16">
+    <div className="flex flex-col items-start gap-4 rounded-tile bg-sunken p-8 sm:p-12">
       <PackageSearch aria-hidden="true" className="size-8 text-ink-3" />
       <div>
-        <h2 className="nx-display text-[28px]">
+        <h2 className="nx-display text-[24px]">
           {filtered ? 'Niets gevonden' : 'Nog geen producten'}
         </h2>
         <p className="mt-2 max-w-[48ch] text-[15px] text-ink-2">
@@ -154,7 +154,7 @@ function EmptyResults({ filtered, query }: { filtered: boolean; query: string | 
         </p>
       </div>
       {filtered ? (
-        <Link href={SHOP_PATH as never} className="nx-btn nx-btn-ink">
+        <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
           Filters wissen
         </Link>
       ) : null}
@@ -167,16 +167,15 @@ const SKELETON_CARDS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 function ShopSkeleton() {
   return (
     <div aria-hidden="true">
-      <Skeleton className="h-3 w-16" />
-      <Skeleton className="mt-4 h-14 w-2/3 max-w-md" />
-      <Skeleton className="mt-8 h-11 w-full" />
-      <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <Skeleton className="h-10 w-1/2 max-w-sm" />
+      <div className="mt-5 flex gap-2">
+        <Skeleton className="h-10 w-20 rounded-full" />
+        <Skeleton className="h-10 w-32 rounded-full" />
+        <Skeleton className="h-10 w-28 rounded-full" />
+      </div>
+      <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {SKELETON_CARDS.map((id) => (
-          <div key={id}>
-            <Skeleton className="aspect-square w-full rounded-tile" />
-            <Skeleton className="mt-3 h-3 w-1/3" />
-            <Skeleton className="mt-2 h-4 w-3/4" />
-          </div>
+          <Skeleton key={id} className="aspect-[3/4] rounded-tile" />
         ))}
       </div>
     </div>

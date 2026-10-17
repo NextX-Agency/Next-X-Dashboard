@@ -51,7 +51,7 @@ export function Topbar({
         </Dialog.Trigger>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 lg:hidden" />
-          <Dialog.Content className="fixed inset-y-0 left-0 z-50 nx-rail w-[248px] border-night-line border-r data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left duration-200 lg:hidden">
+          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[248px] border-line border-r bg-raised data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left duration-200 lg:hidden">
             <VisuallyHidden>
               <Dialog.Title>Navigation</Dialog.Title>
             </VisuallyHidden>

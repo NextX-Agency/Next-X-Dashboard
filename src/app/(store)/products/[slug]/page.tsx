@@ -9,6 +9,7 @@ import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { type CatalogProduct, getCatalogProduct } from '@/server/queries/catalog';
 import { getCurrentRate } from '@/server/queries/overview';
 import { getSettings } from '@/server/queries/reference';
+import { getRequestStorefront, getStorefrontAvailability } from '@/server/services/storefront';
 
 type Params = Promise<{ slug: string }>;
 
@@ -35,12 +36,32 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 // unknown slug answers a real HTTP 404 instead of a streamed 200 with a not-found body.
 export const instant = false;
 
+/** Stock per pickup location, summed over the product's variants. Empty when pickup is off. */
+async function pickupStock(storefrontId: string | undefined, product: CatalogProduct) {
+  if (!storefrontId) return [];
+  const perVariant = await Promise.all(
+    product.variants.map((variant) => getStorefrontAvailability(storefrontId, variant.id)),
+  );
+  const byLocation = new Map<string, { name: string; available: number }>();
+  for (const availability of perVariant) {
+    for (const location of availability.locations) {
+      const existing = byLocation.get(location.locationId);
+      byLocation.set(location.locationId, {
+        name: location.locationName,
+        available: (existing?.available ?? 0) + location.available,
+      });
+    }
+  }
+  return [...byLocation.values()];
+}
+
 export default async function ProductPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const [product, rate, settings] = await Promise.all([
+  const [product, rate, settings, storefront] = await Promise.all([
     getCatalogProduct(slug),
     getCurrentRate(),
     getSettings(),
+    getRequestStorefront(),
   ]);
 
   // The query already filters to published, active products: a slug that is
@@ -50,6 +71,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   if (slug !== product.slug)
     permanentRedirect(storefrontProductPath(null, product.slug) as never);
 
+  const locations = storefront?.allowPickup ? await pickupStock(storefront.id, product) : [];
   const srdRate = rate?.rateMicros;
   const whatsapp = settings?.whatsapp ?? null;
   const paragraphs = product.description
@@ -60,7 +82,12 @@ export default async function ProductPage({ params }: { params: Params }) {
     : [];
   const specs = Object.entries(product.specs);
   const blurb = cardSummary(product.summary, product.name);
-  const context = [product.brandName, product.categoryName].filter(Boolean).join(' · ');
+  const showBrand =
+    product.brandName &&
+    !product.name.toLowerCase().startsWith(product.brandName.toLowerCase());
+  const context = [showBrand ? product.brandName : null, product.categoryName]
+    .filter(Boolean)
+    .join(' · ');
   const offers = product.variants
     .filter((variant) => variant.listPriceCents > 0)
     .map((variant) => ({
@@ -94,7 +121,7 @@ export default async function ProductPage({ params }: { params: Params }) {
     Boolean(product.nextlyTake);
 
   return (
-    <article className="mx-auto w-full max-w-[1320px] px-4 pt-6 pb-20 lg:px-8 lg:pt-8 lg:pb-28">
+    <article className="mx-auto w-full max-w-[1320px] px-4 pt-4 pb-28 sm:pb-20 lg:px-8 lg:pt-8 lg:pb-24">
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD must be emitted as a script element; the serialised value escapes '<' above.
@@ -103,7 +130,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
       <nav
         aria-label="Kruimelpad"
-        className="mb-6 flex flex-wrap items-center gap-2 text-[13px] text-ink-3"
+        className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-ink-3"
       >
         <Link href={SHOP_PATH as never} className="hover:text-ink hover:underline">
           Winkel
@@ -123,27 +150,19 @@ export default async function ProductPage({ params }: { params: Params }) {
             )}
           </>
         ) : null}
-        <span aria-hidden="true">/</span>
-        <span aria-current="page" className="text-ink">
-          {product.name}
-        </span>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <ProductGallery images={product.images} name={product.name} />
-        </div>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
+        <ProductGallery images={product.images} name={product.name} />
 
-        <div className="min-w-0">
-          {context ? <p className="nx-label text-ink-3">{context}</p> : null}
-          <h1 className="nx-display mt-3 text-[clamp(34px,4.6vw,60px)] text-ink">
-            {product.name}
-          </h1>
+        <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          {context ? <p className="font-semibold text-[14px] text-ink-3">{context}</p> : null}
+          <h1 className="nx-display mt-1 text-[clamp(28px,3.6vw,42px)]">{product.name}</h1>
           {blurb ? (
-            <p className="mt-4 max-w-[52ch] text-[16px] text-ink-2 leading-relaxed">{blurb}</p>
+            <p className="mt-3 max-w-[52ch] text-[15px] text-ink-2 leading-relaxed">{blurb}</p>
           ) : null}
 
-          <div className="mt-8 border-line border-t pt-8">
+          <div className="mt-6">
             <ProductOrderPanel
               productId={product.id}
               productSlug={product.slug}
@@ -155,12 +174,43 @@ export default async function ProductPage({ params }: { params: Params }) {
             />
           </div>
 
-          <GettingOrder settings={settings} warrantyMonths={product.warrantyMonths} />
+          {locations.length ? (
+            <section className="mt-6 rounded-tile border border-line p-4 sm:p-5">
+              <h2 className="font-bold text-[14px]">Ophalen: voorraad per locatie</h2>
+              <ul className="mt-3 space-y-3">
+                {locations.map((location) => (
+                  <li
+                    key={location.name}
+                    className="flex items-center justify-between gap-4 text-[14px]"
+                  >
+                    <span className="font-semibold">{location.name}</span>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 font-semibold text-[12px] ${
+                        location.available > 0
+                          ? 'bg-positive-muted text-positive'
+                          : 'bg-sunken text-ink-3'
+                      }`}
+                    >
+                      {location.available > 0
+                        ? `${location.available} beschikbaar`
+                        : 'Geen voorraad'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <GettingOrder
+            settings={settings}
+            warrantyMonths={product.warrantyMonths}
+            hasLocations={locations.length > 0}
+          />
 
           {/* The alternative channel for visitors who would rather type an enquiry than open
               WhatsApp. It files a quote request against this product; owners answer from /quotes. */}
-          <details className="group mt-6 border-line border-t py-4">
-            <summary className="cursor-pointer list-none text-[14px] font-medium text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
+          <details className="group mt-4 border-line border-t py-4">
+            <summary className="cursor-pointer list-none font-semibold text-[14px] text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
               Of vraag een offerte aan per e-mail
             </summary>
             <div className="mt-4">
@@ -171,17 +221,17 @@ export default async function ProductPage({ params }: { params: Params }) {
       </div>
 
       {hasDetails || specs.length > 0 ? (
-        <div className="mt-16 grid gap-12 border-line border-t pt-12 lg:mt-24 lg:grid-cols-12 lg:gap-16">
+        <div className="mt-12 grid gap-10 border-line border-t pt-10 lg:mt-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
           {hasDetails ? (
-            <div className="space-y-10 lg:col-span-7">
+            <div className="space-y-8">
               {paragraphs.length > 0 ? (
                 <section>
-                  <Heading>Over dit product</Heading>
+                  <Heading>Beschrijving</Heading>
                   <div className="mt-4 max-w-[62ch] space-y-4">
                     {paragraphs.map((paragraph) => (
                       <p
                         key={paragraph.slice(0, 48)}
-                        className="text-[16px] text-ink-2 leading-relaxed"
+                        className="text-[16px] text-ink-2 leading-[1.7]"
                       >
                         {paragraph}
                       </p>
@@ -193,7 +243,7 @@ export default async function ProductPage({ params }: { params: Params }) {
                 <ListSection title="Belangrijkste kenmerken" values={product.keyFeatures} />
               ) : null}
               {product.nextlyTake ? (
-                <section className="border-store-bright border-l-2 pl-5">
+                <section>
                   <Heading>Onze mening</Heading>
                   <p className="mt-3 max-w-[60ch] text-[15px] text-ink-2 leading-relaxed">
                     {product.nextlyTake}
@@ -206,7 +256,7 @@ export default async function ProductPage({ params }: { params: Params }) {
             </div>
           ) : null}
 
-          <div className={`space-y-10 ${hasDetails ? 'lg:col-span-5' : 'lg:col-span-8'}`}>
+          <div className={`space-y-8 ${hasDetails ? '' : 'lg:col-span-2 lg:max-w-2xl'}`}>
             {specs.length > 0 ? (
               <section>
                 <Heading>Specificaties</Heading>
@@ -217,7 +267,7 @@ export default async function ProductPage({ params }: { params: Params }) {
                       className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-4 py-3"
                     >
                       <dt className="text-[14px] text-ink-3">{name}</dt>
-                      <dd className="text-[14px] font-medium text-ink">{value}</dd>
+                      <dd className="font-semibold text-[14px] text-ink">{value}</dd>
                     </div>
                   ))}
                 </dl>
@@ -230,12 +280,12 @@ export default async function ProductPage({ params }: { params: Params }) {
       ) : null}
 
       {product.faqItems.length ? (
-        <section className="mt-16 max-w-3xl">
+        <section className="mt-12 max-w-3xl">
           <Heading>Veelgestelde vragen</Heading>
-          <dl className="mt-4 divide-y divide-line border-line border-y">
+          <div className="mt-4 divide-y divide-line border-line border-y">
             {product.faqItems.map((item) => (
               <details key={item.question} className="group py-4">
-                <summary className="cursor-pointer list-none text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                <summary className="cursor-pointer list-none font-bold text-[15px] text-ink [&::-webkit-details-marker]:hidden">
                   {item.question}
                 </summary>
                 <p className="mt-2 max-w-[62ch] text-[15px] text-ink-2 leading-relaxed">
@@ -243,7 +293,7 @@ export default async function ProductPage({ params }: { params: Params }) {
                 </p>
               </details>
             ))}
-          </dl>
+          </div>
         </section>
       ) : null}
 
@@ -253,7 +303,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 }
 
 function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="nx-display text-[clamp(22px,2.4vw,30px)] text-ink">{children}</h2>;
+  return <h2 className="nx-display text-[22px]">{children}</h2>;
 }
 
 function Compatibility({ product }: { product: CatalogProduct }) {
@@ -275,10 +325,13 @@ function Chips({ label, values }: { label: string; values: string[] }) {
   if (!values.length) return null;
   return (
     <div>
-      <p className="nx-label text-ink-3">{label}</p>
+      <p className="font-semibold text-[13px] text-ink-3">{label}</p>
       <ul className="mt-2 flex flex-wrap gap-2">
         {values.map((value) => (
-          <li key={value} className="border border-line px-2.5 py-1 text-[13px] text-ink">
+          <li
+            key={value}
+            className="rounded-full border border-line-strong px-3 py-1 text-[13px] text-ink"
+          >
             {value}
           </li>
         ))}
@@ -294,7 +347,10 @@ function ListSection({ title, values }: { title: string; values: string[] }) {
       <ul className="mt-4 divide-y divide-line border-line border-y">
         {values.map((value) => (
           <li key={value} className="flex gap-3 py-3 text-[15px] text-ink-2">
-            <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 bg-store-bright" />
+            <span
+              aria-hidden="true"
+              className="mt-2 size-1.5 shrink-0 rounded-full bg-store-bright"
+            />
             {value}
           </li>
         ))}
@@ -315,13 +371,15 @@ function sentences(parts: (string | null | undefined)[]): string {
 function GettingOrder({
   settings,
   warrantyMonths,
+  hasLocations,
 }: {
   settings: Awaited<ReturnType<typeof getSettings>>;
   warrantyMonths: number;
+  hasLocations: boolean;
 }) {
   const methods = settings?.paymentMethods ?? [];
   const rows: { label: string; body: string }[] = [];
-  if (settings?.pickupEnabled) {
+  if (settings?.pickupEnabled && !hasLocations) {
     rows.push({
       label: 'Ophalen',
       body: sentences([
@@ -361,10 +419,10 @@ function GettingOrder({
   const visible = rows.filter((row) => row.body);
   if (!visible.length) return null;
   return (
-    <dl className="mt-8 divide-y divide-line border-line border-y">
+    <dl className="mt-5 divide-y divide-line border-line border-y">
       {visible.map((row) => (
-        <div key={row.label} className="grid grid-cols-[92px_1fr] gap-4 py-3.5">
-          <dt className="nx-label pt-0.5 text-ink-3">{row.label}</dt>
+        <div key={row.label} className="grid grid-cols-[88px_1fr] gap-4 py-3.5">
+          <dt className="font-semibold text-[13px] text-ink-3">{row.label}</dt>
           <dd className="text-[14px] text-ink-2 leading-relaxed">{row.body}</dd>
         </div>
       ))}
@@ -405,7 +463,7 @@ function Requirements({ values }: { values: Record<string, unknown> }) {
         {entries.map(([key, value]) => (
           <div key={key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-4 py-3">
             <dt className="text-[14px] text-ink-3">{labels[key]}</dt>
-            <dd className="text-[14px] font-medium text-ink">
+            <dd className="font-semibold text-[14px] text-ink">
               {Array.isArray(value)
                 ? value.join(', ')
                 : typeof value === 'boolean'
@@ -441,12 +499,12 @@ function RelatedProducts({ items }: { items: CatalogProduct['related'] }) {
   }, {});
 
   return (
-    <section className="mt-16 border-line border-t pt-10">
+    <section className="mt-12 border-line border-t pt-10">
       <Heading>Gerelateerde producten</Heading>
       <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(groups).map(([type, group]) => (
           <div key={type}>
-            <h3 className="nx-label text-ink-3">
+            <h3 className="font-semibold text-[13px] text-ink-3">
               {RELATIONSHIP_LABELS[type] ?? 'Gerelateerde producten'}
             </h3>
             <ul className="mt-3 divide-y divide-line border-line border-y">
@@ -456,7 +514,7 @@ function RelatedProducts({ items }: { items: CatalogProduct['related'] }) {
                     href={storefrontProductPath(null, item.slug) as never}
                     className="block py-3 hover:text-accent"
                   >
-                    <span className="text-[15px] font-semibold">{item.name}</span>
+                    <span className="font-bold text-[15px]">{item.name}</span>
                     {item.summary ? (
                       <span className="mt-0.5 block text-[13px] text-ink-3">
                         {item.summary}

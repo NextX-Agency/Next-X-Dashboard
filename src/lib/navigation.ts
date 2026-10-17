@@ -1,13 +1,16 @@
 import {
   Boxes,
   CalendarClock,
+  ClipboardList,
   Coins,
   FileText,
+  Home,
   LayoutDashboard,
   List,
   type LucideIcon,
   MessageSquareText,
   Package,
+  Plus,
   Receipt,
   Settings,
   ShoppingCart,
@@ -28,18 +31,27 @@ export type NavItem = {
   keywords?: string[];
 };
 
-export type NavGroup = { label: string; items: NavItem[] };
+export type NavGroup = {
+  /** Stable key, used for the open/closed state in the sidebar. */
+  id: string;
+  label: string;
+  Icon: LucideIcon;
+  items: NavItem[];
+};
 
 /**
- * Navigation, grouped by the shape of the work rather than by table.
+ * Navigation, grouped by the job being done: sell it, list it, stock it, buy it, account for it.
  *
- * The order follows the operating cycle: see where you stand, decide what to
- * stock, buy it, sell it, then account for it. Someone learning the business
- * can read the sidebar top to bottom and understand how it runs.
+ * Eight groups hold every page of the app. The sidebar shows the group names and opens the group you
+ * are in, so a screen never carries all 28 links at once; the command palette still reaches every
+ * page by name or intent. Nothing was removed when the 27 flat entries were regrouped, and **Sales**
+ * (the register and its history) is now listed: before, it was reachable only through buttons.
  */
 export const NAVIGATION: NavGroup[] = [
   {
-    label: 'Overview',
+    id: 'home',
+    label: 'Home',
+    Icon: Home,
     items: [
       {
         href: '/dashboard',
@@ -50,55 +62,21 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    label: 'Catalog',
+    id: 'sell',
+    label: 'Sell',
+    Icon: Plus,
     items: [
       {
-        href: '/items',
-        label: 'Products',
-        Icon: Package,
-        keywords: ['sku', 'variant', 'item', 'price', 'images'],
-      },
-      {
-        href: '/bundles' as Route,
-        label: 'Bundles',
-        Icon: Package,
-        keywords: ['kits', 'packages', 'components', 'margin'],
-      },
-      { href: '/categories', label: 'Categories', Icon: Tags },
-      {
-        href: '/suppliers',
-        label: 'Suppliers',
-        Icon: Truck,
-        keywords: ['amazon', 'aliexpress'],
-      },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      {
-        href: '/purchase-orders',
-        label: 'Purchase orders',
-        Icon: ShoppingCart,
-        keywords: ['po', 'buying', 'receive', 'landed cost', 'freight', 'shipping'],
-      },
-      {
-        href: '/reorder' as Route,
-        label: 'Reorder advice',
-        Icon: ShoppingCart,
-        keywords: ['forecast', 'recommendations', 'budget', 'restock'],
-      },
-      {
-        href: '/inventory',
-        label: 'Inventory',
-        Icon: Boxes,
-        keywords: ['stock', 'on hand', 'movements', 'low stock', 'valuation'],
+        href: '/sales' as Route,
+        label: 'Sales',
+        Icon: Receipt,
+        keywords: ['register', 'record a sale', 'pos', 'walk-in', 'receipts', 'revenue'],
       },
       {
         href: '/orders' as Route,
         label: 'Orders',
-        Icon: Receipt,
-        keywords: ['sales', 'revenue', 'invoice', 'margin', 'fulfillment'],
+        Icon: ClipboardList,
+        keywords: ['customer orders', 'reservations', 'invoice', 'margin', 'fulfillment'],
       },
       { href: '/customers', label: 'Customers', Icon: Users, keywords: ['clients', 'buyers'] },
       {
@@ -110,20 +88,23 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    label: 'Storefront',
+    id: 'products',
+    label: 'Products',
+    Icon: Package,
     items: [
       {
-        href: '/storefront' as Route,
-        label: 'Storefront',
-        Icon: Store,
-        keywords: ['catalog', 'restock', 'public site'],
+        href: '/items',
+        label: 'Products',
+        Icon: Package,
+        keywords: ['sku', 'variant', 'item', 'price', 'images', 'catalog'],
       },
       {
-        href: '/storefronts' as Route,
-        label: 'Storefronts',
-        Icon: Store,
-        keywords: ['channels', 'domains', 'sales channels', 'multi-store'],
+        href: '/bundles' as Route,
+        label: 'Bundles',
+        Icon: Package,
+        keywords: ['kits', 'packages', 'components', 'margin'],
       },
+      { href: '/categories', label: 'Categories', Icon: Tags },
       {
         href: '/price-lists' as Route,
         label: 'Price lists',
@@ -133,7 +114,47 @@ export const NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    label: 'Finance',
+    id: 'stock',
+    label: 'Stock',
+    Icon: Boxes,
+    items: [
+      {
+        href: '/inventory',
+        label: 'Inventory',
+        Icon: Boxes,
+        keywords: ['stock', 'on hand', 'movements', 'low stock', 'valuation', 'adjust'],
+      },
+      {
+        href: '/reorder' as Route,
+        label: 'Reorder advice',
+        Icon: ShoppingCart,
+        keywords: ['forecast', 'recommendations', 'budget', 'restock'],
+      },
+    ],
+  },
+  {
+    id: 'buy',
+    label: 'Buy',
+    Icon: Truck,
+    items: [
+      {
+        href: '/suppliers',
+        label: 'Suppliers',
+        Icon: Truck,
+        keywords: ['amazon', 'aliexpress'],
+      },
+      {
+        href: '/purchase-orders',
+        label: 'Purchase orders',
+        Icon: ShoppingCart,
+        keywords: ['po', 'buying', 'receive', 'landed cost', 'freight', 'shipping'],
+      },
+    ],
+  },
+  {
+    id: 'money',
+    label: 'Money',
+    Icon: Wallet,
     items: [
       {
         href: '/finance' as Route,
@@ -166,6 +187,24 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ['accounts payable', 'accounts receivable', 'bills', 'settlements'],
       },
       {
+        href: '/expenses',
+        label: 'Expenses',
+        Icon: Coins,
+        keywords: ['costs', 'marketing', 'tools', 'overheads'],
+      },
+      {
+        href: '/expenses/recurring' as Route,
+        label: 'Recurring expenses',
+        Icon: CalendarClock,
+        keywords: ['subscriptions', 'scheduled costs', 'monthly expenses'],
+      },
+      {
+        href: '/commissions' as Route,
+        label: 'Commissions',
+        Icon: Coins,
+        keywords: ['sellers', 'commission rates', 'payouts', 'sales staff'],
+      },
+      {
         href: '/exchange-rates' as Route,
         label: 'Exchange rates',
         Icon: Coins,
@@ -177,23 +216,18 @@ export const NAVIGATION: NavGroup[] = [
         Icon: FileText,
         keywords: ['statement', 'matching', 'bank'],
       },
+    ],
+  },
+  {
+    id: 'insight',
+    label: 'Reports',
+    Icon: FileText,
+    items: [
       {
-        href: '/expenses',
-        label: 'Expenses',
-        Icon: Coins,
-        keywords: ['costs', 'marketing', 'tools', 'overheads'],
-      },
-      {
-        href: '/commissions' as Route,
-        label: 'Commissions',
-        Icon: Coins,
-        keywords: ['sellers', 'commission rates', 'payouts', 'sales staff'],
-      },
-      {
-        href: '/expenses/recurring' as Route,
-        label: 'Recurring expenses',
-        Icon: CalendarClock,
-        keywords: ['subscriptions', 'scheduled costs', 'monthly expenses'],
+        href: '/reports',
+        label: 'Reports',
+        Icon: FileText,
+        keywords: ['profit and loss', 'p&l', 'margin by product', 'fx exposure'],
       },
       {
         href: '/owners',
@@ -201,17 +235,25 @@ export const NAVIGATION: NavGroup[] = [
         Icon: Users,
         keywords: ['equity', 'capital', 'contribution', 'split', 'leonardo', 'youri'],
       },
-      {
-        href: '/reports',
-        label: 'Reports',
-        Icon: FileText,
-        keywords: ['profit and loss', 'p&l', 'margin by product', 'fx exposure'],
-      },
     ],
   },
   {
-    label: 'System',
+    id: 'shop',
+    label: 'Shop & settings',
+    Icon: Store,
     items: [
+      {
+        href: '/storefront' as Route,
+        label: 'Storefront',
+        Icon: Store,
+        keywords: ['catalog', 'restock', 'public site'],
+      },
+      {
+        href: '/storefronts' as Route,
+        label: 'Storefronts',
+        Icon: Store,
+        keywords: ['channels', 'domains', 'sales channels', 'multi-store'],
+      },
       {
         href: '/settings',
         label: 'Settings',
@@ -224,9 +266,24 @@ export const NAVIGATION: NavGroup[] = [
 
 export const ALL_NAV_ITEMS: NavItem[] = NAVIGATION.flatMap((group) => group.items);
 
-/** Longest-prefix match, so /products/abc keeps Products lit without /
- *  matching everything. */
+/** Longest-prefix match, so /items/abc keeps Products lit without / matching everything. */
 export function isActivePath(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/';
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * The single most specific item for a path. `/expenses/recurring` also starts with `/expenses`, and
+ * both are nav items; only the longer one should be marked current.
+ */
+export function activeNavItem(pathname: string): NavItem | undefined {
+  return ALL_NAV_ITEMS.filter((item) => isActivePath(pathname, item.href)).sort(
+    (a, b) => b.href.length - a.href.length,
+  )[0];
+}
+
+/** The group a path belongs to, so the sidebar can open it. */
+export function activeNavGroup(pathname: string): NavGroup | undefined {
+  const item = activeNavItem(pathname);
+  return item ? NAVIGATION.find((group) => group.items.includes(item)) : undefined;
 }

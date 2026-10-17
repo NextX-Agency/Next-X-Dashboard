@@ -11,7 +11,7 @@ export default function BlogPostNotFound() {
       <p className="mt-3 text-[14px] leading-relaxed text-ink-3">
         Dit artikel is niet beschikbaar. Bekijk het NextX-journal voor gepubliceerde artikelen.
       </p>
-      <Link href={'/blog' as Route} className="nx-btn nx-btn-ink mt-5">
+      <Link href={'/blog' as Route} className="nx-btn nx-btn-primary mt-5">
         Terug naar het journal
       </Link>
     </section>

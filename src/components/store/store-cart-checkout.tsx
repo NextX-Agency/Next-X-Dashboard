@@ -55,7 +55,8 @@ function formatPickupDate(value: string) {
 /** A single-variant product carries the placeholder variant name "Default"; never show it. */
 function variantLabel(name: string): string | null {
   const trimmed = name.trim();
-  return trimmed && trimmed.toLowerCase() !== 'default' ? trimmed : null;
+  // "Standaard" / "Default" says nothing to a customer; the SKU beside it is enough.
+  return trimmed && !/^(default|standaard|standard|std)$/i.test(trimmed) ? trimmed : null;
 }
 
 function fieldClassName() {
@@ -254,7 +255,7 @@ export function StoreCartCheckout({
                 Voeg producten toe om een bestelling voor te bereiden via WhatsApp.
               </p>
             </div>
-            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-orange">
+            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
               Bekijk producten
             </Link>
           </div>
@@ -488,7 +489,7 @@ export function StoreCartCheckout({
                     type="button"
                     aria-pressed={pickupDate === value}
                     onClick={() => setPickupDate(value)}
-                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-ink text-base' : 'text-ink-2 hover:text-ink'}`}
+                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-ink text-on-ink' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Kies datum'
@@ -532,7 +533,7 @@ export function StoreCartCheckout({
                 href={orderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="nx-btn nx-btn-orange h-12 w-full text-[15px]"
+                className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
               >
                 <MessageCircle />
                 Verstuur bestelling via WhatsApp

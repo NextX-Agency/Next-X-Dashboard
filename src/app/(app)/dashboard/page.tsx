@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -13,6 +12,7 @@ import { MarginWaterfall } from '@/components/overview/margin-waterfall';
 import { MoneyOwed } from '@/components/overview/money-owed';
 import { OwnerEquity } from '@/components/overview/owner-equity';
 import { PositionStrip, PositionStripSkeleton } from '@/components/overview/position-strip';
+import { QuickActions } from '@/components/overview/quick-actions';
 import { RecentActivity } from '@/components/overview/recent-activity';
 import { SetupChecklist } from '@/components/overview/setup-checklist';
 import { PageHeader } from '@/components/patterns/page-header';
@@ -61,59 +61,66 @@ export default function OverviewPage({ searchParams }: { searchParams: SearchPar
           </Suspense>
         }
         action={
-          <>
-            <Button asChild variant="secondary">
-              <Link href="/purchase-orders/new">New order</Link>
-            </Button>
-            <Button asChild variant="primary">
-              <Link href="/sales/new">
-                <Plus className="size-4" /> Record sale
-              </Link>
-            </Button>
-          </>
+          <Button asChild variant="secondary">
+            <Link href="/purchase-orders/new">New purchase order</Link>
+          </Button>
         }
       />
 
       <div className="space-y-4">
+        <QuickActions />
+
         <Suspense fallback={null}>
           <SetupSection />
         </Suspense>
+
+        <Surface>
+          <SurfaceHeader
+            title="Needs attention"
+            hint="Inconsistencies the books can detect on their own"
+          />
+          <Suspense fallback={<PanelSkeleton rows={3} />}>
+            <AlertsPanel />
+          </Suspense>
+        </Surface>
 
         <Suspense fallback={<PositionStripSkeleton />}>
           <PositionStrip />
         </Suspense>
 
-        <Surface>
-          <SurfaceHeader
-            title="Import pipeline"
-            hint="Amazon, AliExpress and other supplier commitments"
-            action={
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/purchase-orders">Purchase orders</Link>
-              </Button>
-            }
-          />
-          <Suspense fallback={<Skeleton className="m-4 h-16" />}>
-            <ImportPipelineBlock />
-          </Suspense>
-        </Surface>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Surface>
+            <SurfaceHeader
+              title="Money owed"
+              hint="Credit sales waiting to be settled"
+              action={
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/sales?status=confirmed">All sales</Link>
+                </Button>
+              }
+            />
+            <Suspense fallback={<PanelSkeleton rows={3} />}>
+              <MoneyOwed />
+            </Suspense>
+          </Surface>
 
-        <Surface>
-          <SurfaceHeader
-            title="Inventory decisions"
-            hint="Weekly purchasing intelligence, ready for review"
-            action={
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/reorder">Review queue</Link>
-              </Button>
-            }
-          />
-          <Suspense fallback={<PanelSkeleton rows={4} />}>
-            <InventoryDecisions />
-          </Suspense>
-        </Surface>
+          <Surface>
+            <SurfaceHeader
+              title="Stock position"
+              hint="Sold, on hand and inbound"
+              action={
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/inventory">All stock</Link>
+                </Button>
+              }
+            />
+            <Suspense fallback={<PanelSkeleton rows={3} />}>
+              <InventoryHealth />
+            </Suspense>
+          </Surface>
+        </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Surface>
             <SurfaceHeader
               title="Cash flow"
@@ -140,49 +147,39 @@ export default function OverviewPage({ searchParams }: { searchParams: SearchPar
           </Surface>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">
           <Surface>
             <SurfaceHeader
-              title="Money owed"
-              hint="Credit sales waiting to be settled"
+              title="Import pipeline"
+              hint="Amazon, AliExpress and other supplier commitments"
               action={
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/sales?status=confirmed">All sales</Link>
+                  <Link href="/purchase-orders">Purchase orders</Link>
                 </Button>
               }
             />
-            <Suspense fallback={<PanelSkeleton rows={3} />}>
-              <MoneyOwed />
+            <Suspense fallback={<Skeleton className="m-4 h-16" />}>
+              <ImportPipelineBlock />
             </Suspense>
           </Surface>
 
           <Surface>
             <SurfaceHeader
-              title="Needs attention"
-              hint="Inconsistencies the books can detect on their own"
-            />
-            <Suspense fallback={<PanelSkeleton rows={3} />}>
-              <AlertsPanel />
-            </Suspense>
-          </Surface>
-
-          <Surface>
-            <SurfaceHeader
-              title="Stock position"
-              hint="Sold, on hand and inbound"
+              title="Inventory decisions"
+              hint="Weekly purchasing intelligence, ready for review"
               action={
                 <Button asChild variant="ghost" size="sm">
-                  <Link href="/inventory">All stock</Link>
+                  <Link href="/reorder">Review queue</Link>
                 </Button>
               }
             />
-            <Suspense fallback={<PanelSkeleton rows={3} />}>
-              <InventoryHealth />
+            <Suspense fallback={<PanelSkeleton rows={4} />}>
+              <InventoryDecisions />
             </Suspense>
           </Surface>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-3">
           <Surface>
             <SurfaceHeader
               title="Owner equity"

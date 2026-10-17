@@ -1,18 +1,19 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 import { cn } from '@/lib/cn';
-import { isActivePath, NAVIGATION } from '@/lib/navigation';
+import { activeNavGroup, activeNavItem, NAVIGATION } from '@/lib/navigation';
 import { Wordmark } from './wordmark';
 
 /**
- * Primary navigation.
+ * Primary navigation: eight groups, with the group you are in held open.
  *
- * The active item is marked with a 2px accent rule against the sidebar's left
- * edge rather than a filled pill. A filled pill of brand colour on every
- * screen is the single most recognisable tell of a template; a rule reads as
- * an instrument's position indicator and keeps the chrome monochrome.
+ * The earlier flat list showed 27 links at once, all at the same volume. Here a screen shows the group
+ * names and one open group, so the page you need is a glance away. A group you open by hand stays open
+ * until you close it. The current page is a solid pill, the only filled element in the rail.
  */
 export function Sidebar({
   className,
@@ -25,10 +26,14 @@ export function Sidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const currentGroup = activeNavGroup(pathname)?.id;
+  const currentItem = activeNavItem(pathname);
+  // Groups the user has toggled by hand; anything absent follows the current page.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
 
   return (
     <nav
-      className={cn('nx-rail flex h-full flex-col gap-6 overflow-y-auto px-3 py-4', className)}
+      className={cn('flex h-full flex-col gap-4 overflow-y-auto px-3 py-4', className)}
       aria-label="Primary"
     >
       <div className="px-2">
@@ -36,49 +41,93 @@ export function Sidebar({
           href="/dashboard"
           className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <Wordmark tone="night" />
+          <Wordmark />
         </Link>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5">
-        {NAVIGATION.map((group) => (
-          <div key={group.label}>
-            <p className="nx-label px-2 pb-1.5 text-[10px] text-ink-4">{group.label}</p>
-            <ul className="flex flex-col gap-px">
-              {group.items.map(({ href, label, Icon }) => {
-                const active = isActivePath(pathname, href);
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      onClick={onNavigate}
-                      aria-current={active ? 'page' : undefined}
-                      className={cn(
-                        'relative flex h-8 items-center gap-2.5 rounded-control pr-2 pl-3 text-[13px]',
-                        'transition-colors duration-150 ease-out-instrument',
-                        'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-                        active
-                          ? 'bg-hover font-medium text-ink'
-                          : 'text-ink-3 hover:bg-hover/60 hover:text-ink-2',
-                      )}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full transition-colors',
-                          active ? 'bg-accent' : 'bg-transparent',
-                        )}
-                      />
-                      <Icon className={cn('size-4 shrink-0', active ? 'text-accent' : '')} />
-                      <span className="truncate">{label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
+      <ul className="flex flex-col gap-0.5">
+        {NAVIGATION.map((group) => {
+          const single = group.items.length === 1;
+          const open = toggled[group.id] ?? group.id === currentGroup;
+          const GroupIcon = group.Icon;
+
+          if (single) {
+            const item = group.items[0];
+            if (!item) return null;
+            const active = item === currentItem;
+            return (
+              <li key={group.id}>
+                <Link
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex h-9 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px]',
+                    'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+                    active ? 'bg-ink text-on-ink' : 'text-ink hover:bg-hover',
+                  )}
+                >
+                  <GroupIcon aria-hidden="true" className="size-4 shrink-0" />
+                  {group.label}
+                </Link>
+              </li>
+            );
+          }
+
+          return (
+            <li key={group.id}>
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={`nav-${group.id}`}
+                onClick={() => setToggled((state) => ({ ...state, [group.id]: !open }))}
+                className={cn(
+                  'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] text-ink',
+                  'hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+                )}
+              >
+                <GroupIcon aria-hidden="true" className="size-4 shrink-0" />
+                <span className="flex-1 truncate text-left">{group.label}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    'size-3.5 text-ink-3 transition-transform',
+                    open && 'rotate-180',
+                  )}
+                />
+              </button>
+              {open ? (
+                <ul
+                  id={`nav-${group.id}`}
+                  className="mt-0.5 mb-1.5 ml-[18px] flex flex-col gap-px border-line-subtle border-l pl-2"
+                >
+                  {group.items.map((item) => {
+                    const active = item === currentItem;
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={onNavigate}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'flex h-8 items-center rounded-control px-2.5 text-[13px]',
+                            'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+                            active
+                              ? 'bg-ink font-semibold text-on-ink'
+                              : 'text-ink-2 hover:bg-hover hover:text-ink',
+                          )}
+                        >
+                          <span className="truncate">{item.label}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

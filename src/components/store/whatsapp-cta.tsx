@@ -21,7 +21,7 @@ export function WhatsAppCta({
   number: string | null | undefined;
   message: string;
   label?: string;
-  tone?: 'line' | 'orange' | 'night';
+  tone?: 'line' | 'primary';
   className?: string;
 }) {
   const href = whatsappLink(number, message);
@@ -35,8 +35,7 @@ export function WhatsAppCta({
       aria-label={`${label} (opent WhatsApp)`}
       className={cn(
         'nx-btn',
-        tone === 'orange' && 'nx-btn-orange',
-        tone === 'night' && 'nx-btn-line-night',
+        tone === 'primary' && 'nx-btn-primary',
         tone === 'line' && 'nx-btn-line',
         className,
       )}

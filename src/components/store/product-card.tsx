@@ -1,17 +1,17 @@
-import { ArrowUpRight, Package } from 'lucide-react';
+import { Package } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import type { RateMicros } from '@/lib/fx';
 import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
+import { StockPill } from './stock-pill';
 import { StorePrice } from './store-price';
 
 /**
- * One product in a grid. The product is the card: a quiet warm field, the
- * photograph, then a caption (brand and category, name, price, stock). The
- * whole tile is one link; there is no second button to compete with it.
- * Purchase happens on the product page, where variants live.
+ * One product in a grid. A white card: the photograph on a soft field, brand and name, the price as
+ * the largest thing, a plain-language stock pill, and one clearly labelled action. The whole card is a
+ * single link, so the action is the same destination as the photo and the name.
  */
 export function ProductCard({
   product,
@@ -26,25 +26,25 @@ export function ProductCard({
   const inStock = product.onHand > 0;
   const hasRange = product.maxPriceCents > product.minPriceCents;
   const isNew = product.newUntil ? Date.parse(product.newUntil) >= Date.now() : false;
-  const aspect = product.image ? product.image.width / Math.max(1, product.image.height) : 1;
-  // Near-square photography fills the field; unusual shapes are never cropped.
-  const fill = aspect > 0.7 && aspect < 1.4;
-  const context = [product.brandName, product.categoryName].filter(Boolean).join(' · ');
+  // A brand label that repeats the start of the name ("KZ" + "KZ AS16 Pro X") is noise.
+  const showBrand =
+    product.brandName &&
+    !product.name.toLowerCase().startsWith(product.brandName.toLowerCase());
+  const href = storefrontProductPath(null, product.slug);
 
   return (
-    <article className="group relative flex flex-col">
-      <div className="relative aspect-square overflow-hidden rounded-tile bg-sunken">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised transition-shadow duration-200 hover:shadow-overlay">
+      <div className="relative aspect-square bg-sunken">
         {product.image ? (
           <Image
             src={product.image.url}
             alt={product.image.alt ?? product.name}
             fill
             priority={priority}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw"
             className={cn(
-              'mix-blend-multiply transition-transform duration-500 ease-out-instrument group-hover:scale-[1.035]',
-              fill ? 'object-cover' : 'object-contain p-6',
-              !inStock && 'opacity-55',
+              'object-contain p-[8%] mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.04]',
+              !inStock && 'opacity-45',
             )}
             {...(product.image.blurDataUrl
               ? { placeholder: 'blur' as const, blurDataURL: product.image.blurDataUrl }
@@ -56,53 +56,43 @@ export function ProductCard({
           </div>
         )}
         {isNew && inStock ? (
-          <span className="nx-label absolute top-3 left-3 bg-store-bright px-1.5 py-1 text-[10px] text-[#0f0e0d]">
+          <span className="absolute top-3 left-3 rounded-full bg-night px-2.5 py-1 font-semibold text-[11px] text-night-ink">
             Nieuw
           </span>
         ) : null}
-        {!inStock ? (
-          <span className="nx-label absolute top-3 left-3 bg-night px-1.5 py-1 text-[10px] text-night-ink">
-            {product.incoming > 0 ? 'Onderweg' : 'Uitverkocht'}
-          </span>
-        ) : null}
-        <span
-          aria-hidden="true"
-          className="absolute right-3 bottom-3 grid size-9 translate-y-1 place-items-center bg-night text-night-ink opacity-0 transition-all duration-200 ease-out-instrument group-focus-within:translate-y-0 group-focus-within:opacity-100 group-hover:translate-y-0 group-hover:opacity-100"
-        >
-          <ArrowUpRight className="size-4" />
-        </span>
       </div>
 
-      <div className="flex flex-1 flex-col pt-3.5">
-        {context ? <p className="nx-label truncate text-[10px] text-ink-3">{context}</p> : null}
-        {/* Stretched link: the name is the accessible name; ::after extends the hit area to the tile. */}
+      <div className="flex flex-1 flex-col gap-1 p-3.5 sm:p-4">
+        {showBrand ? (
+          <p className="font-medium text-[12px] text-ink-3">{product.brandName}</p>
+        ) : null}
+        {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
         <Link
-          href={storefrontProductPath(null, product.slug) as never}
-          className="mt-1.5 text-[15px] font-semibold leading-snug tracking-[-0.01em] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          href={href as never}
+          className="line-clamp-2 min-h-[2.6em] font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
         >
           {product.name}
         </Link>
-        <div className="mt-auto flex flex-col gap-1.5 pt-3 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
-          <StorePrice
-            amountCents={product.minPriceCents}
-            currency={product.priceCurrency}
-            srdRate={srdRate}
-            size="md"
-            prefix={hasRange ? 'vanaf' : undefined}
-          />
-          <p
-            className={cn(
-              'flex items-center gap-1.5 text-[12px]',
-              inStock ? 'text-ink-2' : 'text-ink-3',
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn('size-1.5 rounded-full', inStock ? 'bg-store-bright' : 'bg-ink-4')}
-            />
-            {inStock ? 'Op voorraad' : 'Niet op voorraad'}
-          </p>
+        <StorePrice
+          amountCents={product.minPriceCents}
+          currency={product.priceCurrency}
+          srdRate={srdRate}
+          size="card"
+          prefix={hasRange ? 'vanaf' : undefined}
+          className="mt-1"
+        />
+        <div className="mt-2.5">
+          <StockPill onHand={product.onHand} incoming={product.incoming} />
         </div>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'mt-3 flex h-10 items-center justify-center rounded-[10px] font-semibold text-[14px]',
+            inStock ? 'bg-night text-night-ink' : 'border border-line-strong text-ink',
+          )}
+        >
+          {inStock ? 'Bekijk' : 'Meld mij als hij terug is'}
+        </span>
       </div>
     </article>
   );

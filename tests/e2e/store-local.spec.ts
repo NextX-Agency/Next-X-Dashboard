@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Storefront behaviour against the SYNTHETIC design fixture
- * (scripts/rehearsal/visual-seed.sql) on the disposable local rehearsal database.
+ * Storefront behaviour against the local design fixture (scripts/rehearsal/visual-seed.sql: the live
+ * shop's 15 public products) on the disposable local rehearsal database.
  * Run with:  E2E_VISUAL_FIXTURES=1 E2E_BASE_URL=http://localhost:3000 pnpm exec playwright test --project=public store-local
  *
  * It never runs against staging or production: the product names below exist
@@ -13,7 +13,7 @@ test.skip(
   'needs the synthetic visual fixture on the local rehearsal database',
 );
 
-const PRODUCT = { slug: 'halden-studio-8', name: 'Halden Studio 8', price: 'SRD 4.850' };
+const PRODUCT = { slug: 'kz-as16-pro-x', name: 'KZ AS16 Pro X', price: 'SRD 3.000' };
 
 test.describe('neutral storefront structure', () => {
   test('the home page is a real page with the NextX brand, not a redirect to a category', async ({
@@ -23,6 +23,7 @@ test.describe('neutral storefront structure', () => {
     expect(response?.status()).toBe(200);
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('link', { name: /naar de homepage/ })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Categorieën' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     // No staff link in the customer header.
     await expect(page.locator('header').getByText('Medewerkers')).toHaveCount(0);
@@ -40,9 +41,9 @@ test.describe('neutral storefront structure', () => {
     for (const [from, to] of [
       ['/audio', '/shop'],
       ['/audio/cart', '/cart'],
-      ['/audio/halden-studio-8', '/products/halden-studio-8'],
+      ['/audio/kz-as16-pro-x', '/products/kz-as16-pro-x'],
       ['/catalog', '/shop'],
-      ['/p/halden-studio-8', '/products/halden-studio-8'],
+      ['/p/kz-as16-pro-x', '/products/kz-as16-pro-x'],
     ] as const) {
       const response = await request.get(from, { maxRedirects: 0 });
       expect(response.status(), from).toBe(308);
@@ -68,17 +69,19 @@ test.describe('catalogue and product page', () => {
     await page.goto('/shop');
     await expect(page.getByRole('heading', { level: 1, name: 'Alle producten' })).toBeVisible();
     await page
-      .getByRole('button', { name: /^Accessoires/ })
+      .getByRole('link', { name: /^In-Ear Accessories/ })
       .first()
       .click();
-    await expect(page).toHaveURL(/category=accessoires/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Accessoires' })).toBeVisible();
+    await expect(page).toHaveURL(/category=in-ear-accessories/);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'In-Ear Accessories' }),
+    ).toBeVisible();
 
-    await page.goto('/shop?q=Kestrel');
+    await page.goto('/shop?q=ESSAGER');
     const cards = page.locator('article');
     await expect(cards.first()).toBeVisible();
     for (const text of await cards.allInnerTexts())
-      expect(text.toLowerCase()).toContain('kestrel');
+      expect(text.toLowerCase()).toContain('essager');
 
     await page.goto('/shop?q=zzzgeenresultaat');
     await expect(page.getByRole('heading', { name: 'Niets gevonden' })).toBeVisible();
@@ -88,7 +91,7 @@ test.describe('catalogue and product page', () => {
     await page.goto(`/products/${PRODUCT.slug}`);
     await expect(page.getByRole('heading', { level: 1, name: PRODUCT.name })).toBeVisible();
     await expect(page.getByText(PRODUCT.price, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(/op voorraad/).first()).toBeVisible();
+    await expect(page.getByText(/Nog 2|Op voorraad/).first()).toBeVisible();
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
     expect(canonical).toContain(`/products/${PRODUCT.slug}`);
     const jsonLd = await page
@@ -102,33 +105,33 @@ test.describe('catalogue and product page', () => {
     await page.goto(`/products/${PRODUCT.slug}`);
     await page.getByRole('button', { name: 'Meer' }).click();
     await page.getByRole('button', { name: 'In winkelwagen' }).click();
-    await expect(page.getByText(/2 × Halden Studio 8 toegevoegd/)).toBeVisible();
+    await expect(page.getByText(/2 × KZ AS16 Pro X toegevoegd/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Winkelwagen, 2 artikelen' })).toBeVisible();
 
     await page.goto('/cart');
     await expect(page.getByRole('heading', { name: 'Winkelwagen', exact: true })).toBeVisible();
     await expect(page.getByText('Prijs en voorraad zojuist gecontroleerd')).toBeVisible();
-    // 2 x SRD 4.850
-    await expect(page.getByText('SRD 9.700').first()).toBeVisible();
+    // 2 x SRD 3.000
+    await expect(page.getByText('SRD 6.000').first()).toBeVisible();
 
     await page.getByLabel('Naam', { exact: true }).fill('Testklant');
     await page.getByLabel('Telefoon', { exact: true }).fill('+597 8000000');
     const order = page.getByRole('link', { name: /Verstuur bestelling via WhatsApp/ });
     await expect(order).toBeVisible();
     const message = decodeURIComponent((await order.getAttribute('href')) ?? '');
-    expect(message).toContain('Halden Studio 8');
+    expect(message).toContain('KZ AS16 Pro X');
     expect(message).toContain('2');
-    expect(message).toContain('SRD 9.700');
+    expect(message).toContain('SRD 6.000');
     expect(message).toContain('Testklant');
   });
 
   test('cart cannot exceed available stock', async ({ page }) => {
-    await page.goto('/products/halden-player'); // 3 in stock
+    await page.goto('/products/m-vave-sws12'); // 2 in stock
     for (let i = 0; i < 5; i++) {
       const plus = page.getByRole('button', { name: 'Meer' });
       if (await plus.isEnabled()) await plus.click();
     }
-    await expect(page.locator('#store-cart-quantity')).toHaveValue('3');
+    await expect(page.locator('#store-cart-quantity')).toHaveValue('2');
   });
 });
 
@@ -149,8 +152,10 @@ test.describe('responsive layout', () => {
   test('mobile navigation opens and reaches the shop', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Menu' }).click();
-    await page.getByRole('link', { name: 'Alle producten' }).first().click();
+    await page
+      .getByRole('navigation', { name: 'Snelnavigatie' })
+      .getByRole('link', { name: 'Winkel' })
+      .click();
     await expect(page).toHaveURL(/\/shop$/);
   });
 });

@@ -25,8 +25,7 @@ const button = cva(
   {
     variants: {
       variant: {
-        primary:
-          'bg-accent text-accent-fg shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18)] hover:bg-accent-hover',
+        primary: 'bg-ink text-on-ink hover:opacity-90',
         secondary:
           'border border-line bg-raised text-ink shadow-[var(--nx-shadow-raised),inset_0_1px_0_0_var(--nx-highlight)] hover:border-line-strong hover:bg-hover',
         ghost: 'text-ink-2 hover:bg-hover hover:text-ink',

@@ -1,6 +1,6 @@
 # NextX creative direction reset: three concepts and a recommendation
 
-Date 2026-10-17. Status: **awaiting owner decision. Nothing site-wide has been rebuilt.**
+Date 2026-10-17. Status: **decided and implemented.** The owner chose **C "Rustig"** and confirmed the current product photos are theirs to use, with a reshoot planned. See section 10. Sections 1 to 9 are the record of how the decision was reached.
 Everything below is rendered from the running app. Previews live at `/preview`, `/preview/a|b|c`,
 `/preview/<x>/product` and `/preview/<x>/dashboard`, local only (see "How the previews are isolated").
 Captures are in `docs/design-review/concepts/`; start with the `compare-*` sheets.
@@ -220,3 +220,31 @@ most personality with the least dependence on content you do not have, B. A only
 
 No site-wide implementation, no changes to `/`, `/shop`, `/products/[slug]`, `/setups/[slug]`, `/cart`
 or the admin pages, no deployment. Those wait for your decision above.
+
+
+## 10. Decision and implementation (2026-10-17)
+
+**Owner decision:** concept C, "Rustig". Photographs: the owner's to use; consistent reshoot planned.
+This was chosen over the recommendation (B's identity on C's mechanics), so B's ruled-cell identity,
+mono data and hatched sold-out styling were **not** adopted; A's serif was not adopted either.
+
+What was built, on the real shop code (not the previews):
+
+- **Storefront** (`/`, `/shop`, `/products/[slug]`, `/setups/[slug]`, `/cart`): white page, wide search
+  header, category chips with counts, an "only in stock" toggle, sort and a filters sheet, white product
+  cards with the price as the largest figure and a plain stock pill, the real "Bijna uitverkocht" strip,
+  stock per pickup location on the product page, a sticky buy bar and a four-tab bar on phones.
+  The home page has no banner: it is the shop. The old hero, tiles and dark stage were removed.
+- **Dashboard:** the Werkbank structure. 28 pages in 8 groups with the current group open (Sales added to
+  the menu), four action tiles on Home with "Needs attention" directly beneath, page explanations behind an
+  info mark, black primary buttons, white panels, quieter tables.
+- **Kept from the earlier work:** the neutral URL structure and redirects, the 404/410 behaviour, SRD
+  formatting, the WhatsApp message semantics, all migrated data and finance code (untouched).
+- **Bugs fixed while verifying:** `text-base` (a font size) was being used as a text colour, which would have
+  produced black text on black buttons; the cart showed the meaningless variant name "Standaard"; the quantity
+  field and the sort select had no visible keyboard focus; the Overview scrolled sideways on phones.
+- **Previews:** kept under `/preview` (local only) as a record; A and B remain available if a later
+  campaign page wants them.
+
+Still open: the shop's category names are English ("In-Ear Monitor", "Wireless Earbuds"), which is shop
+data to rename in the dashboard, not code. The photographs, as before, are the main limit on quality.

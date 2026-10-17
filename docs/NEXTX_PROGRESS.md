@@ -1,15 +1,18 @@
 # Dashboard 2.0 — progress and blockers (resume here)
 
-## OWNER DECISION GATE (third session, 2026-10-17)
+## DESIGN: DECIDED AND IMPLEMENTED (third session, 2026-10-17)
 
-The previous design was rejected again. Three working previews were built on the **real** catalogue
-(15 products, real SRD prices and stock states, real photos downloaded with the owner's permission into
-`public/dev-fixtures/live/`, gitignored). **No site-wide redesign is to be started until the owner chooses.**
-Read `docs/design-review/CREATIVE_DIRECTION.md` first: critique, three concepts, scoring, recommendation
-("B's identity on C's mechanics") and the seven decisions needed. Previews: `/preview`, `/preview/a|b|c`,
-`/product`, `/dashboard` (local only; 404 in production; tested). Captures are local-only in
-`docs/design-review/concepts/` (gitignored: they contain the shop's product photos).
-Open issue found: the product photos look like third-party marketplace images; rights need confirming.
+Owner chose **concept C "Rustig"** and said the current product photos are theirs to use (reshoot later).
+It is built on the real shop and dashboard code: `/`, `/shop`, `/products/[slug]`, `/setups/[slug]`,
+`/cart`, the 8-group dashboard navigation (Sales added), Home with action tiles and "Needs attention",
+black primary buttons, Manrope. Design system documented in `docs/03-design/design-system.md`; decision
+record in `docs/design-review/CREATIVE_DIRECTION.md` section 10. Local-only previews of the other two
+concepts stay under `/preview`. Captures are local (gitignored: they contain the shop's photographs).
+
+Checks run: Biome, typecheck, 237 unit tests, production build, 15 browser tests against the real
+15-product catalogue in the local rehearsal DB (`scripts/rehearsal/visual-seed.sql`), keyboard focus walk.
+**Not on staging.** Remaining: dashboard pages beyond Home, Products, Sales and Record a sale were
+re-skinned through tokens but not each reviewed; the shop's category names are English data; photography.
 
 
 Last updated 2026-10-17 (second session). Update this file at the end of every session.

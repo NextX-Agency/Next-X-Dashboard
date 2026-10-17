@@ -29,7 +29,7 @@ export default function BlogPage() {
           Bekijk de huidige collectie van NextX.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/shop" className="nx-btn nx-btn-ink">
+          <Link href="/shop" className="nx-btn nx-btn-primary">
             Bekijk de winkel
           </Link>
         </div>

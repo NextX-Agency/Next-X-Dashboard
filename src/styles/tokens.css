@@ -123,79 +123,58 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Navigation rail: charcoal in both themes
-   ──────────────────────────────────────────────────────────────────────────
-   The rail re-maps the text and hover tokens for everything inside it, so the
-   existing token utilities (text-ink-3, bg-hover) read correctly on charcoal
-   with no per-item overrides. */
-.nx-rail {
-  --nx-bg-hover: #26231f;
-  --nx-bg-active: #2f2b27;
-  --nx-text: #f4f1ec;
-  --nx-text-secondary: #d3cdc3;
-  --nx-text-tertiary: #aaa398;
-  --nx-text-faint: #8f887d;
-  --nx-border-subtle: #34302c;
-  --nx-border: #34302c;
-  --nx-accent: #ff7a2e;
-  --nx-ring: #ff7a2e;
-  background-color: #131211;
-  color: var(--nx-text);
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
-   Storefront: warm paper, charcoal stages, one orange
+   Storefront: Rustig. White, quiet, black primary actions, orange as a signal
    ──────────────────────────────────────────────────────────────────────────
    Scoped under `.nx-store` on the store layout root, so every token utility
    inside the shop re-skins with no change to dashboard components.
 
-   - Paper (#f5f3ef) is the page; product photography sits on a charcoal
-     "stage" (--nx-night-2) so dark-background product shots read as one set.
-   - Orange is the logo orange. As a FILL it carries ink text (6.3:1). As TEXT
-     on paper it uses the darker --nx-accent (5.0:1).
-   - Neutrals are warm (hue 30–40). No blue anywhere in the shop.
+   - White page, soft warm-grey fields (#f5f5f2) behind product photography.
+     Photographs are multiplied onto the field, so white-background cut-outs
+     sit on it instead of showing as white boxes.
+   - Primary actions are black. Orange is a small signal (last pieces, the
+     logo, the active category), never a fill for a main button.
+   - Text steps clear WCAG AA on white.
 
    Light only: the store layout forces the light theme.
    ────────────────────────────────────────────────────────────────────────── */
 
 .nx-store {
-  --nx-bg-sunken: #ebe8e2;
-  --nx-bg-base: #f5f3ef;
-  --nx-bg-raised: #fbfaf8;
-  --nx-bg-overlay: #fbfaf8;
-  --nx-bg-inset: #efece6;
-  --nx-bg-hover: #e9e5de;
-  --nx-bg-active: #e1dcd3;
+  --nx-bg-sunken: #f5f5f2;
+  --nx-bg-base: #ffffff;
+  --nx-bg-raised: #ffffff;
+  --nx-bg-overlay: #ffffff;
+  --nx-bg-inset: #f5f5f2;
+  --nx-bg-hover: #efefeb;
+  --nx-bg-active: #e8e8e3;
 
-  --nx-border-subtle: #e2ded6;
-  --nx-border: #d2cdc3;
-  --nx-border-strong: #9d968c;
+  --nx-border-subtle: #ecece8;
+  --nx-border: #e1e1dc;
+  --nx-border-strong: #bdbdb6;
 
-  /* Every step clears AA on paper (#f5f3ef), including the faintest. */
-  --nx-text: #0f0e0d;
-  --nx-text-secondary: #46413c;
-  --nx-text-tertiary: #5f5851;
-  --nx-text-faint: #6d665e;
+  --nx-text: #141414;
+  --nx-text-secondary: #3f3f3b;
+  --nx-text-tertiary: #5c5c57;
+  --nx-text-faint: #6b6b65;
 
-  --nx-accent: #b13f06;
-  --nx-accent-hover: #8f3200;
+  --nx-accent: #a8440a;
+  --nx-accent-hover: #8a3606;
   --nx-accent-fg: #ffffff;
-  --nx-accent-muted: #fdeadb;
-  --nx-accent-border: #f0b88f;
-  --nx-ring: #b13f06;
+  --nx-accent-muted: #fff1e6;
+  --nx-accent-border: #f0c4a2;
+  --nx-ring: #141414;
 
-  --nx-store-bright: #ee5b0d;
-  --nx-store-bright-soft: #fdeadb;
+  --nx-store-bright: #e8590c;
+  --nx-store-bright-soft: #fff1e6;
 
-  /* Charcoal: hero, product stages, footer. */
-  --nx-night: #131211;
-  --nx-night-2: #1d1b19;
-  --nx-night-line: #34302c;
-  --nx-night-ink: #f4f1ec;
-  --nx-night-ink-2: #b7b0a6;
+  /* Ink: primary buttons and dark chips. */
+  --nx-night: #141414;
+  --nx-night-2: #232321;
+  --nx-night-line: #3a3a37;
+  --nx-night-ink: #ffffff;
+  --nx-night-ink-2: #c9c9c3;
 
-  --nx-shadow-raised: 0 1px 2px hsl(30 20% 10% / 0.06);
+  --nx-shadow-raised: 0 1px 2px hsl(40 10% 10% / 0.05);
   --nx-shadow-overlay:
-    0 6px 16px -4px hsl(30 20% 8% / 0.16), 0 20px 48px -12px hsl(30 20% 8% / 0.2);
+    0 6px 16px -4px hsl(40 10% 8% / 0.14), 0 20px 48px -12px hsl(40 10% 8% / 0.18);
   --nx-highlight: transparent;
 }

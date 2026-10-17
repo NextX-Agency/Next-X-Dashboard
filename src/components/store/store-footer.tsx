@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { whatsappDigits } from '@/lib/whatsapp';
-import type { StoreNavLink } from './store-header';
 
 type FooterSettings = {
   businessName?: string | null;
@@ -22,81 +21,69 @@ function instagramUrl(raw: string): string {
 }
 
 /**
- * The shop footer on the charcoal field: the mark, one line of description,
- * the shop's own links and the contact details that are actually configured.
- * Nothing is rendered for a detail the owner has not entered.
+ * A quiet footer on the soft field: the mark and one line, where to find things, and the contact
+ * details that are actually configured. Nothing is rendered for a detail the owner has not entered.
+ * Leaves room for the phone tab bar underneath.
  */
 export function StoreFooter({
   settings,
   description,
-  links,
   currency,
   year,
 }: {
   settings: FooterSettings | null;
   description: string;
-  links: StoreNavLink[];
   currency: string;
   year: number;
 }) {
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   const digits = whatsappDigits(settings?.whatsapp);
-  const linkClass =
-    'text-night-ink-2 transition-colors hover:text-night-ink focus-visible:outline-2 focus-visible:outline-store-bright';
+  const link =
+    'text-ink-2 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
 
   return (
-    <footer className="bg-night text-night-ink">
-      <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1.2fr] lg:px-8">
-        <div className="min-w-0">
+    <footer className="mt-8 border-line border-t bg-sunken pb-16 sm:pb-0">
+      <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 py-10 sm:grid-cols-[1.3fr_1fr_1fr] lg:px-8 lg:py-12">
+        <div>
           <Image
-            src="/nextx-logo-dark.png"
+            src="/nextx-logo-light.png"
             alt="NextX"
             width={950}
             height={380}
-            className="h-14 w-auto"
+            className="h-11 w-auto"
           />
-          <p className="mt-4 max-w-[38ch] text-[14px] text-night-ink-2 leading-relaxed">
+          <p className="mt-3 max-w-[40ch] text-[14px] text-ink-3 leading-relaxed">
             {description}
           </p>
         </div>
-
         <nav aria-label="Winkel" className="text-[14px]">
-          <h2 className="nx-label text-night-ink-2">Winkel</h2>
-          <ul className="mt-4 space-y-2.5">
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href as never} className={linkClass}>
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="text-[14px]">
-          <h2 className="nx-label text-night-ink-2">Hulp</h2>
-          <ul className="mt-4 space-y-2.5">
+          <h2 className="font-bold text-[13px] text-ink">Winkel</h2>
+          <ul className="mt-3 space-y-2">
             <li>
-              <Link href={'/#bestellen' as never} className={linkClass}>
+              <Link href="/shop" className={link}>
+                Alle producten
+              </Link>
+            </li>
+            <li>
+              <Link href="/cart" className={link}>
+                Winkelmand
+              </Link>
+            </li>
+            <li>
+              <Link href={'/#bestellen' as never} className={link}>
                 Zo bestel je
               </Link>
             </li>
-            <li>
-              <Link href={'/cart' as never} className={linkClass}>
-                Winkelwagen
-              </Link>
-            </li>
           </ul>
-        </div>
-
+        </nav>
         <div className="text-[14px]">
-          <h2 className="nx-label text-night-ink-2">Contact</h2>
-          <ul className="mt-4 space-y-2.5 text-night-ink-2">
+          <h2 className="font-bold text-[13px] text-ink">Contact</h2>
+          <ul className="mt-3 space-y-2 text-ink-2">
             {address ? <li>{address}</li> : null}
             {settings?.openingHours ? <li>{settings.openingHours}</li> : null}
             {settings?.phone ? (
               <li>
-                <a href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`} className={linkClass}>
+                <a href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`} className={link}>
                   {settings.phone}
                 </a>
               </li>
@@ -107,7 +94,7 @@ export function StoreFooter({
                   href={`https://wa.me/${digits}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={linkClass}
+                  className={link}
                 >
                   WhatsApp
                 </a>
@@ -115,7 +102,7 @@ export function StoreFooter({
             ) : null}
             {settings?.email ? (
               <li>
-                <a href={`mailto:${settings.email}`} className={linkClass}>
+                <a href={`mailto:${settings.email}`} className={link}>
                   {settings.email}
                 </a>
               </li>
@@ -126,7 +113,7 @@ export function StoreFooter({
                   href={instagramUrl(settings.instagram)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={linkClass}
+                  className={link}
                 >
                   Instagram
                 </a>
@@ -135,13 +122,12 @@ export function StoreFooter({
           </ul>
         </div>
       </div>
-
-      <div className="border-night-line border-t">
-        <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-2 px-4 py-5 text-[12px] text-night-ink-2 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+      <div className="border-line border-t">
+        <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between gap-4 px-4 py-4 text-[12px] text-ink-3 lg:px-8">
           <p>
             © {year} {settings?.businessName ?? 'NextX'} · Prijzen in {currency}
           </p>
-          <Link href="/login" className={linkClass}>
+          <Link href="/login" className={link}>
             Medewerkers
           </Link>
         </div>
