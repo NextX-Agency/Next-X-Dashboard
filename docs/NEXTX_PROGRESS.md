@@ -7,7 +7,7 @@ Last updated 2026-10-17 (second session). Update this file at the end of every s
 | Item | State | Evidence |
 |---|---|---|
 | Source of truth | Worktree `C:/Users/lrano/Documents/Codex/2026-10-16/i-w/work/nextx-dashboard-2.0`, branch `nextx-dashboard-2.0`. `D:/Nextly` is the upstream starting point and `D:/Next-X-Dashboard` is the old `main` (both untouched). | `git worktree list` |
-| GitHub `origin/nextx-dashboard-2.0` | `ee0e409`. The design reset below is **committed locally and not pushed**. | `git status -sb` |
+| GitHub `origin/nextx-dashboard-2.0` | `e4722d7` (pushed 2026-10-17 with owner approval, fast-forward). Includes the design reset below. | `git status -sb` |
 | Staging build | **Not 85e04b9 and not this work.** Still an older build that renders removed copy. Nothing in this session has been observed on staging. | Browser check 2026-10-17 |
 | Typecheck, Biome, unit tests | Clean; 234 of 234 tests | Run 2026-10-17 |
 | Production build | Passes with synthetic self-hosted env (non-secret placeholders) | `pnpm build` |
@@ -54,8 +54,8 @@ E2E_VISUAL_FIXTURES=1 E2E_BASE_URL=http://localhost:3000 pnpm exec playwright te
 ## Blockers (need the owner)
 
 1. **Staging deploy.** `deploy/vps/deploy-pinned.sh` must run as root on the VPS at an exact pushed
-   commit, with the owner entering the sudo password. Nothing since 8899c82 is on staging. I have not
-   pushed this session's commits; that needs approval.
+   commit, with the owner entering the sudo password. Nothing since 8899c82 is on staging. The commits are now
+   on GitHub (e4722d7); only the operator-run deploy is missing.
 2. **Authenticated staging testing and role sessions** are still unavailable. Local dashboard checks
    used the project's own local-rehearsal auth hook as an owner on the disposable database only.
 3. **Real product photography.** Hero and card quality depend on the real images. They are not mapped to
@@ -84,7 +84,7 @@ E2E_VISUAL_FIXTURES=1 E2E_BASE_URL=http://localhost:3000 pnpm exec playwright te
 
 ## Next actions
 
-1. Owner approves pushing the branch, then runs the pinned deploy; re-run the redirect table and the
+1. Owner runs the pinned deploy of `e4722d7` (full SHA); then re-run the redirect table and the
    storefront checklist on staging.
 2. Review the remaining dashboard pages with real migrated data after the staging import.
 3. Build the owner-only activity log page, then stock transfers.
