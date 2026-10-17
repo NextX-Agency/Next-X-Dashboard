@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { listSupplierOptions, listVariantOptions } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Raise a purchase order' };
 
 export default function NewPurchaseOrderPage() {
@@ -38,7 +42,7 @@ async function Loader() {
 
 function FormSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="space-y-4">
         <Skeleton className="h-[220px] rounded-card" />
         <Skeleton className="h-[180px] rounded-card" />

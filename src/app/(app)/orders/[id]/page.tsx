@@ -11,6 +11,10 @@ import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/tabl
 import { formatDate, humanise } from '@/lib/format';
 import { getOrder } from '@/server/queries/documents';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Order' };
 
 const STATUS_TONE = {

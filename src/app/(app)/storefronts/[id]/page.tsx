@@ -17,6 +17,10 @@ import {
 } from '@/server/queries/storefronts';
 import { listStorefrontLocations } from '@/server/services/storefront';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Storefront' };
 
 export default async function StorefrontDetailPage({
@@ -47,7 +51,7 @@ export default async function StorefrontDetailPage({
           </Button>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <Surface>
             <SurfaceHeader

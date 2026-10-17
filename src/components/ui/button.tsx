@@ -31,7 +31,7 @@ const button = cva(
         ghost: 'text-ink-2 hover:bg-hover hover:text-ink',
         danger:
           'bg-negative text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18)] hover:brightness-110',
-        outline: 'border border-accent-border bg-transparent text-accent hover:bg-accent-muted',
+        outline: 'border border-line-strong bg-transparent text-ink hover:bg-hover',
         link: 'h-auto p-0 text-accent underline-offset-4 hover:underline',
       },
       size: {

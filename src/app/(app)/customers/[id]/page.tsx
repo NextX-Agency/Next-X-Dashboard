@@ -23,6 +23,10 @@ import type { WarrantyState } from '@/lib/warranty';
 import { getCustomer } from '@/server/queries/reference';
 import { listCustomerWarrantyItems } from '@/server/queries/warranty';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Customer' };
 
 const STATUS_TONE = { draft: 'neutral', confirmed: 'positive', void: 'negative' } as const;

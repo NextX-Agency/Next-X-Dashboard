@@ -35,6 +35,10 @@ import { parseListParams, type RawSearchParams, saleQuerySchema } from '@/lib/li
 import { PAYMENT_LABELS, type PaymentBadgeCode } from '@/lib/payment-status';
 import { listSales } from '@/server/queries/lists';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Sales' };
 
 const STATUS_TONE = { draft: 'neutral', confirmed: 'positive', void: 'negative' } as const;

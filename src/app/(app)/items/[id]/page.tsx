@@ -33,6 +33,10 @@ import {
 } from '@/server/queries/storefront';
 import { listProductWarrantyItems } from '@/server/queries/warranty';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Product' };
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {

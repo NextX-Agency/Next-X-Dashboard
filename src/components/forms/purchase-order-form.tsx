@@ -248,7 +248,7 @@ export function PurchaseOrderForm({
         event.preventDefault();
         submit();
       }}
-      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start"
+      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start"
     >
       <div className="space-y-4">
         <Surface>
@@ -327,9 +327,9 @@ export function PurchaseOrderForm({
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
-                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${line.key}`}>
+                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${index}`}>
                     <Combobox
-                      id={`variant-${line.key}`}
+                      id={`variant-${index}`}
                       options={variantOptions}
                       value={line.variantId}
                       onChange={(value) =>
@@ -346,9 +346,9 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${line.key}`}>
+                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${index}`}>
                     <Input
-                      id={`qty-${line.key}`}
+                      id={`qty-${index}`}
                       numeric
                       inputMode="numeric"
                       value={line.quantity}
@@ -364,9 +364,9 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <Field label={index === 0 ? 'Goods (USD)' : ''} htmlFor={`sub-${line.key}`}>
+                  <Field label={index === 0 ? 'Goods (USD)' : ''} htmlFor={`sub-${index}`}>
                     <Input
-                      id={`sub-${line.key}`}
+                      id={`sub-${index}`}
                       numeric
                       inputMode="decimal"
                       placeholder="0.00"

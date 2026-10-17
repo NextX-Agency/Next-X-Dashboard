@@ -174,14 +174,17 @@ export function StoreCartCheckout({
 
   if (!ready) {
     return (
-      <div className="mx-auto w-full max-w-[1320px] px-4 py-16 lg:px-8" aria-live="polite">
+      <div
+        className="mx-auto min-h-[70svh] w-full max-w-[1320px] px-4 py-16 lg:px-8"
+        aria-live="polite"
+      >
         <p className="nx-label text-ink-3">Loading your cart…</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 pt-10 pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
+    <div className="mx-auto grid min-h-[70svh] w-full max-w-[1320px] content-start gap-10 px-4 pt-10 pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
       <section aria-labelledby="cart-heading" className="min-w-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

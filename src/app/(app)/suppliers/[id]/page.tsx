@@ -20,6 +20,10 @@ import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/tabl
 import { formatDate, humanise } from '@/lib/format';
 import { getSupplier } from '@/server/queries/reference';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Supplier' };
 
 const STATUS_TONE = {
@@ -93,7 +97,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
         <Stat label="Landed spend" money={supplier.spendCents} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Surface className="overflow-hidden">
           <SurfaceHeader title="Products sourced here" />
           {supplier.products.length === 0 ? (

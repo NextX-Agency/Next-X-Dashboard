@@ -14,6 +14,10 @@ import {
   listVariantOptions,
 } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Record a sale' };
 
 export default function NewSalePage() {
@@ -57,7 +61,7 @@ async function Loader() {
 
 function FormSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-4">
         <Skeleton className="h-[220px] rounded-card" />
         <Skeleton className="h-[180px] rounded-card" />

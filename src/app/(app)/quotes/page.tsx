@@ -37,6 +37,10 @@ import {
   listQuoteVariantOptions,
 } from '@/server/queries/quotes';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Quote Requests' };
 
 /** "new" is the one that needs an answer, so it is the only loud badge. */

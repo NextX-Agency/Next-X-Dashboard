@@ -34,6 +34,10 @@ import { formatRelative } from '@/lib/format';
 import { customerQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listCustomers } from '@/server/queries/lists';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Customers' };
 
 export default function CustomersPage({
@@ -57,7 +61,7 @@ export default function CustomersPage({
       />
       <Surface className="overflow-hidden">
         <ListToolbar>
-          <ListSearch placeholder="Search by name, code, phone or email" />
+          <ListSearch placeholder="Name, code, phone or email" />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-16', 'w-40', 'w-16']} />}>
           <CustomersTable searchParams={searchParams} />

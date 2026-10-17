@@ -40,6 +40,10 @@ import { expenseQuerySchema, parseListParams, type RawSearchParams } from '@/lib
 import { listExpenses } from '@/server/queries/lists';
 import { listExpenseCategoryOptions } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Expenses' };
 
 export default function ExpensesPage({

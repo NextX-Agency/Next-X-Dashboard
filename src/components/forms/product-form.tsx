@@ -359,7 +359,7 @@ export function ProductForm({
           })),
         } as Parameters<typeof execute>[0]);
       }}
-      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
+      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
     >
       <div className="space-y-4">
         <Surface>
@@ -486,18 +486,18 @@ export function ProductForm({
                 key={variant.key}
                 className="grid gap-2 p-4 sm:grid-cols-[1fr_1fr_110px_110px_100px_120px_32px]"
               >
-                <Field label={index === 0 ? 'Option' : ''} htmlFor={`vname-${variant.key}`}>
+                <Field label={index === 0 ? 'Option' : ''} htmlFor={`vname-${index}`}>
                   <Input
-                    id={`vname-${variant.key}`}
+                    id={`vname-${index}`}
                     value={variant.name}
                     required
                     placeholder="Black"
                     onChange={(event) => setVariant(variant.key, { name: event.target.value })}
                   />
                 </Field>
-                <Field label={index === 0 ? 'SKU' : ''} htmlFor={`vsku-${variant.key}`}>
+                <Field label={index === 0 ? 'SKU' : ''} htmlFor={`vsku-${index}`}>
                   <Input
-                    id={`vsku-${variant.key}`}
+                    id={`vsku-${index}`}
                     value={variant.sku}
                     required
                     className="tabular"
@@ -507,12 +507,9 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field
-                  label={index === 0 ? 'Sell (USD)' : ''}
-                  htmlFor={`vprice-${variant.key}`}
-                >
+                <Field label={index === 0 ? 'Sell (USD)' : ''} htmlFor={`vprice-${index}`}>
                   <Input
-                    id={`vprice-${variant.key}`}
+                    id={`vprice-${index}`}
                     numeric
                     inputMode="decimal"
                     placeholder="0.00"
@@ -522,9 +519,9 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'Barcode' : ''} htmlFor={`vbarcode-${variant.key}`}>
+                <Field label={index === 0 ? 'Barcode' : ''} htmlFor={`vbarcode-${index}`}>
                   <Input
-                    id={`vbarcode-${variant.key}`}
+                    id={`vbarcode-${index}`}
                     value={variant.barcode}
                     placeholder="Optional"
                     onChange={(event) =>
@@ -532,9 +529,9 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'List cost' : ''} htmlFor={`vcost-${variant.key}`}>
+                <Field label={index === 0 ? 'List cost' : ''} htmlFor={`vcost-${index}`}>
                   <Input
-                    id={`vcost-${variant.key}`}
+                    id={`vcost-${index}`}
                     numeric
                     inputMode="decimal"
                     placeholder="0.00"
@@ -544,12 +541,9 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field
-                  label={index === 0 ? 'Weight (g)' : ''}
-                  htmlFor={`vweight-${variant.key}`}
-                >
+                <Field label={index === 0 ? 'Weight (g)' : ''} htmlFor={`vweight-${index}`}>
                   <Input
-                    id={`vweight-${variant.key}`}
+                    id={`vweight-${index}`}
                     numeric
                     inputMode="numeric"
                     placeholder="0"

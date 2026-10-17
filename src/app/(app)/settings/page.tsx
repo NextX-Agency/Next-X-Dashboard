@@ -21,6 +21,10 @@ import { formatRate } from '@/lib/fx';
 import { formatMoney } from '@/lib/money';
 import { getSettings, listMembers, listRates } from '@/server/queries/reference';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Settings' };
 
 export default async function SettingsPage() {
@@ -32,7 +36,7 @@ export default async function SettingsPage() {
         title="Settings"
         description="The exchange rate, the team, and the thresholds the dashboard reads from."
       />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Surface className="overflow-hidden">
           <SurfaceHeader
             title="Exchange rate"

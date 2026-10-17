@@ -64,7 +64,7 @@ export function ListSearch({
   const sizeClasses = SEARCH_SIZES[size];
 
   return (
-    <div className="relative min-w-[200px] flex-1 sm:max-w-[280px]">
+    <div className="relative min-w-[200px] flex-1 basis-full sm:basis-0 sm:max-w-[280px]">
       <Search
         className={cn(
           'pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-4',

@@ -34,6 +34,10 @@ import { parseListParams, productQuerySchema, type RawSearchParams } from '@/lib
 import { listProducts } from '@/server/queries/lists';
 import { listBrandOptions, listCategoryOptions } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Products' };
 
 const STATUS_TONE = { draft: 'neutral', active: 'positive', archived: 'neutral' } as const;

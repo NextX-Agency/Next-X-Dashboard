@@ -34,6 +34,10 @@ import {
   listVariantOptions,
 } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Sale' };
 
 const STATUS_TONE = { draft: 'neutral', confirmed: 'positive', void: 'negative' } as const;
@@ -522,7 +526,7 @@ async function Loader({
         </Surface>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Surface className="overflow-hidden">
           <SurfaceHeader title="Posted" hint="What this sale caused, traceable back to it" />
           {sale.ledgerEntries.length === 0 && sale.movements.length === 0 ? (

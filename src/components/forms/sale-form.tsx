@@ -393,7 +393,7 @@ export function SaleForm({
         event.preventDefault();
         submit(true);
       }}
-      className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
+      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
     >
       <div className="space-y-4">
         <Surface>

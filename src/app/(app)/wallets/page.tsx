@@ -13,6 +13,10 @@ import { Surface, SurfaceBody, SurfaceHeader } from '@/components/ui/surface';
 import { humanise } from '@/lib/format';
 import { listWallets } from '@/server/queries/finance';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Wallets' };
 
 export default async function WalletsPage() {
@@ -36,7 +40,7 @@ export default async function WalletsPage() {
           description="Create the places where business money is held before posting new finance movements."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {wallets.map((wallet) => (
             <Surface key={wallet.id}>
               <SurfaceHeader

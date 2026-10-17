@@ -134,7 +134,7 @@ export function CommissionWorkspace({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
         <Surface>
           <SurfaceHeader
             title="Seller balances"
@@ -331,7 +331,7 @@ export function CommissionWorkspace({
             title="Location fallback rates"
             hint="Used when a seller has no positive default rate and no category override."
           />
-          <SurfaceBody className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <SurfaceBody className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {locations.map((location) => (
               <form
                 key={location.id}

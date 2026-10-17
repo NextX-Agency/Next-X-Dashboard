@@ -5,6 +5,10 @@ import { Surface } from '@/components/ui/surface';
 import { listHomepageCollections } from '@/server/queries/catalog';
 import { getSettings } from '@/server/queries/reference';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Homepage configuration' };
 
 /** The storefront has an intentionally fixed retail layout. This overview
@@ -41,7 +45,7 @@ export default async function HomepageConfigurationPage() {
         title="Homepage configuration"
         description="A fixed specialist-retail layout, configured from real catalog and operational data."
       />
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {sections.map(([title, value, detail]) => (
           <Surface key={title} className="p-5">
             <p className="text-[11px] font-semibold tracking-[0.08em] text-accent uppercase">

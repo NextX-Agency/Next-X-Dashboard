@@ -10,6 +10,10 @@ import { isPeriodPreset, type PeriodPreset } from '@/lib/report-period';
 import type { ProductMarginSort } from '@/server/queries/reports';
 import { getFxExposure } from '@/server/queries/reports';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Reports' };
 
 type SearchParams = Promise<{ period?: string; marginSort?: string }>;
@@ -26,7 +30,7 @@ export default function ReportsPage({ searchParams }: { searchParams: SearchPara
           </Suspense>
         }
       />
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Suspense fallback={<Skeleton className="h-[340px] rounded-card" />}>
           <PnlSection searchParams={searchParams} />
         </Suspense>

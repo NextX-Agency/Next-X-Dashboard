@@ -29,6 +29,10 @@ import { listActivity } from '@/server/queries/activity';
 import { getPurchaseOrder } from '@/server/queries/documents';
 import { listSupplierOptions, listVariantOptions } from '@/server/queries/pickers';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Purchase order' };
 
 const STATUS_TONE = {
@@ -233,7 +237,7 @@ async function Loader({
         </div>
       </Surface>
 
-      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
         <Surface>
           <SurfaceHeader
             title="Overhead"
@@ -441,7 +445,7 @@ async function Loader({
         </Surface>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Surface className="overflow-hidden">
           <SurfaceHeader title="Posted" hint="What receiving this order caused" />
           {order.ledgerEntries.length === 0 && order.movements.length === 0 ? (

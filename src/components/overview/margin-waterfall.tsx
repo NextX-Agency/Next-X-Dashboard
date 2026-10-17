@@ -1,3 +1,4 @@
+import { connection } from 'next/server';
 import { cn } from '@/lib/cn';
 import { formatCompact, formatMoney } from '@/lib/money';
 import { type PeriodPreset, periodRange } from '@/lib/report-period';
@@ -24,6 +25,8 @@ type Step = {
 };
 
 export async function MarginWaterfall({ preset = 'all' }: { preset?: PeriodPreset }) {
+  // The period is measured from "now", which is request-time data: say so before reading the clock.
+  await connection();
   const { revenueCents, cogsCents, grossCents, expensesCents, netCents } = await getWaterfall(
     periodRange(preset),
   );

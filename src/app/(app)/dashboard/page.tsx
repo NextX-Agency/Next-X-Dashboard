@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { AlertsPanel } from '@/components/overview/alerts-panel';
 import { CashFlowChart } from '@/components/overview/cash-flow-chart';
@@ -29,6 +30,10 @@ import {
   getSetupState,
 } from '@/server/queries/overview';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 /** Set by POST /api/setup-banner when the checklist is dismissed (F-13). */
 const SETUP_DISMISS_COOKIE = 'setup-checklist-dismissed';
 
@@ -49,7 +54,9 @@ type SearchParams = Promise<{ period?: string }>;
  * waterfall reads `?period=` — the rest of the page is a position, and a
  * position is always "right now".
  */
-export default function OverviewPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function OverviewPage({ searchParams }: { searchParams: SearchParams }) {
+  // Every figure here is measured against "now" (periods, ageing, last movement), which is request-time data.
+  await connection();
   return (
     <>
       <PageHeader

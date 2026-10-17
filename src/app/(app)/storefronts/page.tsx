@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Surface } from '@/components/ui/surface';
 import { listStorefronts } from '@/server/queries/storefronts';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Storefronts' };
 
 export default async function StorefrontsPage() {
@@ -44,8 +48,7 @@ export default async function StorefrontsPage() {
                       {storefront.name}
                     </Link>
                     <p className="text-[12px] text-ink-4">
-                      /{storefront.slug}
-                      {storefront.domain ? ` · ${storefront.domain}` : ''}
+                      {storefront.domain ?? 'Shared domain'} · {storefront.slug}
                     </p>
                   </td>
                   <td className="px-4 py-3">

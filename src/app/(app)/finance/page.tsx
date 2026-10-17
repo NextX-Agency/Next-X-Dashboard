@@ -8,6 +8,10 @@ import { Money } from '@/components/ui/money';
 import { Surface, SurfaceBody, SurfaceHeader } from '@/components/ui/surface';
 import { getFinanceSummary } from '@/server/queries/finance';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Finance' };
 
 export default async function FinancePage() {
@@ -39,7 +43,7 @@ export default async function FinancePage() {
         title="Finance"
         description="A controlled posting boundary around the existing Orders, Sales and invoice records."
       />
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {cards.map(({ label, value, currency, icon: Icon, hint }) => (
           <Surface key={label}>
             <SurfaceBody>
@@ -53,7 +57,7 @@ export default async function FinancePage() {
           </Surface>
         ))}
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Surface>
           <SurfaceHeader
             title="Finance workspaces"

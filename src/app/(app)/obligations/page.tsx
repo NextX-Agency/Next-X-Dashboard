@@ -13,6 +13,10 @@ import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/tabl
 import { humanise } from '@/lib/format';
 import { listFinanceObligations, listWallets } from '@/server/queries/finance';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Obligations' };
 
 export default async function ObligationsPage() {

@@ -39,6 +39,10 @@ import {
 } from '@/lib/list-params';
 import { listPurchaseOrders } from '@/server/queries/lists';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Purchase orders' };
 
 const STATUS_TONE = {

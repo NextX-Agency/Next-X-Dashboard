@@ -32,6 +32,10 @@ import { formatDate, humanise } from '@/lib/format';
 import { orderQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listOrders } from '@/server/queries/lists';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Orders' };
 
 const STATUS_TONE = {
@@ -63,7 +67,7 @@ export default function OrdersPage({
       />
       <Surface className="overflow-hidden">
         <ListToolbar>
-          <ListSearch placeholder="Search by order number or customer" />
+          <ListSearch placeholder="Order number or customer" />
           <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={4} widths={['w-20', 'w-36', 'w-20']} />}>

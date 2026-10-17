@@ -26,6 +26,10 @@ import { humanise } from '@/lib/format';
 import { parseListParams, type RawSearchParams, supplierQuerySchema } from '@/lib/list-params';
 import { listSuppliers } from '@/server/queries/reference';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'Suppliers' };
 
 export default function SuppliersPage({

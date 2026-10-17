@@ -164,3 +164,10 @@ INSERT INTO storefront_products (storefront_id, product_id, visible, sort_order,
   ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-4000-8000-000000000115', true, 15, false);
 
 COMMIT;
+
+-- The design-review owner that the local-rehearsal auth hook (NEXTLY_LOCAL_REHEARSAL_AUTH_USER_ID in
+-- .env.local) signs in as. It is a fixture on the disposable database, not a person.
+INSERT INTO members (id, email, full_name, role, is_principal, auth_user_id)
+VALUES ('90b1f8bd-6498-47fd-9b3d-70e7c66143f7', 'owner@example.invalid', 'Design Review Owner', 'owner', false,
+        '11111111-1111-4111-8111-111111111111')
+ON CONFLICT (id) DO NOTHING;

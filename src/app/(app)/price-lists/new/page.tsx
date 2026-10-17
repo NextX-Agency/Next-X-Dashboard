@@ -5,6 +5,10 @@ import { PageHeader } from '@/components/patterns/page-header';
 import { Button } from '@/components/ui/button';
 import { Surface, SurfaceBody } from '@/components/ui/surface';
 
+// Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
+// page out of the development-only instant-navigation validation, as the layout does.
+export const instant = false;
+
 export const metadata: Metadata = { title: 'New price list' };
 
 export default function NewPriceListPage() {
