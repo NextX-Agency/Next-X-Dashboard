@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [ValidateSet('start', 'stop', 'migrate', 'seed', 'validate', 'rls', 'constraints', 'concurrency', 'rehearse', 'help')]
   [string]$Command = 'help'
@@ -34,7 +34,7 @@ function Start-Rehearsal {
   New-Item -ItemType Directory -Force -Path (Split-Path $LogPath -Parent) | Out-Null
   if (-not (Test-Path -LiteralPath $DataDir)) {
     New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
-    Invoke-Pg 'initdb.exe' @('-D', $DataDir, '--auth=trust', '--encoding=UTF8', '--locale=C')
+    Invoke-Pg 'initdb.exe' @('-D', $DataDir, '--username=postgres', '--auth=trust', '--encoding=UTF8', '--locale=C')
   }
   if (-not (Is-Running)) {
     Invoke-Pg 'pg_ctl.exe' @('-D', $DataDir, '-o', "-p $Port -h 127.0.0.1", '-l', $LogPath, 'start')
