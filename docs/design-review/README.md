@@ -42,3 +42,10 @@ dashboard page reported `overflowX=0px`.
   the WhatsApp hand-off on a real phone, real product photography, staging.
 - Fixture photographs are crops of one source photo, so several products share a look. Real photography will vary more, which is why product cards multiply the image onto the field (white backgrounds disappear) and contain, rather than crop, unusual aspect ratios.
 - Dev-only Next.js overlay badges ("N", "1 Issue") appear in some captures. They are not part of the app.
+
+## Added 2026-10-17 (fourth session)
+
+`english/` (the English shop at three widths, filled cart) and `dash/` (every staff page at 1440 and 390,
+plus contact sheets made by `scripts/design-review/sheet.py`) are local only and gitignored: they contain
+the shop's photographs. Regenerate with `shoot.mjs`, `cart-shot.mjs` and `sheet.py`;
+`overflow.mjs <baseUrl> <path> [width]` names the elements that overflow a page.
