@@ -4,7 +4,7 @@ import { getSettings } from '@/server/queries/reference';
 
 export const metadata: Metadata = {
   title: 'Klantervaringen | NextX Suriname',
-  description: 'Lees ervaringen van klanten van NextX Audio.',
+  description: 'Lees ervaringen van klanten van NextX.',
   alternates: { canonical: '/testimonials' },
   robots: { index: false, follow: true },
 };
@@ -19,10 +19,8 @@ export default async function TestimonialsPage() {
   return (
     <article className="mx-auto w-full max-w-5xl px-4 py-12 sm:py-16 lg:px-6">
       <header className="max-w-2xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
-          NextX klanten
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-5xl">
+        <p className="nx-label text-ink-3">NextX klanten</p>
+        <h1 className="nx-display mt-3 text-[clamp(36px,6vw,64px)] text-ink">
           Wat onze klanten zeggen
         </h1>
         <p className="mt-4 text-base leading-relaxed text-ink-3">
@@ -45,7 +43,7 @@ export default async function TestimonialsPage() {
             href={contact}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex min-h-10 items-center rounded-full bg-store-navy px-5 text-[13px] font-semibold text-white transition-[filter] hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="nx-btn nx-btn-ink mt-5"
           >
             Deel je ervaring via WhatsApp
           </a>

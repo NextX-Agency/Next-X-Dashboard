@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// The cart reads live settings, pickup locations and the exchange rate; it is a blocking route by design.
+export const instant = false;
+
 export default async function StoreCartPage() {
   const [settings, storefront, locations, rate] = await Promise.all([
     getSettings(),

@@ -1,223 +1,115 @@
-# Instrument
+# NextX design system
 
-The Nextly design language. Dense, technical, near-monochrome.
+Status: implemented 2026-10-17. This replaces the earlier blue "Instrument" dashboard skin and the
+"Northlight" storefront skin, both rejected by the owner. It documents what the code does, not a
+proposal. The source of truth is `src/styles/tokens.css`, `src/app/globals.css` and the components
+named below; the live reference page is `/design-system`.
 
-Live reference: open **`/design-system`** in any environment. It renders every
-token and primitive in both themes and 404s in production.
+## One brand, two surfaces
 
----
+NextX is the logo: a rectangular orange frame, a heavy black wordmark, circuit traces. Everything
+follows from three decisions.
 
-## The brief, restated
+1. **Colour:** charcoal, warm paper, one orange. No blue anywhere.
+2. **Shape:** near-square. The logo is a rectangle, so tiles, buttons and fields have a 2 to 4 px radius.
+3. **Type:** a wide, heavy display face for headings (Archivo, width axis), Instrument Sans for text,
+   JetBrains Mono for numbers and small technical labels.
 
-Nextly has no brand yet. The instruction was that this must not look
-vibe-coded or AI-boilerplated.
+| | Storefront (`.nx-store`) | Dashboard (`:root` / `.dark`) |
+|---|---|---|
+| Job | Discovery and ordering | Daily operation and money |
+| Density | Open, editorial | Dense, tabular |
+| Page | Warm paper `#f5f3ef` | Warm paper `#f6f5f2`, dark theme supported |
+| Chrome | Charcoal header and footer | Charcoal navigation rail (`.nx-rail`) |
+| Accent | Orange fill, ink text | Burnt orange, white text |
+| Radius | `--radius-tile` 2 px | `--radius-control` 4 px, `--radius-card` 6 px |
+| Theme | Light only, forced | Light or dark, follows the system |
 
-Those failure modes are specific and avoidable, so they are named here as things
-this system deliberately does not do:
-
-| Tell | Instead |
-|---|---|
-| Stock shadcn zinc neutrals with a violet accent | Neutrals tinted to hue 207; cyan as the only accent |
-| Four identical stat cards with invented "+12.5% vs last month" | Four position tiles carrying the real 12-week series |
-| `rounded-2xl` and `shadow-sm` on everything | 2 / 6 / 10px radii; borders carry elevation |
-| Inter or Geist | Instrument Sans + JetBrains Mono |
-| Emoji as iconography | Lucide, 14–16px, `text-ink-4` |
-| Gradient headline text | Gradient appears once, on the sign-in plate |
-| A filled brand-colour pill on the active nav item | A 2px accent rule at the rail's edge |
-| A generated logo | A type lockup and a signal glyph, clearly provisional |
-| "No data" empty states | Empty states that say what the page is for and offer the action |
-
----
+Both skins use the same token names (`bg-base`, `text-ink`, `border-line`, `bg-accent`), so a shared
+component renders correctly in either. The storefront adds `night`, `night-2`, `night-line`,
+`night-ink` and `night-ink-2` for the charcoal fields.
 
 ## Colour
 
-All tokens: [`src/styles/tokens.css`](../../src/styles/tokens.css). Nothing
-defines a colour anywhere else.
+**Orange.** The logo orange is `#ee5b0d`. As a fill it carries ink text (`#0f0e0d`, 6.3:1). As text
+or as a fill under white text it is darkened to `#b13f06` (5.0:1 on paper), `#8f3200` on hover. In
+dark mode it lifts to `#ff7a2e`.
 
-### The neutrals are not grey
+**Neutrals are warm** (hue 30 to 40). Light text steps are `#151413`, `#46423d`, `#645e57`,
+`#706a62`; every step clears WCAG AA on the base and raised surfaces.
 
-Every surface, border and text colour is tinted toward **hue 207°** — the hue of
-`#125488` from the supplied palette. This is the single highest-leverage
-decision in the system. Grey chrome reads as a default; a consistently tinted
-ramp reads as designed, even to someone who could not say why.
+**Semantic colour is scarce and means something.** Green is money in, red is money out, amber is a
+warning, blue-grey is information. They never decorate.
 
-```
-Dark    base hsl(207 42% 5.5%)   raised hsl(207 32% 8.5%)   text hsl(200 30% 96%)
-Light   base hsl(205 30% 98.5%)  raised hsl(0 0% 100%)      text hsl(207 48% 11%)
-```
+**Chart colours are data only:** orange `#d9500b`, teal `#2b6f73`, ochre `#c08a1c`, charcoal
+`#5b5650`, stone `#a79d8e`. Orange leads; the others stay distinguishable from it and each other.
 
-### The brand palette is for data only
+## Typography
 
-```
-#125488 → #2A93D5 → #37CAEC → #3DD9D6 → #ADD9D8
-```
-
-These five appear in **charts and nowhere else**. Chrome stays near-monochrome
-so the data is the only thing carrying colour. It is what keeps a dense screen
-calm.
-
-### One accent
-
-`#37CAEC` in dark, darkened to `hsl(196 82% 36%)` in light so text on white
-clears WCAG AA. Used for: the primary button, the active nav rule, focus rings,
-links. Nothing else.
-
-### Semantic colour is scarce on purpose
-
-| Token | Meaning |
-|---|---|
-| `positive` (teal) | Money in, profit |
-| `negative` (warm red) | Money out, loss, errors |
-| `warning` (amber) | Low stock, stale rate |
-| `info` (blue) | Neutral status |
-
-Applied to individual figures via `<Money tone="flow">`, never to whole rows. A
-table where every number is coloured is a table nobody can scan.
-
-### Both themes are designed, not inverted
-
-Dark is not light with the lightness flipped. Saturation and lightness are tuned
-per theme, and elevation works differently: light mode uses a soft shadow, dark
-mode uses a 1px inner top highlight, because a drop shadow against near-black is
-invisible and only adds mud.
-
-Every token is defined on bare `:root` (light) first, then redefined under a
-single `.dark` class — not `@media (prefers-color-scheme: dark)` or
-`[data-theme="dark"]`; `tokens.css` has no media query and no data-attribute
-selector at all. `next-themes` (`attribute="class"`, `enableSystem`) is what
-adds `.dark` to `<html>`: it reads the OS preference and injects a small
-blocking inline script that sets the class before first paint, so there is no
-flash of the wrong theme — but it is JS, run synchronously pre-hydration, not
-CSS reading the media query itself.
-
----
-
-## Type
-
-**Instrument Sans** for interface text. **JetBrains Mono** for every number.
-
-### Every number is tabular
-
-```css
-.tabular {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1, 'zero' 1;
-}
-```
-
-Applied by `<Money>`, `<Numeric>`, `<Percent>` and the `numeric` prop on table
-cells. Never hand-write a formatted amount into JSX.
-
-Two reasons, one aesthetic and one functional: columns line up on the decimal,
-and a larger number is physically wider, so an outlier is visible before it is
-read.
-
-### Scale
-
-| Use | Size | Weight |
+| Use | Face | Class |
 |---|---|---|
-| Page title | 20px / `-0.02em` | 500 |
-| Display figure | 30px / `-0.03em` | 400 mono |
-| Panel title | 13px | 500 |
-| Body, table cell | 13px | 400 |
-| Supporting | 12px | 400 |
-| Section label | 11px uppercase / `0.08em` | 400 |
+| Storefront headings | Archivo, `wdth` 112, weight 800 | `.nx-display` |
+| Dashboard page titles | Archivo, `wdth` 106, weight 750 | `.nx-title` |
+| Text | Instrument Sans | default |
+| Numbers, prices, SKUs | JetBrains Mono, tabular | `.tabular` |
+| Small technical labels | JetBrains Mono, caps, 0.09em | `.nx-label` |
 
-Nothing is bold. Hierarchy comes from size, colour and space.
+Every number in the dashboard is tabular so columns align on the decimal. Prices on the storefront
+use the same face.
 
----
+## Money on the storefront
 
-## Form
+SRD leads and always carries its code: `SRD 4.850`, never a bare `$`, which would read as USD.
+Dutch thousands separator. When an exchange rate is set, the USD indication follows in small type
+(`≈ $126`). `formatSrd()` in `components/store/store-price.tsx` is the single formatter; the cart and
+the WhatsApp message use it too.
 
-**Radii** — `2px` data rows, `6px` controls, `10px` cards. Small and consistent.
+## Components
 
-**Elevation** — a hairline border plus one soft shadow (light) or one inner
-highlight (dark). There is exactly one elevation step. If something needs to
-float further, it is an overlay and uses `shadow-overlay`.
+**Buttons (storefront):** `.nx-btn` with `-orange` (the one primary action on a screen), `-ink`,
+`-line` (secondary), `-line-night` (on charcoal). 44 px high, 36 px for `-sm`.
+**Buttons (dashboard):** `ui/button.tsx`, variants `primary` (orange), `secondary`, `ghost`,
+`danger`, heights 28 / 32 / 36.
 
-**Spacing** — 4 / 8 / 12 / 16 / 24 / 32 / 48. Table rows are 32px.
+**Product card:** warm field, photograph, brand and category label, name, SRD price, stock. One link
+for the whole tile, no second button. Near-square photos fill the field; other shapes are contained.
+Photographs are multiplied onto the field so white backgrounds disappear.
 
-Density is the point. Someone should see their whole stock position without
-scrolling.
+**Stage and ticks:** `.nx-stage` is the charcoal field behind hero photography. `.nx-ticks` adds two
+orange corner marks taken from the logo frame. Used once per page, on the hero.
 
----
+**Tables:** server-rendered, 32 px rows, hairline rules, 11 px caps headers, numbers right-aligned
+and tabular. Sorting and filtering live in the URL.
+
+**Forms:** sheets for create and edit so the list stays visible. Labels above fields, validation text
+under them. Line-item grids must have exactly as many cells as columns (a stray cell once pushed the
+product picker into a 72 px column on Record a sale).
+
+**Focus:** a 2 px orange ring on `:focus-visible` only. Never an always-on outline.
+
+## Layout and breakpoints
+
+Storefront container 1320 px, gutters 16 px, 32 px from `lg`. Dashboard rail 232 px from `lg`,
+a drawer below. Verified widths: **390** (phone), **768** (tablet), **1440** (desktop).
+Product grids are 2 columns on phones, 4 from tablet, with the catalogue at 2 / 3 / 3 / 4 beside its
+filter column.
 
 ## Motion
 
-Sparing and purposeful. `--ease-out-instrument: cubic-bezier(0.22, 1, 0.36, 1)`.
+150 ms for colour and press feedback, 200 to 300 ms for drawers, 500 to 700 ms for image zoom on
+hover. `prefers-reduced-motion` collapses all of it. No decorative animation.
 
-- 150ms on colour and border transitions
-- `active:translate-y-px` on buttons, so a press is felt
-- Overlays fade and scale from 98%
-- `prefers-reduced-motion` collapses everything to 0.01ms
+## Rules that keep it from turning generic
 
-Nothing bounces. Nothing pulses except a loading skeleton.
+- No gradient glows, glass, floating shapes or emoji. The one gradient is a functional fade that
+  keeps text legible over a photograph.
+- No centred headline-plus-two-pills hero. The first screen is one real product, large, with its
+  price and one way in.
+- No invented claims. Stock text comes from inventory; pickup and delivery lines appear only when the
+  owner has configured them; categories appear only when they have public products.
+- The storefront never names a product family in a URL, a header link or a footer.
 
----
+## Evidence
 
-## Component rules
-
-1. `components/ui` knows nothing about Nextly. `components/overview` knows
-   everything. Compositions in between go in `components/patterns`.
-2. **Never** render a raw formatted amount. Use `<Money>`.
-3. Every skeleton matches the geometry of what replaces it.
-4. Every empty state names the action that fills it.
-5. Colour is information. If it is not carrying meaning, it is noise.
-6. New colours go in `tokens.css` or they do not exist.
-
----
-
-## The storefront skin — "Northlight"
-
-The dashboard is dense and near-monochrome because it is read, not sold
-from. The public shop has the opposite job, so it gets its own skin, taken
-from Fairphone's playbook: the product always sits on a soft colour FIELD —
-a light-blue wash (`store-field`, `store-hero-field`) — never on chrome, and
-the page is white and open rather than tinted and dense.
-
-Blue, deliberately: this shop sells IoT hardware, and blue is the
-category's near-universal signal for "connected." A warm amber palette was
-tried briefly and reverted — it read as artisanal/organic rather than
-tech, fighting the product instead of selling it. The accent is a lighter,
-softer blue than the original dark navy ("baby blue," directly) rather
-than a plain revert; the soft radial wash behind product photos stays, on
-purpose — for hardware like this, a gentle blue glow reads as ambient
-"signal" light, not a decorative gradient.
-
-Scoped, not forked. `.nx-store` on the `(store)` layout root redefines the
-same `--nx-*` custom properties the whole app consumes; because
-`@theme inline` keeps the Tailwind utilities pointing at live `var()`
-references, every existing component re-skins with zero code changes, and
-the dashboard is untouched. Light only — the store layout gives its own
-root an explicit `bg-base` background rather than relying on inheritance,
-so nothing can show through it regardless of the visitor's OS theme (see
-`(store)/layout.tsx`'s doc comment for the bug this replaced).
-
-Northlight's own rules, on top of Instrument's:
-
-| | Instrument (dashboard) | Northlight (storefront) |
-|---|---|---|
-| Canvas | tinted base `hsl(205 30% 98.5%)` | pure white; light-blue only as fields |
-| Accent | cyan `#37CAEC` darkened | a softer "baby blue" `hsl(205 75% 45%)`, lighter than a corporate navy |
-| Bright note | accent = cyan | `hsl(199 85% 65%)` returns as highlight: NEW pills, stock dots, footer CTA |
-| Cards | hairline border, 10px radius, one shadow | `store-card`: 16px radius, lift-on-hover, product on a colour field |
-| CTAs | 28/32/36px dense controls | pill (`rounded-full`) 36–44px — a shop invites, a tool confirms |
-| Type | 13px body, weight 500 max | up to 54px/600 hero, 15–16px body |
-| Closing move | — | one navy promise band above the footer (`StoreFooterBanner`) |
-
-Storefront-specific tokens (`--nx-store-bright`, `--nx-store-navy` and
-friends) live in the same `.nx-store` block in `tokens.css`, mapped through
-`@theme inline` as `store-bright` / `store-navy` utilities with light-theme
-fallbacks. Rule 6 still holds: nothing defines a colour anywhere else.
-
----
-
-## The wordmark is provisional
-
-`components/shell/wordmark.tsx` is a type lockup plus a signal glyph — three
-arcs and a node. It says "connected device" without pretending to be finished
-identity work, and it is one file to delete when real branding arrives.
-
-A generated logo would have been the fastest possible way to make the whole
-product look templated.
+Before and after captures at 390 / 768 / 1440 are in `docs/design-review/` (see its README), made by
+`scripts/design-review/shoot.mjs` against the synthetic local fixture, not staging.

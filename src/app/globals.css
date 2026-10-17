@@ -51,19 +51,24 @@
   --color-chart-grid: var(--nx-chart-grid);
   --color-chart-axis: var(--nx-chart-axis);
 
-  /* Storefront-only palette ("Northlight", defined on .nx-store in
+  /* Storefront-only palette (defined on .nx-store in
      tokens.css). Fallbacks keep the utilities valid if ever used outside
      the store shell — they resolve to the light-theme values. */
-  --color-store-bright: var(--nx-store-bright, hsl(191 83% 57%));
-  --color-store-bright-soft: var(--nx-store-bright-soft, hsl(191 80% 94%));
-  --color-store-navy: var(--nx-store-navy, hsl(208 50% 12%));
-  --color-store-navy-soft: var(--nx-store-navy-soft, hsl(208 36% 22%));
-  --color-store-navy-line: var(--nx-store-navy-line, hsl(208 30% 32%));
+  --color-store-bright: var(--nx-store-bright, #ee5b0d);
+  --color-store-bright-soft: var(--nx-store-bright-soft, #fff1e4);
+  --color-store-navy: var(--nx-night, #131211);
+  --color-night: var(--nx-night, #131211);
+  --color-night-2: var(--nx-night-2, #1d1b19);
+  --color-night-line: var(--nx-night-line, #34302c);
+  --color-night-ink: var(--nx-night-ink, #f4f1ec);
+  --color-night-ink-2: var(--nx-night-ink-2, #b7b0a6);
 
   /* Restrained radii. Nothing is rounded-2xl. */
   --radius-row: 2px;
-  --radius-control: 6px;
-  --radius-card: 10px;
+  --radius-control: 4px;
+  --radius-card: 6px;
+  /* Storefront tiles echo the rectangular NextX logo frame: near-square. */
+  --radius-tile: 2px;
 
   --shadow-raised: var(--nx-shadow-raised);
   --shadow-overlay: var(--nx-shadow-overlay);
@@ -73,6 +78,8 @@
     sans-serif;
   --font-mono:
     var(--font-jetbrains-mono), ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --font-display:
+    var(--font-archivo), var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
 
   /* 4 / 8 / 12 / 16 / 24 / 32 / 48 rhythm — declared so it is deliberate. */
   --spacing-row: 2rem; /* 32px table row */
@@ -174,39 +181,147 @@
       inset 0 1px 0 0 var(--nx-highlight);
   }
 
-  /* ── Storefront "Northlight" ────────────────────────────────────────────
-     Fairphone's trick, adapted: the product always sits on a soft colour
-     FIELD — never on chrome — and the colour is the brand's own baby
-     blue. These are the three fields and the one card shape that carry
-     it. Flat colour, no gradient glow — tried as a soft radial wash and
-     reverted per direct feedback ("don't like the blue glow behind the
-     images"). */
+  /* ── Storefront ─────────────────────────────────────────────────────────
+     The shop is open and typographic: warm paper, charcoal product stages,
+     and one orange. Tokens live on .nx-store (tokens.css); these are the few
+     composed pieces that need more than a utility. */
 
-  /* The per-card image field: a flat, quiet wash. */
-  .store-field {
-    background-color: var(--nx-bg-inset);
+  /* Dashboard page title: the shop's wide display face, one step down. */
+  .nx-title {
+    font-family: var(--font-display);
+    font-variation-settings: "wdth" 106;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
   }
 
-  /* The homepage hero field: the deeper "sunken" tone, same flat treatment. */
-  .store-hero-field {
-    background-color: var(--nx-bg-sunken);
-  }
-
-  /* The product card itself: borderless Fairphone-style tile that lifts. */
+  /* Plain bordered panel and image stage for the secondary pages (FAQ, blog, setups). */
   .store-card {
     background-color: var(--nx-bg-raised);
-    border: 1px solid var(--nx-border-subtle);
-    border-radius: 16px;
-    box-shadow: 0 1px 2px hsl(24 30% 20% / 0.05);
-    transition:
-      box-shadow 200ms var(--ease-out-instrument),
-      translate 200ms var(--ease-out-instrument),
-      border-color 200ms var(--ease-out-instrument);
+    border: 1px solid var(--nx-border);
+    border-radius: var(--radius-tile);
   }
-  .store-card:hover {
-    border-color: var(--nx-border);
-    box-shadow: var(--nx-shadow-raised);
-    translate: 0 -2px;
+  .store-field {
+    background-color: var(--nx-night-2);
+  }
+
+  /* Wide, black display type, after the NextX wordmark. */
+  .nx-display {
+    font-family: var(--font-display);
+    font-variation-settings: "wdth" 112;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 0.96;
+  }
+
+  /* Small technical label: mono, capitals, wide tracking. */
+  .nx-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  /* The product stage: a dark, quiet field that photography is shot against. */
+  .nx-stage {
+    position: relative;
+    background-color: var(--nx-night-2);
+    overflow: hidden;
+  }
+
+  /* Orange corner ticks, taken from the logo's frame. Two opposite corners only. */
+  .nx-ticks::before,
+  .nx-ticks::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: var(--nx-store-bright);
+    border-style: solid;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .nx-ticks::before {
+    top: 10px;
+    left: 10px;
+    border-width: 2px 0 0 2px;
+  }
+  .nx-ticks::after {
+    right: 10px;
+    bottom: 10px;
+    border-width: 0 2px 2px 0;
+  }
+
+  /* Buttons: rectangular, confident, three levels. */
+  .nx-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.75rem;
+    padding: 0 1.25rem;
+    border-radius: var(--radius-tile);
+    font-size: 14px;
+    font-weight: 650;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition:
+      background-color 150ms var(--ease-out-instrument),
+      color 150ms var(--ease-out-instrument),
+      border-color 150ms var(--ease-out-instrument),
+      translate 150ms var(--ease-out-instrument);
+  }
+  .nx-btn:active {
+    translate: 0 1px;
+  }
+  .nx-btn svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  /* Orange fill, ink text: 6.3:1, and the one colour the page is built to find. */
+  .nx-btn-orange {
+    background-color: var(--nx-store-bright);
+    color: #0f0e0d;
+  }
+  .nx-btn-orange:hover {
+    background-color: #ff6a1a;
+  }
+  .nx-btn-ink {
+    background-color: var(--nx-night);
+    color: var(--nx-night-ink);
+  }
+  .nx-btn-ink:hover {
+    background-color: #2a2724;
+  }
+  .nx-btn-line {
+    background-color: transparent;
+    color: var(--nx-text);
+    border-color: var(--nx-border-strong);
+  }
+  .nx-btn-line:hover {
+    border-color: var(--nx-text);
+    background-color: var(--nx-bg-hover);
+  }
+  .nx-btn-line-night {
+    background-color: transparent;
+    color: var(--nx-night-ink);
+    border-color: var(--nx-night-line);
+  }
+  .nx-btn-line-night:hover {
+    border-color: var(--nx-night-ink);
+  }
+  .nx-btn-sm {
+    height: 2.25rem;
+    padding: 0 0.875rem;
+    font-size: 13px;
+  }
+  .nx-btn[disabled],
+  .nx-btn[aria-disabled="true"] {
+    opacity: 0.45;
+    pointer-events: none;
   }
 }
 

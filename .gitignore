@@ -35,3 +35,6 @@ migration-reports/
 
 # disposable local PostgreSQL rehearsal cluster
 .local-rehearsal/
+
+# synthetic product photography for local design review only
+public/dev-fixtures/

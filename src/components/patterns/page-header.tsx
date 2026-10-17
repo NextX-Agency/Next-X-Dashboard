@@ -29,7 +29,7 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="font-medium text-[20px] text-ink tracking-[-0.02em]">{title}</h1>
+        <h1 className="nx-title text-[24px] text-ink">{title}</h1>
         {description ? (
           <p className="mt-1 max-w-prose text-[13px] text-ink-3 leading-relaxed">
             {description}

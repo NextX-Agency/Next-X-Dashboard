@@ -60,6 +60,8 @@ export type CatalogListItem = {
   /** Publish-adjacent signal: the product row's creation instant, used to
    *  flag recent arrivals ("NEW") in the grid. */
   createdAt: string;
+  /** Marked as featured on the storefront or on the product itself. */
+  featured: boolean;
 };
 
 export type CatalogSort = 'newest' | 'name' | 'price-asc' | 'price-desc';
@@ -413,6 +415,7 @@ export async function listCatalogProducts(
       COALESCE(sp.slug_override, p.slug) AS public_slug,
       COALESCE(sp.description_override, p.summary) AS summary,
       p.created_at::text AS created_at, p.new_until::text AS new_until,
+      (sp.featured OR p.featured)::text AS featured,
       c.name AS category_name, c.slug AS category_slug,
       b.name AS brand_name, p.compatibility::text AS compatibility, p.buyer_requirements::text AS buyer_requirements,
       COALESCE((
@@ -503,6 +506,7 @@ export async function listCatalogProducts(
         }
       : null,
     createdAt: text(row.created_at),
+    featured: row.featured === 'true',
   }));
 }
 

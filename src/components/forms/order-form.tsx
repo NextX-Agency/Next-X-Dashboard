@@ -202,10 +202,10 @@ export function OrderForm({
                 >
                   <Field
                     label={index === 0 ? 'Product' : ''}
-                    htmlFor={`order-variant-${line.key}`}
+                    htmlFor={`order-variant-${index}`}
                   >
                     <Combobox
-                      id={`order-variant-${line.key}`}
+                      id={`order-variant-${index}`}
                       options={variantOptions}
                       value={line.variantId || null}
                       onChange={(value) =>
@@ -231,9 +231,9 @@ export function OrderForm({
                       searchPlaceholder="Search by name or SKU"
                     />
                   </Field>
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`order-qty-${line.key}`}>
+                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`order-qty-${index}`}>
                     <Input
-                      id={`order-qty-${line.key}`}
+                      id={`order-qty-${index}`}
                       numeric
                       inputMode="numeric"
                       value={line.quantity}
@@ -250,10 +250,10 @@ export function OrderForm({
                   </Field>
                   <Field
                     label={index === 0 ? `Unit (${currency})` : ''}
-                    htmlFor={`order-price-${line.key}`}
+                    htmlFor={`order-price-${index}`}
                   >
                     <Input
-                      id={`order-price-${line.key}`}
+                      id={`order-price-${index}`}
                       numeric
                       inputMode="decimal"
                       value={line.unitPrice}

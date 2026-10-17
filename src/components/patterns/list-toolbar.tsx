@@ -25,8 +25,8 @@ export function ListToolbar({ children }: { children: ReactNode }) {
 }
 
 /** `sm` is the dashboard's dense default (unchanged from before this variant
- *  existed); `md` is sized for the storefront's open Northlight controls
- *  (see docs/03-design/design-system.md's Instrument-vs-Northlight table). */
+ *  existed); `md` is sized for the storefront's open controls
+ *  (see docs/03-design/design-system.md). */
 const SEARCH_SIZES = {
   sm: {
     input: 'h-8 rounded-control border-line py-1.5 pr-7 pl-8 text-[13px]',

@@ -506,16 +506,13 @@ export function SaleForm({
                   key={line.key}
                   className="grid gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]"
                 >
-                  {index === 0 ? (
-                    <span className="hidden text-[11px] text-ink-4 uppercase tracking-[0.06em] sm:block" />
-                  ) : null}
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
 
-                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${line.key}`}>
+                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${index}`}>
                     <Combobox
-                      id={`variant-${line.key}`}
+                      id={`variant-${index}`}
                       options={variantOptions}
                       value={line.bundleId ? `bundle:${line.bundleId}` : line.variantId}
                       onChange={(value) => {
@@ -566,9 +563,9 @@ export function SaleForm({
                     />
                   </Field>
 
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${line.key}`}>
+                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${index}`}>
                     <Input
-                      id={`qty-${line.key}`}
+                      id={`qty-${index}`}
                       numeric
                       inputMode="numeric"
                       value={line.quantity}
@@ -587,10 +584,10 @@ export function SaleForm({
 
                   <Field
                     label={index === 0 ? `Unit (${currency})` : ''}
-                    htmlFor={`price-${line.key}`}
+                    htmlFor={`price-${index}`}
                   >
                     <Input
-                      id={`price-${line.key}`}
+                      id={`price-${index}`}
                       numeric
                       inputMode="decimal"
                       placeholder="0.00"
@@ -635,12 +632,12 @@ export function SaleForm({
                   {line.variantId ? (
                     <Field
                       label="Serial numbers"
-                      htmlFor={`serials-${line.key}`}
+                      htmlFor={`serials-${index}`}
                       hint={`Optional — one per line, up to ${quantity || 1} for this line`}
                       className="sm:col-span-6"
                     >
                       <Textarea
-                        id={`serials-${line.key}`}
+                        id={`serials-${index}`}
                         rows={2}
                         spellCheck={false}
                         placeholder="e.g. SN-48213-X"

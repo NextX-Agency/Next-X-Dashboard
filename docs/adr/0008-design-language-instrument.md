@@ -1,6 +1,6 @@
-# ADR-0008 — The Instrument design language
+# ADR-0008 — The Instrument design language (superseded: see docs/03-design/design-system.md)
 
-**Date** 2026-09-01 · **Status** Accepted
+**Date** 2026-09-01 · **Status** Superseded 2026-10-17 by the NextX design system
 
 ## Context
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { MessageCircle, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { fromBase, type RateMicros } from '@/lib/fx';
@@ -11,9 +12,10 @@ import {
   type StoreCartQuoteLine,
   storeCartSubtotal,
 } from '@/lib/store-cart';
-import { storefrontProductPath } from '@/lib/storefront-domain';
+import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { whatsappDigits, whatsappLink } from '@/lib/whatsapp';
 import { useStoreCart } from './store-cart-provider';
+import { formatSrd } from './store-price';
 
 type PickupLocation = { id: string; name: string };
 type CartQuoteState =
@@ -57,7 +59,7 @@ function variantLabel(name: string): string | null {
 }
 
 function fieldClassName() {
-  return 'mt-1 h-10 w-full rounded-control border border-line bg-base px-3 text-[13px] text-ink placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none';
 }
 
 function formatCustomerMoney(
@@ -66,9 +68,9 @@ function formatCustomerMoney(
   srdRate?: RateMicros,
 ) {
   if (currency === 'USD' && srdRate && srdRate > 0) {
-    return `${formatMoney(fromBase(amountCents, srdRate), 'SRD', { bare: true })} SRD (${formatMoney(amountCents, 'USD')})`;
+    return `${formatSrd(fromBase(amountCents, srdRate))} (${formatMoney(amountCents, 'USD')})`;
   }
-  return formatMoney(amountCents, currency);
+  return currency === 'SRD' ? formatSrd(amountCents) : formatMoney(amountCents, currency);
 }
 
 export function StoreCartCheckout({
@@ -216,23 +218,21 @@ export function StoreCartCheckout({
 
   if (!ready) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-12 lg:px-6" aria-live="polite">
-        <p className="text-[14px] text-ink-3">Je winkelwagen wordt geladen…</p>
+      <div className="mx-auto w-full max-w-[1320px] px-4 py-16 lg:px-8" aria-live="polite">
+        <p className="nx-label text-ink-3">Je winkelwagen wordt geladen…</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-6">
+    <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 pt-10 pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
       <section aria-labelledby="cart-heading" className="min-w-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-accent uppercase">
-              Je winkelwagen
-            </p>
+            <p className="nx-label text-ink-3">Je bestelling</p>
             <h1
               id="cart-heading"
-              className="mt-1 text-3xl font-semibold tracking-[-0.03em] text-ink"
+              className="nx-display mt-2 text-[clamp(36px,5vw,64px)] text-ink"
             >
               Winkelwagen
             </h1>
@@ -246,21 +246,20 @@ export function StoreCartCheckout({
         </div>
 
         {lines.length === 0 ? (
-          <div className="mt-6 rounded-card border border-line-subtle bg-white p-8 text-center sm:p-12">
-            <ShoppingBag aria-hidden="true" className="mx-auto size-8 text-ink-4" />
-            <h2 className="mt-4 text-lg font-semibold text-ink">Je winkelwagen is leeg</h2>
-            <p className="mt-1 text-[13px] text-ink-3">
-              Voeg producten toe om een bestelling voor te bereiden via WhatsApp.
-            </p>
-            <a
-              href="/#catalog"
-              className="mt-5 inline-flex h-9 items-center rounded-full bg-accent px-4 text-[13px] font-medium text-accent-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
+          <div className="mt-8 flex flex-col items-start gap-4 border-line border-y py-14">
+            <ShoppingBag aria-hidden="true" className="size-8 text-ink-3" />
+            <div>
+              <h2 className="nx-display text-[28px] text-ink">Je winkelwagen is leeg</h2>
+              <p className="mt-2 max-w-[46ch] text-[15px] text-ink-2">
+                Voeg producten toe om een bestelling voor te bereiden via WhatsApp.
+              </p>
+            </div>
+            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-orange">
               Bekijk producten
-            </a>
+            </Link>
           </div>
         ) : (
-          <div className="mt-6 divide-y divide-line-subtle rounded-card border border-line-subtle bg-white">
+          <div className="mt-8 divide-y divide-line border-line border-y">
             {displayLines.map((line) => {
               const quoteUnavailable =
                 quoteReady && readyCartQuote.unavailableVariantIds.includes(line.variantId);
@@ -270,12 +269,12 @@ export function StoreCartCheckout({
               return (
                 <article
                   key={line.variantId}
-                  className="flex flex-wrap items-center gap-4 p-4 sm:p-5"
+                  className="flex flex-wrap items-center gap-x-5 gap-y-3 py-5"
                 >
                   <div className="min-w-0 flex-1">
                     <a
                       href={storefrontProductPath(storefrontSlug, line.productSlug)}
-                      className="font-semibold text-ink hover:text-accent"
+                      className="text-[16px] font-semibold text-ink hover:text-accent"
                     >
                       {line.productName}
                     </a>
@@ -297,11 +296,11 @@ export function StoreCartCheckout({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-1 rounded-control border border-line p-1">
+                  <div className="flex items-center border border-ink">
                     <button
                       type="button"
                       aria-label={`Aantal van ${line.productName} verlagen`}
-                      className="grid size-8 place-items-center rounded-control text-ink-3 hover:bg-hover disabled:opacity-40"
+                      className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
                       disabled={line.quantity <= 1}
                       onClick={() => setQuantity(line.variantId, line.quantity - 1)}
                     >
@@ -313,7 +312,7 @@ export function StoreCartCheckout({
                     <button
                       type="button"
                       aria-label={`Aantal van ${line.productName} verhogen`}
-                      className="grid size-8 place-items-center rounded-control text-ink-3 hover:bg-hover disabled:opacity-40"
+                      className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
                       disabled={
                         !quoteReady || line.quantity >= line.available || line.quantity >= 9999
                       }
@@ -322,7 +321,7 @@ export function StoreCartCheckout({
                       <Plus aria-hidden="true" className="size-4" />
                     </button>
                   </div>
-                  <p className="w-24 text-right text-[14px] font-semibold tabular text-ink">
+                  <p className="w-28 text-right text-[15px] font-semibold tabular text-ink">
                     {quoteReady && !overStock
                       ? formatCustomerMoney(
                           storeCartSubtotal([line], line.currency),
@@ -348,19 +347,19 @@ export function StoreCartCheckout({
       </section>
 
       {lines.length ? (
-        <aside className="h-fit rounded-card border border-line-subtle bg-white p-5 lg:sticky lg:top-6">
-          <h2 className="text-[16px] font-semibold text-ink">Bestellen via WhatsApp</h2>
+        <aside className="h-fit border-ink border-t-2 bg-raised p-5 sm:p-6 lg:sticky lg:top-24">
+          <h2 className="nx-display text-[24px] text-ink">Bestellen via WhatsApp</h2>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
             Stuur je lijst naar {businessName}. Het team bevestigt de voorraad en de definitieve
             prijs.
           </p>
 
-          <div className="mt-4 space-y-2 border-y border-line-subtle py-3">
+          <div className="mt-5 space-y-2 border-line border-y py-4">
             {quoteReady && !stockIssue ? (
               totals.map(({ currency, amount }) => (
                 <div key={currency} className="flex items-baseline justify-between gap-4">
                   <span className="text-[12px] text-ink-3">Totaal (indicatief)</span>
-                  <span className="text-[15px] font-semibold tabular text-ink">
+                  <span className="text-[18px] font-semibold tabular text-ink">
                     {formatCustomerMoney(amount, currency, srdRate)}
                   </span>
                 </div>
@@ -383,7 +382,7 @@ export function StoreCartCheckout({
             </p>
           ) : quoteError ? (
             <div
-              className="mt-3 rounded-control bg-negative-muted px-3 py-2 text-[12px] text-negative"
+              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
               <p>
@@ -408,7 +407,7 @@ export function StoreCartCheckout({
 
           {stockIssue ? (
             <p
-              className="mt-3 rounded-control bg-negative-muted px-3 py-2 text-[12px] text-negative"
+              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
               Pas niet-beschikbare artikelen aan of verwijder ze voordat je bestelt.
@@ -416,7 +415,7 @@ export function StoreCartCheckout({
           ) : null}
           {currencyMismatch ? (
             <p
-              className="mt-3 rounded-control bg-negative-muted px-3 py-2 text-[12px] text-negative"
+              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
               role="alert"
             >
               De winkelwagen bevat verschillende valuta. Leeg hem en voeg de producten opnieuw
@@ -426,10 +425,7 @@ export function StoreCartCheckout({
 
           <div className="mt-4 space-y-3">
             <div>
-              <label
-                htmlFor="cart-customer-name"
-                className="text-[12px] font-medium text-ink-2"
-              >
+              <label htmlFor="cart-customer-name" className="text-[13px] font-medium text-ink">
                 Naam
               </label>
               <input
@@ -443,10 +439,7 @@ export function StoreCartCheckout({
               />
             </div>
             <div>
-              <label
-                htmlFor="cart-customer-phone"
-                className="text-[12px] font-medium text-ink-2"
-              >
+              <label htmlFor="cart-customer-phone" className="text-[13px] font-medium text-ink">
                 Telefoon
               </label>
               <input
@@ -463,7 +456,7 @@ export function StoreCartCheckout({
             <div>
               <label
                 htmlFor="cart-pickup-location"
-                className="text-[12px] font-medium text-ink-2"
+                className="text-[13px] font-medium text-ink"
               >
                 Ophaallocatie
               </label>
@@ -481,23 +474,21 @@ export function StoreCartCheckout({
                   ))}
                 </select>
               ) : (
-                <p className="mt-1 min-h-10 rounded-control border border-line bg-sunken px-3 py-2.5 text-[13px] text-ink-2">
+                <p className="mt-1.5 min-h-11 border border-line bg-sunken px-3 py-2.5 text-[14px] text-ink-2">
                   {fallbackLocation ?? 'Bevestig de ophaallocatie met de winkel'}
                 </p>
               )}
             </div>
             <fieldset>
-              <legend className="text-[12px] font-medium text-ink-2">
-                Gewenste ophaaldatum
-              </legend>
-              <div className="mt-2 grid grid-cols-3 gap-1 rounded-control bg-sunken p-1 text-[12px]">
+              <legend className="text-[13px] font-medium text-ink">Gewenste ophaaldatum</legend>
+              <div className="mt-2 grid grid-cols-3 gap-1 bg-sunken p-1 text-[13px]">
                 {(['today', 'tomorrow', 'custom'] as const).map((value) => (
                   <button
                     key={value}
                     type="button"
                     aria-pressed={pickupDate === value}
                     onClick={() => setPickupDate(value)}
-                    className={`rounded-control px-2 py-2 transition-colors ${pickupDate === value ? 'bg-white text-ink shadow-sm' : 'text-ink-3 hover:text-ink'}`}
+                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-ink text-base' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Kies datum'
@@ -520,10 +511,7 @@ export function StoreCartCheckout({
               ) : null}
             </fieldset>
             <div>
-              <label
-                htmlFor="cart-customer-notes"
-                className="text-[12px] font-medium text-ink-2"
-              >
+              <label htmlFor="cart-customer-notes" className="text-[13px] font-medium text-ink">
                 Opmerking
               </label>
               <textarea
@@ -532,7 +520,7 @@ export function StoreCartCheckout({
                 rows={3}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1 w-full resize-y rounded-control border border-line bg-base px-3 py-2 text-[13px] text-ink placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
                 placeholder="Is er iets wat de winkel moet weten?"
               />
             </div>
@@ -544,8 +532,9 @@ export function StoreCartCheckout({
                 href={orderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#157a3d] px-5 text-[14px] font-semibold text-white transition-[filter] hover:brightness-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="nx-btn nx-btn-orange h-12 w-full text-[15px]"
               >
+                <MessageCircle />
                 Verstuur bestelling via WhatsApp
               </a>
             ) : (
@@ -554,7 +543,7 @@ export function StoreCartCheckout({
                 variant="primary"
                 size="lg"
                 disabled
-                className="h-11 w-full rounded-full"
+                className="h-12 w-full rounded-tile"
               >
                 {!whatsappNumber
                   ? 'WhatsApp-nummer niet beschikbaar'
@@ -569,7 +558,7 @@ export function StoreCartCheckout({
                           : 'Vul je gegevens in'}
               </Button>
             )}
-            <p className="mt-2 text-center text-[11px] text-ink-4">
+            <p className="mt-2 text-center text-[12px] text-ink-3">
               Je winkelwagen blijft op dit apparaat bewaard tot je hem leegt.
             </p>
           </div>

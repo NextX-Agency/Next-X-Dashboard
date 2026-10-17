@@ -10,7 +10,7 @@ import { parseMoney } from '@/lib/money';
 export const metadata = { title: 'Design system' };
 
 /**
- * Living documentation for the Instrument design language.
+ * Living documentation for the NextX dashboard design language.
  *
  * Reachable in every environment. Its job is to make every token and primitive
  * visible in both themes at once, so a regression is obvious rather than
@@ -24,9 +24,10 @@ export default function DesignSystemPage() {
       <header className="sticky top-0 z-10 border-line-subtle border-b bg-base/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
           <div>
-            <h1 className="font-medium text-[15px] text-ink tracking-tight">Instrument</h1>
+            <h1 className="nx-title text-[17px] text-ink">NextX design system</h1>
             <p className="text-[12px] text-ink-3">
-              NextX Dashboard design language. Dense, technical, near-monochrome.
+              The dashboard: dense, warm neutral, charcoal rail, one orange. The shop has its
+              own skin (docs/03-design/design-system.md).
             </p>
           </div>
           <ThemeToggle />
@@ -36,7 +37,7 @@ export default function DesignSystemPage() {
       <main className="mx-auto max-w-5xl space-y-8 px-6 py-8">
         <Section
           title="Colour"
-          note="Neutrals are tinted to hue 207, the hue of #125488. Nothing here is grey."
+          note="Neutrals are warm (hue 30 to 40), never blue. Orange is the logo orange, darkened for text and white-on-orange buttons."
         >
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
             <Swatches
@@ -71,7 +72,7 @@ export default function DesignSystemPage() {
 
           <div className="mt-6">
             <p className="mb-2 text-[12px] text-ink-3">
-              The brand palette is reserved for data visualisation. It never appears in chrome.
+              The chart palette is reserved for data visualisation. It never appears in chrome.
             </p>
             <div className="flex h-12 overflow-hidden rounded-card border border-line-subtle">
               {['bg-chart-1', 'bg-chart-2', 'bg-chart-3', 'bg-chart-4', 'bg-chart-5'].map(
@@ -89,7 +90,7 @@ export default function DesignSystemPage() {
         >
           <div className="space-y-3">
             <p className="text-[30px] text-ink leading-none tracking-[-0.03em]">
-              Wyze Cam Pan V3
+              Halden Studio 8
             </p>
             <p className="text-[15px] text-ink">Purchase order PO-001 received</p>
             <p className="text-[13px] text-ink-2">

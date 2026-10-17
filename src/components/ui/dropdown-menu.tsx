@@ -30,13 +30,13 @@ export function Menu({
 }) {
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        asChild={trigger !== undefined}
-        aria-label={trigger ? undefined : 'Actions'}
-      >
+      {/* Always `asChild`: the default trigger is itself a <button>, and letting Radix wrap
+          it in a second one is invalid HTML (a nested button) that fails hydration. */}
+      <DropdownMenu.Trigger asChild>
         {trigger ?? (
           <button
             type="button"
+            aria-label="Actions"
             className="grid size-7 place-items-center rounded-control text-ink-4 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
             <MoreHorizontal className="size-4" />

@@ -28,7 +28,7 @@ export function Sidebar({
 
   return (
     <nav
-      className={cn('flex h-full flex-col gap-6 overflow-y-auto px-3 py-4', className)}
+      className={cn('nx-rail flex h-full flex-col gap-6 overflow-y-auto px-3 py-4', className)}
       aria-label="Primary"
     >
       <div className="px-2">
@@ -36,16 +36,14 @@ export function Sidebar({
           href="/dashboard"
           className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <Wordmark />
+          <Wordmark tone="night" />
         </Link>
       </div>
 
       <div className="flex flex-1 flex-col gap-5">
         {NAVIGATION.map((group) => (
           <div key={group.label}>
-            <p className="px-2 pb-1.5 text-[10px] text-ink-4 uppercase tracking-[0.1em]">
-              {group.label}
-            </p>
+            <p className="nx-label px-2 pb-1.5 text-[10px] text-ink-4">{group.label}</p>
             <ul className="flex flex-col gap-px">
               {group.items.map(({ href, label, Icon }) => {
                 const active = isActivePath(pathname, href);

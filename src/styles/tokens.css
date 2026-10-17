@@ -1,187 +1,201 @@
 /* ──────────────────────────────────────────────────────────────────────────
-   NextX Dashboard 2.0 design tokens
+   NextX design tokens: dashboard
    ──────────────────────────────────────────────────────────────────────────
-   The neutral ramp is NOT grey. Every surface, border and text colour is
-   tinted toward hue 207° — the hue of #125488 from the brand palette. That
-   single decision is what stops the shell reading as a default template.
+   One brand, two surfaces. The dashboard and the shop share the NextX orange,
+   the warm neutral ramp (hue 30-40, never blue) and the charcoal of the logo
+   frame. The dashboard is the denser, quieter of the two: light paper content,
+   a charcoal navigation rail, orange used only for the primary action, the
+   active item and focus. The shop's own skin is `.nx-store` further down.
 
-   Chrome is near-monochrome. NextX orange is the interactive accent.
-   The five palette colours are reserved for data visualisation only.
+   Money has direction, so green and red are semantic only. Chart colours are a
+   separate, data-only palette: orange first, then colours chosen to stay
+   distinguishable from it and from each other, in light and in dark.
    ────────────────────────────────────────────────────────────────────────── */
 
 :root {
   /* ── Surfaces ─────────────────────────────────────────────────────────── */
-  --nx-bg-sunken: hsl(205 28% 95.5%);
-  --nx-bg-base: hsl(205 30% 98.5%);
-  --nx-bg-raised: hsl(0 0% 100%);
-  --nx-bg-overlay: hsl(0 0% 100%);
-  --nx-bg-inset: hsl(205 26% 96.8%);
-  --nx-bg-hover: hsl(207 26% 94.5%);
-  --nx-bg-active: hsl(207 26% 91.5%);
+  --nx-bg-sunken: #eceae5;
+  --nx-bg-base: #f6f5f2;
+  --nx-bg-raised: #ffffff;
+  --nx-bg-overlay: #ffffff;
+  --nx-bg-inset: #f1efeb;
+  --nx-bg-hover: #ecebe6;
+  --nx-bg-active: #e4e1da;
 
   /* ── Borders ──────────────────────────────────────────────────────────── */
-  --nx-border-subtle: hsl(207 22% 91%);
-  --nx-border: hsl(207 20% 85%);
-  --nx-border-strong: hsl(207 18% 71%);
+  --nx-border-subtle: #e6e3dd;
+  --nx-border: #d6d2ca;
+  --nx-border-strong: #a8a298;
 
-  /* ── Text ─────────────────────────────────────────────────────────────── */
-  --nx-text: hsl(207 48% 11%);
-  --nx-text-secondary: hsl(207 16% 38%);
-  --nx-text-tertiary: hsl(207 14% 52%);
-  --nx-text-faint: hsl(207 13% 64%);
+  /* ── Text: every step clears WCAG AA on base and on raised surfaces ───── */
+  --nx-text: #151413;
+  --nx-text-secondary: #46423d;
+  --nx-text-tertiary: #645e57;
+  --nx-text-faint: #706a62;
 
   /* ── Accent (interactive) ─────────────────────────────────────────────── */
-  /* Darker than the logo orange so text and buttons clear WCAG AA on white. */
-  --nx-accent: #c45200;
-  --nx-accent-hover: #a83d00;
-  --nx-accent-fg: hsl(0 0% 100%);
-  --nx-accent-muted: #fff1e4;
-  --nx-accent-border: #f5bf8e;
-  --nx-ring: #c45200;
+  /* Darker than the logo orange so text and white-on-orange buttons clear AA. */
+  --nx-accent: #b13f06;
+  --nx-accent-hover: #8f3200;
+  --nx-accent-fg: #ffffff;
+  --nx-accent-muted: #fdeadb;
+  --nx-accent-border: #efb98f;
+  --nx-ring: #b13f06;
 
   /* ── Semantic (money has direction) ───────────────────────────────────── */
-  --nx-positive: hsl(179 78% 27%);
-  --nx-positive-muted: hsl(179 52% 93%);
-  --nx-negative: hsl(4 68% 46%);
-  --nx-negative-muted: hsl(4 76% 96%);
-  --nx-warning: hsl(33 88% 38%);
-  --nx-warning-muted: hsl(40 90% 94%);
-  --nx-info: hsl(203 67% 42%);
-  --nx-info-muted: hsl(203 72% 94%);
+  --nx-positive: #17704f;
+  --nx-positive-muted: #e3f3ea;
+  --nx-negative: #b42d22;
+  --nx-negative-muted: #fbe9e6;
+  --nx-warning: #8f5a00;
+  --nx-warning-muted: #fbefd2;
+  --nx-info: #285f8f;
+  --nx-info-muted: #e5eef6;
 
-  /* ── Data visualisation — the brand palette, used ONLY here ───────────── */
-  --nx-chart-1: #125488;
-  --nx-chart-2: #2a93d5;
-  --nx-chart-3: #37caec;
-  --nx-chart-4: #3dd9d6;
-  --nx-chart-5: #8fc7c6;
-  --nx-chart-grid: hsl(207 20% 89%);
-  --nx-chart-axis: hsl(207 14% 56%);
+  /* ── Data visualisation: used ONLY for charts ─────────────────────────── */
+  --nx-chart-1: #d9500b;
+  --nx-chart-2: #2b6f73;
+  --nx-chart-3: #c08a1c;
+  --nx-chart-4: #5b5650;
+  --nx-chart-5: #a79d8e;
+  --nx-chart-grid: #e6e3dd;
+  --nx-chart-axis: #7d766d;
 
-  /* ── Elevation — one step, borders do the rest ────────────────────────── */
-  --nx-shadow-raised:
-    0 1px 2px -1px hsl(207 40% 20% / 0.1), 0 2px 6px -2px hsl(207 40% 20% / 0.08);
+  /* ── Elevation: one soft step, borders do the rest ────────────────────── */
+  --nx-shadow-raised: 0 1px 2px hsl(30 20% 10% / 0.06);
   --nx-shadow-overlay:
-    0 4px 12px -2px hsl(207 40% 18% / 0.12), 0 12px 32px -8px hsl(207 40% 18% / 0.14);
+    0 4px 12px -2px hsl(30 20% 10% / 0.12), 0 12px 32px -8px hsl(30 20% 10% / 0.16);
   --nx-highlight: transparent;
 
   color-scheme: light;
 }
 
 .dark {
-  --nx-bg-sunken: hsl(207 45% 3.5%);
-  --nx-bg-base: hsl(207 42% 5.5%);
-  --nx-bg-raised: hsl(207 32% 8.5%);
-  --nx-bg-overlay: hsl(207 30% 11%);
-  --nx-bg-inset: hsl(207 36% 7%);
-  --nx-bg-hover: hsl(207 28% 13%);
-  --nx-bg-active: hsl(207 26% 16.5%);
+  --nx-bg-sunken: #0c0b0a;
+  --nx-bg-base: #121110;
+  --nx-bg-raised: #1a1917;
+  --nx-bg-overlay: #211f1d;
+  --nx-bg-inset: #151413;
+  --nx-bg-hover: #242220;
+  --nx-bg-active: #2d2a27;
 
-  --nx-border-subtle: hsl(207 22% 15.5%);
-  --nx-border: hsl(207 20% 20.5%);
-  --nx-border-strong: hsl(207 18% 31%);
+  --nx-border-subtle: #2a2724;
+  --nx-border: #38342f;
+  --nx-border-strong: #5a544c;
 
-  --nx-text: hsl(200 30% 96%);
-  --nx-text-secondary: hsl(205 14% 68%);
-  --nx-text-tertiary: hsl(207 12% 52%);
-  --nx-text-faint: hsl(207 12% 52%);
+  --nx-text: #f4f1ec;
+  --nx-text-secondary: #bdb7ad;
+  --nx-text-tertiary: #9a948a;
+  --nx-text-faint: #8a847a;
 
-  --nx-accent: #f7931e;
-  --nx-accent-hover: #ffad4d;
-  --nx-accent-fg: #1b1108;
-  --nx-accent-muted: #35200f;
-  --nx-accent-border: #784317;
-  --nx-ring: #f7931e;
+  --nx-accent: #ff7a2e;
+  --nx-accent-hover: #ff9457;
+  --nx-accent-fg: #170d05;
+  --nx-accent-muted: #34200f;
+  --nx-accent-border: #7a4217;
+  --nx-ring: #ff7a2e;
 
-  --nx-positive: hsl(179 67% 55%);
-  --nx-positive-muted: hsl(179 44% 13%);
-  --nx-negative: hsl(4 82% 66%);
-  --nx-negative-muted: hsl(4 44% 15%);
-  --nx-warning: hsl(38 92% 62%);
-  --nx-warning-muted: hsl(38 48% 14%);
-  --nx-info: hsl(203 67% 58%);
-  --nx-info-muted: hsl(203 48% 14%);
+  --nx-positive: #4fcf9f;
+  --nx-positive-muted: #13281f;
+  --nx-negative: #ff7f72;
+  --nx-negative-muted: #301816;
+  --nx-warning: #f0b34a;
+  --nx-warning-muted: #2c2210;
+  --nx-info: #74b2e6;
+  --nx-info-muted: #14232f;
 
-  --nx-chart-1: #1b6fb0;
-  --nx-chart-2: #2a93d5;
-  --nx-chart-3: #37caec;
-  --nx-chart-4: #3dd9d6;
-  --nx-chart-5: #add9d8;
-  --nx-chart-grid: hsl(207 20% 17%);
-  --nx-chart-axis: hsl(207 12% 45%);
+  --nx-chart-1: #ff7a2e;
+  --nx-chart-2: #4aa3a8;
+  --nx-chart-3: #dba93a;
+  --nx-chart-4: #a39b90;
+  --nx-chart-5: #6b655c;
+  --nx-chart-grid: #2a2724;
+  --nx-chart-axis: #8a847a;
 
-  /* Dark surfaces get a hairline top highlight instead of a drop shadow —
-     shadows are invisible on near-black and just add mud. */
+  /* Dark surfaces get a hairline top highlight instead of a drop shadow:
+     shadows are invisible on near-black and only add mud. */
   --nx-shadow-raised: none;
   --nx-shadow-overlay:
-    0 8px 24px -6px hsl(207 60% 2% / 0.6), 0 20px 48px -12px hsl(207 60% 2% / 0.5);
-  --nx-highlight: hsl(207 30% 100% / 0.055);
+    0 8px 24px -6px hsl(30 30% 2% / 0.6), 0 20px 48px -12px hsl(30 30% 2% / 0.5);
+  --nx-highlight: hsl(35 30% 100% / 0.05);
 
   color-scheme: dark;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Storefront skin: warm ink and neutral, NextX orange accent
+   Navigation rail: charcoal in both themes
    ──────────────────────────────────────────────────────────────────────────
-   The public shop is not the dashboard. Where Instrument is dense and
-   near-monochrome, the storefront is open and white: a warm neutral
-   field under the product moments (product on a soft field, never on chrome),
-   NextX orange as the interactive accent, and the logo orange reserved for
-   highlights a visitor should notice (stock dots, the hero underline).
+   The rail re-maps the text and hover tokens for everything inside it, so the
+   existing token utilities (text-ink-3, bg-hover) read correctly on charcoal
+   with no per-item overrides. */
+.nx-rail {
+  --nx-bg-hover: #26231f;
+  --nx-bg-active: #2f2b27;
+  --nx-text: #f4f1ec;
+  --nx-text-secondary: #d3cdc3;
+  --nx-text-tertiary: #aaa398;
+  --nx-text-faint: #8f887d;
+  --nx-border-subtle: #34302c;
+  --nx-border: #34302c;
+  --nx-accent: #ff7a2e;
+  --nx-ring: #ff7a2e;
+  background-color: #131211;
+  color: var(--nx-text);
+}
 
-   Scoped under `.nx-store` on the store layout root: every utility inside
-   the storefront re-skins through the live var references `@theme inline`
-   keeps, with zero changes to dashboard components. Light only — the store
-   layout forces the light theme (see (store)/layout.tsx).
+/* ──────────────────────────────────────────────────────────────────────────
+   Storefront: warm paper, charcoal stages, one orange
+   ──────────────────────────────────────────────────────────────────────────
+   Scoped under `.nx-store` on the store layout root, so every token utility
+   inside the shop re-skins with no change to dashboard components.
+
+   - Paper (#f5f3ef) is the page; product photography sits on a charcoal
+     "stage" (--nx-night-2) so dark-background product shots read as one set.
+   - Orange is the logo orange. As a FILL it carries ink text (6.3:1). As TEXT
+     on paper it uses the darker --nx-accent (5.0:1).
+   - Neutrals are warm (hue 30–40). No blue anywhere in the shop.
+
+   Light only: the store layout forces the light theme.
    ────────────────────────────────────────────────────────────────────────── */
 
 .nx-store {
-  /* ── Surfaces: white base, warm neutral fields ────────────────────────
-     NextX is an orange and ink brand. The storefront neutrals are warm
-     greys (hue 30) so the logo orange sits on its own colour family
-     instead of competing with a blue wash. */
-  --nx-bg-sunken: #f4f2f0;
-  --nx-bg-base: hsl(0 0% 100%);
-  --nx-bg-raised: hsl(0 0% 100%);
-  --nx-bg-overlay: hsl(0 0% 100%);
-  --nx-bg-inset: #f8f6f4;
-  --nx-bg-hover: #f0edeb;
-  --nx-bg-active: #e9e5e2;
+  --nx-bg-sunken: #ebe8e2;
+  --nx-bg-base: #f5f3ef;
+  --nx-bg-raised: #fbfaf8;
+  --nx-bg-overlay: #fbfaf8;
+  --nx-bg-inset: #efece6;
+  --nx-bg-hover: #e9e5de;
+  --nx-bg-active: #e1dcd3;
 
-  /* ── Borders ──────────────────────────────────────────────────────── */
-  --nx-border-subtle: #ece8e4;
-  --nx-border: #ded9d4;
-  --nx-border-strong: #b9b2ab;
+  --nx-border-subtle: #e2ded6;
+  --nx-border: #d2cdc3;
+  --nx-border-strong: #9d968c;
 
-  /* ── Text: warm ink. Every step is at least 4.9:1 on white and on the
-     neutral fields (WCAG AA), including the faintest label colour. ─── */
-  --nx-text: #1f1814;
-  --nx-text-secondary: #58504b;
-  --nx-text-tertiary: #67605b;
-  --nx-text-faint: #6e6863;
+  /* Every step clears AA on paper (#f5f3ef), including the faintest. */
+  --nx-text: #0f0e0d;
+  --nx-text-secondary: #46413c;
+  --nx-text-tertiary: #5f5851;
+  --nx-text-faint: #6d665e;
 
-  /* ── Accent: NextX orange, darkened from the logo orange so text and
-     buttons clear AA on white (5.2:1) and on the neutral fields (4.7:1). */
-  --nx-accent: #b84a00;
-  --nx-accent-hover: #993c00;
-  --nx-accent-fg: hsl(0 0% 100%);
-  --nx-accent-muted: #fff1e4;
-  --nx-accent-border: #f5bf8e;
-  --nx-ring: #b84a00;
+  --nx-accent: #b13f06;
+  --nx-accent-hover: #8f3200;
+  --nx-accent-fg: #ffffff;
+  --nx-accent-muted: #fdeadb;
+  --nx-accent-border: #f0b88f;
+  --nx-ring: #b13f06;
 
-  /* ── Highlight: the logo orange, used sparingly for stock dots ─────── */
-  --nx-store-bright: #f7931e;
-  --nx-store-bright-soft: #fff1e4;
+  --nx-store-bright: #ee5b0d;
+  --nx-store-bright-soft: #fdeadb;
 
-  /* ── Ink: the footer's dark block and hero text ──────────────────── */
-  --nx-store-navy: #1f1814;
-  --nx-store-navy-soft: #3a302a;
-  --nx-store-navy-line: #5a4d44;
+  /* Charcoal: hero, product stages, footer. */
+  --nx-night: #131211;
+  --nx-night-2: #1d1b19;
+  --nx-night-line: #34302c;
+  --nx-night-ink: #f4f1ec;
+  --nx-night-ink-2: #b7b0a6;
 
-  /* ── Elevation — softer and airier than the dashboard's single step ─── */
-  --nx-shadow-raised:
-    0 2px 6px -2px hsl(24 30% 20% / 0.08), 0 10px 28px -10px hsl(24 30% 20% / 0.12);
+  --nx-shadow-raised: 0 1px 2px hsl(30 20% 10% / 0.06);
   --nx-shadow-overlay:
-    0 6px 16px -4px hsl(24 30% 16% / 0.12), 0 20px 48px -12px hsl(24 30% 16% / 0.16);
+    0 6px 16px -4px hsl(30 20% 8% / 0.16), 0 20px 48px -12px hsl(30 20% 8% / 0.2);
   --nx-highlight: transparent;
 }

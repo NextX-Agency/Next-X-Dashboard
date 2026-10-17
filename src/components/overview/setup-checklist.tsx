@@ -36,7 +36,7 @@ const STEPS: Step[] = [
     code: 'product',
     label: 'Create a product',
     hint: 'Stock, prices and serials all hang off it.',
-    href: '/products/new',
+    href: '/items/new',
   },
   {
     code: 'order',
@@ -93,7 +93,7 @@ export function SetupChecklist({ state }: { state: SetupState }) {
               ) : (
                 <Link
                   href={step.href as Route}
-                  className="hover:bg-hover focus-visible:outline-ring text-ink inline-flex items-start gap-2 rounded-control px-2 py-1.5 text-[12px] outline-2 outline-offset-2"
+                  className="hover:bg-hover focus-visible:outline-ring text-ink inline-flex items-start gap-2 rounded-control px-2 py-1.5 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   <Circle className="text-ink-4 mt-0.5 size-4 shrink-0" />
                   <span>

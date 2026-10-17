@@ -1,14 +1,11 @@
 import type { Metadata } from 'next';
-import Image from 'next/image';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { StoreCartLink } from '@/components/store/store-cart-link';
 import { StoreCartProvider } from '@/components/store/store-cart-provider';
-import { StoreFooterBanner } from '@/components/store/store-hero';
+import { StoreFooter } from '@/components/store/store-footer';
+import { StoreHeader, type StoreNavLink } from '@/components/store/store-header';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
-import { AUDIO_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
-import { storefrontPagePath, storefrontPublicOrigin } from '@/lib/storefront-domain';
-import { whatsappDigits } from '@/lib/whatsapp';
+import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
+import { SHOP_PATH, storefrontPublicOrigin } from '@/lib/storefront-domain';
 import { listCatalogBundles, listCatalogCategories } from '@/server/queries/catalog';
 import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront } from '@/server/services/storefront';
@@ -22,32 +19,22 @@ async function currentYear(): Promise<number> {
 }
 
 /**
- * The public storefront — the "Northlight" skin (see tokens.css).
+ * The public storefront.
  *
  * A separate route group from the dashboard on purpose: no auth guard, no
- * sidebar, no member context — and no cost figure anywhere, because the
+ * sidebar, no member context, and no cost figure anywhere, because the
  * queries behind these pages (`server/queries/catalog.ts`) never select one.
  *
- * Forced light with an explicit background, not a second `next-themes`
- * provider: nothing in the storefront calls `useTheme()`, and nesting a
- * second `attribute="class"` provider inside the root one (dashboard-wide,
- * system-aware) previously caused exactly the bug it was meant to prevent —
- * both instances fight over `document.documentElement`'s class, and on
- * mount the *outer* one's effect runs after the inner one's and wins, so a
- * visitor with OS-level dark mode got `.dark` back on `<html>` regardless.
- * Since `<body>` sits outside `.nx-store`'s scope, its background then
- * followed `.dark`'s near-black value and showed through any store section
- * with no background of its own — a public shop reading as near-black
- * because of a visitor's OS preference is exactly the conversion problem
- * this was meant to avoid. `.nx-store`'s own light values apply regardless
- * of `.dark` on an ancestor (CSS inheritance, not `next-themes`), so the
- * real fix is just giving this root its own opaque light background
- * (`bg-base`) so nothing can show through it in the first place.
+ * Forced light with an explicit background rather than a second `next-themes`
+ * provider: nothing in the shop calls `useTheme()`, and nesting a second
+ * `attribute="class"` provider inside the root one made both fight over
+ * `document.documentElement`'s class, so a visitor with OS dark mode got
+ * `.dark` back on `<html>`. `.nx-store` carries its own opaque values (see
+ * tokens.css), which apply whatever class an ancestor has.
  *
- * The shell takes Fairphone's structure: one calm bar with the mark and the
- * catalogue's own sections, content on white, and a closing navy promise
- * above the legal strip. The `.nx-store` class on the root re-skins every
- * token utility inside — the dashboard keeps Instrument untouched.
+ * The shell is category-neutral: the brand is NextX, the nav is built from the
+ * categories that actually have public products, and no product family is
+ * named anywhere in a URL.
  */
 
 // The dashboard and staging storefronts must not be indexed. A custom public
@@ -58,8 +45,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(storefrontPublicOrigin(storefront?.domain, publicAppUrl(), staging)),
     // The root layout's title template belongs to the staff dashboard; the shop has its own.
-    title: { default: 'NextX Audio', template: '%s · NextX' },
-    description: AUDIO_DESCRIPTION,
+    title: { default: 'NextX', template: '%s · NextX' },
+    description: STORE_DESCRIPTION,
     openGraph: { siteName: 'NextX', type: 'website' },
     robots: { index: !staging, follow: !staging },
   };
@@ -71,13 +58,6 @@ export async function generateMetadata(): Promise<Metadata> {
 // shared store shell wait for its live settings read.
 export const instant = false;
 
-/** An Instagram handle or full URL → a profile URL. */
-function instagramUrl(raw: string): string {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith('http')) return trimmed;
-  return `https://instagram.com/${trimmed.replace(/^@/, '')}`;
-}
-
 export default async function StoreLayout({ children }: { children: ReactNode }) {
   const [settings, categories, bundles, year, storefront] = await Promise.all([
     getSettings(),
@@ -86,253 +66,35 @@ export default async function StoreLayout({ children }: { children: ReactNode })
     currentYear(),
     getRequestStorefront(),
   ]);
-  const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
-  const waDigits = whatsappDigits(settings?.whatsapp);
-  const isBrandEntry = !storefront || storefront.slug === 'main';
-  const visibleCategories = isBrandEntry ? [] : categories;
-  const visibleBundles = isBrandEntry ? [] : bundles;
-  const catalogHref = isBrandEntry
-    ? '/audio#catalog'
-    : `${storefrontPagePath(storefront.slug)}#catalog`;
+
+  const links: StoreNavLink[] = [
+    { href: SHOP_PATH, label: 'Alle producten' },
+    ...categories.slice(0, 4).map((category) => ({
+      href: `${SHOP_PATH}?category=${category.slug}`,
+      label: category.name,
+    })),
+    ...(bundles.length ? [{ href: '/#sets', label: 'Sets' }] : []),
+  ];
+
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
       <div className="nx-store flex min-h-dvh flex-col bg-base text-ink">
-        <header className="border-line-subtle border-b bg-white/85 backdrop-blur-md">
-          <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 lg:px-6">
-            <Link
-              href={storefrontPagePath(storefront?.slug) as never}
-              aria-label={storefront?.name ?? settings?.businessName ?? 'NextX'}
-              className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {storefront?.logoUrl ? (
-                <Image
-                  src={storefront.logoUrl}
-                  alt={storefront.name}
-                  width={160}
-                  height={36}
-                  className="h-auto max-h-9 w-auto max-w-40 object-contain"
-                  priority
-                />
-              ) : (
-                <Image
-                  src="/nextx-logo-light.png"
-                  alt="NextX"
-                  width={160}
-                  height={64}
-                  className="h-auto max-h-9 w-auto max-w-40 object-contain"
-                  priority
-                />
-              )}
-            </Link>
-            <nav aria-label="Productcategorieën" className="hidden items-center gap-1 md:flex">
-              {visibleCategories.slice(0, 4).map((category) => (
-                <Link
-                  key={category.slug}
-                  href={
-                    `${storefrontPagePath(storefront?.slug)}?category=${category.slug}` as never
-                  }
-                  className="rounded-full px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  {category.name}
-                </Link>
-              ))}
-              <Link
-                href={'/audio' as never}
-                className="rounded-full px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Audio
-              </Link>
-              {!isBrandEntry ? (
-                <Link
-                  href={catalogHref as never}
-                  className="rounded-full px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                >
-                  Alle producten
-                </Link>
-              ) : null}
-            </nav>
-            <div className="flex items-center gap-4">
-              {!isBrandEntry ? <StoreCartLink storefrontSlug={storefront?.slug} /> : null}
-              {waDigits ? (
-                <a
-                  href={`https://wa.me/${waDigits}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden rounded-full bg-store-bright px-4 py-1.5 text-[13px] font-semibold text-store-navy transition-[filter] duration-150 ease-out-instrument hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline-flex"
-                >
-                  WhatsApp
-                </a>
-              ) : null}
-              <Link
-                href="/login"
-                className="rounded-control text-[13px] text-ink-3 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Medewerkers
-              </Link>
-            </div>
-          </div>
-        </header>
-
+        <StoreHeader
+          storeName={settings?.businessName ?? 'NextX'}
+          links={links}
+          whatsapp={settings?.whatsapp ?? null}
+        />
         <main className="w-full flex-1">{children}</main>
-
-        <footer>
-          <StoreFooterBanner storefrontSlug={storefront?.slug} />
-          <div className="border-line-subtle border-t bg-sunken">
-            <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_.8fr_.8fr_1fr] lg:px-6">
-              <div className="min-w-0">
-                {storefront?.logoUrl ? (
-                  <Image
-                    src={storefront.logoUrl}
-                    alt={storefront.name}
-                    width={160}
-                    height={36}
-                    className="h-auto max-h-9 w-auto max-w-40 object-contain"
-                  />
-                ) : (
-                  <Image
-                    src="/nextx-logo-light.png"
-                    alt="NextX"
-                    width={160}
-                    height={64}
-                    className="h-auto max-h-9 w-auto max-w-40 object-contain"
-                  />
-                )}
-                <p className="mt-3 max-w-[40ch] text-[13px] text-ink-3 leading-relaxed">
-                  {storefrontDescription(storefront?.description, settings?.storeDescription)}
-                </p>
-              </div>
-
-              <div className="text-[13px]">
-                <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  Winkel
-                </h2>
-                <ul className="space-y-1 text-ink-3">
-                  {visibleCategories.slice(0, 5).map((category) => (
-                    <li key={category.slug}>
-                      <Link
-                        href={
-                          `${storefrontPagePath(storefront?.slug)}?category=${category.slug}` as never
-                        }
-                        className="transition-colors hover:text-accent"
-                      >
-                        {category.name}
-                      </Link>
-                    </li>
-                  ))}
-                  {visibleBundles.length ? (
-                    <li>
-                      <Link
-                        href={`${storefrontPagePath(storefront?.slug)}#setups` as never}
-                        className="transition-colors hover:text-accent"
-                      >
-                        Sets
-                      </Link>
-                    </li>
-                  ) : null}
-                  {visibleCategories.length === 0 ? (
-                    <li>
-                      <Link
-                        href={catalogHref as never}
-                        className="transition-colors hover:text-accent"
-                      >
-                        Alle producten
-                      </Link>
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-
-              <div className="text-[13px]">
-                <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  Hulp
-                </h2>
-                <ul className="space-y-1 text-ink-3">
-                  <li>
-                    <Link
-                      href={`${storefrontPagePath(storefront?.slug)}#buying` as never}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Ophalen en bezorgen
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href={`${storefrontPagePath(storefront?.slug)}#support` as never}
-                      className="transition-colors hover:text-accent"
-                    >
-                      Hulp bij kiezen
-                    </Link>
-                  </li>
-                </ul>
-                {/* FAQ, reviews and blog have no content yet: not linked, and noindex, until they do. */}
-              </div>
-
-              <div className="text-[13px]">
-                <h2 className="mb-2 font-medium text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  NextX
-                </h2>
-                <ul className="space-y-1 text-ink-3">
-                  {address ? <li>{address}</li> : null}
-                  {settings?.openingHours ? <li>{settings.openingHours}</li> : null}
-                  {settings?.phone ? (
-                    <li>
-                      <a
-                        href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}
-                        className="transition-colors hover:text-accent"
-                      >
-                        {settings.phone}
-                      </a>
-                    </li>
-                  ) : null}
-                  {waDigits ? (
-                    <li>
-                      <a
-                        href={`https://wa.me/${waDigits}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="transition-colors hover:text-accent"
-                      >
-                        WhatsApp
-                      </a>
-                    </li>
-                  ) : null}
-                  {settings?.email ? (
-                    <li>
-                      <a
-                        href={`mailto:${settings.email}`}
-                        className="transition-colors hover:text-accent"
-                      >
-                        {settings.email}
-                      </a>
-                    </li>
-                  ) : null}
-                  {settings?.instagram ? (
-                    <li>
-                      <a
-                        href={instagramUrl(settings.instagram)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="transition-colors hover:text-accent"
-                      >
-                        Instagram
-                      </a>
-                    </li>
-                  ) : null}
-                </ul>
-              </div>
-            </div>
-            <div className="border-line-subtle border-t">
-              <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-4 text-[12px] text-ink-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-                <p>
-                  © {year} {settings?.businessName ?? 'NextX'}
-                </p>
-                <p className="tabular">
-                  Prijzen in {storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </footer>
+        <StoreFooter
+          settings={settings}
+          description={storefrontDescription(
+            storefront?.description,
+            settings?.storeDescription,
+          )}
+          links={links}
+          currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
+          year={year}
+        />
       </div>
     </StoreCartProvider>
   );

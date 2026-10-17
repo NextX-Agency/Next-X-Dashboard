@@ -24,12 +24,12 @@ test.describe('storefront catalog', () => {
   test('shows a published product on the homepage and product page without private costs', async ({
     page,
   }) => {
-    await page.goto('/');
-    const productLink = page.locator(`a[href="/p/${productSlug}"]`).first();
+    await page.goto('/shop');
+    const productLink = page.locator(`a[href="/products/${productSlug}"]`).first();
     await expect(productLink).toBeVisible();
 
     await productLink.click();
-    await expect(page).toHaveURL(new RegExp(`/p/${productSlug}$`));
+    await expect(page).toHaveURL(new RegExp(`/products/${productSlug}$`));
     if (productName)
       await expect(page.getByRole('heading', { name: productName })).toBeVisible();
     if (variantName)
@@ -50,12 +50,14 @@ test.describe('storefront catalog', () => {
   test('keeps catalog filters in the URL and renders the WhatsApp product CTA', async ({
     page,
   }) => {
-    await page.goto('/');
-    await page.getByLabel('Availability').selectOption('in-stock');
+    await page.goto('/shop');
+    await page.getByLabel('Beschikbaarheid').selectOption('in-stock');
     await expect(page).toHaveURL(/availability=in-stock/);
 
-    await page.goto(`/p/${productSlug}`);
-    const whatsapp = page.getByRole('link', { name: /Order on WhatsApp|Ask about restock/ });
+    await page.goto(`/products/${productSlug}`);
+    const whatsapp = page.getByRole('link', {
+      name: /Bestel via WhatsApp|Vraag naar nieuwe voorraad/,
+    });
     await expect(whatsapp).toBeVisible();
     const href = await whatsapp.getAttribute('href');
     expect(href).toContain('wa.me');
@@ -66,9 +68,9 @@ test.describe('storefront catalog', () => {
     const collection = process.env.E2E_PUBLIC_COLLECTION_SLUG;
     test.skip(!collection, 'set E2E_PUBLIC_COLLECTION_SLUG to verify collection filtering');
 
-    await page.goto(`/?collection=${collection}`);
+    await page.goto(`/shop?collection=${collection}`);
     await expect(page).toHaveURL(new RegExp(`collection=${collection}`));
-    await expect(page.locator(`a[href="/p/${productSlug}"]`).first()).toBeVisible();
+    await expect(page.locator(`a[href="/products/${productSlug}"]`).first()).toBeVisible();
   });
 });
 
@@ -83,7 +85,7 @@ test.describe('storefront demand capture', () => {
   test('records restock interest against the selected sold-out variant', async ({ page }) => {
     const slug = process.env.E2E_RESTOCK_PRODUCT_SLUG as string;
     const variant = process.env.E2E_RESTOCK_VARIANT_NAME as string;
-    await page.goto(`/p/${slug}`);
+    await page.goto(`/products/${slug}`);
     await page.getByRole('button', { name: variant }).click();
     await expect(page.getByText('This option is sold out')).toBeVisible();
     await page
@@ -108,30 +110,32 @@ test.describe('storefront cart', () => {
   test('builds a multi-item-ready cart and prepares the customer details for WhatsApp', async ({
     page,
   }) => {
-    await page.goto(`/p/${productSlug}`);
+    await page.goto(`/products/${productSlug}`);
     await page.getByRole('button', { name: variantName as string, exact: true }).click();
-    await page.getByLabel('Quantity').fill('1');
-    await page.getByRole('button', { name: 'Add to cart' }).click();
-    await expect(page.getByText(/added to your cart/)).toBeVisible();
+    await page.getByLabel('Aantal').fill('1');
+    await page.getByRole('button', { name: 'In winkelwagen' }).click();
+    await expect(page.getByText(/toegevoegd aan je winkelwagen/)).toBeVisible();
 
-    await page.goto(`/p/${secondProductSlug}`);
+    await page.goto(`/products/${secondProductSlug}`);
     await page.getByRole('button', { name: secondVariantName as string, exact: true }).click();
-    await page.getByLabel('Quantity').fill('1');
-    await page.getByRole('button', { name: 'Add to cart' }).click();
-    await expect(page.getByText(/added to your cart/)).toBeVisible();
+    await page.getByLabel('Aantal').fill('1');
+    await page.getByRole('button', { name: 'In winkelwagen' }).click();
+    await expect(page.getByText(/toegevoegd aan je winkelwagen/)).toBeVisible();
 
     await page.goto('/cart');
-    await expect(page.getByRole('heading', { name: 'Cart', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'WhatsApp checkout' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Cart, 2 items' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Winkelwagen', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bestellen via WhatsApp' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Winkelwagen, 2 artikelen' })).toBeVisible();
     await expect(
-      page.getByText('Current price and availability checked just now.', { exact: false }),
+      page.getByText('Prijs en voorraad zojuist gecontroleerd', { exact: false }),
     ).toBeVisible();
-    await page.getByLabel('Name', { exact: true }).fill('Staging Cart Check');
-    await page.getByLabel('Phone', { exact: true }).fill('+597 8123456');
-    await page.getByLabel('Notes', { exact: true }).fill('Please confirm this test enquiry.');
+    await page.getByLabel('Naam', { exact: true }).fill('Staging Cart Check');
+    await page.getByLabel('Telefoon', { exact: true }).fill('+597 8123456');
+    await page
+      .getByLabel('Opmerking', { exact: true })
+      .fill('Please confirm this test enquiry.');
 
-    const orderLink = page.getByRole('link', { name: 'Send order on WhatsApp' });
+    const orderLink = page.getByRole('link', { name: /Verstuur bestelling via WhatsApp/ });
     await expect(orderLink).toBeVisible();
     const href = await orderLink.getAttribute('href');
     expect(href).toContain('wa.me');
@@ -154,7 +158,7 @@ test.describe('storefront product editor', () => {
 
   test('saves product storefront compatibility fields', async ({ page }) => {
     const id = process.env.E2E_DASHBOARD_PRODUCT_ID as string;
-    await page.goto(`/products/${id}`);
+    await page.goto(`/items/${id}`);
     const platforms = page.getByLabel('Platforms');
     await platforms.fill('Home Assistant');
     await page.getByRole('button', { name: 'Save changes' }).click();

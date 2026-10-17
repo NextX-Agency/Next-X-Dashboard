@@ -2,8 +2,7 @@
  * Reviewed storefront copy. Customer-facing text is Dutch, and every claim here is something the
  * operation can back up: what is sold, how orders are placed, and in which currency.
  */
-export const AUDIO_DESCRIPTION =
-  'In-ear monitors, oordopjes en audio-accessoires. Bestel via WhatsApp; prijzen in SRD.';
+export const STORE_DESCRIPTION = 'NextX in Suriname. Bestel via WhatsApp; prijzen in SRD.';
 
 /**
  * The imported legacy shop description is generic marketing ("zorgvuldig geselecteerd assortiment
@@ -17,5 +16,5 @@ export function storefrontDescription(...candidates: Array<string | null | undef
     const text = candidate?.trim();
     if (text && !LEGACY_BOILERPLATE.test(text)) return text;
   }
-  return AUDIO_DESCRIPTION;
+  return STORE_DESCRIPTION;
 }
