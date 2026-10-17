@@ -225,9 +225,9 @@ export function StoreCartCheckout({
               return (
                 <article
                   key={line.variantId}
-                  className="flex flex-wrap items-center gap-x-5 gap-y-3 py-5"
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5 sm:flex sm:flex-wrap sm:gap-x-5"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="col-span-3 min-w-0 sm:flex-1">
                     <a
                       href={storefrontProductPath(storefrontSlug, line.productSlug)}
                       className="text-[16px] font-semibold text-ink hover:text-accent"
@@ -256,7 +256,7 @@ export function StoreCartCheckout({
                     <button
                       type="button"
                       aria-label={`Decrease quantity of ${line.productName}`}
-                      className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
+                      className="grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9"
                       disabled={line.quantity <= 1}
                       onClick={() => setQuantity(line.variantId, line.quantity - 1)}
                     >
@@ -268,7 +268,7 @@ export function StoreCartCheckout({
                     <button
                       type="button"
                       aria-label={`Increase quantity of ${line.productName}`}
-                      className="grid size-9 place-items-center text-ink hover:bg-hover disabled:opacity-35"
+                      className="grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9"
                       disabled={
                         !quoteReady || line.quantity >= line.available || line.quantity >= 9999
                       }
@@ -277,7 +277,7 @@ export function StoreCartCheckout({
                       <Plus aria-hidden="true" className="size-4" />
                     </button>
                   </div>
-                  <p className="w-28 text-right text-[15px] font-semibold tabular text-ink">
+                  <p className="text-right text-[15px] font-semibold tabular text-ink sm:w-28">
                     {quoteReady && !overStock
                       ? customerMoney(
                           storeCartSubtotal([line], line.currency),

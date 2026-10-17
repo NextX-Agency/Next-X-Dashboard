@@ -69,7 +69,7 @@ export function ProductCard({
         {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
         <Link
           href={href as never}
-          className="line-clamp-2 min-h-[2.6em] font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+          className="line-clamp-2 font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
         >
           {product.name}
         </Link>
@@ -79,7 +79,7 @@ export function ProductCard({
           srdRate={srdRate}
           size="card"
           prefix={hasRange ? 'from' : undefined}
-          className="mt-1"
+          className="mt-auto pt-2"
         />
         <div className="mt-2.5">
           <StockPill onHand={product.onHand} incoming={product.incoming} />

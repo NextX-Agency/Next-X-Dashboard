@@ -39,7 +39,7 @@ export function StoreFooter({
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   const digits = whatsappDigits(settings?.whatsapp);
   const link =
-    'text-ink-2 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
+    'inline-flex min-h-10 items-center text-ink-2 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
 
   return (
     <footer className="mt-8 border-line border-t bg-sunken pb-16 sm:pb-0">
@@ -58,7 +58,7 @@ export function StoreFooter({
         </div>
         <nav aria-label="Shop" className="text-[14px]">
           <h2 className="font-bold text-[13px] text-ink">Shop</h2>
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-2">
             <li>
               <Link href="/shop" className={link}>
                 All products
@@ -78,7 +78,7 @@ export function StoreFooter({
         </nav>
         <div className="text-[14px]">
           <h2 className="font-bold text-[13px] text-ink">Contact</h2>
-          <ul className="mt-3 space-y-2 text-ink-2">
+          <ul className="mt-2 text-ink-2">
             {address ? <li>{address}</li> : null}
             {settings?.openingHours ? <li>{settings.openingHours}</li> : null}
             {settings?.phone ? (

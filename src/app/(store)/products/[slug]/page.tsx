@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -135,7 +136,7 @@ export default async function ProductPage({ params }: { params: Params }) {
         aria-label="Breadcrumb"
         className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-ink-3"
       >
-        <Link href={SHOP_PATH as never} className="hover:text-ink hover:underline">
+        <Link href={SHOP_PATH as never} className="-my-3 py-3 hover:text-ink hover:underline">
           Shop
         </Link>
         {product.categoryName ? (
@@ -144,7 +145,7 @@ export default async function ProductPage({ params }: { params: Params }) {
             {product.categorySlug ? (
               <Link
                 href={`${SHOP_PATH}?category=${product.categorySlug}` as never}
-                className="hover:text-ink hover:underline"
+                className="-my-3 py-3 hover:text-ink hover:underline"
               >
                 {product.categoryName}
               </Link>
@@ -212,8 +213,12 @@ export default async function ProductPage({ params }: { params: Params }) {
           {/* The alternative channel for visitors who would rather type an enquiry than open
               WhatsApp. It files a quote request against this product; owners answer from /quotes. */}
           <details className="group mt-4 border-line border-t py-4">
-            <summary className="cursor-pointer list-none font-semibold text-[14px] text-ink-2 hover:text-ink [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-[14px] text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
               Or request a quote
+              <ChevronDown
+                aria-hidden="true"
+                className="size-4 transition-transform group-open:rotate-180"
+              />
             </summary>
             <div className="mt-4">
               <QuoteRequestForm productId={product.id} productName={product.name} />

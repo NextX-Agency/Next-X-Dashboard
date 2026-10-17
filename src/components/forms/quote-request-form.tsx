@@ -92,6 +92,7 @@ export function QuoteRequestForm({
             required
             autoComplete="name"
             maxLength={120}
+            className="h-11"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="What should we call you?"
@@ -107,6 +108,7 @@ export function QuoteRequestForm({
             id="quote-contact"
             required
             maxLength={200}
+            className="h-11"
             value={contact}
             onChange={(event) => setContact(event.target.value)}
             placeholder="WhatsApp number or email address"
@@ -136,7 +138,7 @@ export function QuoteRequestForm({
               id="quote-item"
               readOnly
               value={productName ?? ''}
-              className="cursor-default text-ink-3"
+              className="h-11 cursor-default text-ink-3"
               tabIndex={-1}
             />
           </Field>
@@ -150,6 +152,7 @@ export function QuoteRequestForm({
             step={1}
             inputMode="numeric"
             numeric
+            className="h-11"
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
           />
@@ -169,7 +172,7 @@ export function QuoteRequestForm({
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-[11px] text-ink-4">Prices are confirmed by phone or email.</p>
-        <Button type="submit" variant="primary" size="lg" disabled={isPending}>
+        <Button type="submit" variant="primary" size="lg" className="h-11" disabled={isPending}>
           {isPending ? 'Sending…' : 'Request a quote'}
         </Button>
       </div>
