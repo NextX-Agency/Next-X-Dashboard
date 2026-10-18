@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { AnnouncementBar } from '@/components/store/announcement-bar';
 import { StoreCartProvider } from '@/components/store/store-cart-provider';
 import { StoreFooter } from '@/components/store/store-footer';
 import { StoreHeader } from '@/components/store/store-header';
@@ -9,6 +10,7 @@ import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
 import { enquiryMessage } from '@/lib/store-messages';
 import { storefrontPublicOrigin } from '@/lib/storefront-domain';
 import { whatsappLink } from '@/lib/whatsapp';
+import { listCatalogCategories, listStorePickupLocations } from '@/server/queries/catalog';
 import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront } from '@/server/services/storefront';
 
@@ -48,7 +50,13 @@ export async function generateMetadata(): Promise<Metadata> {
     // The root layout's title template belongs to the staff dashboard; the shop has its own.
     title: { default: 'NextX', template: '%s · NextX' },
     description: STORE_DESCRIPTION,
-    openGraph: { siteName: 'NextX', type: 'website', description: STORE_DESCRIPTION },
+    openGraph: {
+      siteName: 'NextX',
+      type: 'website',
+      description: STORE_DESCRIPTION,
+      images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'NextX' }],
+    },
+    twitter: { card: 'summary_large_image', images: ['/og-image.png'] },
     robots: { index: !staging, follow: !staging },
   };
 }
@@ -60,17 +68,30 @@ export async function generateMetadata(): Promise<Metadata> {
 export const instant = false;
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const [settings, year, storefront] = await Promise.all([
+  const [settings, year, storefront, categories, pickupLocations] = await Promise.all([
     getSettings(),
     currentYear(),
     getRequestStorefront(),
+    listCatalogCategories(),
+    listStorePickupLocations(),
   ]);
   const storeName = settings?.businessName ?? 'NextX';
 
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
       <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-manrope)] text-ink">
-        <StoreHeader storeName={storeName} whatsapp={settings?.whatsapp ?? null} />
+        <AnnouncementBar
+          announcement={settings?.announcement}
+          pickup={Boolean(settings?.pickupEnabled)}
+          pickupLabel={settings?.pickupLabel}
+          delivery={Boolean(settings?.deliveryEnabled)}
+          currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
+        />
+        <StoreHeader
+          storeName={storeName}
+          whatsapp={settings?.whatsapp ?? null}
+          categories={categories}
+        />
         <main className="w-full flex-1 pb-16 sm:pb-0">{children}</main>
         <StoreFooter
           settings={settings}
@@ -80,6 +101,8 @@ export default async function StoreLayout({ children }: { children: ReactNode })
           )}
           currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
           year={year}
+          categories={categories}
+          pickupLocations={pickupLocations}
         />
         <StoreTabBar
           whatsappHref={whatsappLink(settings?.whatsapp, enquiryMessage(storeName))}

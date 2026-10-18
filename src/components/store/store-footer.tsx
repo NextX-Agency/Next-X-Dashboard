@@ -1,5 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { publicText } from '@/lib/english-content';
+import { SHOP_PATH } from '@/lib/storefront-domain';
 import { whatsappDigits } from '@/lib/whatsapp';
 
 type FooterSettings = {
@@ -11,6 +13,11 @@ type FooterSettings = {
   whatsapp?: string | null;
   email?: string | null;
   instagram?: string | null;
+  pickupEnabled?: boolean | null;
+  pickupDetails?: string | null;
+  deliveryEnabled?: boolean | null;
+  deliveryDetails?: string | null;
+  paymentMethods?: { name: string; details?: string }[] | null;
 };
 
 /** An Instagram handle or full URL becomes a profile URL. */
@@ -21,29 +28,42 @@ function instagramUrl(raw: string): string {
 }
 
 /**
- * A quiet footer on the soft field: the mark and one line, where to find things, and the contact
- * details that are actually configured. Nothing is rendered for a detail the owner has not entered.
- * Leaves room for the phone tab bar underneath.
+ * The footer: the mark and one line, where to go, how to collect and pay, and how to reach the shop.
+ * Everything comes from the owner's settings; a detail that has not been entered is not rendered, and a
+ * whole column disappears when it would be empty. Leaves room for the phone tab bar underneath.
  */
 export function StoreFooter({
   settings,
   description,
   currency,
   year,
+  categories,
+  pickupLocations,
 }: {
   settings: FooterSettings | null;
   description: string;
   currency: string;
   year: number;
+  categories: { slug: string; name: string }[];
+  pickupLocations: { id: string; name: string }[];
 }) {
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   const digits = whatsappDigits(settings?.whatsapp);
+  const payments = settings?.paymentMethods ?? [];
   const link =
     'inline-flex min-h-10 items-center text-ink-2 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
+  const heading = 'font-bold text-[13px] text-ink';
+  const hasCollect = Boolean(
+    pickupLocations.length ||
+      settings?.pickupEnabled ||
+      settings?.openingHours ||
+      payments.length ||
+      settings?.deliveryEnabled,
+  );
 
   return (
     <footer className="mt-8 border-line border-t bg-sunken pb-16 sm:pb-0">
-      <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 py-10 sm:grid-cols-[1.3fr_1fr_1fr] lg:px-8 lg:py-12">
+      <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1.2fr_1.2fr] lg:px-8 lg:py-14">
         <div>
           <Image
             src="/nextx-logo-light.png"
@@ -52,18 +72,36 @@ export function StoreFooter({
             height={380}
             className="h-11 w-auto"
           />
-          <p className="mt-3 max-w-[40ch] text-[14px] text-ink-3 leading-relaxed">
+          <p className="mt-4 max-w-[38ch] text-[14px] text-ink-3 leading-relaxed">
             {description}
           </p>
+          {digits ? (
+            <a
+              href={`https://wa.me/${digits}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nx-btn nx-btn-primary nx-btn-sm mt-5"
+            >
+              Order on WhatsApp
+            </a>
+          ) : null}
         </div>
+
         <nav aria-label="Shop" className="text-[14px]">
-          <h2 className="font-bold text-[13px] text-ink">Shop</h2>
+          <h2 className={heading}>Shop</h2>
           <ul className="mt-2">
             <li>
-              <Link href="/shop" className={link}>
+              <Link href={SHOP_PATH as never} className={link}>
                 All products
               </Link>
             </li>
+            {categories.map((category) => (
+              <li key={category.slug}>
+                <Link href={`${SHOP_PATH}?category=${category.slug}` as never} className={link}>
+                  {category.name}
+                </Link>
+              </li>
+            ))}
             <li>
               <Link href="/cart" className={link}>
                 Cart
@@ -76,11 +114,32 @@ export function StoreFooter({
             </li>
           </ul>
         </nav>
+
+        {hasCollect ? (
+          <div className="text-[14px]">
+            <h2 className={heading}>Collection and payment</h2>
+            <ul className="mt-2 space-y-1.5 text-ink-2">
+              {pickupLocations.map((location) => (
+                <li key={location.id}>Pickup: {publicText(location.name)}</li>
+              ))}
+              {!pickupLocations.length && settings?.pickupEnabled ? (
+                <li>{publicText(settings.pickupDetails) || 'Pickup available'}</li>
+              ) : null}
+              {settings?.openingHours ? <li>{publicText(settings.openingHours)}</li> : null}
+              {settings?.deliveryEnabled ? (
+                <li>{publicText(settings.deliveryDetails) || 'Delivery available'}</li>
+              ) : null}
+              {payments.length ? (
+                <li>Payment: {payments.map((method) => publicText(method.name)).join(', ')}</li>
+              ) : null}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="text-[14px]">
-          <h2 className="font-bold text-[13px] text-ink">Contact</h2>
+          <h2 className={heading}>Contact</h2>
           <ul className="mt-2 text-ink-2">
-            {address ? <li>{address}</li> : null}
-            {settings?.openingHours ? <li>{settings.openingHours}</li> : null}
+            {address ? <li className="py-1">{address}</li> : null}
             {settings?.phone ? (
               <li>
                 <a href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`} className={link}>

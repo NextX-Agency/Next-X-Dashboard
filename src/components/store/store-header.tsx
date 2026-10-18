@@ -3,23 +3,29 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { enquiryMessage } from '@/lib/store-messages';
+import { SHOP_PATH } from '@/lib/storefront-domain';
 import { whatsappLink } from '@/lib/whatsapp';
 import { StoreCartLink } from './store-cart-link';
 import { StoreHeaderSearch } from './store-header-search';
 
 /**
- * The shop header: logo, a wide search field, a way to ask, and the cart. Nothing for staff lives here;
- * the sign-in link is in the footer. Categories are chips on the shop and home pages, where they act as
- * filters, rather than a second navigation row here. On phones the search sits under the logo.
+ * The shop header: logo, a wide search field, a way to ask, and the cart. From `lg` a second row names
+ * the places to go (all products, each category, how ordering works), so a first-time visitor sees what
+ * the shop sells without scrolling. Nothing for staff lives here; the sign-in link is in the footer. On
+ * phones the search sits under the logo and the tab bar carries the main places.
  */
 export function StoreHeader({
   storeName,
   whatsapp,
+  categories,
 }: {
   storeName: string;
   whatsapp: string | null;
+  categories: { slug: string; name: string }[];
 }) {
   const ask = whatsappLink(whatsapp, enquiryMessage(storeName));
+  const navLink =
+    'inline-flex h-11 items-center border-b-2 border-transparent px-1 font-semibold text-[14px] text-ink-2 transition-colors hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
   return (
     <header className="sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-[1320px] items-center gap-3 px-4 sm:gap-6 lg:px-8">
@@ -56,6 +62,26 @@ export function StoreHeader({
           <StoreCartLink />
         </div>
       </div>
+      <nav
+        aria-label="Shop sections"
+        className="mx-auto hidden w-full max-w-[1320px] gap-6 px-8 lg:flex"
+      >
+        <Link href={SHOP_PATH as never} className={navLink}>
+          All products
+        </Link>
+        {categories.map((category) => (
+          <Link
+            key={category.slug}
+            href={`${SHOP_PATH}?category=${category.slug}` as never}
+            className={navLink}
+          >
+            {category.name}
+          </Link>
+        ))}
+        <Link href={'/#how-ordering-works' as never} className={navLink}>
+          How ordering works
+        </Link>
+      </nav>
       <div className="px-4 pb-3 sm:hidden">
         <Suspense fallback={<div className="h-11 rounded-[12px] bg-sunken" />}>
           <StoreHeaderSearch />
