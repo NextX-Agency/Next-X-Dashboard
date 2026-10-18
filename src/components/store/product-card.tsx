@@ -30,7 +30,11 @@ export function ProductCard({
   const showBrand =
     product.brandName &&
     !product.name.toLowerCase().startsWith(product.brandName.toLowerCase());
-  const href = storefrontProductPath(null, product.slug);
+  const base = storefrontProductPath(null, product.slug);
+  // A card that matched on a colour or option opens the page on that option.
+  const href = product.matchedVariant
+    ? `${base}?variant=${encodeURIComponent(product.matchedVariant.sku)}`
+    : base;
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised transition-shadow duration-200 hover:shadow-overlay">

@@ -12,6 +12,7 @@ import { SHOP_PATH } from '@/lib/storefront-domain';
 import {
   type CatalogSort,
   listCatalogCategories,
+  listCatalogFacets,
   listCatalogFilterOptions,
   listCatalogProducts,
 } from '@/server/queries/catalog';
@@ -22,6 +23,26 @@ const PRICES = ['under-50', '50-100', '100-250', '250-plus'] as const;
 
 function one(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
+}
+
+/** A list-valued parameter: `a,b,c` (or repeated keys) becomes an array of non-empty values. */
+function many(value: string | string[] | undefined): string[] {
+  const parts = Array.isArray(value) ? value : value ? [value] : [];
+  return parts
+    .flatMap((part) => part.split(','))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}
+
+/** `key:value` pairs from the address bar. */
+function optionPairs(value: string | string[] | undefined): { key: string; value: string }[] {
+  return many(value).flatMap((token) => {
+    const at = token.indexOf(':');
+    return at > 0 && at < token.length - 1
+      ? [{ key: token.slice(0, at), value: token.slice(at + 1) }]
+      : [];
+  });
 }
 
 /**
@@ -43,33 +64,38 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
   const raw = await searchParams;
   const q = one(raw.q);
   const category = one(raw.category);
-  const brand = one(raw.brand);
+  const brand = many(raw.brand);
+  const colour = many(raw.colour);
+  const options = optionPairs(raw.opt);
   const platform = one(raw.platform);
   const protocol = one(raw.protocol);
   const collection = one(raw.collection);
   const newArrival = raw.new === 'true';
   const price = PRICES.find((value) => value === raw.price);
-  const availability =
+  const availability: 'in-stock' | 'incoming' | undefined =
     raw.availability === 'in-stock' || raw.availability === 'incoming'
       ? raw.availability
       : undefined;
   const sort = SORTS.find((value) => value === raw.sort);
 
-  const [products, categories, options, rate, everything] = await Promise.all([
-    listCatalogProducts({
-      q,
-      category,
-      brand,
-      platform,
-      protocol,
-      collection,
-      newArrival,
-      price,
-      availability,
-      sort,
-    }),
+  const filters = {
+    q,
+    category,
+    brand,
+    colour,
+    options,
+    platform,
+    protocol,
+    collection,
+    newArrival,
+    price,
+    availability,
+  };
+  const [products, categories, filterOptions, facets, rate, everything] = await Promise.all([
+    listCatalogProducts({ ...filters, sort }),
     listCatalogCategories(),
     listCatalogFilterOptions(),
+    listCatalogFacets(filters),
     getCurrentRate(),
     // The chips show the size of the whole catalogue, not of the current filter.
     listCatalogProducts({}),
@@ -79,7 +105,9 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
   const filtered = Boolean(
     q ||
       category ||
-      brand ||
+      brand.length ||
+      colour.length ||
+      options.length ||
       platform ||
       protocol ||
       collection ||
@@ -87,7 +115,25 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       price ||
       availability,
   );
-  const filters = <ShopFilters data={{ categories: [], ...options }} />;
+  const filterPanel = (
+    <ShopFilters
+      data={{
+        categories: [],
+        // Every public brand, counted under the other active filters (0 when none would match).
+        brands: filterOptions.brands.map((entry) => ({
+          ...entry,
+          count: facets.brands.find((facet) => facet.slug === entry.slug)?.count ?? 0,
+        })),
+        platforms: filterOptions.platforms,
+        protocols: filterOptions.protocols,
+        priceCurrency: filterOptions.priceCurrency,
+        priceCounts: facets.prices,
+        colours: facets.colours,
+        options: facets.options,
+        availability: facets.availability,
+      }}
+    />
+  );
 
   return (
     <>
@@ -109,12 +155,14 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       </div>
 
       <div className="mt-3 space-y-3">
-        <ShopToolbar filters={filters} />
+        <ShopToolbar filters={filterPanel} inStockCount={facets.availability.inStock} />
         <ActiveFilters
           labels={{
             category: activeCategory?.name,
-            brand: options.brands.find((entry) => entry.slug === brand)?.name,
-            price: price ? priceTierLabels(options.priceCurrency)[price] : undefined,
+            brands: Object.fromEntries(
+              filterOptions.brands.map((entry) => [entry.slug, entry.name]),
+            ),
+            price: price ? priceTierLabels(filterOptions.priceCurrency)[price] : undefined,
           }}
         />
       </div>
