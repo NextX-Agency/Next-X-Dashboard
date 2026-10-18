@@ -55,3 +55,14 @@ export function humanise(value: string): string {
   const spaced = value.replace(/_/g, ' ');
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+/**
+ * The stored UTC day of a timestamp, as a `yyyy-mm-dd` value for a date input. The database
+ * returns timestamps as text in its session's time zone ("2026-10-17 21:00:00-03" is the
+ * 18th, UTC), so slicing that text gives the wrong day. Returns '' for an unreadable value.
+ */
+export function utcDateInput(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}

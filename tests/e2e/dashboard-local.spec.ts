@@ -255,3 +255,36 @@ test('a new product hides the smart-home block until asked, and phone inputs are
     .evaluate((el) => el.getBoundingClientRect().height);
   expect(height).toBeGreaterThanOrEqual(44);
 });
+
+test('a draft books nothing and says so; its date survives editing; phones see the products first', async ({
+  page,
+}) => {
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  await addToSale(page, PRODUCT);
+  await page.locator('#soldAt').fill('2026-10-15');
+  await page.getByRole('button', { name: 'Save as draft' }).click();
+  await expect(page).toHaveURL(/\/sales$/, { timeout: 20_000 });
+
+  // The toast must not claim revenue or gross profit for a sale that moved no stock and booked no cost.
+  const toast = page.locator('[data-sonner-toast]').first();
+  await expect(toast).toContainText(/Draft V\d+ saved/);
+  await expect(toast).not.toContainText(/gross profit/i);
+
+  // The list shows no cost, gross or margin for a draft (they would read $0.00 and 100%).
+  const row = page.locator('table tbody tr', { hasText: 'Draft' }).first();
+  await expect(row).toBeVisible();
+  await expect(row).not.toContainText('100');
+  await expect(row.locator('td', { hasText: '—' })).not.toHaveCount(0);
+
+  // Open it for editing: the date field holds the day that was saved, not the day before.
+  await row.getByRole('link').first().click();
+  await expect(page).toHaveURL(/\/sales\/[0-9a-f-]{36}$/);
+  await page.getByRole('link', { name: 'Edit', exact: true }).click();
+  await expect(page.locator('#soldAt')).toHaveValue('2026-10-15');
+
+  // A phone shows the products before the sale details.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  const add = await page.getByRole('button', { name: /add product/i }).boundingBox();
+  expect(add?.y ?? 9999, 'Add product is on the first screen').toBeLessThan(844);
+});

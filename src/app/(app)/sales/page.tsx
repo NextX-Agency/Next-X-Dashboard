@@ -283,18 +283,33 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                   <TD numeric>
                     <Money cents={row.totalUsdCents} size="sm" />
                   </TD>
+                  {/* A draft has booked no cost of goods yet, so its margin would read 100%. */}
                   <TD numeric>
-                    <Money cents={row.cogsCents} size="sm" tone="muted" />
+                    {row.status === 'draft' ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Money cents={row.cogsCents} size="sm" tone="muted" />
+                    )}
                   </TD>
                   <TD numeric>
-                    <Money cents={row.grossCents} size="sm" tone="flow" />
+                    {row.status === 'draft' ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Money cents={row.grossCents} size="sm" tone="flow" />
+                    )}
                   </TD>
                   <TD numeric>
                     <span className="inline-flex items-center gap-1">
-                      <Percent
-                        value={row.totalUsdCents === 0 ? 0 : row.grossCents / row.totalUsdCents}
-                        className={row.shortfall > 0 ? 'text-warning' : undefined}
-                      />
+                      {row.status === 'draft' ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
+                        <Percent
+                          value={
+                            row.totalUsdCents === 0 ? 0 : row.grossCents / row.totalUsdCents
+                          }
+                          className={row.shortfall > 0 ? 'text-warning' : undefined}
+                        />
+                      )}
                       {row.shortfall > 0 ? (
                         <span
                           title={`${row.shortfall} unit${row.shortfall === 1 ? '' : 's'} had no stock; cost of goods is understated`}
@@ -386,12 +401,20 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                   <Money cents={row.totalUsdCents} size="sm" />
                 </MobileRowMetaItem>
                 <MobileRowMetaItem label="Gross">
-                  <Money cents={row.grossCents} size="sm" tone="flow" />
+                  {row.status === 'draft' ? (
+                    '—'
+                  ) : (
+                    <Money cents={row.grossCents} size="sm" tone="flow" />
+                  )}
                 </MobileRowMetaItem>
                 <MobileRowMetaItem label="Margin">
-                  <Percent
-                    value={row.totalUsdCents === 0 ? 0 : row.grossCents / row.totalUsdCents}
-                  />
+                  {row.status === 'draft' ? (
+                    '—'
+                  ) : (
+                    <Percent
+                      value={row.totalUsdCents === 0 ? 0 : row.grossCents / row.totalUsdCents}
+                    />
+                  )}
                 </MobileRowMetaItem>
               </MobileRowMeta>
             </Link>

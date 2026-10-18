@@ -359,14 +359,22 @@ export function SaleForm({
   // that union to useAction's single expected function type. See the
   // matching comment in forms/reference-sheets.tsx for the full reasoning.
   const createHook = useAction(createSale, {
-    onSuccess({ data }) {
-      toast.success(`Sale ${data?.number} recorded`, {
-        description: data
-          ? `${formatMoney(data.totalUsdCents)} revenue · ${formatMoney(
-              data.totalUsdCents - data.cogsCents,
-            )} gross profit`
-          : undefined,
-      });
+    onSuccess({ data, input }) {
+      // A draft has booked nothing: no cost of goods, no stock movement, no receipt.
+      // Reporting its "gross profit" would show the whole price as profit.
+      if (input.confirm) {
+        toast.success(`Sale ${data?.number} recorded`, {
+          description: data
+            ? `${formatMoney(data.totalUsdCents)} revenue · ${formatMoney(
+                data.totalUsdCents - data.cogsCents,
+              )} gross profit`
+            : undefined,
+        });
+      } else {
+        toast.success(`Draft ${data?.number} saved`, {
+          description: 'Nothing is booked until you confirm it: no stock moved, no receipt.',
+        });
+      }
       router.push('/sales');
       router.refresh();
     },
@@ -449,8 +457,9 @@ export function SaleForm({
       }}
       className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
     >
-      <div className="space-y-4">
-        <Surface>
+      {/* On a phone the products come first: the sale details are usually left as they are. */}
+      <div className="flex flex-col gap-4">
+        <Surface className="max-xl:order-2">
           <SurfaceHeader title="Sale" />
           <div className="space-y-3 p-4">
             <Field label="Customer" htmlFor="customer" hint="Leave empty for a walk-in">
@@ -531,7 +540,7 @@ export function SaleForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-xl:order-1">
           <SurfaceHeader
             title="Items"
             hint="Prices default to the list price and can be overridden"
@@ -713,7 +722,7 @@ export function SaleForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-xl:order-3">
           <SurfaceHeader title="Discount" hint="Applied to the whole sale, not a single item" />
           <div className="grid gap-3 p-4 sm:grid-cols-[160px_1fr]">
             <Field label={`Amount (${currency})`} htmlFor="discount">
@@ -741,7 +750,7 @@ export function SaleForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-xl:order-4">
           <SurfaceHeader title="Notes" />
           <div className="p-4">
             <Textarea

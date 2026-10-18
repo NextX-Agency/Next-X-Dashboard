@@ -21,10 +21,11 @@ import { Money, Percent } from '@/components/ui/money';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/table';
-import { formatDate, formatRelative, humanise } from '@/lib/format';
+import { formatDate, formatRelative, humanise, utcDateInput } from '@/lib/format';
 import { formatRate, RATE_SCALE } from '@/lib/fx';
 import { formatMoney, toDecimalString } from '@/lib/money';
 import { PAYMENT_LABELS, type PaymentBadgeCode, paymentBadgeOf } from '@/lib/payment-status';
+import { variantLabel } from '@/lib/store-messages';
 import { listActivity } from '@/server/queries/activity';
 import { getSale } from '@/server/queries/documents';
 import { getCurrentRate } from '@/server/queries/overview';
@@ -111,7 +112,9 @@ async function Loader({
           id: sale.id,
           customerId: sale.customerId,
           sellerId: sale.sellerId,
-          soldAt: sale.soldAt.slice(0, 10),
+          // `sale.soldAt` is the database's text in the session's time zone; the form and the
+          // stored day are UTC, so slicing the text moved the date back a day on every edit.
+          soldAt: utcDateInput(sale.soldAt),
           currency: sale.currency,
           paymentMethod: sale.paymentMethod,
           notes: sale.notes ?? '',
@@ -130,6 +133,8 @@ async function Loader({
   }
 
   const marginRate = sale.totalUsdCents === 0 ? 0 : sale.grossProfitCents / sale.totalUsdCents;
+  // A draft has booked no cost of goods, so its cost and margin would read $0.00 and 100%.
+  const isDraft = sale.status === 'draft';
   const discountUsdCents = Math.round((sale.discountCents * sale.fxRateMicros) / RATE_SCALE);
   const subtotalUsdCents = sale.totalUsdCents + discountUsdCents;
 
@@ -316,7 +321,12 @@ async function Loader({
                           <LineThumb url={item.imageUrl} name={item.productName} />
                           <span>
                             {item.productName}
-                            <span className="text-ink-4"> · {item.variantName}</span>
+                            {variantLabel(item.variantName) ? (
+                              <span className="text-ink-4">
+                                {' '}
+                                · {variantLabel(item.variantName)}
+                              </span>
+                            ) : null}
                           </span>
                         </span>
                         {item.shortfall > 0 ? (
@@ -348,10 +358,18 @@ async function Loader({
                         <Money cents={item.lineTotalUsdCents} size="sm" />
                       </TD>
                       <TD numeric>
-                        <Money cents={item.cogsCents} size="sm" tone="muted" />
+                        {isDraft ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          <Money cents={item.cogsCents} size="sm" tone="muted" />
+                        )}
                       </TD>
                       <TD numeric>
-                        <Percent value={lineMargin} tone="flow" />
+                        {isDraft ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          <Percent value={lineMargin} tone="flow" />
+                        )}
                       </TD>
                     </TR>
                   );
@@ -392,10 +410,18 @@ async function Loader({
                     <Money cents={sale.totalUsdCents} size="sm" />
                   </td>
                   <td className="h-9 px-3 text-right">
-                    <Money cents={sale.cogsCents} size="sm" tone="muted" />
+                    {isDraft ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Money cents={sale.cogsCents} size="sm" tone="muted" />
+                    )}
                   </td>
                   <td className="h-9 px-3 text-right">
-                    <Percent value={marginRate} tone="flow" />
+                    {isDraft ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Percent value={marginRate} tone="flow" />
+                    )}
                   </td>
                 </tr>
               </tfoot>
@@ -417,7 +443,12 @@ async function Loader({
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] text-ink">
                         {item.productName}
-                        <span className="text-ink-4"> · {item.variantName}</span>
+                        {variantLabel(item.variantName) ? (
+                          <span className="text-ink-4">
+                            {' '}
+                            · {variantLabel(item.variantName)}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
                       {item.serials.length > 0 ? (
@@ -445,10 +476,18 @@ async function Loader({
                     <Money cents={item.unitPriceUsdCents} size="sm" tone="muted" />
                   </MobileRowMetaItem>
                   <MobileRowMetaItem label="Cost">
-                    <Money cents={item.cogsCents} size="sm" tone="muted" />
+                    {isDraft ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Money cents={item.cogsCents} size="sm" tone="muted" />
+                    )}
                   </MobileRowMetaItem>
                   <MobileRowMetaItem label="Margin">
-                    <Percent value={lineMargin} tone="flow" />
+                    {isDraft ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <Percent value={lineMargin} tone="flow" />
+                    )}
                   </MobileRowMetaItem>
                 </MobileRowMeta>
               </MobileRow>
@@ -466,7 +505,11 @@ async function Loader({
             <span>Total</span>
             <span className="flex items-center gap-3">
               <Money cents={sale.totalUsdCents} size="sm" />
-              <Percent value={marginRate} tone="flow" />
+              {isDraft ? (
+                <span className="text-ink-3">—</span>
+              ) : (
+                <Percent value={marginRate} tone="flow" />
+              )}
             </span>
           </div>
         </MobileList>
