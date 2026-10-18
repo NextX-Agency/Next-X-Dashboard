@@ -24,7 +24,11 @@ test.describe('neutral storefront structure', () => {
     expect(response?.status()).toBe(200);
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('link', { name: /go to the homepage/ })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Categories' })).toBeVisible();
+    // The shop's places are named in the header and the page itself, not just a product grid.
+    await expect(page.getByRole('navigation', { name: 'Shop sections' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Shop by category' }),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     // No staff link in the customer header.
     await expect(page.locator('header').getByText('Staff sign-in')).toHaveCount(0);

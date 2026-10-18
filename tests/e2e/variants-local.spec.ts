@@ -137,6 +137,8 @@ test.describe('shop: filters combine on one variant', () => {
   test('the filters sheet opens, applies a choice with its count, and closes', async ({
     page,
   }) => {
+    // On a phone the filters live in a sheet; from `lg` they are a sidebar instead.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/shop', { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: /^Filters/ }).click();
     const sheet = page.getByRole('dialog', { name: 'Filters' });
