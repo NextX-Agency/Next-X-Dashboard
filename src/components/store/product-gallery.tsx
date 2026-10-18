@@ -199,7 +199,7 @@ export function ProductGallery({ name }: { name: string }) {
                 className={cn(
                   'relative block size-16 overflow-hidden rounded-[12px] bg-sunken sm:size-20',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                  imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',
+                  imageIndex === index ? 'ring-2 ring-accent' : 'opacity-70 hover:opacity-100',
                 )}
               >
                 <Image

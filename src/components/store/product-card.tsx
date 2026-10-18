@@ -137,7 +137,9 @@ export function ProductCard({
             aria-hidden="true"
             className={cn(
               'mt-3 flex h-11 items-center justify-center rounded-[10px] font-semibold text-[14px]',
-              inStock ? 'border border-ink text-ink' : 'border border-line-strong text-ink-2',
+              inStock
+                ? 'border border-accent text-accent'
+                : 'border border-line-strong text-ink-2',
             )}
           >
             {!inStock ? 'See availability' : several ? 'Choose options' : 'View product'}

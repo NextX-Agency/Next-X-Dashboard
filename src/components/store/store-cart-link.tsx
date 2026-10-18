@@ -17,7 +17,7 @@ export function StoreCartLink() {
       <span className="hidden sm:inline">Cart</span>
       <span
         className={`tabular grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ${
-          ready && count > 0 ? 'bg-night text-night-ink' : 'bg-sunken text-ink-3'
+          ready && count > 0 ? 'bg-accent text-accent-fg' : 'bg-sunken text-ink-3'
         }`}
       >
         {ready ? count : '·'}

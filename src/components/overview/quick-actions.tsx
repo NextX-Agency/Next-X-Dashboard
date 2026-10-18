@@ -32,15 +32,18 @@ export function QuickActions() {
                 'flex min-h-[108px] flex-col justify-between rounded-card border p-4 transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 primary
-                  ? 'border-ink bg-ink text-on-ink hover:opacity-90'
-                  : 'border-line bg-raised text-ink hover:border-ink',
+                  ? 'border-accent bg-accent text-accent-fg hover:bg-accent-hover'
+                  : 'border-line bg-raised text-ink hover:border-accent',
               )}
             >
               <Icon aria-hidden="true" className="size-5" />
               <span>
                 <span className="block font-bold text-[15px]">{title}</span>
                 <span
-                  className={cn('block text-[12.5px]', primary ? 'opacity-70' : 'text-ink-3')}
+                  className={cn(
+                    'block text-[12.5px]',
+                    primary ? 'text-accent-fg' : 'text-ink-3',
+                  )}
                 >
                   {hint}
                 </span>

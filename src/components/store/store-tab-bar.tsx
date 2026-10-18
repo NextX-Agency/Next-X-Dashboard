@@ -38,7 +38,7 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
     cn(
       'flex h-14 flex-col items-center justify-center gap-0.5 font-semibold text-[11px]',
       'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
-      active ? 'text-ink' : 'text-ink-3',
+      active ? 'text-accent' : 'text-ink-3',
     );
 
   return (
@@ -56,7 +56,7 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
           <span className="relative">
             <Icon aria-hidden="true" className="size-5" />
             {key === 'cart' && ready && count > 0 ? (
-              <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-night px-1 font-bold text-[10px] text-night-ink">
+              <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-accent px-1 font-bold text-[10px] text-accent-fg">
                 {count}
               </span>
             ) : null}

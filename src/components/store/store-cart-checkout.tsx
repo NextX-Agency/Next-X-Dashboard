@@ -41,7 +41,7 @@ function paramariboDate(offsetDays = 0) {
 }
 
 function fieldClassName() {
-  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none';
+  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none';
 }
 
 export function StoreCartCheckout({
@@ -462,7 +462,7 @@ export function StoreCartCheckout({
                     type="button"
                     aria-pressed={pickupDate === value}
                     onClick={() => setPickupDate(value)}
-                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-ink text-on-ink' : 'text-ink-2 hover:text-ink'}`}
+                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-accent text-accent-fg' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'
@@ -494,7 +494,7 @@ export function StoreCartCheckout({
                 rows={3}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-ink focus:outline-none"
+                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
                 placeholder="Anything the shop should know?"
               />
             </div>

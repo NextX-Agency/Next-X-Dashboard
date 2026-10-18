@@ -115,6 +115,8 @@ test.describe('catalogue and product page', () => {
 
   test('cart: quantity, totals and the WhatsApp message stay accurate', async ({ page }) => {
     await page.goto(`/products/${PRODUCT.slug}`);
+    // A click before the page has hydrated is lost, and the quantity stays at 1.
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Increase quantity' }).click();
     await page.getByRole('button', { name: 'Add to cart' }).first().click();
     await expect(page.getByText(/2 × KZ AS16 Pro X added to your cart/)).toBeVisible();

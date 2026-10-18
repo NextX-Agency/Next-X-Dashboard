@@ -64,7 +64,7 @@ export function Sidebar({
                   className={cn(
                     'flex h-9 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px]',
                     'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-                    active ? 'bg-ink text-on-ink' : 'text-ink hover:bg-hover',
+                    active ? 'bg-accent-muted text-accent' : 'text-ink hover:bg-hover',
                   )}
                 >
                   <GroupIcon aria-hidden="true" className="size-4 shrink-0" />
@@ -113,7 +113,7 @@ export function Sidebar({
                             'flex h-8 items-center rounded-control px-2.5 text-[13px]',
                             'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                             active
-                              ? 'bg-ink font-semibold text-on-ink'
+                              ? 'bg-accent-muted font-semibold text-accent'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
                         >

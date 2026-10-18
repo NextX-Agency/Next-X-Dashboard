@@ -40,7 +40,7 @@ export function StoreHeaderSearch({ className }: { className?: string }) {
           enterKeyHint="search"
           className={cn(
             'h-11 w-full rounded-[12px] border border-transparent bg-sunken pr-4 pl-11 text-[15px] text-ink',
-            'placeholder:text-ink-3 focus:border-ink focus:bg-raised focus:outline-none',
+            'placeholder:text-ink-3 focus:border-accent focus:bg-raised focus:outline-none',
           )}
         />
       </form>

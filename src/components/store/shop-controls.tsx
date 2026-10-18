@@ -107,7 +107,7 @@ export function ShopToolbar({
       >
         <span
           aria-hidden="true"
-          className={`relative h-6 w-10 rounded-full transition-colors ${onlyInStock ? 'bg-night' : 'bg-line-strong'}`}
+          className={`relative h-6 w-10 rounded-full transition-colors ${onlyInStock ? 'bg-accent' : 'bg-line-strong'}`}
         >
           <span
             className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${onlyInStock ? 'left-[18px]' : 'left-0.5'}`}
@@ -177,7 +177,7 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
         <button type="button" className="nx-btn nx-btn-line nx-btn-sm h-11">
           <SlidersHorizontal /> Filters
           {count > 0 ? (
-            <span className="tabular grid min-w-5 place-items-center rounded-full bg-night px-1.5 font-semibold text-[12px] text-night-ink">
+            <span className="tabular grid min-w-5 place-items-center rounded-full bg-accent px-1.5 font-semibold text-[12px] text-accent-fg">
               {count}
               <span className="sr-only"> active</span>
             </span>
@@ -426,7 +426,7 @@ function PriceGroup({
     });
   const hint = (cents: number) => Math.round(cents / 100).toLocaleString('en-GB');
   const field =
-    'tabular mt-1 h-11 w-full min-w-0 rounded-[10px] border border-line-strong bg-raised px-3 text-[14px] text-ink placeholder:text-ink-4 focus:border-ink focus:outline-none';
+    'tabular mt-1 h-11 w-full min-w-0 rounded-[10px] border border-line-strong bg-raised px-3 text-[14px] text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none';
   const isPreset = (presetMin: string | null, presetMax: string | null) =>
     (state.min ?? null) === presetMin && (state.max ?? null) === presetMax;
 
@@ -523,7 +523,7 @@ function Choice({
         'group flex min-h-10 items-center justify-between gap-3 border-l-2 py-1.5 pr-1 pl-3 text-left text-[14px] transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring',
         active
-          ? 'border-store-bright font-semibold text-ink'
+          ? 'border-store-bright font-semibold text-accent'
           : 'border-transparent text-ink-2 hover:border-line-strong hover:text-ink',
         count === 0 && !active && 'text-ink-4',
       )}
@@ -608,7 +608,7 @@ export function ActiveFilters({
           type="button"
           aria-label={`Remove filter: ${chip.label}`}
           onClick={chip.remove}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-night px-3.5 font-semibold text-[13px] text-night-ink hover:bg-night-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-3.5 font-semibold text-[13px] text-accent-fg hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           {chip.label}
           <X aria-hidden="true" className="size-3.5" />

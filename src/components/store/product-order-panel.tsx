@@ -293,8 +293,8 @@ function VariantSelector({
                 'inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3.5 font-semibold text-[14px] transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 isSelected
-                  ? 'border-night bg-night text-night-ink'
-                  : 'border-line-strong text-ink hover:border-ink',
+                  ? 'border-accent bg-accent-muted text-accent'
+                  : 'border-line-strong text-ink hover:border-accent',
                 soldOut && !isSelected && 'text-ink-3',
               )}
             >

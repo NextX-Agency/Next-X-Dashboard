@@ -29,6 +29,7 @@
   --color-accent: var(--nx-accent);
   --color-accent-hover: var(--nx-accent-hover);
   --color-accent-fg: var(--nx-accent-fg);
+  --color-accent-ink: var(--nx-accent-fg);
   --color-accent-muted: var(--nx-accent-muted);
   --color-accent-border: var(--nx-accent-border);
   --color-ring: var(--nx-ring);
@@ -251,14 +252,15 @@
     height: 1.125rem;
     flex-shrink: 0;
   }
+  /* The main action is NextX orange. White text on it clears AA (5.2:1). */
   .nx-btn-primary {
-    background-color: var(--nx-night);
-    color: var(--nx-night-ink);
+    background-color: var(--nx-accent);
+    color: var(--nx-accent-fg);
   }
   .nx-btn-primary:hover {
-    background-color: #2f2f2b;
+    background-color: var(--nx-accent-hover);
   }
-  /* The orange fill is kept for one thing only: a "back in stock" or sale signal. */
+  /* The bright logo orange: a "back in stock" or sale signal. Dark ink on it, since white would fail AA. */
   .nx-btn-signal {
     background-color: var(--nx-store-bright);
     color: #141414;
@@ -272,8 +274,9 @@
     border-color: #cfcfc9;
   }
   .nx-btn-line:hover {
-    border-color: var(--nx-text);
-    background-color: var(--nx-bg-hover);
+    border-color: var(--nx-accent);
+    color: var(--nx-accent);
+    background-color: var(--nx-accent-muted);
   }
   .nx-btn-sm {
     height: 2.5rem;

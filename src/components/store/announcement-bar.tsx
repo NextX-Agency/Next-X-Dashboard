@@ -28,12 +28,12 @@ export function AnnouncementBar({
       ].filter((fact): fact is string => Boolean(fact));
   if (!facts.length) return null;
   return (
-    <div className="bg-night text-night-ink">
+    <div className="border-accent-border border-b bg-accent-muted text-ink">
       <p className="mx-auto flex w-full max-w-[1320px] items-center justify-center gap-x-3 overflow-hidden px-4 py-2 text-center font-medium text-[12px] sm:justify-start lg:px-8 lg:text-[13px]">
         {facts.map((fact, index) => (
           <span key={fact} className="flex items-center gap-3 whitespace-nowrap">
             {index > 0 ? (
-              <span aria-hidden="true" className="size-1 rounded-full bg-store-bright" />
+              <span aria-hidden="true" className="size-1 rounded-full bg-accent" />
             ) : null}
             {fact}
           </span>

@@ -123,7 +123,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Storefront: Rustig. White, quiet, black primary actions, orange as a signal
+   Storefront: Rustig. White, quiet, orange primary actions, charcoal type
    ──────────────────────────────────────────────────────────────────────────
    Scoped under `.nx-store` on the store layout root, so every token utility
    inside the shop re-skins with no change to dashboard components.
@@ -131,8 +131,9 @@
    - White page, soft warm-grey fields (#f5f5f2) behind product photography.
      Photographs are multiplied onto the field, so white-background cut-outs
      sit on it instead of showing as white boxes.
-   - Primary actions are black. Orange is a small signal (last pieces, the
-     logo, the active category), never a fill for a main button.
+   - Primary actions are NextX orange (--nx-accent, white text 5.2:1). Charcoal
+     carries type and structure; the bright logo orange (--nx-store-bright) is
+     for the hero, the logo and signals. Photographs are never tinted.
    - Text steps clear WCAG AA on white.
 
    Light only: the store layout forces the light theme.
@@ -156,17 +157,17 @@
   --nx-text-tertiary: #5c5c57;
   --nx-text-faint: #6b6b65;
 
-  --nx-accent: #a8440a;
-  --nx-accent-hover: #8a3606;
+  --nx-accent: #c2410c;
+  --nx-accent-hover: #9a3412;
   --nx-accent-fg: #ffffff;
   --nx-accent-muted: #fff1e6;
   --nx-accent-border: #f0c4a2;
-  --nx-ring: #141414;
+  --nx-ring: #c2410c;
 
   --nx-store-bright: #e8590c;
   --nx-store-bright-soft: #fff1e6;
 
-  /* Ink: primary buttons and dark chips. */
+  /* Ink: the announcement bar, the contact card and overlays. Not for buttons. */
   --nx-night: #141414;
   --nx-night-2: #232321;
   --nx-night-line: #3a3a37;

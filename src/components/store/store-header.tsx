@@ -25,7 +25,7 @@ export function StoreHeader({
 }) {
   const ask = whatsappLink(whatsapp, enquiryMessage(storeName));
   const navLink =
-    'inline-flex h-11 items-center border-b-2 border-transparent px-1 font-semibold text-[14px] text-ink-2 transition-colors hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
+    'inline-flex h-11 items-center border-b-2 border-transparent px-1 font-semibold text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
   return (
     <header className="sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-[1320px] items-center gap-3 px-4 sm:gap-6 lg:px-8">

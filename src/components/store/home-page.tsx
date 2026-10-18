@@ -610,7 +610,7 @@ function OrderingAndVisit({
           <ol className="mt-6 grid gap-6 sm:grid-cols-2">
             {steps.map(([title, body], index) => (
               <li key={title} className="flex gap-4">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-night font-bold text-[14px] text-night-ink">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent font-bold text-[14px] text-accent-fg">
                   {index + 1}
                 </span>
                 <span>
