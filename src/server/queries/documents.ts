@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import type { Cents } from '@/lib/money';
 import { db } from '../db/client';
+import { variantImageSql } from './image-sql';
 import { maybe, num, text } from './row';
 
 /**
@@ -55,6 +56,8 @@ export type SaleDetail = {
     lineTotalUsdCents: Cents;
     cogsCents: Cents;
     shortfall: number;
+    /** The option's current photograph (live catalog, not a snapshot), or null for a placeholder. */
+    imageUrl: string | null;
     /** F-6: serials captured at the point of sale, in the order typed. */
     serials: string[];
     components: {
@@ -151,7 +154,8 @@ export async function getSale(id: string): Promise<SaleDetail | null> {
         COALESCE(si.sku_snapshot, v.sku) AS sku,
         si.quantity, si.quantity_returned,
         si.unit_price_cents::text, si.line_total_cents::text, si.unit_price_usd_cents::text,
-        si.line_total_usd_cents::text, si.cogs_cents::text, si.shortfall
+        si.line_total_usd_cents::text, si.cogs_cents::text, si.shortfall,
+        ${variantImageSql('si.variant_id', 'v.product_id')} AS image_url
       FROM sale_items si
       JOIN product_variants v ON v.id = si.variant_id
       JOIN products p ON p.id = v.product_id
@@ -255,6 +259,7 @@ export async function getSale(id: string): Promise<SaleDetail | null> {
       lineTotalUsdCents: num(item.line_total_usd_cents),
       cogsCents: num(item.cogs_cents),
       shortfall: num(item.shortfall),
+      imageUrl: maybe(item.image_url),
       serials: serialsByLine.get(text(item.id)) ?? [],
       components: (componentsByLine.get(text(item.id)) ?? []).map((component) => ({
         variantId: text(component.variant_id),

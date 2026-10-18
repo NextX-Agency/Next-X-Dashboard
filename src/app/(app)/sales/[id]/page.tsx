@@ -1,4 +1,5 @@
 import type { Metadata, Route } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
@@ -311,8 +312,13 @@ async function Loader({
                   return (
                     <TR key={item.id}>
                       <TD className="whitespace-nowrap text-ink">
-                        {item.productName}
-                        <span className="text-ink-4"> · {item.variantName}</span>
+                        <span className="inline-flex items-center gap-2 align-middle">
+                          <LineThumb url={item.imageUrl} name={item.productName} />
+                          <span>
+                            {item.productName}
+                            <span className="text-ink-4"> · {item.variantName}</span>
+                          </span>
+                        </span>
                         {item.shortfall > 0 ? (
                           <Badge tone="warning" className="ml-2">
                             {item.shortfall} oversold
@@ -406,17 +412,20 @@ async function Loader({
             return (
               <MobileRow key={item.id} interactive={false}>
                 <MobileRowHeader>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] text-ink">
-                      {item.productName}
-                      <span className="text-ink-4"> · {item.variantName}</span>
-                    </span>
-                    <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
-                    {item.serials.length > 0 ? (
-                      <span className="tabular block text-[11px] text-ink-4">
-                        {item.serials.join(' · ')}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <LineThumb url={item.imageUrl} name={item.productName} />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] text-ink">
+                        {item.productName}
+                        <span className="text-ink-4"> · {item.variantName}</span>
                       </span>
-                    ) : null}
+                      <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
+                      {item.serials.length > 0 ? (
+                        <span className="tabular block text-[11px] text-ink-4">
+                          {item.serials.join(' · ')}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
                   <Money cents={item.lineTotalUsdCents} size="sm" className="shrink-0" />
                 </MobileRowHeader>
@@ -606,5 +615,18 @@ function Field({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] text-ink-4 uppercase tracking-[0.06em]">{label}</p>
       <p className="mt-0.5 text-[13px] text-ink">{value}</p>
     </div>
+  );
+}
+
+/** The option's current catalog photograph. Names, SKU and prices on the line stay the sale's own snapshot. */
+function LineThumb({ url, name }: { url: string | null; name: string }) {
+  return (
+    <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-control bg-white">
+      {url ? (
+        <Image src={url} alt="" fill sizes="36px" className="object-contain p-0.5" />
+      ) : (
+        <span className="sr-only">No photo of {name}</span>
+      )}
+    </span>
   );
 }
