@@ -93,6 +93,16 @@ describe('groupByProduct', () => {
     const [group] = groupByProduct([variant({ productId: 'x', onHand: -2 })]);
     expect(group?.onHand).toBe(0);
   });
+
+  it('ranges over the number a purchase order shows (cost), not the list price', () => {
+    const costed = [
+      variant({ id: 'a', productId: 'p', referenceCostCents: 1500, listPriceCents: 3000 }),
+      variant({ id: 'b', productId: 'p', referenceCostCents: 1600, listPriceCents: 3400 }),
+    ];
+    const [group] = groupByProduct(costed, (entry) => entry.referenceCostCents);
+    expect(group?.minPriceCents).toBe(1500);
+    expect(group?.maxPriceCents).toBe(1600);
+  });
 });
 
 describe('search and filters', () => {

@@ -31,6 +31,7 @@ import {
   filterProducts,
   groupByProduct,
   optionLabel,
+  type PickerPrice,
   type PickerProduct,
   type PickerStockFilter,
   stockLabel,
@@ -52,6 +53,30 @@ export type PickerSelection =
 
 const PAGE_SIZE = 48;
 
+/** The words a form uses around the picker. The default is the sale's; other forms pass their own. */
+export type PickerLabels = {
+  /** Dialog title when adding, e.g. "Add products to this sale". */
+  addTitle: string;
+  replaceTitle: string;
+  /** The primary button, e.g. "Add to sale". */
+  addButton: string;
+  /** Badge on a card whose product is already on the document, e.g. "in sale". */
+  inDocument: string;
+  /** Footer, after the line count: "3 lines in this sale". */
+  footerNoun: string;
+  /** What the shown number is, e.g. "Costs shown in USD." Empty: "Prices shown in <currency>." */
+  hint: string;
+};
+
+const SALE_LABELS: PickerLabels = {
+  addTitle: 'Add products to this sale',
+  replaceTitle: 'Change product',
+  addButton: 'Add to sale',
+  inDocument: 'in sale',
+  footerNoun: 'this sale',
+  hint: '',
+};
+
 type View = 'grid' | 'list';
 
 export function SaleProductPicker({
@@ -59,29 +84,49 @@ export function SaleProductPicker({
   onOpenChange,
   mode,
   variants,
-  bundles,
+  bundles = [],
   currency,
   rateMicros,
   inSale,
   lineCount,
   returnFocusTo,
   onChoose,
+  labels,
+  priceOf,
+  priceCaption,
+  showQuantity = true,
+  warnOverstock = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'add' | 'replace';
   variants: SaleVariantOption[];
-  bundles: BundleOption[];
+  /** Omit where a bundle makes no sense (a purchase order, a quote, another bundle). */
+  bundles?: BundleOption[];
   currency: 'USD' | 'SRD';
-  rateMicros: RateMicros;
+  /** Needed only to show SRD prices. */
+  rateMicros?: RateMicros;
   /** Quantity already in the sale per variant, to show "2 in sale" on cards. */
   inSale: ReadonlyMap<string, number>;
   lineCount: number;
   /** What opened the dialog, so keyboard users land back where they were when it closes. */
   returnFocusTo?: RefObject<HTMLElement | null>;
   onChoose: (selection: PickerSelection) => void;
+  /** Override the sale wording (see `PickerLabels`). */
+  labels?: Partial<PickerLabels>;
+  /** The number shown beside each option; defaults to the list price. A purchase order passes the
+   *  reference cost so staff see what they pay, not what they charge. */
+  priceOf?: PickerPrice;
+  /** Small caption beside the large price in the detail pane, e.g. "reference cost". */
+  priceCaption?: string;
+  /** False where the quantity is fixed elsewhere (a quote request already says how many). */
+  showQuantity?: boolean;
+  /** The "only N on hand" note belongs to selling, not buying. */
+  warnOverstock?: boolean;
 }) {
-  const products = useMemo(() => groupByProduct(variants), [variants]);
+  const text = { ...SALE_LABELS, ...labels };
+  const price: PickerPrice = priceOf ?? ((candidate) => candidate.listPriceCents);
+  const products = useMemo(() => groupByProduct(variants, priceOf), [variants, priceOf]);
   const categories = useMemo(
     () =>
       [...new Set(products.map((product) => product.categoryName).filter(Boolean))].sort(
@@ -132,7 +177,10 @@ export function SaleProductPicker({
     : undefined;
 
   const money = (cents: number) =>
-    formatMoney(currency === 'SRD' ? fromBase(cents, rateMicros) : cents, currency);
+    formatMoney(
+      currency === 'SRD' && rateMicros ? fromBase(cents, rateMicros) : cents,
+      currency,
+    );
 
   function reset(next: boolean) {
     onOpenChange(next);
@@ -233,10 +281,11 @@ export function SaleProductPicker({
           <header className="flex shrink-0 items-center justify-between gap-3 border-line-subtle border-b px-4 py-3">
             <div className="min-w-0">
               <Dialog.Title className="font-medium text-[15px] text-ink tracking-[-0.01em]">
-                {mode === 'replace' ? 'Change product' : 'Add products to this sale'}
+                {mode === 'replace' ? text.replaceTitle : text.addTitle}
               </Dialog.Title>
               <p className="text-[12px] text-ink-3">
-                Search by name, model, brand or SKU. Prices shown in {currency}.
+                Search by name, model, brand or SKU.{' '}
+                {text.hint || `Prices shown in ${currency}.`}
               </p>
             </div>
             <Dialog.Close
@@ -434,6 +483,7 @@ export function SaleProductPicker({
                           }
                           onHand={entry.onHand}
                           inSale={addedQty}
+                          inLabel={text.inDocument}
                           sku={entry.variants.length === 1 ? entry.variants[0]?.sku : undefined}
                           onSelect={() => openProduct(entry)}
                           onKeyDown={moveFocus}
@@ -455,6 +505,7 @@ export function SaleProductPicker({
                         price={money(entry.priceCents)}
                         onHand={entry.availability}
                         inSale={0}
+                        inLabel={text.inDocument}
                         sku={entry.sku}
                         onSelect={() => openBundle(entry)}
                         onKeyDown={moveFocus}
@@ -501,6 +552,9 @@ export function SaleProductPicker({
                         setJustAdded(null);
                       }}
                       inSale={inSale}
+                      inLabel={text.inDocument}
+                      priceOf={price}
+                      priceCaption={priceCaption}
                     />
                   ) : bundle ? (
                     <BundleDetail bundle={bundle} money={money} />
@@ -508,54 +562,60 @@ export function SaleProductPicker({
                 </div>
 
                 <div className="shrink-0 space-y-2 border-line-subtle border-t bg-base p-4">
-                  <QuantityOverstockNote
-                    quantity={parsedQuantity}
-                    onHand={bundle ? bundle.availability : (variant?.onHand ?? 0)}
-                  />
+                  {warnOverstock && showQuantity ? (
+                    <QuantityOverstockNote
+                      quantity={parsedQuantity}
+                      onHand={bundle ? bundle.availability : (variant?.onHand ?? 0)}
+                    />
+                  ) : null}
                   <div className="flex items-center gap-2">
-                    <div className="flex h-11 shrink-0 items-stretch rounded-control border border-line">
-                      <button
-                        type="button"
-                        aria-label="Decrease quantity"
-                        disabled={parsedQuantity <= 1}
-                        onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
-                        className="grid w-11 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35"
-                      >
-                        <Minus className="size-3.5" />
-                      </button>
-                      <label className="sr-only" htmlFor="picker-quantity">
-                        Quantity
-                      </label>
-                      <input
-                        id="picker-quantity"
-                        inputMode="numeric"
-                        value={quantity}
-                        onChange={(event) => setQuantity(event.target.value.replace(/\D/g, ''))}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') {
-                            event.preventDefault();
-                            commit();
+                    {showQuantity ? (
+                      <div className="flex h-11 shrink-0 items-stretch rounded-control border border-line">
+                        <button
+                          type="button"
+                          aria-label="Decrease quantity"
+                          disabled={parsedQuantity <= 1}
+                          onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
+                          className="grid w-11 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35"
+                        >
+                          <Minus className="size-3.5" />
+                        </button>
+                        <label className="sr-only" htmlFor="picker-quantity">
+                          Quantity
+                        </label>
+                        <input
+                          id="picker-quantity"
+                          inputMode="numeric"
+                          value={quantity}
+                          onChange={(event) =>
+                            setQuantity(event.target.value.replace(/\D/g, ''))
                           }
-                        }}
-                        className="tabular w-12 border-0 bg-transparent text-center text-[14px] text-ink focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        aria-label="Increase quantity"
-                        onClick={() => setQuantity(String(parsedQuantity + 1))}
-                        className="grid w-11 place-items-center rounded-r-control hover:bg-hover"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
-                    </div>
+                          onFocus={(event) => event.currentTarget.select()}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault();
+                              commit();
+                            }
+                          }}
+                          className="tabular w-12 border-0 bg-transparent text-center text-[14px] text-ink focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          aria-label="Increase quantity"
+                          onClick={() => setQuantity(String(parsedQuantity + 1))}
+                          className="grid w-11 place-items-center rounded-r-control hover:bg-hover"
+                        >
+                          <Plus className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       onClick={commit}
                       disabled={Boolean(variant && !variant.isActive)}
                       className="h-11 flex-1 rounded-control bg-accent px-4 font-medium text-[13px] text-accent-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
                     >
-                      {mode === 'replace' ? 'Use this product' : 'Add to sale'}
+                      {mode === 'replace' ? 'Use this product' : text.addButton}
                     </button>
                   </div>
                 </div>
@@ -575,7 +635,7 @@ export function SaleProductPicker({
                 </>
               ) : (
                 <span>
-                  {lineCount} {lineCount === 1 ? 'line' : 'lines'} in this sale
+                  {lineCount} {lineCount === 1 ? 'line' : 'lines'} in {text.footerNoun}
                 </span>
               )}
             </p>
@@ -649,6 +709,7 @@ function ProductCard({
   price,
   onHand,
   inSale,
+  inLabel,
   sku,
   bundle,
   onSelect,
@@ -664,6 +725,7 @@ function ProductCard({
   price: string;
   onHand: number;
   inSale: number;
+  inLabel: string;
   sku?: string | undefined;
   bundle?: boolean;
   onSelect: () => void;
@@ -677,7 +739,7 @@ function ProductCard({
     options ? `${options} options` : null,
     price,
     stockLabel(onHand).text,
-    inSale ? `${inSale} already in sale` : null,
+    inSale ? `${inSale} already ${inLabel}` : null,
   ]
     .filter(Boolean)
     .join(', ');
@@ -735,7 +797,7 @@ function ProductCard({
       </div>
       {inSale > 0 ? (
         <span className="absolute top-2 left-2 rounded-control bg-accent px-1.5 py-0.5 font-medium text-[11px] text-accent-ink">
-          {inSale} in sale
+          {inSale} {inLabel}
         </span>
       ) : null}
       <div className="flex flex-1 flex-col gap-0.5 p-2.5 pt-1">
@@ -759,12 +821,18 @@ function ProductDetail({
   money,
   onPick,
   inSale,
+  inLabel,
+  priceOf,
+  priceCaption,
 }: {
   product: PickerProduct;
   variant: SaleVariantOption;
   money: (cents: number) => string;
   onPick: (variantId: string) => void;
   inSale: ReadonlyMap<string, number>;
+  inLabel: string;
+  priceOf: PickerPrice;
+  priceCaption: string | undefined;
 }) {
   const label = optionLabel(variant);
   const many = product.variants.length > 1;
@@ -790,7 +858,12 @@ function ProductDetail({
       </div>
 
       <div className="flex items-baseline justify-between gap-3">
-        <span className="tabular text-[20px] text-ink">{money(variant.listPriceCents)}</span>
+        <span className="tabular text-[20px] text-ink">
+          {money(priceOf(variant))}
+          {priceCaption ? (
+            <span className="ml-1.5 text-[12px] text-ink-3">{priceCaption}</span>
+          ) : null}
+        </span>
         <StockText onHand={variant.onHand} />
       </div>
 
@@ -844,12 +917,12 @@ function ProductDetail({
                       <p className="truncate text-[11px] text-ink-3">
                         {candidate.sku}
                         {!candidate.isActive ? ' · inactive' : ''}
-                        {qty ? ` · ${qty} in sale` : ''}
+                        {qty ? ` · ${qty} ${inLabel}` : ''}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="tabular text-[12px] text-ink">
-                        {money(candidate.listPriceCents)}
+                        {money(priceOf(candidate))}
                       </p>
                       <StockText onHand={candidate.onHand} />
                     </div>

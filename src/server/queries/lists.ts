@@ -477,6 +477,17 @@ export async function listLedger(
     conditions.push(sql`(l.description ILIKE ${term} OR m.full_name ILIKE ${term})`);
   }
   if (query.category) conditions.push(sql`l.category = ${query.category}::ledger_category`);
+  if (query.from)
+    conditions.push(sql`(l.occurred_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.to)
+    conditions.push(sql`(l.occurred_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
+  if (query.wallet) conditions.push(sql`l.wallet_id = ${query.wallet}`);
+  if (query.type) conditions.push(sql`l.direction = ${query.type}::ledger_direction`);
+  // The view carries the US-dollar amount only; the currency the money moved in lives on the entry.
+  if (query.currency)
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM ledger_entries le WHERE le.id = l.id AND le.currency = ${query.currency}::currency_code)`,
+    );
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   const direction = sql.raw(query.dir === 'asc' ? 'ASC' : 'DESC');
@@ -573,6 +584,23 @@ export async function listOrders(
   }
   if (query.status) conditions.push(sql`s.workflow_status = ${query.status}::order_status`);
   if (query.source) conditions.push(sql`s.source = ${query.source}::order_source`);
+  if (query.customer) conditions.push(sql`s.customer_id = ${query.customer}`);
+  if (query.from)
+    conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.to) conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
+  if (query.payment) {
+    // Same figure the list's Balance column shows: confirmed payments against the total. A draft
+    // or cancelled order is not owed anything, so it matches none of the three.
+    const paid = sql`COALESCE((SELECT SUM(fp.amount_cents) FROM sale_payments fp
+                               WHERE fp.sale_id = s.id AND fp.status = 'confirmed'), 0)`;
+    conditions.push(
+      query.payment === 'paid'
+        ? sql`(s.workflow_status NOT IN ('draft', 'cancelled') AND ${paid} >= s.total_cents)`
+        : query.payment === 'partly'
+          ? sql`(s.workflow_status NOT IN ('draft', 'cancelled') AND ${paid} > 0 AND ${paid} < s.total_cents)`
+          : sql`(s.workflow_status NOT IN ('draft', 'cancelled') AND ${paid} <= 0 AND s.total_cents > 0)`,
+    );
+  }
   const where = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
   const orderBy =
     query.sort === 'customer'
@@ -914,6 +942,10 @@ export async function listCustomers(
       sql`(c.name ILIKE ${term} OR c.code ILIKE ${term} OR c.phone ILIKE ${term} OR c.email ILIKE ${term})`,
     );
   }
+  if (query.from)
+    conditions.push(sql`(t.last_order_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.to)
+    conditions.push(sql`(t.last_order_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   const orderBy = CUSTOMER_SORT[query.sort] ?? CUSTOMER_SORT.spent;
@@ -1002,6 +1034,10 @@ export async function listExpenses(
       sql`(e.description ILIKE ${term} OR e.receipt_number ILIKE ${term} OR c.name ILIKE ${term})`,
     );
   }
+  if (query.from)
+    conditions.push(sql`(e.occurred_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.to)
+    conditions.push(sql`(e.occurred_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   const orderBy = EXPENSE_SORT[query.sort] ?? EXPENSE_SORT.date;

@@ -6,7 +6,7 @@ import { CustomerSheet } from '@/components/forms/reference-sheets';
 import { CustomerActions } from '@/components/forms/row-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import { ListDateRange, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,6 +62,7 @@ export default function CustomersPage({
       <Surface className="overflow-hidden">
         <ListToolbar>
           <ListSearch placeholder="Name, code, phone or email" />
+          <ListDateRange label="Last order" />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-16', 'w-40', 'w-16']} />}>
           <CustomersTable searchParams={searchParams} />
@@ -74,7 +75,7 @@ export default function CustomersPage({
 async function CustomersTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const raw = await searchParams;
   const query = parseListParams(customerQuerySchema, raw);
-  const hasFilters = Boolean(query.q);
+  const hasFilters = Boolean(query.q || query.from || query.to);
   const result = await listCustomers(query);
 
   if (result.total === 0 && !hasFilters) {
@@ -91,11 +92,11 @@ async function CustomersTable({ searchParams }: { searchParams: Promise<RawSearc
     return (
       <EmptyState
         Icon={Users}
-        title="No customers match this search"
-        description="Try a different name, code, phone or email."
+        title="No customers match these filters"
+        description="Try a different name, code, phone, email or last-order dates."
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link href="/customers">Clear search</Link>
+            <Link href="/customers">Clear filters</Link>
           </Button>
         }
       />
@@ -247,12 +248,13 @@ async function CustomersTable({ searchParams }: { searchParams: Promise<RawSearc
   );
 }
 
-function buildHref(query: { q?: string; sort?: string; dir?: string; page?: number }): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.sort) params.set('sort', query.sort);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/customers?${search}` : '/customers') as Route;
 }

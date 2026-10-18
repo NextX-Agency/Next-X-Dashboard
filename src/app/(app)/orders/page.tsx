@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { OrderActions } from '@/components/forms/order-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
-import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import {
+  ListDateRange,
+  ListFilter,
+  ListSearch,
+  ListToolbar,
+} from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +36,7 @@ import {
 import { formatDate, humanise } from '@/lib/format';
 import { orderQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listOrders } from '@/server/queries/lists';
+import { listCustomerOptions } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -66,10 +72,9 @@ export default function OrdersPage({
         }
       />
       <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Order number or customer" />
-          <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
-        </ListToolbar>
+        <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
+          <OrdersToolbar />
+        </Suspense>
         <Suspense fallback={<TableSkeleton rows={4} widths={['w-20', 'w-36', 'w-20']} />}>
           <OrdersTable searchParams={searchParams} />
         </Suspense>
@@ -78,23 +83,57 @@ export default function OrdersPage({
   );
 }
 
+const PAYMENT_OPTIONS = [
+  { value: 'paid', label: 'Paid in full' },
+  { value: 'partly', label: 'Partly paid' },
+  { value: 'unpaid', label: 'Nothing paid' },
+];
+
+async function OrdersToolbar() {
+  const customers = await listCustomerOptions();
+  return (
+    <ListToolbar>
+      <ListSearch placeholder="Order number or customer" />
+      <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
+      <ListFilter param="payment" label="Payment" options={PAYMENT_OPTIONS} />
+      {customers.length > 0 ? (
+        <ListFilter
+          param="customer"
+          label="Customer"
+          options={customers.map((customer) => ({ value: customer.id, label: customer.label }))}
+        />
+      ) : null}
+      <ListDateRange label="Ordered" />
+    </ListToolbar>
+  );
+}
+
 async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const query = parseListParams(orderQuerySchema, await searchParams);
   const result = await listOrders(query);
+  const hasFilters = Boolean(
+    query.q || query.status || query.payment || query.customer || query.from || query.to,
+  );
   if (!result.rows.length) {
     return (
       <EmptyState
         Icon={ClipboardList}
-        title={query.q || query.status ? 'No orders match these filters' : 'No orders yet'}
+        title={hasFilters ? 'No orders match these filters' : 'No orders yet'}
         description={
-          query.q || query.status
+          hasFilters
             ? 'Try a different search or clear the filter.'
             : 'Create a draft order, then confirm it when stock is available.'
         }
         action={
-          <Button asChild variant="primary" size="sm">
-            <Link href={'/orders/new' as Route}>New order</Link>
-          </Button>
+          hasFilters ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href={'/orders' as Route}>Clear filters</Link>
+            </Button>
+          ) : (
+            <Button asChild variant="primary" size="sm">
+              <Link href={'/orders/new' as Route}>New order</Link>
+            </Button>
+          )
         }
       />
     );
@@ -229,11 +268,13 @@ async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchPa
   );
 }
 
-function buildHref(query: { q?: string; status?: string; page?: number }): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.status) params.set('status', query.status);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/orders?${search}` : '/orders') as Route;
 }

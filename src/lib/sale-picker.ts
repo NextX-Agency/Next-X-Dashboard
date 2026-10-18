@@ -30,7 +30,14 @@ export function optionLabel(variant: Pick<SaleVariantOption, 'variantName' | 'at
   return values.length ? values.join(' · ') : null;
 }
 
-export function groupByProduct(variants: readonly SaleVariantOption[]): PickerProduct[] {
+/** The number a form shows beside each option: the list price when selling, the reference cost when buying. */
+export type PickerPrice = (variant: SaleVariantOption) => number;
+const listPrice: PickerPrice = (variant) => variant.listPriceCents;
+
+export function groupByProduct(
+  variants: readonly SaleVariantOption[],
+  priceOf: PickerPrice = listPrice,
+): PickerProduct[] {
   const groups = new Map<string, SaleVariantOption[]>();
   for (const variant of variants) {
     const key = variant.productId || variant.productName;
@@ -46,7 +53,7 @@ export function groupByProduct(variants: readonly SaleVariantOption[]): PickerPr
       shown.find((variant) => variant.onHand > 0 && variant.image) ??
       shown.find((v) => v.image) ??
       first;
-    const prices = shown.map((variant) => variant.listPriceCents);
+    const prices = shown.map(priceOf);
     return {
       productId,
       name: first.productName,

@@ -6,7 +6,12 @@ import { LedgerSheet } from '@/components/forms/ledger-sheet';
 import { LedgerActions } from '@/components/forms/row-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import {
+  ListDateRange,
+  ListFilter,
+  ListSearch,
+  ListToolbar,
+} from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +39,7 @@ import {
 import { formatDate, humanise } from '@/lib/format';
 import { ledgerQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listLedger } from '@/server/queries/lists';
-import { listPrincipalOptions } from '@/server/queries/pickers';
+import { listPrincipalOptions, listWalletOptions } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -83,10 +88,9 @@ export default function LedgerPage({
         }
       />
       <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by description or owner" />
-          <ListFilter param="category" label="Category" options={CATEGORY_OPTIONS} />
-        </ListToolbar>
+        <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
+          <LedgerToolbar />
+        </Suspense>
         <Suspense fallback={<TableSkeleton rows={5} widths={['w-20', 'w-40', 'w-16']} />}>
           <LedgerTable searchParams={searchParams} />
         </Suspense>
@@ -95,10 +99,47 @@ export default function LedgerPage({
   );
 }
 
+const TYPE_OPTIONS = [
+  { value: 'in', label: 'Money in' },
+  { value: 'out', label: 'Money out' },
+];
+const CURRENCY_OPTIONS = [
+  { value: 'USD', label: 'USD' },
+  { value: 'SRD', label: 'SRD' },
+];
+
+async function LedgerToolbar() {
+  const wallets = await listWalletOptions({ includeInactive: true });
+  return (
+    <ListToolbar>
+      <ListSearch placeholder="Search by description or owner" />
+      <ListFilter param="category" label="Category" options={CATEGORY_OPTIONS} />
+      <ListFilter param="type" label="Type" options={TYPE_OPTIONS} />
+      <ListFilter param="currency" label="Currency" options={CURRENCY_OPTIONS} />
+      {wallets.length > 0 ? (
+        <ListFilter
+          param="wallet"
+          label="Wallet"
+          options={wallets.map((wallet) => ({ value: wallet.id, label: wallet.label }))}
+        />
+      ) : null}
+      <ListDateRange label="Moved" />
+    </ListToolbar>
+  );
+}
+
 async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const raw = await searchParams;
   const query = parseListParams(ledgerQuerySchema, raw);
-  const hasFilters = Boolean(query.q || query.category);
+  const hasFilters = Boolean(
+    query.q ||
+      query.category ||
+      query.type ||
+      query.currency ||
+      query.wallet ||
+      query.from ||
+      query.to,
+  );
   const result = await listLedger(query);
 
   if (result.total === 0 && !hasFilters) {
@@ -116,7 +157,7 @@ async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchPa
       <EmptyState
         Icon={Wallet}
         title="No entries match these filters"
-        description="Try a different search or clear the category filter."
+        description="Try a different search or clear a filter."
         action={
           <Button asChild variant="secondary" size="sm">
             <Link href="/ledger">Clear filters</Link>
@@ -232,17 +273,13 @@ async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchPa
   );
 }
 
-function buildHref(query: {
-  q?: string;
-  category?: string;
-  dir?: string;
-  page?: number;
-}): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.category) params.set('category', query.category);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/ledger?${search}` : '/ledger') as Route;
 }

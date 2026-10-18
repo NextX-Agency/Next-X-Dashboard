@@ -160,7 +160,7 @@ export function ListDateRange({
   const inputClass =
     'h-8 rounded-control border border-line bg-raised px-2 text-[12px] text-ink focus-visible:border-accent-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
   return (
-    <fieldset className="flex items-center gap-1.5">
+    <fieldset className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
       <legend className="sr-only">{label} range</legend>
       <label className="flex items-center gap-1.5 text-[12px] text-ink-3">
         <span>{label} from</span>

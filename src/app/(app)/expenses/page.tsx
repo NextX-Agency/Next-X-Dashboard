@@ -6,7 +6,7 @@ import { ExpenseSheet } from '@/components/forms/expense-sheet';
 import { ExpenseActions } from '@/components/forms/row-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import { ListDateRange, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ export default function ExpensesPage({
       <Surface className="overflow-hidden">
         <ListToolbar>
           <ListSearch placeholder="Search by description or category" />
+          <ListDateRange label="Spent" />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-20', 'w-44', 'w-16']} />}>
           <ExpensesTable searchParams={searchParams} />
@@ -89,7 +90,7 @@ export default function ExpensesPage({
 async function ExpensesTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const raw = await searchParams;
   const query = parseListParams(expenseQuerySchema, raw);
-  const hasFilters = Boolean(query.q);
+  const hasFilters = Boolean(query.q || query.from || query.to);
   const [result, categories] = await Promise.all([
     listExpenses(query),
     listExpenseCategoryOptions(),
@@ -114,11 +115,11 @@ async function ExpensesTable({ searchParams }: { searchParams: Promise<RawSearch
     return (
       <EmptyState
         Icon={Coins}
-        title="No expenses match this search"
-        description="Try a different description or category."
+        title="No expenses match these filters"
+        description="Try a different description, category or dates."
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link href="/expenses">Clear search</Link>
+            <Link href="/expenses">Clear filters</Link>
           </Button>
         }
       />
@@ -320,12 +321,13 @@ async function ExpensesTable({ searchParams }: { searchParams: Promise<RawSearch
   );
 }
 
-function buildHref(query: { q?: string; sort?: string; dir?: string; page?: number }): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.sort) params.set('sort', query.sort);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/expenses?${search}` : '/expenses') as Route;
 }

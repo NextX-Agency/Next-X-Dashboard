@@ -57,16 +57,17 @@ test('supplier, purchase order, receipt: stock rises by exactly what was receive
     .getByRole('option', { name: new RegExp(supplier) })
     .first()
     .click();
-  await page.locator('#variant-0').click();
-  await page
-    .getByPlaceholder(/search/i)
-    .last()
-    .fill(SKU);
-  await page
-    .getByRole('option', { name: new RegExp(SKU) })
-    .first()
-    .click();
-  await page.locator('#qty-0').fill('4');
+  // The photo browser: search by SKU, open the product, set the quantity, add it to the order.
+  await page.getByRole('button', { name: /add product/i }).click();
+  const picker = page.getByRole('dialog');
+  await picker.getByPlaceholder(/search name, model/i).fill(SKU);
+  await page.keyboard.press('Enter');
+  await picker.getByLabel('Quantity', { exact: true }).fill('4');
+  await picker.getByRole('button', { name: 'Add to order' }).click();
+  await expect(picker.getByText(/^Added /)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(page.locator('#qty-0')).toHaveValue('4');
   await page.locator('#sub-0').fill('20.00');
   await page.getByRole('button', { name: 'Raise order' }).click();
   await expect(page).toHaveURL(/\/purchase-orders(\/[0-9a-f-]{36})?$/, { timeout: 20_000 });

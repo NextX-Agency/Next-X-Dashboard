@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowRightLeft, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useState } from 'react';
@@ -43,6 +44,8 @@ export function QuoteRequestActions({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  // Rendered beside the menu, not inside it: menu content unmounts as soon as the menu closes.
+  const [dialog, setDialog] = useState<'create' | 'convert' | null>(null);
 
   const statusAction = useAction(setQuoteRequestStatus, {
     onSuccess({ data }) {
@@ -64,25 +67,17 @@ export function QuoteRequestActions({
           </Item>
         ) : null}
         {status !== 'converted' && status !== 'archived' ? (
-          <CreateQuoteDialog
-            requestId={id}
-            requesterName={name}
-            quantity={quantity}
-            variants={variants}
-            inMenu
-          />
+          <Item onSelect={() => setDialog('create')}>
+            <FileText className="size-3.5" /> Create quote
+          </Item>
         ) : null}
         {status === 'contacted' ? (
           <Item onSelect={() => statusAction.execute({ id, status: 'new' })}>Back to new</Item>
         ) : null}
         {status === 'declined' ? (
-          <ConvertQuoteDialog
-            requestId={id}
-            requesterName={name}
-            quantity={quantity}
-            variants={variants}
-            inMenu
-          />
+          <Item onSelect={() => setDialog('convert')}>
+            <ArrowRightLeft className="size-3.5" /> Convert to sale
+          </Item>
         ) : null}
         {status !== 'converted' && status !== 'declined' && status !== 'archived' ? (
           <Item danger onSelect={() => statusAction.execute({ id, status: 'declined' })}>
@@ -99,6 +94,26 @@ export function QuoteRequestActions({
           </Item>
         )}
       </Menu>
+      {dialog === 'create' ? (
+        <CreateQuoteDialog
+          requestId={id}
+          requesterName={name}
+          quantity={quantity}
+          variants={variants}
+          open
+          onOpenChange={(next) => setDialog(next ? 'create' : null)}
+        />
+      ) : null}
+      {dialog === 'convert' ? (
+        <ConvertQuoteDialog
+          requestId={id}
+          requesterName={name}
+          quantity={quantity}
+          variants={variants}
+          open
+          onOpenChange={(next) => setDialog(next ? 'convert' : null)}
+        />
+      ) : null}
       <QuoteRequestSheet
         initial={{ id, name, contact, productId, quantity, details }}
         products={products}

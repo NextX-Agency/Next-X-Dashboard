@@ -4,6 +4,7 @@ import { isDatabaseConfigured } from '@/lib/env';
 import type { QuoteRequestStatus } from '@/lib/schemas';
 import { db } from '../db/client';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
+import { listSaleVariantOptions, type SaleVariantOption } from './pickers';
 import { maybe, num, text } from './row';
 
 /**
@@ -44,43 +45,15 @@ export async function listQuoteProductOptions(): Promise<QuoteProductOption[]> {
   return rows.map((row) => ({ id: text(row.id), name: text(row.name) }));
 }
 
-export type QuoteVariantOption = {
-  id: string;
-  productId: string;
-  productName: string;
-  variantName: string;
-  sku: string;
-  listPriceCents: number;
-};
+/** The photo browser's own option shape, so a quote shows the same photograph the shop does. */
+export type QuoteVariantOption = SaleVariantOption;
 
 /** Variants an owner can attach a converted quote to. Unlike the public
  *  picker this includes non-published products — a request may be answered
  *  with something not on the storefront — but excludes archived products and
  *  inactive variants, which cannot be sold. */
 export async function listQuoteVariantOptions(): Promise<QuoteVariantOption[]> {
-  if (!isDatabaseConfigured()) return [];
-
-  const rows = await db.execute<Record<string, string | null>>(sql`
-    SELECT v.id::text AS id,
-           p.id::text AS product_id,
-           p.name AS product_name,
-           v.name AS variant_name,
-           v.sku,
-           v.list_price_cents::text
-      FROM product_variants v
-      JOIN products p ON p.id = v.product_id
-     WHERE p.status <> 'archived' AND v.is_active
-     ORDER BY p.name, v.position
-  `);
-
-  return rows.map((row) => ({
-    id: text(row.id),
-    productId: text(row.product_id),
-    productName: text(row.product_name),
-    variantName: text(row.variant_name),
-    sku: text(row.sku),
-    listPriceCents: num(row.list_price_cents),
-  }));
+  return (await listSaleVariantOptions()).filter((variant) => variant.isActive);
 }
 
 export type QuoteRequestRow = {

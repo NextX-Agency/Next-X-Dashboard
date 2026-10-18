@@ -1,25 +1,24 @@
 'use client';
 
-import { ArrowRightLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Item } from '@/components/ui/dropdown-menu';
-import { Field, Input, Select } from '@/components/ui/field';
+import { Field, Input } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { formatMoney, parseMoney } from '@/lib/money';
 import { convertQuoteRequestToSale } from '@/server/actions/quotes';
 import type { QuoteVariantOption } from '@/server/queries/quotes';
+import { VariantChoice } from './variant-choice';
 
 /**
  * Convert a quote request into a draft sale (F-5).
  *
  * The visitor asked about a *product*; an owner decides which variant was
- * actually quoted and at what price. The variant list is grouped by product so
- * a long catalog stays scannable in a native select. Picking a variant
+ * actually quoted and at what price. The photo browser shows every option of a
+ * product side by side so the right one is chosen by sight. Picking a variant
  * pre-fills the unit price with its list price — the owner haggles from there,
  * and the number is never left to memory.
  */
@@ -28,17 +27,18 @@ export function ConvertQuoteDialog({
   requesterName,
   quantity,
   variants,
-  inMenu = false,
+  open,
+  onOpenChange: setOpen,
 }: {
   requestId: string;
   requesterName: string;
   quantity: number;
   variants: QuoteVariantOption[];
-  /** Set when this dialog is rendered as a child of `ui/dropdown-menu`'s
-   *  `Menu`, so its trigger becomes a menu item instead of a button. */
-  inMenu?: boolean;
+  /** Controlled by the row menu, which renders this OUTSIDE itself: a dialog inside the menu's
+   *  content is unmounted the moment the menu closes. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [variantId, setVariantId] = useState('');
   const [price, setPrice] = useState('');
   const formId = useId();
@@ -70,113 +70,79 @@ export function ConvertQuoteDialog({
   }
   if (!Number.isFinite(unitCents) || unitCents <= 0) unitCents = 0;
 
-  // Group once per render into insertion order (the query sorts by product
-  // name), emitting one <optgroup> per product.
-  const groups = new Map<string, QuoteVariantOption[]>();
-  for (const variant of variants) {
-    const bucket = groups.get(variant.productName);
-    if (bucket) bucket.push(variant);
-    else groups.set(variant.productName, [variant]);
-  }
-
   return (
-    <>
-      {/* Rendered inside a row-action Menu, so the trigger is a menu item;
-       *  standalone callers get the plain button instead. */}
-      {inMenu ? (
-        <Item onSelect={() => setOpen(true)}>
-          <ArrowRightLeft className="size-3.5" />
-          Convert to sale
-        </Item>
-      ) : (
-        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          Convert to sale
-        </Button>
-      )}
-
-      <Sheet
-        open={open}
-        onOpenChange={setOpen}
-        title="Convert to draft sale"
-        description={`Creates a customer for ${requesterName} and a draft sale for ${quantity} ${quantity === 1 ? 'unit' : 'units'}. Nothing posts until you confirm the sale.`}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <SubmitButton
-              form={formId}
-              pending={convert.isPending}
-              disabled={!chosen || unitCents <= 0}
-            >
-              Create draft sale
-            </SubmitButton>
-          </>
-        }
+    <Sheet
+      open={open}
+      onOpenChange={setOpen}
+      title="Convert to draft sale"
+      description={`Creates a customer for ${requesterName} and a draft sale for ${quantity} ${quantity === 1 ? 'unit' : 'units'}. Nothing posts until you confirm the sale.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <SubmitButton
+            form={formId}
+            pending={convert.isPending}
+            disabled={!chosen || unitCents <= 0}
+          >
+            Create draft sale
+          </SubmitButton>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!chosen || unitCents <= 0) return;
+          convert.execute({
+            id: requestId,
+            variantId: chosen.id,
+            unitPriceCents: String(unitCents),
+          });
+        }}
       >
-        <form
-          id={formId}
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!chosen || unitCents <= 0) return;
-            convert.execute({
-              id: requestId,
-              variantId: chosen.id,
-              unitPriceCents: String(unitCents),
-            });
-          }}
-        >
-          <SheetSection title="What was quoted">
-            <Field label="Variant" htmlFor={`${formId}-variant`} required>
-              <Select
-                id={`${formId}-variant`}
-                value={variantId}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setVariantId(next);
-                  const variant = variants.find((candidate) => candidate.id === next);
-                  if (variant)
-                    setPrice(formatMoney(variant.listPriceCents, 'USD', { bare: true }));
-                }}
-              >
-                <option value="">Choose a variant…</option>
-                {[...groups.entries()].map(([productName, options]) => (
-                  <optgroup key={productName} label={productName}>
-                    {options.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.variantName} · {option.sku}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Unit price (USD)"
-              htmlFor={`${formId}-price`}
-              required
-              hint={chosen ? `List price ${formatMoney(chosen.listPriceCents)}` : undefined}
-            >
-              <Input
-                id={`${formId}-price`}
-                numeric
-                inputMode="decimal"
-                placeholder="0.00"
-                value={price}
-                onChange={(event) => setPrice(event.target.value)}
-                disabled={!chosen}
-              />
-            </Field>
-            {unitCents > 0 ? (
-              <p className="text-[12px] text-ink-3">
-                Total{' '}
-                <span className="tabular text-ink">{formatMoney(unitCents * quantity)}</span>{' '}
-                for {quantity} {quantity === 1 ? 'unit' : 'units'}.
-              </p>
-            ) : null}
-          </SheetSection>
-        </form>
-      </Sheet>
-    </>
+        <SheetSection title="What was quoted">
+          <div>
+            <span className="mb-1.5 block font-medium text-[12px] text-ink-2">Product</span>
+            <VariantChoice
+              variants={variants}
+              value={variantId}
+              title="Choose the product that was quoted"
+              onChange={(next) => {
+                setVariantId(next);
+                const variant = variants.find((candidate) => candidate.id === next);
+                if (variant)
+                  setPrice(formatMoney(variant.listPriceCents, 'USD', { bare: true }));
+              }}
+            />
+          </div>
+          <Field
+            label="Unit price (USD)"
+            htmlFor={`${formId}-price`}
+            required
+            hint={chosen ? `List price ${formatMoney(chosen.listPriceCents)}` : undefined}
+          >
+            <Input
+              id={`${formId}-price`}
+              numeric
+              inputMode="decimal"
+              placeholder="0.00"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              disabled={!chosen}
+            />
+          </Field>
+          {unitCents > 0 ? (
+            <p className="text-[12px] text-ink-3">
+              Total{' '}
+              <span className="tabular text-ink">{formatMoney(unitCents * quantity)}</span> for{' '}
+              {quantity} {quantity === 1 ? 'unit' : 'units'}.
+            </p>
+          ) : null}
+        </SheetSection>
+      </form>
+    </Sheet>
   );
 }

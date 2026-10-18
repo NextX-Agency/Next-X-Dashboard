@@ -1,12 +1,12 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
+import { Package, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { Combobox } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Textarea } from '@/components/ui/field';
 import { Money } from '@/components/ui/money';
 import { SubmitButton } from '@/components/ui/submit-button';
@@ -16,7 +16,9 @@ import { allocateOverhead, allocateOverheadByWeight } from '@/lib/costing';
 import { formatMoney, parseMoney } from '@/lib/money';
 import { createPurchaseOrder, updatePurchaseOrder } from '@/server/actions/purchase-orders';
 import { createSupplier } from '@/server/actions/reference';
-import type { Option, VariantOption } from '@/server/queries/pickers';
+import type { Option, SaleVariantOption } from '@/server/queries/pickers';
+import { LineProduct } from './line-product';
+import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 /**
  * Raising a purchase order.
@@ -36,6 +38,16 @@ const newLine = (): Line => ({
   quantity: '1',
   subtotal: '',
 });
+
+/** What a purchase order shows beside each option: the cost you expect to pay, not the shelf price. */
+const referenceCost = (variant: SaleVariantOption) => variant.referenceCostCents;
+const PICKER_LABELS = {
+  addTitle: 'Add products to this purchase order',
+  addButton: 'Add to order',
+  inDocument: 'on order',
+  footerNoun: 'this order',
+  hint: 'Showing the reference cost in USD; you enter the real line total on the order.',
+} as const;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -67,7 +79,7 @@ export function PurchaseOrderForm({
   suppliers,
   initial,
 }: {
-  variants: VariantOption[];
+  variants: SaleVariantOption[];
   suppliers: Option[];
   /** Omit for a blank form. Editing is only offered for draft/ordered/shipped
    *  orders — see updatePurchaseOrder, which refuses anything else. */
@@ -89,8 +101,17 @@ export function PurchaseOrderForm({
         variantId: item.variantId,
         quantity: item.quantity,
         subtotal: item.subtotal,
-      })) ?? [newLine()],
+      })) ?? [],
   );
+  const pickerOpener = useRef<HTMLElement | null>(null);
+  /** The product browser: adding to the order, or swapping the product on one line. */
+  const [picker, setPicker] = useState<
+    { mode: 'add' } | { mode: 'replace'; key: string } | null
+  >(null);
+  const openPicker = (next: NonNullable<typeof picker>) => {
+    pickerOpener.current = document.activeElement as HTMLElement | null;
+    setPicker(next);
+  };
 
   const [tax, setTax] = useState(initial?.taxCents ?? '');
   const [cardFee, setCardFee] = useState(initial?.cardFeeCents ?? '');
@@ -103,16 +124,50 @@ export function PurchaseOrderForm({
     [variants],
   );
 
-  const variantOptions: ComboboxOption[] = useMemo(
-    () =>
-      variants.map((variant) => ({
-        value: variant.id,
-        label: `${variant.productName} · ${variant.variantName}`,
-        hint: variant.sku,
-        meta: `${variant.onHand} on hand`,
-      })),
-    [variants],
-  );
+  /** Quantity already on the order per variant, so the browser can show "2 on order". */
+  const onOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of lines) {
+      if (!line.variantId) continue;
+      map.set(
+        line.variantId,
+        (map.get(line.variantId) ?? 0) + (Number.parseInt(line.quantity, 10) || 0),
+      );
+    }
+    return map;
+  }, [lines]);
+
+  /** Apply one choice from the product browser. The line total stays for the person to type. */
+  function applySelection(selection: PickerSelection) {
+    if (selection.kind !== 'variant') return;
+    const quantity = Math.max(1, selection.quantity);
+    const target = picker?.mode === 'replace' ? picker.key : null;
+    setLines((current) => {
+      if (target) {
+        return current.map((line) =>
+          line.key === target
+            ? { ...line, variantId: selection.variantId, quantity: String(quantity) }
+            : line,
+        );
+      }
+      // The same variant again adds to its line instead of repeating it.
+      const same = current.find((line) => line.variantId === selection.variantId);
+      if (same) {
+        return current.map((line) =>
+          line.key === same.key
+            ? {
+                ...line,
+                quantity: String((Number.parseInt(line.quantity, 10) || 0) + quantity),
+              }
+            : line,
+        );
+      }
+      return [
+        ...current,
+        { ...newLine(), variantId: selection.variantId, quantity: String(quantity) },
+      ];
+    });
+  }
 
   /** The landed-cost preview, using the same allocator the server will run. */
   const preview = useMemo(() => {
@@ -307,6 +362,16 @@ export function PurchaseOrderForm({
             title="Items"
             hint="Enter the line total for the goods, before shipping"
           />
+          {lines.length === 0 ? (
+            <div className="grid place-items-center gap-1 px-4 py-10 text-center">
+              <Package aria-hidden="true" className="size-7 text-ink-4" />
+              <p className="font-medium text-[14px] text-ink">No products on this order yet</p>
+              <p className="max-w-[44ch] text-[12px] text-ink-3">
+                Pick products by photo. Search by name, model, brand or SKU, choose the exact
+                option, and keep adding without leaving this page.
+              </p>
+            </div>
+          ) : null}
           <div className="divide-y divide-line-subtle">
             {lines.map((line, index) => {
               let lineTotal = 0;
@@ -321,30 +386,22 @@ export function PurchaseOrderForm({
                   key={line.key}
                   className="grid gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]"
                 >
-                  {index === 0 ? (
-                    <span className="hidden text-[11px] text-ink-4 uppercase tracking-[0.06em] sm:block" />
-                  ) : null}
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
-                  <Field label="Product" hideLabel={index > 0} htmlFor={`variant-${index}`}>
-                    <Combobox
-                      id={`variant-${index}`}
-                      options={variantOptions}
-                      value={line.variantId}
-                      onChange={(value) =>
-                        setLines((current) =>
-                          current.map((candidate) =>
-                            candidate.key === line.key
-                              ? { ...candidate, variantId: value }
-                              : candidate,
-                          ),
-                        )
-                      }
-                      placeholder="Choose a product"
-                      searchPlaceholder="Search by name or SKU"
+                  <div className="min-w-0">
+                    {index === 0 ? (
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                        Product
+                      </span>
+                    ) : null}
+                    <LineProduct
+                      variant={line.variantId ? byId.get(line.variantId) : undefined}
+                      bundle={undefined}
+                      missing={Boolean(line.variantId) && !byId.has(line.variantId ?? '')}
+                      onChange={() => openPicker({ mode: 'replace', key: line.key })}
                     />
-                  </Field>
+                  </div>
 
                   <Field label="Qty" hideLabel={index > 0} htmlFor={`qty-${index}`}>
                     <Input
@@ -397,7 +454,6 @@ export function PurchaseOrderForm({
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Remove line"
-                      disabled={lines.length === 1}
                       onClick={() =>
                         setLines((current) =>
                           current.filter((candidate) => candidate.key !== line.key),
@@ -414,10 +470,16 @@ export function PurchaseOrderForm({
           <div className="flex items-center justify-between border-line-subtle border-t px-4 py-2.5">
             <button
               type="button"
-              onClick={() => setLines((current) => [...current, newLine()])}
-              className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line py-2 text-[12px] text-ink-3 transition-colors hover:border-line-strong hover:text-ink-2"
+              onClick={() => openPicker({ mode: 'add' })}
+              className={cn(
+                'flex w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                lines.length === 0
+                  ? 'bg-accent font-medium text-accent-ink hover:opacity-90'
+                  : 'border border-dashed border-line text-ink-3 hover:border-line-strong hover:text-ink-2',
+              )}
             >
-              <Plus className="size-3.5" /> Add another product
+              <Plus className="size-3.5" />{' '}
+              {lines.length === 0 ? 'Add product' : 'Add another product'}
             </button>
             <span className="hidden shrink-0 pl-4 tabular text-[11px] text-ink-4 sm:block">
               {lines.length} {lines.length === 1 ? 'line' : 'lines'}
@@ -555,6 +617,23 @@ export function PurchaseOrderForm({
           </p>
         </div>
       </Surface>
+      <SaleProductPicker
+        open={picker !== null}
+        onOpenChange={(next) => {
+          if (!next) setPicker(null);
+        }}
+        mode={picker?.mode ?? 'add'}
+        variants={variants}
+        currency="USD"
+        inSale={onOrder}
+        lineCount={lines.length}
+        returnFocusTo={pickerOpener}
+        onChoose={applySelection}
+        labels={PICKER_LABELS}
+        priceOf={referenceCost}
+        priceCaption="reference cost"
+        warnOverstock={false}
+      />
     </form>
   );
 }

@@ -57,6 +57,12 @@ export const orderQuerySchema = z.object({
     .optional()
     .catch(undefined),
   source: z.enum(['manual', 'pos', 'web', 'whatsapp', 'messenger']).optional().catch(undefined),
+  customer: z.string().uuid().optional().catch(undefined),
+  /** The day the order was placed, compared in UTC like the date shown. */
+  from: day,
+  to: day,
+  /** Confirmed payments against the total; only orders that are still owed something are counted. */
+  payment: z.enum(['paid', 'partly', 'unpaid']).optional().catch(undefined),
   sort: z.enum(['date', 'customer', 'total']).catch('date'),
   dir,
 });
@@ -104,6 +110,9 @@ export type StockQuery = z.infer<typeof stockQuerySchema>;
 
 export const customerQuerySchema = z.object({
   ...base,
+  /** The day of the customer's most recent confirmed sale (customers who never bought have none). */
+  from: day,
+  to: day,
   sort: z.enum(['name', 'orders', 'spent']).catch('spent'),
   dir,
 });
@@ -124,6 +133,13 @@ export const ledgerQuerySchema = z.object({
     ])
     .optional()
     .catch(undefined),
+  /** The day the money moved, compared in UTC like the date shown. */
+  from: day,
+  to: day,
+  currency: z.enum(['USD', 'SRD']).optional().catch(undefined),
+  wallet: z.string().uuid().optional().catch(undefined),
+  /** Money in or money out. */
+  type: z.enum(['in', 'out']).optional().catch(undefined),
   sort: z.enum(['date']).catch('date'),
   dir,
 });
@@ -131,6 +147,9 @@ export type LedgerQuery = z.infer<typeof ledgerQuerySchema>;
 
 export const expenseQuerySchema = z.object({
   ...base,
+  /** The day the expense happened, compared in UTC like the date shown. */
+  from: day,
+  to: day,
   sort: z.enum(['date', 'amount']).catch('date'),
   dir,
 });

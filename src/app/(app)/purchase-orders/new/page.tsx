@@ -5,7 +5,7 @@ import { PurchaseOrderForm } from '@/components/forms/purchase-order-form';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { listSupplierOptions, listVariantOptions } from '@/server/queries/pickers';
+import { listSaleVariantOptions, listSupplierOptions } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -34,7 +34,7 @@ export default function NewPurchaseOrderPage() {
 
 async function Loader() {
   const [variants, suppliers] = await Promise.all([
-    listVariantOptions(),
+    listSaleVariantOptions(),
     listSupplierOptions(),
   ]);
   return <PurchaseOrderForm variants={variants} suppliers={suppliers} />;

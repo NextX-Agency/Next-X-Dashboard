@@ -407,12 +407,17 @@ export async function listExpenseCategoryOptions(): Promise<Option[]> {
   return rows.map((row) => ({ id: text(row.id), label: text(row.name) }));
 }
 
-export async function listWalletOptions(): Promise<Option[]> {
+export async function listWalletOptions({
+  includeInactive = false,
+}: {
+  includeInactive?: boolean;
+} = {}): Promise<Option[]> {
   if (!isDatabaseConfigured()) return [];
+  // A closed wallet still has history, so a list that filters by wallet must be able to name it.
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT id, name, currency::text AS currency
       FROM wallets
-     WHERE active = true
+     WHERE ${includeInactive ? sql`true` : sql`active = true`}
      ORDER BY currency, name
   `);
   return rows.map((row) => ({

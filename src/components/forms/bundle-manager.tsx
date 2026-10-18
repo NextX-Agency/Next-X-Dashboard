@@ -1,12 +1,11 @@
 'use client';
 
-import { Archive, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { Archive, Package, Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { Money, Percent } from '@/components/ui/money';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
@@ -17,7 +16,9 @@ import {
   recalculateBundlePrice,
   updateBundle,
 } from '@/server/actions/bundles';
-import type { BundleOption, VariantOption } from '@/server/queries/pickers';
+import type { BundleOption, SaleVariantOption } from '@/server/queries/pickers';
+import { LineProduct } from './line-product';
+import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 type DraftComponent = { key: string; variantId: string; quantity: string };
 
@@ -43,7 +44,7 @@ const blank = () => ({
   featured: false,
   position: '0',
   price: '',
-  components: [newComponent()],
+  components: [] as DraftComponent[],
 });
 
 export function BundleManager({
@@ -51,7 +52,7 @@ export function BundleManager({
   variants,
 }: {
   bundles: BundleOption[];
-  variants: VariantOption[];
+  variants: SaleVariantOption[];
 }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,11 +69,66 @@ export function BundleManager({
     () => new Map(variants.map((variant) => [variant.id, variant])),
     [variants],
   );
-  const options: ComboboxOption[] = variants.map((variant) => ({
-    value: variant.id,
-    label: `${variant.productName} · ${variant.variantName}`,
-    hint: variant.sku,
-  }));
+  const pickerOpener = useRef<HTMLElement | null>(null);
+  /** The product browser: adding components, or swapping the product on one component row. */
+  const [picker, setPicker] = useState<
+    { mode: 'add' } | { mode: 'replace'; key: string } | null
+  >(null);
+  const openPicker = (next: NonNullable<typeof picker>) => {
+    pickerOpener.current = document.activeElement as HTMLElement | null;
+    setPicker(next);
+  };
+  const inBundle = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const component of draft.components) {
+      if (!component.variantId) continue;
+      map.set(
+        component.variantId,
+        (map.get(component.variantId) ?? 0) + (Number.parseInt(component.quantity, 10) || 0),
+      );
+    }
+    return map;
+  }, [draft.components]);
+
+  /** Apply one choice from the product browser; a repeated component adds to its row. */
+  function applySelection(selection: PickerSelection) {
+    if (selection.kind !== 'variant') return;
+    const quantity = Math.max(1, selection.quantity);
+    const target = picker?.mode === 'replace' ? picker.key : null;
+    setDraft((current) => {
+      if (target) {
+        return {
+          ...current,
+          components: current.components.map((entry) =>
+            entry.key === target
+              ? { ...entry, variantId: selection.variantId, quantity: String(quantity) }
+              : entry,
+          ),
+        };
+      }
+      const same = current.components.find((entry) => entry.variantId === selection.variantId);
+      if (same) {
+        return {
+          ...current,
+          components: current.components.map((entry) =>
+            entry.key === same.key
+              ? {
+                  ...entry,
+                  quantity: String((Number.parseInt(entry.quantity, 10) || 0) + quantity),
+                }
+              : entry,
+          ),
+        };
+      }
+      return {
+        ...current,
+        components: [
+          ...current.components,
+          { ...newComponent(), variantId: selection.variantId, quantity: String(quantity) },
+        ],
+      };
+    });
+  }
 
   const save = useAction(editingId ? updateBundle : createBundle, {
     onSuccess: () => {
@@ -397,32 +453,35 @@ export function BundleManager({
           </div>
           <div className="space-y-2">
             <p className="text-[11px] text-ink-4 uppercase tracking-[.06em]">Components</p>
+            {draft.components.length === 0 ? (
+              <div className="grid place-items-center gap-1 rounded-control border border-line-subtle px-3 py-6 text-center">
+                <Package aria-hidden="true" className="size-6 text-ink-4" />
+                <p className="font-medium text-[13px] text-ink">No components yet</p>
+                <p className="max-w-[36ch] text-[12px] text-ink-3">
+                  Pick the products that make up this bundle by photo.
+                </p>
+              </div>
+            ) : null}
             {draft.components.map((component, index) => (
               <div
                 className="grid grid-cols-[1fr_64px_28px] items-end gap-2"
                 key={component.key}
               >
-                <Field
-                  label="Product"
-                  hideLabel={index > 0}
-                  htmlFor={`bundle-component-${index}`}
-                >
-                  <Combobox
-                    id={`bundle-component-${index}`}
-                    options={options}
-                    value={component.variantId || null}
-                    onChange={(value) =>
-                      setDraft((current) => ({
-                        ...current,
-                        components: current.components.map((entry, i) =>
-                          i === index ? { ...entry, variantId: value ?? '' } : entry,
-                        ),
-                      }))
+                <div className="min-w-0">
+                  {index === 0 ? (
+                    <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                      Product
+                    </span>
+                  ) : null}
+                  <LineProduct
+                    variant={variantById.get(component.variantId)}
+                    bundle={undefined}
+                    missing={
+                      Boolean(component.variantId) && !variantById.has(component.variantId)
                     }
-                    placeholder="Choose component"
-                    searchPlaceholder="Search SKU or name"
+                    onChange={() => openPicker({ mode: 'replace', key: component.key })}
                   />
-                </Field>
+                </div>
                 <Field label="Qty" hideLabel={index > 0} htmlFor={`bundle-quantity-${index}`}>
                   <Input
                     id={`bundle-quantity-${index}`}
@@ -444,7 +503,6 @@ export function BundleManager({
                   variant="ghost"
                   size="icon-sm"
                   aria-label="Remove component"
-                  disabled={draft.components.length === 1}
                   onClick={() =>
                     setDraft((current) => ({
                       ...current,
@@ -460,12 +518,7 @@ export function BundleManager({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() =>
-                setDraft((current) => ({
-                  ...current,
-                  components: [...current.components, newComponent()],
-                }))
-              }
+              onClick={() => openPicker({ mode: 'add' })}
             >
               <Plus className="size-3.5" /> Add component
             </Button>
@@ -528,6 +581,26 @@ export function BundleManager({
           </div>
         </div>
       </Surface>
+      <SaleProductPicker
+        open={picker !== null}
+        onOpenChange={(next) => {
+          if (!next) setPicker(null);
+        }}
+        mode={picker?.mode ?? 'add'}
+        variants={variants}
+        currency="USD"
+        inSale={inBundle}
+        lineCount={draft.components.length}
+        returnFocusTo={pickerOpener}
+        onChoose={applySelection}
+        labels={{
+          addTitle: 'Add components to this bundle',
+          addButton: 'Add to bundle',
+          inDocument: 'in bundle',
+          footerNoun: 'this bundle',
+        }}
+        warnOverstock={false}
+      />
     </div>
   );
 }
@@ -546,7 +619,7 @@ function BundlePreview({
     margin: number;
     savingsCents: number;
   } | null;
-  variantById: Map<string, VariantOption>;
+  variantById: Map<string, SaleVariantOption>;
 }) {
   let retail = 0;
   for (const component of draft.components) {

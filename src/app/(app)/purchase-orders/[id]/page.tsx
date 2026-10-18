@@ -27,7 +27,7 @@ import type { PaymentBadgeCode } from '@/lib/payment-status';
 import { PAYMENT_LABELS, paymentStatusOf } from '@/lib/payment-status';
 import { listActivity } from '@/server/queries/activity';
 import { getPurchaseOrder } from '@/server/queries/documents';
-import { listSupplierOptions, listVariantOptions } from '@/server/queries/pickers';
+import { listSaleVariantOptions, listSupplierOptions } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -96,7 +96,7 @@ async function Loader({
 
   if (editing === '1' && editable) {
     const [variants, suppliers] = await Promise.all([
-      listVariantOptions(),
+      listSaleVariantOptions(),
       listSupplierOptions(),
     ]);
 
