@@ -678,7 +678,8 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
     )`);
   }
   if (query.status) conditions.push(sql`s.status = ${query.status}::sale_status`);
-  if (query.from) conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.from)
+    conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
   if (query.to) conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
   if (query.seller) conditions.push(sql`s.seller_id = ${query.seller}`);
   if (query.currency) conditions.push(sql`s.currency = ${query.currency}::currency_code`);

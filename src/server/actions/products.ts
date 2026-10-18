@@ -54,6 +54,33 @@ async function syncLegacyUsdPrices(
     });
 }
 
+/**
+ * A SKU identifies one variant everywhere (sale lines, stock, the shop). Say exactly which one is
+ * taken instead of surfacing a bare "already exists" from the unique index.
+ */
+async function assertSkusAvailable(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  variants: { id?: string | undefined; sku: string }[],
+): Promise<void> {
+  const wanted = variants.map((variant) => variant.sku.trim().toUpperCase());
+  const repeated = wanted.find((sku, index) => wanted.indexOf(sku) !== index);
+  if (repeated)
+    throw new ActionError(`SKU ${repeated} is used by two variants on this product.`);
+  if (wanted.length === 0) return;
+  const rows = await tx
+    .select({ id: productVariants.id, sku: productVariants.sku, product: products.name })
+    .from(productVariants)
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(inArray(productVariants.sku, wanted));
+  const own = new Set(variants.flatMap((variant) => (variant.id ? [variant.id] : [])));
+  const taken = rows.find((row) => !own.has(row.id));
+  if (taken) {
+    throw new ActionError(
+      `SKU ${taken.sku} is already used by ${taken.product}. Use a different SKU.`,
+    );
+  }
+}
+
 /** Publishing is a public promise, so enforce the minimum page quality at the
  * server boundary instead of trusting the checkbox in the admin form. */
 async function assertCatalogPublishable(
@@ -134,6 +161,7 @@ export const createProduct = writeAction
 
       if (!product) throw new ActionError('Could not create the product.');
 
+      await assertSkusAvailable(tx, input.variants);
       const createdVariants = await tx
         .insert(productVariants)
         .values(
@@ -238,6 +266,7 @@ export const updateProduct = writeAction
         })
         .where(eq(products.id, input.id));
 
+      await assertSkusAvailable(tx, input.variants);
       const keptIds: string[] = [];
       const pricesToSync: { id: string; amountCents: number }[] = [];
 

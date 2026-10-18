@@ -582,7 +582,45 @@ export function ProductForm({
                   />{' '}
                   Default
                 </label>
-                <div className="flex items-end pb-0.5">
+                <div className="flex items-end gap-0.5 pb-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Move ${variant.name || 'variant'} earlier`}
+                    disabled={index === 0}
+                    onClick={() =>
+                      setValues((current) => {
+                        const next = [...current.variants];
+                        [next[index - 1], next[index]] = [
+                          next[index] as VariantRow,
+                          next[index - 1] as VariantRow,
+                        ];
+                        return { ...current, variants: next };
+                      })
+                    }
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Move ${variant.name || 'variant'} later`}
+                    disabled={index === values.variants.length - 1}
+                    onClick={() =>
+                      setValues((current) => {
+                        const next = [...current.variants];
+                        [next[index], next[index + 1]] = [
+                          next[index + 1] as VariantRow,
+                          next[index] as VariantRow,
+                        ];
+                        return { ...current, variants: next };
+                      })
+                    }
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

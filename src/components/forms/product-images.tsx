@@ -73,6 +73,8 @@ export function ProductImages({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState<{ key: string; name: string }[]>([]);
   const [removing, setRemoving] = useState<ProductImageValue | null>(null);
+  /** New photos can be filed under one option as they are uploaded; '' leaves them shared. */
+  const [uploadFor, setUploadFor] = useState('');
 
   const finalizeAction = useAction(finalizeProductImageUpload);
   const startUploadAction = useAction(startProductImageUpload);
@@ -139,6 +141,15 @@ export function ProductImages({
         if (!finalized?.data?.id) {
           throw new Error('The upload finished, but the product image could not be saved.');
         }
+        if (uploadFor) {
+          await detailsAction.executeAsync({
+            id: finalized.data.id,
+            productId,
+            alt: null,
+            purpose: 'product',
+            variantId: uploadFor,
+          });
+        }
         router.refresh();
       } catch (error) {
         toast.error(
@@ -151,12 +162,19 @@ export function ProductImages({
   }
 
   const canDelete = role === 'owner';
+  /** The first photo (by order) of each option is the one its cards and cart lines show. */
+  const firstForVariant = new Map<string, string>();
+  for (const image of initial) {
+    if (image.variantId && !firstForVariant.has(image.variantId)) {
+      firstForVariant.set(image.variantId, image.id);
+    }
+  }
 
   return (
     <Surface className="overflow-hidden">
       <SurfaceHeader
         title="Photos"
-        hint="First image is what shows on the catalog"
+        hint="The primary photo represents the product. Each option shows its own photos first."
         action={
           <>
             <input
@@ -170,6 +188,21 @@ export function ProductImages({
                 event.target.value = '';
               }}
             />
+            {variants.length > 1 ? (
+              <Select
+                aria-label="Add new photos to"
+                value={uploadFor}
+                onChange={(event) => setUploadFor(event.target.value)}
+                className="h-8 w-auto max-w-[200px] text-[12px]"
+              >
+                <option value="">New photos: shared</option>
+                {variants.map((variant) => (
+                  <option key={variant.id} value={variant.id}>
+                    New photos: {variant.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -206,6 +239,15 @@ export function ProductImages({
                     <Star className="size-2.5 fill-current" /> Primary
                   </span>
                 ) : null}
+                {variants.length > 1 ? (
+                  <span className="absolute right-1.5 bottom-1.5 max-w-[80%] truncate rounded-control bg-base/90 px-1.5 py-0.5 text-[10px] text-ink-2">
+                    {image.variantId
+                      ? `${variants.find((variant) => variant.id === image.variantId)?.name ?? 'Option'}${
+                          firstForVariant.get(image.variantId) === image.id ? ' · main' : ''
+                        }`
+                      : 'Shared'}
+                  </span>
+                ) : null}
               </div>
 
               <div className="flex items-center justify-between gap-1 border-line-subtle border-t bg-base/80 p-1">
@@ -240,9 +282,27 @@ export function ProductImages({
                   </IconButton>
                 </div>
                 <div className="flex items-center gap-0.5">
+                  {image.variantId && firstForVariant.get(image.variantId) !== image.id ? (
+                    <IconButton
+                      label="Make this the main photo of its option"
+                      disabled={reorderAction.isPending}
+                      onClick={() => {
+                        const ids = initial
+                          .map((entry) => entry.id)
+                          .filter((id) => id !== image.id);
+                        const before = ids.indexOf(
+                          firstForVariant.get(image.variantId ?? '') ?? '',
+                        );
+                        ids.splice(Math.max(before, 0), 0, image.id);
+                        reorderAction.execute({ productId, orderedIds: ids });
+                      }}
+                    >
+                      <ArrowUp className="size-3.5 text-accent" />
+                    </IconButton>
+                  ) : null}
                   {!image.isPrimary ? (
                     <IconButton
-                      label="Set as primary"
+                      label="Set as the product’s primary photo"
                       disabled={primaryAction.isPending}
                       onClick={() => primaryAction.execute({ id: image.id, productId })}
                     >
