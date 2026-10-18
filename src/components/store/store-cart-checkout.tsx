@@ -532,7 +532,15 @@ export function StoreCartCheckout({
                           : 'Choose a pickup date'}
               </Button>
             )}
-            <p className="mt-2 text-center text-[12px] text-ink-3">
+            <div className="mt-4 rounded-tile bg-sunken p-4 text-[13px] text-ink-2 leading-relaxed">
+              <h3 className="font-bold text-[13px] text-ink">What happens next</h3>
+              <ol className="mt-2 list-decimal space-y-1 pl-4">
+                <li>WhatsApp opens with your order written out. Press send there.</li>
+                <li>{businessName} replies to confirm price, stock and pickup.</li>
+                <li>Your order is only final once {businessName} has confirmed it.</li>
+              </ol>
+            </div>
+            <p className="mt-3 text-center text-[12px] text-ink-3">
               Your cart is saved on this device until you empty it.
             </p>
           </div>

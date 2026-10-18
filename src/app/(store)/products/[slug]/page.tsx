@@ -228,6 +228,7 @@ export default async function ProductPage({
                 productId={product.id}
                 productSlug={product.slug}
                 productName={product.name}
+                modelNumber={product.modelNumber}
                 businessName={settings?.businessName ?? 'NextX'}
                 srdRate={srdRate}
                 whatsapp={whatsapp}

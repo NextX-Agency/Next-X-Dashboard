@@ -27,6 +27,7 @@ export function ProductOrderPanel({
   productId,
   productSlug,
   productName,
+  modelNumber,
   businessName,
   srdRate,
   whatsapp,
@@ -35,6 +36,8 @@ export function ProductOrderPanel({
   productId: string;
   productSlug: string;
   productName: string;
+  /** The manufacturer's model, when the owner entered one. */
+  modelNumber?: string | null;
   businessName: string;
   srdRate?: number;
   whatsapp: string | null | undefined;
@@ -106,6 +109,10 @@ export function ProductOrderPanel({
         />
         <StockPill onHand={variant.onHand} />
       </div>
+      {/* Which exact item this is: the SKU follows the chosen option, like the photograph and price. */}
+      <p className="tabular mt-2 text-[13px] text-ink-3">
+        {modelNumber ? `Model ${modelNumber} · ` : ''}SKU {variant.sku}
+      </p>
 
       {showVariants ? (
         <VariantSelector

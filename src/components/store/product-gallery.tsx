@@ -3,7 +3,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, Maximize2, Package, X } from 'lucide-react';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { type KeyboardEvent, type TouchEvent, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { galleryImages } from '@/lib/product-images';
 import { optionName } from '@/lib/product-options';
@@ -33,6 +33,7 @@ export function ProductGallery({ name }: { name: string }) {
       index: typeof next === 'function' ? next(index) : next,
     });
   const [open, setOpen] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const current = images[index];
   const optionLabel = variants.length > 1 ? optionName(variant) : null;
 
@@ -57,13 +58,44 @@ export function ProductGallery({ name }: { name: string }) {
     setIndex((value) => (value + direction + images.length) % images.length);
   const alt = current.alt ?? (optionLabel ? `${name} – ${optionLabel}` : name);
 
+  // Arrow keys move between photographs wherever the viewer is focused on the large picture.
+  const onArrowKeys = (event: KeyboardEvent) => {
+    if (images.length < 2) return;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      step(-1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      step(1);
+    }
+  };
+  // A horizontal swipe turns the photograph; a mostly vertical drag is the page scrolling and is left alone.
+  const swipe = {
+    onTouchStart: (event: TouchEvent) => {
+      const touch = event.touches[0];
+      touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    },
+    onTouchEnd: (event: TouchEvent) => {
+      const start = touchStart.current;
+      const touch = event.changedTouches[0];
+      touchStart.current = null;
+      if (!start || !touch || images.length < 2) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    },
+  };
+
   return (
     <div>
       <p aria-live="polite" className="sr-only">
         {optionLabel ? `Showing photos of the ${optionLabel} option.` : ''}
       </p>
       <Dialog.Root open={open} onOpenChange={setOpen}>
-        <div className="relative aspect-square overflow-hidden rounded-tile bg-sunken lg:aspect-[6/5]">
+        <div
+          className="relative aspect-square touch-pan-y overflow-hidden rounded-tile bg-sunken lg:aspect-[6/5]"
+          {...swipe}
+        >
           <Image
             key={current.url}
             src={current.url}
@@ -80,6 +112,7 @@ export function ProductGallery({ name }: { name: string }) {
             <button
               type="button"
               aria-label={`Enlarge photo of ${name}`}
+              onKeyDown={onArrowKeys}
               className="group absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
             >
               <span
@@ -90,11 +123,22 @@ export function ProductGallery({ name }: { name: string }) {
               </span>
             </button>
           </Dialog.Trigger>
+          {images.length > 1 ? (
+            <span
+              aria-hidden="true"
+              className="tabular absolute bottom-3 left-3 rounded-full bg-base/90 px-2.5 py-1 font-semibold text-[12px] text-ink"
+            >
+              {index + 1} / {images.length}
+            </span>
+          ) : null}
         </div>
 
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-night/70 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-tile bg-base text-ink shadow-overlay sm:inset-8 lg:inset-x-[12%] lg:inset-y-8">
+          <Dialog.Content
+            onKeyDown={onArrowKeys}
+            className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-tile bg-base text-ink shadow-overlay sm:inset-8 lg:inset-x-[12%] lg:inset-y-8"
+          >
             <div className="flex h-14 shrink-0 items-center justify-between border-line border-b px-4">
               <Dialog.Title className="truncate pr-4 font-semibold text-[15px]">
                 {name}
@@ -109,7 +153,7 @@ export function ProductGallery({ name }: { name: string }) {
                 <X aria-hidden="true" className="size-5" />
               </Dialog.Close>
             </div>
-            <div className="relative min-h-0 flex-1 bg-sunken">
+            <div className="relative min-h-0 flex-1 touch-pan-y bg-sunken" {...swipe}>
               <Image
                 key={current.url}
                 src={current.url}
