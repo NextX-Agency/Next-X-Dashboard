@@ -3,10 +3,16 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { CategoryChips } from '@/components/store/category-chips';
 import { ProductCard } from '@/components/store/product-card';
-import { ActiveFilters, ShopFilters, ShopToolbar } from '@/components/store/shop-controls';
+import {
+  ActiveFilters,
+  ShopFilters,
+  ShopToolbar,
+  ShowMore,
+} from '@/components/store/shop-controls';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RawSearchParams } from '@/lib/list-params';
-import { priceTierLabels } from '@/lib/price-tiers';
+import { hasPriceRange, parsePriceRange, priceRangeLabel } from '@/lib/price-range';
+import { didYouMean } from '@/lib/search-query';
 import { plural } from '@/lib/store-money';
 import { SHOP_PATH } from '@/lib/storefront-domain';
 import {
@@ -15,11 +21,14 @@ import {
   listCatalogFacets,
   listCatalogFilterOptions,
   listCatalogProducts,
+  listSearchVocabulary,
 } from '@/server/queries/catalog';
 import { getCurrentRate } from '@/server/queries/overview';
 
-const SORTS: CatalogSort[] = ['newest', 'name', 'price-asc', 'price-desc'];
-const PRICES = ['under-50', '50-100', '100-250', '250-plus'] as const;
+const SORTS: CatalogSort[] = ['relevance', 'newest', 'name', 'price-asc', 'price-desc'];
+
+/** Products shown per step; "Show more" adds another step. Plenty for today's catalogue and a long one. */
+const PAGE_SIZE = 24;
 
 function one(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
@@ -71,12 +80,12 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
   const protocol = one(raw.protocol);
   const collection = one(raw.collection);
   const newArrival = raw.new === 'true';
-  const price = PRICES.find((value) => value === raw.price);
   const availability: 'in-stock' | 'incoming' | undefined =
     raw.availability === 'in-stock' || raw.availability === 'incoming'
       ? raw.availability
       : undefined;
-  const sort = SORTS.find((value) => value === raw.sort);
+  const sort = SORTS.find((value) => value === raw.sort) ?? (q ? 'relevance' : undefined);
+  const page = Math.min(Math.max(Number.parseInt(one(raw.page) ?? '1', 10) || 1, 1), 50);
 
   const filters = {
     q,
@@ -88,19 +97,25 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
     protocol,
     collection,
     newArrival,
-    price,
     availability,
   };
-  const [products, categories, filterOptions, facets, rate, everything] = await Promise.all([
-    listCatalogProducts({ ...filters, sort }),
+  // `listCatalogFilterOptions` knows the shop currency, which the range is written in.
+  const filterOptions = await listCatalogFilterOptions();
+  const priceRange = parsePriceRange(
+    { min: one(raw.min), max: one(raw.max), price: one(raw.price) },
+    filterOptions.priceCurrency,
+  );
+  const [all, categories, facets, rate, everything] = await Promise.all([
+    listCatalogProducts({ ...filters, priceRange, sort }),
     listCatalogCategories(),
-    listCatalogFilterOptions(),
-    listCatalogFacets(filters),
+    listCatalogFacets({ ...filters, priceRange }),
     getCurrentRate(),
     // The chips show the size of the whole catalogue, not of the current filter.
     listCatalogProducts({}),
   ]);
 
+  const products = all.slice(0, page * PAGE_SIZE);
+  const suggestion = all.length === 0 && q ? didYouMean(q, await listSearchVocabulary()) : null;
   const activeCategory = categories.find((entry) => entry.slug === category);
   const filtered = Boolean(
     q ||
@@ -112,7 +127,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       protocol ||
       collection ||
       newArrival ||
-      price ||
+      hasPriceRange(priceRange) ||
       availability,
   );
   const filterPanel = (
@@ -127,7 +142,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         platforms: filterOptions.platforms,
         protocols: filterOptions.protocols,
         priceCurrency: filterOptions.priceCurrency,
-        priceCounts: facets.prices,
+        priceBounds: facets.priceBounds,
         colours: facets.colours,
         options: facets.options,
         availability: facets.availability,
@@ -139,10 +154,10 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
     <>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
         <h1 className="nx-display text-[clamp(28px,4vw,40px)]">
-          {activeCategory?.name ?? 'All products'}
+          {activeCategory?.name ?? (q ? `Results for “${q}”` : 'All products')}
         </h1>
-        <p className="tabular pb-1 text-[14px] text-ink-3">
-          {plural(products.length, 'product')}
+        <p className="tabular pb-1 text-[14px] text-ink-3 lg:hidden">
+          {plural(all.length, 'product')}
         </p>
       </header>
 
@@ -154,41 +169,75 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         />
       </div>
 
-      <div className="mt-3 space-y-3">
-        <ShopToolbar filters={filterPanel} inStockCount={facets.availability.inStock} />
-        <ActiveFilters
-          labels={{
-            category: activeCategory?.name,
-            brands: Object.fromEntries(
-              filterOptions.brands.map((entry) => [entry.slug, entry.name]),
-            ),
-            price: price ? priceTierLabels(filterOptions.priceCurrency)[price] : undefined,
-          }}
-        />
-      </div>
+      <div className="mt-5 lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-10">
+        <aside aria-label="Filters" className="hidden lg:block">
+          <div className="sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pr-2 pb-6">
+            {filterPanel}
+          </div>
+        </aside>
 
-      <section aria-label="Products" className="mt-5">
-        {products.length === 0 ? (
-          <EmptyResults filtered={filtered} query={q} />
-        ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {products.map((product, index) => (
-              <li key={product.id}>
-                <ProductCard
-                  product={product}
-                  srdRate={rate?.rateMicros}
-                  priority={index < 4}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        <div className="min-w-0">
+          <div className="space-y-3">
+            <ShopToolbar
+              filters={filterPanel}
+              inStockCount={facets.availability.inStock}
+              total={all.length}
+            />
+            <ActiveFilters
+              labels={{
+                category: activeCategory?.name,
+                brands: Object.fromEntries(
+                  filterOptions.brands.map((entry) => [entry.slug, entry.name]),
+                ),
+                price: hasPriceRange(priceRange)
+                  ? priceRangeLabel(priceRange, filterOptions.priceCurrency)
+                  : undefined,
+              }}
+            />
+          </div>
+
+          <section aria-label="Products" className="mt-5">
+            {all.length === 0 ? (
+              <EmptyResults
+                filtered={filtered}
+                query={q}
+                suggestion={suggestion}
+                categories={categories}
+              />
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+                {products.map((product, index) => (
+                  <li key={product.id}>
+                    <ProductCard
+                      product={product}
+                      srdRate={rate?.rateMicros}
+                      priority={index < 4}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {all.length > products.length ? (
+              <ShowMore shown={products.length} total={all.length} />
+            ) : null}
+          </section>
+        </div>
+      </div>
     </>
   );
 }
 
-function EmptyResults({ filtered, query }: { filtered: boolean; query: string | undefined }) {
+function EmptyResults({
+  filtered,
+  query,
+  suggestion,
+  categories,
+}: {
+  filtered: boolean;
+  query: string | undefined;
+  suggestion: string | null;
+  categories: { slug: string; name: string; count: number }[];
+}) {
   return (
     <div className="flex flex-col items-start gap-4 rounded-tile bg-sunken p-8 sm:p-12">
       <PackageSearch aria-hidden="true" className="size-8 text-ink-3" />
@@ -201,11 +250,34 @@ function EmptyResults({ filtered, query }: { filtered: boolean; query: string | 
             ? `No products found${query ? ` for “${query}”` : ' with these filters'}. Try a different search or remove a filter.`
             : 'Products will appear here with their price, photos and stock once they are published.'}
         </p>
+        {suggestion ? (
+          <p className="mt-3 text-[15px] text-ink-2">
+            Did you mean{' '}
+            <Link
+              href={`${SHOP_PATH}?q=${encodeURIComponent(suggestion)}` as never}
+              className="font-semibold text-ink underline underline-offset-4"
+            >
+              {suggestion}
+            </Link>
+            ?
+          </p>
+        ) : null}
       </div>
       {filtered ? (
-        <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
-          Clear filters
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
+            Clear filters
+          </Link>
+          {categories.slice(0, 3).map((category) => (
+            <Link
+              key={category.slug}
+              href={`${SHOP_PATH}?category=${category.slug}` as never}
+              className="nx-btn nx-btn-line"
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
       ) : null}
     </div>
   );
