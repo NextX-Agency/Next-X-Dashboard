@@ -92,9 +92,16 @@ variant in the storefront's own price list and currency.
 - **Product page**: option photos are badged ("Black · main", "Shared"); new photos can be filed under an
   option as they are uploaded; "Make this the main photo of its option" reorders; variants can be moved up
   and down; a taken SKU is refused by name ("SKU X is already used by Y").
+- **Purchase orders, bundles, quotes**: the same photo browser (`SaleProductPicker`, with `labels`, `priceOf`,
+  `showQuantity` and `warnOverstock` for the differences). A purchase order line shows the option's photograph,
+  SKU and the **reference cost** (not the list price); a bundle component likewise; a quote (create or convert
+  from the request list) chooses one option and keeps the request's quantity. The form still submits only
+  variant ids, quantities and the amounts typed by the person.
 - **Lists**: products (SKU/model/brand search, photo, variant-count and price filters, thumbnails), inventory
   (category, stock level, location with a per-location quantity, thumbnails), sales (product/SKU search,
-  payment, currency, seller, date range compared in UTC like the display).
+  payment, currency, seller, date range compared in UTC like the display), orders (customer, date range,
+  payment), cash ledger (type, currency, wallet, date range, category), customers (last-order range),
+  expenses (date range). Exact rules: `docs/NEXTX_BROWSER_QA.md` section 7.
 
 ## 6. Known limits
 
@@ -105,4 +112,3 @@ variant in the storefront's own price list and currency.
   SET NULL`), which turns them into *shared* photographs. Reassign or delete them first.
 - The sale picker loads every non-archived variant at once (a few hundred rows is fine; it shows 48 results
   and "Show more"). A catalogue in the thousands needs server-side search.
-- Purchase orders, quotes, bundles still use the text picker.

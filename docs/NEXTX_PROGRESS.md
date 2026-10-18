@@ -80,8 +80,8 @@ synthetic variant fixture (`psql <rehearsal db> -f scripts/rehearsal/variant-fix
 
 - The new code on staging or production. No real-device test, no screen reader, no staff or viewer role session.
 - Image upload (needs storage); the media audit against the real `product_images` rows (needs the VPS).
-- Dashboard filters for finance, orders, customers and expenses; the text picker remains on purchase orders,
-  quotes and bundles.
+- Dashboard filters for stock movements (there is no movements list); filters on purchase orders, wallets,
+  invoices and the activity log beyond what they had.
 - Migration rehearsal, RLS runtime and concurrency re-run, backup restore of the post-import dump, financial and
   stock reconciliation re-run, email delivery.
 - Parity-matrix gaps from earlier sessions are unchanged (stock transfers, finance exception review, branches,

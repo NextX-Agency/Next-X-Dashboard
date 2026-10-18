@@ -21,12 +21,13 @@ Final run at the head of the branch, after resetting the disposable database:
 
 | Suite | Result | What it covers |
 |---|---|---|
-| Unit (`pnpm test`) | **337 / 337** | now includes the image policy, sale picker rules, SRD formatting, default line price |
+| Unit (`pnpm test`) | **343 / 343** | includes the image policy, sale picker rules (incl. the cost-ranged picker), SRD formatting, default line price, list-filter parsing |
 | `store-local` + `store-a11y` | 36 / 36 | storefront structure, redirects, 404/410, English, overflow at 3 widths, names/labels/landmarks, focus, dialogs, tap size, contrast, reduced motion |
 | `dashboard-local` | 7 / 7 | every staff page loads without console errors or horizontal overflow; record a sale (picker); oversell policy; expense; activity log; new order (picker); create a product with two options and refuse a duplicate SKU |
-| `purchasing-local` | 1 / 1 | supplier, purchase order, receipt: stock rises by exactly what was received, then the units appear in the picker |
+| `purchasing-local` | 1 / 1 | supplier, purchase order (lines chosen in the photo picker), receipt: stock rises by exactly what was received, then the units appear in the sale picker |
+| `filters-local` (needs the variant fixture) | 7 / 7 | photo picker on purchase orders (option photograph, reference cost, change, merge), bundles (component photograph, saved) and quotes (opened from the row menu, price filled); filters: orders (customer, date range incl. the UTC day boundary, payment status, combined, empty state), ledger (type, currency, wallet, date range), customers (last-order range), expenses (date range). Fixtures are inserted with a per-run marker |
 | `variants-local` (needs the variant fixture) | 15 / 15 | option page sync (photo, price, stock, pickup, URL), WhatsApp message, no-photo option, cart photo, combined filters, chips, Clear all, filter sheet, empty result, matched-card price/stock, picker search/option/quantity/keyboard/focus return, picker filters, no horizontal overflow at 390/768/1440 |
-| Lint, types | Biome clean (400 files), `tsc` clean | |
+| Lint, types | Biome clean (403 files), `tsc` clean | |
 | Production build (`next build`) | passes | placeholder self-hosted env, as in the progress doc |
 
 Not run: `smoke`, `access`, `storefront` (they need a staging login and write to staging).
@@ -71,6 +72,10 @@ reading code and then confirmed.
 | U-3 | P2 | SKU conflict | "That already exists. Check for an existing record with the same code or number." | e2e | unique index error text | `8ca2a49` names the SKU and the product that owns it | `dashboard-local` |
 | U-4 | P2 | Product form | Hub, app, Wi-Fi, power, subscription and installation fields (smart-home leftovers) filled the form for audio and watches | walkthrough | always rendered | the block is a closed disclosure unless the product already uses it | `dashboard-local` smart-home test |
 | U-5 | P2 | Every form on a phone | Inputs were 36 px high with 13 px text (small tap target; iOS zooms into fields under 16 px) | measured at 390 px | `control` class | 44 px and 16 px text below the `sm` breakpoint | `dashboard-local` smart-home test (height) |
+| P-1 | P2 | Purchase orders, bundles, quote dialogs | Still used the text dropdown: no photograph, no option beside the line; a purchase order could not show which colour was being ordered | the brief (was O-6) | `Combobox` over `listVariantOptions` / a native `<select>` over `listQuoteVariantOptions` | `fc0565e` the sale picker is generic (wording, the number shown, optional quantity) and drives all three; a purchase order shows the **reference cost**, not the shelf price; quote dialogs take the request's quantity | `filters-local` 1-3, `purchasing-local` |
+| Q-1 | **P1** | Quote requests, row menu: "Create quote" and "Convert to sale" | Choosing either closed the menu and **the dialog disappeared with it**, so neither action could be used from the list | e2e (the new quote picker test: the sheet "detached from the DOM") | `CreateQuoteDialog` / `ConvertQuoteDialog` were rendered inside the Radix menu content, which unmounts when the menu closes (the Edit sheet was already rendered beside the menu) | `fc0565e` the dialogs are controlled and rendered next to the menu | `filters-local` 3 submits a quote ("Secure quote link copied") |
+| L-1 | P2 | Orders, cash ledger, customers, expenses | No way to narrow by customer, date, payment, currency, wallet or direction | the brief (was O-7) | no filter fields | `fc0565e`, see section 7 for what each filter means | `filters-local` 4-7 |
+| U-6 | P2 | Date-range filter on a phone | The "to" date ran past the right edge of the card (also on Sales) | browser at 375 px | non-wrapping flex row | `fc0565e` wraps | screenshot at 375 px; no horizontal overflow on /ledger, /orders, /purchase-orders/new |
 
 ## 5. Open issues (not fixed)
 
@@ -81,8 +86,7 @@ reading code and then confirmed.
 | O-3 | P2 (data) | Archived watches | Colourways stored as separate products ("POEDAGAR 989 … Silver & White Dial" and "… Silver & Black Dial", "CURREN 8439 … Silver & Black" and "… Gold & Silver"). They are retired, so the shop does not show them; merging them would be an owner decision |
 | O-4 | P2 | Product form | The order-reference placeholder in Amazon's format and the supplier kinds (Amazon / AliExpress / Other) remain; the smart-home block is now closed by default (see U-4) |
 | O-5 | P2 | Dashboard on phones | The sale and order forms are dense on a phone (inputs are now 44 px, see U-5) |
-| O-6 | P2 | Purchase orders, quotes, bundles | Still use the text picker; no photograph beside their lines |
-| O-7 | P2 | Dashboard filters | Not done: finance (date range, wallet, type), orders (customer, date), customers, expenses. Products, inventory and sales are done. Stock movement type and date range have no list to filter (the ledger shows movements only on a sale) |
+| O-7 | P2 | Dashboard filters | Reduced: stock movement type and date range still have no list to filter (the ledger shows movements only on a sale). Purchase orders, quotes, wallets, invoices and the activity log were not in scope and have only their earlier filters |
 | O-8 | P2 | Shop | The price filter is four fixed tiers, not a free range; "driver configuration" and similar technical filters are not offered because no such data is populated |
 | O-9 | P2 | Staging build | `/shop?brand=kz&availability=in-stock` returned 0 products on staging (older build) while KZ products have stock; unexplained, re-test after deploying this branch |
 
@@ -96,3 +100,24 @@ reading code and then confirmed.
   reconciliation, storefront management, settings saves, customer edit, payments, refunds, returns.
 - The new code on staging and production.
 - Facet counts under data of real size (a few hundred products).
+
+## 7. What the new filters mean (L-1)
+
+Read from the schema, not guessed. Every day compares the **stored UTC day**, like the date shown (see D-1);
+"from" and "to" are inclusive and either may be left empty. All of it lives in the address, so a filtered list
+can be shared, and a hand-edited bad value is ignored rather than raising an error (`tests/unit/list-params.test.ts`).
+
+| List | Filter | Rule |
+|---|---|---|
+| Orders | Customer | the order's customer (a walk-in order has none and matches no customer) |
+| | Ordered from / to | `sales.sold_at` |
+| | Payment | confirmed payments against the order total: *Paid in full* (>= total), *Partly paid* (some, less than total), *Nothing paid* (none, total above zero). A **draft or cancelled** order is not owed anything, so it matches none of the three. Sales have an extra "overdue" state; orders do not |
+| Cash ledger | Type | money in / money out (`direction`); *Category* is the separate, older filter |
+| | Currency | the currency the money moved in (`ledger_entries.currency`; the view only carries the US-dollar amount, so the filter joins the entry) |
+| | Wallet | `wallet_id`; inactive wallets are listed too because their history remains. Entries with no wallet ("Legacy") have no wallet to pick |
+| | Moved from / to | `occurred_at` |
+| Customers | Last order from / to | the day of the customer's latest **confirmed** sale (`v_customer_totals`); a customer who never bought matches no date range |
+| Expenses | Spent from / to | `occurred_at` |
+
+`/finance/transactions` redirects to the cash ledger, so there is one list, not two. Customers and expenses have
+no currency or wallet filter on purpose (not asked for; a customer has no currency).
