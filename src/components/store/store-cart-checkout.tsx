@@ -1,6 +1,7 @@
 'use client';
 
-import { MessageCircle, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { MessageCircle, Minus, Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -230,30 +231,47 @@ export function StoreCartCheckout({
                   key={line.variantId}
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5 sm:flex sm:flex-wrap sm:gap-x-5"
                 >
-                  <div className="col-span-3 min-w-0 sm:flex-1">
-                    <a
-                      href={storefrontProductPath(storefrontSlug, line.productSlug)}
-                      className="text-[16px] font-semibold text-ink hover:text-accent"
-                    >
-                      {line.productName}
-                    </a>
-                    <p className="mt-0.5 text-[12px] text-ink-3">
-                      {[variantLabel(line.variantName), line.sku].filter(Boolean).join(' · ')}
-                    </p>
-                    <p className="mt-2 text-[13px] tabular text-ink-2">
-                      {!quoteReady
-                        ? 'The current price appears once we have checked it.'
-                        : quoteUnavailable
-                          ? 'No price is available for this product right now.'
-                          : `${customerMoney(line.priceCents, line.currency, srdRate)} each`}
-                    </p>
-                    {overStock ? (
-                      <p className="mt-1 text-[12px] text-negative">
-                        {line.available === 0
-                          ? 'This product is no longer available. Remove it to continue.'
-                          : `Only ${line.available} available. Lower the quantity to continue.`}
+                  <div className="col-span-3 flex min-w-0 items-start gap-4 sm:flex-1">
+                    <div className="relative size-[72px] shrink-0 overflow-hidden rounded-[12px] bg-sunken">
+                      {line.imageUrl ? (
+                        <Image
+                          src={line.imageUrl}
+                          alt={`${line.productName}${variantLabel(line.variantName) ? ` – ${variantLabel(line.variantName)}` : ''}`}
+                          fill
+                          sizes="72px"
+                          className="object-contain p-1.5 mix-blend-multiply"
+                        />
+                      ) : (
+                        <div className="grid size-full place-items-center">
+                          <Package aria-hidden="true" className="size-6 text-ink-4" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={storefrontProductPath(storefrontSlug, line.productSlug)}
+                        className="text-[16px] font-semibold text-ink hover:text-accent"
+                      >
+                        {line.productName}
+                      </a>
+                      <p className="mt-0.5 text-[12px] text-ink-3">
+                        {[variantLabel(line.variantName), line.sku].filter(Boolean).join(' · ')}
                       </p>
-                    ) : null}
+                      <p className="mt-2 text-[13px] tabular text-ink-2">
+                        {!quoteReady
+                          ? 'The current price appears once we have checked it.'
+                          : quoteUnavailable
+                            ? 'No price is available for this product right now.'
+                            : `${customerMoney(line.priceCents, line.currency, srdRate)} each`}
+                      </p>
+                      {overStock ? (
+                        <p className="mt-1 text-[12px] text-negative">
+                          {line.available === 0
+                            ? 'This product is no longer available. Remove it to continue.'
+                            : `Only ${line.available} available. Lower the quantity to continue.`}
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="flex items-center border border-ink">
                     <button

@@ -3,42 +3,65 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, Maximize2, Package, X } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
-
-type GalleryImage = {
-  url: string;
-  width: number;
-  height: number;
-  alt: string | null;
-  blurDataUrl: string | null;
-};
+import { galleryImages } from '@/lib/product-images';
+import { optionName } from '@/lib/product-options';
+import { useProductSelection } from './product-selection';
 
 /**
  * The product photograph on its soft field, with a thumbnail rail when there is more than one. The
  * field keeps one stable shape so switching photos never shifts the page; photographs are multiplied
  * onto it so a white-background cut-out sits on the field instead of showing as a white box. Pressing
  * the photograph opens it large in a dialog (Escape closes it, focus returns to the photograph).
+ *
+ * Which photographs appear follows the selected option (see src/lib/product-images.ts): its own
+ * first, then the shared ones, never another option's. Choosing a different option starts again at
+ * the first photograph. An option with no photograph says so instead of borrowing another colour's.
  */
-export function ProductGallery({ images, name }: { images: GalleryImage[]; name: string }) {
-  const [index, setIndex] = useState(0);
+export function ProductGallery({ name }: { name: string }) {
+  const { images: all, variants, variant } = useProductSelection();
+  const images = useMemo(
+    () => galleryImages(all, variant.id, variants.length),
+    [all, variant.id, variants.length],
+  );
+  const [position, setPosition] = useState({ variantId: variant.id, index: 0 });
+  const index = position.variantId === variant.id ? position.index : 0;
+  const setIndex = (next: number | ((value: number) => number)) =>
+    setPosition({
+      variantId: variant.id,
+      index: typeof next === 'function' ? next(index) : next,
+    });
   const [open, setOpen] = useState(false);
   const current = images[index];
+  const optionLabel = variants.length > 1 ? optionName(variant) : null;
 
   if (!current) {
     return (
-      <div className="grid aspect-square place-items-center rounded-tile bg-sunken">
-        <Package aria-hidden="true" className="size-12 text-ink-4" />
+      <div>
+        <div className="grid aspect-square place-items-center rounded-tile bg-sunken lg:aspect-[6/5]">
+          <div className="grid justify-items-center gap-2 px-6 text-center">
+            <Package aria-hidden="true" className="size-12 text-ink-4" />
+            {optionLabel ? (
+              <p className="text-[14px] text-ink-3">
+                No photo of the {optionLabel} option yet.
+              </p>
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }
 
   const step = (direction: 1 | -1) =>
     setIndex((value) => (value + direction + images.length) % images.length);
-  const alt = current.alt ?? name;
+  const alt = current.alt ?? (optionLabel ? `${name} – ${optionLabel}` : name);
 
   return (
     <div>
+      <p aria-live="polite" className="sr-only">
+        {optionLabel ? `Showing photos of the ${optionLabel} option.` : ''}
+      </p>
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <div className="relative aspect-square overflow-hidden rounded-tile bg-sunken lg:aspect-[6/5]">
           <Image

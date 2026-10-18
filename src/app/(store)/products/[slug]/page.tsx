@@ -3,8 +3,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { QuoteRequestForm } from '@/components/forms/quote-request-form';
+import { PickupStock } from '@/components/store/pickup-stock';
 import { ProductGallery } from '@/components/store/product-gallery';
 import { ProductOrderPanel } from '@/components/store/product-order-panel';
+import {
+  ProductSelectionProvider,
+  type SelectableVariant,
+} from '@/components/store/product-selection';
 import { publicParagraphs, publicSpecs, publicText } from '@/lib/english-content';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import { cardSummary } from '@/lib/public-copy';
@@ -20,6 +25,7 @@ import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront, getStorefrontAvailability } from '@/server/services/storefront';
 
 type Params = Promise<{ slug: string }>;
+type SearchParams = Promise<{ variant?: string | string[] }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
@@ -51,27 +57,46 @@ function metaDescription(product: CatalogProduct): string | undefined {
 // unknown slug answers a real HTTP 404 instead of a streamed 200 with a not-found body.
 export const instant = false;
 
-/** Stock per pickup location, summed over the product's variants. Empty when pickup is off. */
-async function pickupStock(storefrontId: string | undefined, product: CatalogProduct) {
-  if (!storefrontId) return [];
+/** Stock per pickup location for each variant. Empty lists when pickup is off. */
+async function pickupStock(
+  storefrontId: string | undefined,
+  product: CatalogProduct,
+): Promise<Map<string, { name: string; available: number }[]>> {
+  const byVariant = new Map<string, { name: string; available: number }[]>();
+  if (!storefrontId) return byVariant;
   const perVariant = await Promise.all(
     product.variants.map((variant) => getStorefrontAvailability(storefrontId, variant.id)),
   );
-  const byLocation = new Map<string, { name: string; available: number }>();
-  for (const availability of perVariant) {
-    for (const location of availability.locations) {
-      const existing = byLocation.get(location.locationId);
-      byLocation.set(location.locationId, {
+  product.variants.forEach((variant, index) => {
+    byVariant.set(
+      variant.id,
+      (perVariant[index]?.locations ?? []).map((location) => ({
         name: location.locationName,
-        available: (existing?.available ?? 0) + location.available,
-      });
-    }
-  }
-  return [...byLocation.values()];
+        available: location.available,
+      })),
+    );
+  });
+  return byVariant;
 }
 
-export default async function ProductPage({ params }: { params: Params }) {
+/** The option to open on: the one named in `?variant=` (SKU or id), else the default, preferring one in stock. */
+function initialVariant(variants: SelectableVariant[], requested: string | undefined) {
+  const wanted = requested?.trim().toLowerCase();
+  const match = wanted
+    ? variants.find((item) => item.id === wanted || item.sku.toLowerCase() === wanted)
+    : undefined;
+  return match ?? variants.find((item) => item.onHand > 0) ?? variants[0];
+}
+
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const { slug } = await params;
+  const query = await searchParams;
   const [product, rate, settings, storefront] = await Promise.all([
     getCatalogProduct(slug),
     getCurrentRate(),
@@ -86,7 +111,16 @@ export default async function ProductPage({ params }: { params: Params }) {
   if (slug !== product.slug)
     permanentRedirect(storefrontProductPath(null, product.slug) as never);
 
-  const locations = storefront?.allowPickup ? await pickupStock(storefront.id, product) : [];
+  const locationsByVariant = storefront?.allowPickup
+    ? await pickupStock(storefront.id, product)
+    : new Map<string, { name: string; available: number }[]>();
+  const selectable: SelectableVariant[] = product.variants.map((variant) => ({
+    ...variant,
+    locations: locationsByVariant.get(variant.id) ?? [],
+  }));
+  const hasLocations = selectable.some((variant) => variant.locations.length > 0);
+  const requested = Array.isArray(query.variant) ? query.variant[0] : query.variant;
+  const startVariant = initialVariant(selectable, requested);
   const srdRate = rate?.rateMicros;
   const whatsapp = settings?.whatsapp ?? null;
   const paragraphs = publicParagraphs(product.description);
@@ -172,76 +206,60 @@ export default async function ProductPage({ params }: { params: Params }) {
         ) : null}
       </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
-        <ProductGallery images={product.images} name={product.name} />
+      <ProductSelectionProvider
+        variants={selectable}
+        images={product.images}
+        initialVariantId={startVariant?.id ?? ''}
+      >
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
+          <ProductGallery name={product.name} />
 
-        <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-          {context ? <p className="font-semibold text-[14px] text-ink-3">{context}</p> : null}
-          <h1 className="nx-display mt-1 text-[clamp(28px,3.6vw,42px)]">{product.name}</h1>
-          {blurb ? (
-            <p className="mt-3 max-w-[52ch] text-[15px] text-ink-2 leading-relaxed">{blurb}</p>
-          ) : null}
+          <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            {context ? <p className="font-semibold text-[14px] text-ink-3">{context}</p> : null}
+            <h1 className="nx-display mt-1 text-[clamp(28px,3.6vw,42px)]">{product.name}</h1>
+            {blurb ? (
+              <p className="mt-3 max-w-[52ch] text-[15px] text-ink-2 leading-relaxed">
+                {blurb}
+              </p>
+            ) : null}
 
-          <div className="mt-6">
-            <ProductOrderPanel
-              productId={product.id}
-              productSlug={product.slug}
-              productName={product.name}
-              businessName={settings?.businessName ?? 'NextX'}
-              variants={product.variants}
-              srdRate={srdRate}
-              whatsapp={whatsapp}
-              restockNotificationsEnabled={product.restockNotificationsEnabled}
-            />
-          </div>
-
-          {locations.length ? (
-            <section className="mt-6 rounded-tile border border-line p-4 sm:p-5">
-              <h2 className="font-bold text-[14px]">Pickup: stock by location</h2>
-              <ul className="mt-3 space-y-3">
-                {locations.map((location) => (
-                  <li
-                    key={location.name}
-                    className="flex items-center justify-between gap-4 text-[14px]"
-                  >
-                    <span className="font-semibold">{location.name}</span>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 font-semibold text-[12px] ${
-                        location.available > 0
-                          ? 'bg-positive-muted text-positive'
-                          : 'bg-sunken text-ink-3'
-                      }`}
-                    >
-                      {location.available > 0 ? `${location.available} available` : 'No stock'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          <GettingOrder
-            settings={settings}
-            warrantyMonths={product.warrantyMonths}
-            hasLocations={locations.length > 0}
-          />
-
-          {/* The alternative channel for visitors who would rather type an enquiry than open
-              WhatsApp. It files a quote request against this product; owners answer from /quotes. */}
-          <details className="group mt-4 border-line border-t py-4">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-[14px] text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-              Or request a quote
-              <ChevronDown
-                aria-hidden="true"
-                className="size-4 transition-transform group-open:rotate-180"
+            <div className="mt-6">
+              <ProductOrderPanel
+                productId={product.id}
+                productSlug={product.slug}
+                productName={product.name}
+                businessName={settings?.businessName ?? 'NextX'}
+                srdRate={srdRate}
+                whatsapp={whatsapp}
+                restockNotificationsEnabled={product.restockNotificationsEnabled}
               />
-            </summary>
-            <div className="mt-4">
-              <QuoteRequestForm productId={product.id} productName={product.name} />
             </div>
-          </details>
+
+            <PickupStock />
+
+            <GettingOrder
+              settings={settings}
+              warrantyMonths={product.warrantyMonths}
+              hasLocations={hasLocations}
+            />
+
+            {/* The alternative channel for visitors who would rather type an enquiry than open
+              WhatsApp. It files a quote request against this product; owners answer from /quotes. */}
+            <details className="group mt-4 border-line border-t py-4">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between font-semibold text-[14px] text-ink-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                Or request a quote
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="mt-4">
+                <QuoteRequestForm productId={product.id} productName={product.name} />
+              </div>
+            </details>
+          </div>
         </div>
-      </div>
+      </ProductSelectionProvider>
 
       {hasDetails || specs.length > 0 ? (
         <div className="mt-12 grid gap-10 border-line border-t pt-10 lg:mt-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">

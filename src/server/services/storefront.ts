@@ -184,7 +184,12 @@ export async function getStorefrontAvailability(
                SELECT SUM(m.quantity)
                  FROM inventory_movements m
                 WHERE m.variant_id = ${variantId}
-                  AND m.location_id = sl.location_id
+                  AND (
+                    m.location_id = sl.location_id
+                    OR (m.location_id IS NULL AND sl.location_id = (
+                      SELECT id FROM locations WHERE slug = 'main' LIMIT 1
+                    ))
+                  )
              ), 0)
              - COALESCE((
                SELECT SUM(r.quantity)

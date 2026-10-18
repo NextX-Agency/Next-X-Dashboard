@@ -11,6 +11,8 @@ export type StoreCartLine = {
   priceCents: number;
   currency: CurrencyCode;
   available: number;
+  /** The photograph of this exact option, so the cart shows what was chosen. Optional: older carts have none. */
+  imageUrl?: string | null;
 };
 
 export type StoreCartLineInput = Omit<StoreCartLine, 'quantity'> & { quantity?: number };
@@ -18,6 +20,15 @@ export type StoreCartQuoteLine = Omit<StoreCartLine, 'quantity'>;
 
 function boundedString(value: unknown, maxLength = 180): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= maxLength;
+}
+
+/** The cache is untrusted input: only site-relative or https image addresses are kept. */
+function isImageUrl(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length <= 600 &&
+    ((value.startsWith('/') && !value.startsWith('//')) || value.startsWith('https://'))
+  );
 }
 
 export function isStoreCartLine(value: unknown): value is StoreCartLine {
@@ -38,7 +49,8 @@ export function isStoreCartLine(value: unknown): value is StoreCartLine {
     Number(line.priceCents) >= 0 &&
     (line.currency === 'USD' || line.currency === 'SRD') &&
     Number.isSafeInteger(line.available) &&
-    Number(line.available) >= 0
+    Number(line.available) >= 0 &&
+    (line.imageUrl === undefined || line.imageUrl === null || isImageUrl(line.imageUrl))
   );
 }
 

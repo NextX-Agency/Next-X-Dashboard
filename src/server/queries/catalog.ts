@@ -4,6 +4,7 @@ import { isDatabaseConfigured } from '@/lib/env';
 import { likeContains } from '@/lib/like';
 import { type Cents, toDecimalString } from '@/lib/money';
 import { priceTierThresholds } from '@/lib/price-tiers';
+import { type ResolvableImage, resolveVariantImage } from '@/lib/product-images';
 import { cleanPublicCopy } from '@/lib/public-copy';
 import { db } from '../db/client';
 import {
@@ -35,6 +36,14 @@ export type CatalogImage = {
   height: number;
   alt: string | null;
   blurDataUrl: string | null;
+};
+
+/** A product photograph with the option it is pinned to (null: shared by every option). */
+export type CatalogGalleryImage = CatalogImage & {
+  id: string;
+  variantId: string | null;
+  isPrimary: boolean;
+  position: number;
 };
 
 export type CatalogListItem = {
@@ -309,7 +318,43 @@ export type StoreCartQuoteItem = {
   priceCents: number;
   currency: StorefrontRecord['defaultCurrency'];
   available: number;
+  /** The photograph of this exact option (src/lib/product-images.ts); null shows a placeholder. */
+  imageUrl: string | null;
 };
+
+/** Public photographs for a set of products, in the shape the resolution policy reads. */
+async function loadProductImages(
+  productIds: string[],
+): Promise<Map<string, ResolvableImage[]>> {
+  const byProduct = new Map<string, ResolvableImage[]>();
+  if (productIds.length === 0) return byProduct;
+  const ids = sql.join(
+    productIds.map((id) => sql`${id}`),
+    sql`, `,
+  );
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT product_id, variant_id, url, thumb_url, width::text, height::text, alt,
+           blur_data_url, is_primary::text AS is_primary, position::text AS position
+      FROM product_images
+     WHERE product_id IN (${ids})
+  `);
+  for (const row of rows) {
+    const list = byProduct.get(text(row.product_id)) ?? [];
+    list.push({
+      url: text(row.url),
+      thumbUrl: maybe(row.thumb_url),
+      width: num(row.width),
+      height: num(row.height),
+      alt: maybe(row.alt),
+      blurDataUrl: maybe(row.blur_data_url),
+      variantId: maybe(row.variant_id),
+      isPrimary: bool(row.is_primary),
+      position: num(row.position),
+    });
+    byProduct.set(text(row.product_id), list);
+  }
+  return byProduct;
+}
 
 /** Revalidate a public cart against this storefront's current public price
  * list and location-scoped available stock. This is a quote, not a reservation. */
@@ -333,7 +378,9 @@ export async function getPublicStoreCartQuote(
            v.name AS variant_name,
            v.sku,
            pli.amount_cents::text AS price_cents,
-           ${stockAvailableSql(storefront.id, 'v.id')}::text AS available
+           ${stockAvailableSql(storefront.id, 'v.id')}::text AS available,
+           (SELECT COUNT(*) FROM product_variants sv
+             WHERE sv.product_id = p.id AND sv.is_active)::text AS option_count
       FROM products p
       JOIN storefront_products sp
         ON sp.product_id = p.id
@@ -354,17 +401,26 @@ export async function getPublicStoreCartQuote(
      ORDER BY p.name, v.position, v.name
   `);
 
-  return rows.map((row) => ({
-    productId: text(row.product_id),
-    productSlug: text(row.product_slug),
-    productName: publicName(text(row.product_name)),
-    variantId: text(row.variant_id),
-    variantName: text(row.variant_name),
-    sku: text(row.sku),
-    priceCents: num(row.price_cents),
-    currency: storefront.defaultCurrency,
-    available: num(row.available),
-  }));
+  const images = await loadProductImages([...new Set(rows.map((row) => text(row.product_id)))]);
+  return rows.map((row) => {
+    const resolved = resolveVariantImage(
+      images.get(text(row.product_id)) ?? [],
+      text(row.variant_id),
+      num(row.option_count, 1),
+    );
+    return {
+      productId: text(row.product_id),
+      productSlug: text(row.product_slug),
+      productName: publicName(text(row.product_name)),
+      variantId: text(row.variant_id),
+      variantName: text(row.variant_name),
+      sku: text(row.sku),
+      priceCents: num(row.price_cents),
+      currency: storefront.defaultCurrency,
+      available: num(row.available),
+      imageUrl: resolved.image ? (resolved.image.thumbUrl ?? resolved.image.url) : null,
+    };
+  });
 }
 
 export async function listCatalogProducts(
@@ -443,7 +499,8 @@ export async function listCatalogProducts(
       SELECT i.url, i.width, i.height, i.alt, i.blur_data_url
         FROM product_images i
        WHERE i.product_id = p.id
-       ORDER BY i.is_primary DESC, i.position
+       -- The owner-flagged primary, else a shared photo, else the first (representativeImage).
+       ORDER BY i.is_primary DESC, (i.variant_id IS NULL) DESC, i.position
        LIMIT 1
     ) img ON true
     -- Zero-priced variants are draft/unpriced siblings of a real one; a
@@ -770,11 +827,13 @@ export type CatalogProduct = {
     id: string;
     name: string;
     sku: string;
+    /** Structured options such as { colour: "Black" }; internal legacy keys are removed. */
+    attributes: Record<string, string>;
     listPriceCents: Cents;
     priceCurrency: 'USD' | 'SRD';
     onHand: number;
   }[];
-  images: (CatalogImage & { isPrimary: boolean })[];
+  images: CatalogGalleryImage[];
   related: { name: string; slug: string; relationshipType: string; summary: string | null }[];
 };
 
@@ -817,7 +876,8 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
 
   const [variants, related, images] = await Promise.all([
     db.execute<Record<string, string | null>>(sql`
-      SELECT v.id, v.name, v.sku, pli.amount_cents::text AS list_price_cents,
+      SELECT v.id, v.name, v.sku, v.attributes::text AS attributes,
+             pli.amount_cents::text AS list_price_cents,
              (${stockAvailableSql(storefront.id, 'v.id')})::text AS on_hand
         FROM product_variants v
         JOIN price_list_items pli
@@ -846,8 +906,8 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
        ORDER BY pr.position, rp.name
     `),
     db.execute<Record<string, string | null>>(sql`
-      SELECT url, width::text, height::text, alt, blur_data_url,
-             is_primary::text AS is_primary
+      SELECT id, variant_id, url, width::text, height::text, alt, blur_data_url,
+             is_primary::text AS is_primary, position::text AS position
         FROM product_images
        WHERE product_id = ${row.id}
        ORDER BY is_primary DESC, position
@@ -889,11 +949,15 @@ export async function getCatalogProduct(slug: string): Promise<CatalogProduct | 
       id: text(variant.id),
       name: text(variant.name),
       sku: text(variant.sku),
+      attributes: publicAttributes(variant.attributes ?? null),
       listPriceCents: num(variant.list_price_cents),
       priceCurrency: storefront.defaultCurrency,
       onHand: num(variant.on_hand),
     })),
     images: images.map((image) => ({
+      id: text(image.id),
+      variantId: maybe(image.variant_id),
+      position: num(image.position),
       url: text(image.url),
       width: num(image.width),
       height: num(image.height),
@@ -919,6 +983,14 @@ function parseObject(value: string | null): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+/** Variant options meant for customers: string values only, no `legacy_*` import bookkeeping. */
+function publicAttributes(value: string | null): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(parseStringRecord(value)).filter(
+      ([key, entry]) => !key.startsWith('legacy') && entry.trim() !== '',
+    ),
+  );
 }
 function parseStringRecord(value: string | null): Record<string, string> {
   const record = parseObject(value);

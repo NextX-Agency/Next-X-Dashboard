@@ -1,6 +1,6 @@
 'use client';
 
-import { Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Check, Minus, Plus, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { RestockRequestForm } from '@/components/forms/restock-request-form';
@@ -9,26 +9,18 @@ import { StorePrice } from '@/components/store/store-price';
 import { WhatsAppCta } from '@/components/store/whatsapp-cta';
 import { cn } from '@/lib/cn';
 import { fromBase } from '@/lib/fx';
+import { resolveVariantImage } from '@/lib/product-images';
+import { colourName, optionLegend, optionName, swatchColour } from '@/lib/product-options';
 import { productOrderMessage, productRestockMessage } from '@/lib/store-messages';
 import { CART_PATH } from '@/lib/storefront-domain';
+import { type SelectableVariant, useProductSelection } from './product-selection';
 import { useStoreCart } from './store-cart-provider';
 import { formatSrd } from './store-price';
 
-type Variant = {
-  id: string;
-  name: string;
-  sku: string;
-  listPriceCents: number;
-  priceCurrency: 'USD' | 'SRD';
-  onHand: number;
-};
-
-/** A variant called only "Standard"/"Default" tells the customer nothing. */
-const MEANINGLESS_VARIANT = /^(standaard|standard|default|std)$/i; // 'standaard' = legacy imported name
-
 /**
- * Price, stock, variant, quantity and the two ways to order. Variant selection is local UI state; price
- * and availability come from the server's public catalog read model. On phones the add-to-cart button
+ * Price, stock, variant, quantity and the two ways to order. The chosen option lives in
+ * ProductSelectionProvider, shared with the gallery and the pickup list; price and availability come
+ * from the server's public catalog read model. On phones the add-to-cart button
  * lives in a bar fixed to the bottom of the screen, so the buy action never scrolls away.
  */
 export function ProductOrderPanel({
@@ -36,7 +28,6 @@ export function ProductOrderPanel({
   productSlug,
   productName,
   businessName,
-  variants,
   srdRate,
   whatsapp,
   restockNotificationsEnabled,
@@ -45,18 +36,15 @@ export function ProductOrderPanel({
   productSlug: string;
   productName: string;
   businessName: string;
-  variants: Variant[];
   srdRate?: number;
   whatsapp: string | null | undefined;
   restockNotificationsEnabled: boolean;
 }) {
-  const [variantId, setVariantId] = useState(variants[0]?.id ?? '');
+  const { variants, images, variant, select } = useProductSelection();
   const [quantity, setQuantity] = useState(1);
   const [cartMessage, setCartMessage] = useState('');
   const [added, setAdded] = useState(false);
   const { lines, ready, addLine } = useStoreCart();
-  const variant = variants.find((item) => item.id === variantId) ?? variants[0];
-  if (!variant) return null;
   const inStock = variant.onHand > 0;
   const cartQuantity = lines.find((item) => item.variantId === variant.id)?.quantity ?? 0;
   const canAdd = ready && inStock && cartQuantity + quantity <= variant.onHand;
@@ -70,7 +58,7 @@ export function ProductOrderPanel({
   const messageInput = {
     businessName,
     productName,
-    variantName: showVariants ? variant.name : null,
+    variantName: showVariants ? optionName(variant) : null,
     sku: variant.sku,
     price,
   };
@@ -89,6 +77,10 @@ export function ProductOrderPanel({
       productName,
       variantId: variant.id,
       variantName: variant.name,
+      imageUrl: (() => {
+        const image = resolveVariantImage(images, variant.id, variants.length).image;
+        return image ? (image.thumbUrl ?? image.url) : null;
+      })(),
       sku: variant.sku,
       quantity,
       priceCents: variant.listPriceCents,
@@ -116,39 +108,16 @@ export function ProductOrderPanel({
       </div>
 
       {showVariants ? (
-        <fieldset className="mt-6">
-          <legend className="font-semibold text-[13px] text-ink-3">Option</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {variants.map((item) => {
-              const selected = item.id === variant.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
-                    setVariantId(item.id);
-                    setQuantity(1);
-                    setCartMessage('');
-                    setAdded(false);
-                  }}
-                  className={cn(
-                    'min-h-11 rounded-[10px] border px-4 font-semibold text-[14px] transition-colors',
-                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                    selected
-                      ? 'border-night bg-night text-night-ink'
-                      : 'border-line-strong text-ink hover:border-ink',
-                    item.onHand <= 0 && !selected && 'text-ink-3',
-                  )}
-                >
-                  {MEANINGLESS_VARIANT.test(item.name.trim())
-                    ? item.sku || item.name
-                    : item.name}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <VariantSelector
+          variants={variants}
+          selectedId={variant.id}
+          onSelect={(id) => {
+            select(id);
+            setQuantity(1);
+            setCartMessage('');
+            setAdded(false);
+          }}
+        />
       ) : null}
 
       <div className="mt-6 space-y-3">
@@ -267,4 +236,87 @@ export function ProductOrderPanel({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Colours get a labelled swatch; every other kind of option is a readable button. The selected
+ * option shows a tick and a heavier outline as well as its colour, and sold-out options say so in
+ * words, so nothing is communicated by colour alone.
+ */
+function VariantSelector({
+  variants,
+  selectedId,
+  onSelect,
+}: {
+  variants: SelectableVariant[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const legend = optionLegend(variants);
+  const selected = variants.find((item) => item.id === selectedId);
+  return (
+    <fieldset className="mt-6">
+      <legend className="font-semibold text-[13px] text-ink-3">
+        {legend}
+        {selected ? (
+          <span className="ml-1.5 text-ink">{optionName(selected) ?? selected.sku}</span>
+        ) : null}
+      </legend>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {variants.map((item) => {
+          const isSelected = item.id === selectedId;
+          const label = optionName(item) ?? item.sku ?? item.name;
+          const swatch = swatchColour(colourName(item.attributes));
+          const soldOut = item.onHand <= 0;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={`${label}${soldOut ? ', sold out' : ''}`}
+              onClick={() => onSelect(item.id)}
+              className={cn(
+                'inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3.5 font-semibold text-[14px] transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                isSelected
+                  ? 'border-night bg-night text-night-ink'
+                  : 'border-line-strong text-ink hover:border-ink',
+                soldOut && !isSelected && 'text-ink-3',
+              )}
+            >
+              {swatch ? (
+                <span
+                  aria-hidden="true"
+                  className="grid size-5 shrink-0 place-items-center rounded-full border border-black/25"
+                  style={{ backgroundColor: swatch }}
+                >
+                  {isSelected ? (
+                    <Check
+                      className="size-3"
+                      style={{ color: isLight(swatch) ? '#16181b' : '#ffffff' }}
+                    />
+                  ) : null}
+                </span>
+              ) : isSelected ? (
+                <Check aria-hidden="true" className="size-4 shrink-0" />
+              ) : null}
+              <span>{label}</span>
+              {soldOut ? (
+                <span aria-hidden="true" className="font-medium text-[12px] opacity-70">
+                  Sold out
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+/** Pick a tick colour that stays visible on the swatch. */
+function isLight(hex: string): boolean {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const luma = 0.2126 * (value >> 16) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255);
+  return luma > 150;
 }
