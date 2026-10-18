@@ -3,9 +3,10 @@ import { publicName } from '@/lib/english-content';
 import { isDatabaseConfigured } from '@/lib/env';
 import { likeContains } from '@/lib/like';
 import { type Cents, toDecimalString } from '@/lib/money';
-import { priceTierThresholds } from '@/lib/price-tiers';
+import { hasPriceRange, type PriceRange } from '@/lib/price-range';
 import { type ResolvableImage, resolveVariantImage } from '@/lib/product-images';
 import { cleanPublicCopy } from '@/lib/public-copy';
+import { type SearchTerms, searchTerms, vocabularyFrom } from '@/lib/search-query';
 import { db } from '../db/client';
 import {
   getRequestStorefront,
@@ -70,6 +71,14 @@ export type CatalogListItem = {
   image: CatalogImage | null;
   /** Active options the product is sold in; more than one means a choice (colour and so on) on its page. */
   optionCount: number;
+  /** The one purchasable option of a single-option product, so the card can add it without a page visit. */
+  onlyOption: {
+    id: string;
+    sku: string;
+    name: string;
+    priceCents: Cents;
+    onHand: number;
+  } | null;
   /** The first option that satisfies an active colour/option/in-stock filter, so the card can open on it. */
   matchedVariant: {
     id: string;
@@ -85,7 +94,8 @@ export type CatalogListItem = {
   featured: boolean;
 };
 
-export type CatalogSort = 'newest' | 'name' | 'price-asc' | 'price-desc';
+/** `relevance` only means something with a search phrase; without one it is `newest`. */
+export type CatalogSort = 'relevance' | 'newest' | 'name' | 'price-asc' | 'price-desc';
 export type CatalogFilterOptions = {
   brands: { name: string; slug: string }[];
   platforms: string[];
@@ -118,6 +128,7 @@ export async function listStorePickupLocations(): Promise<StorePickupLocation[]>
 // instead. Qualifying with `price.` is what keeps it resolving to the
 // LATERAL's native bigint rather than the outer alias.
 const CATALOG_SORT_CLAUSES: Record<CatalogSort, ReturnType<typeof sql>> = {
+  relevance: sql`p.created_at DESC, p.name ASC`,
   newest: sql`p.created_at DESC, p.name ASC`,
   name: sql`p.name ASC`,
   'price-asc': sql`price.min_price ASC NULLS LAST, p.name ASC`,
@@ -444,7 +455,8 @@ export type CatalogFilters = {
   hub?: 'required' | 'not-required' | undefined;
   indoorOutdoor?: 'indoor' | 'outdoor' | 'indoor-outdoor' | undefined;
   newArrival?: boolean | undefined;
-  price?: 'under-50' | '50-100' | '100-250' | '250-plus' | undefined;
+  /** Inclusive minimum and maximum in the storefront's currency. Applied to ONE variant, like colour and stock. */
+  priceRange?: PriceRange | undefined;
   availability?: 'in-stock' | 'incoming' | undefined;
   /** Colour names, any of. Matched on the same variant as every other option and "in stock". */
   colour?: string | string[] | undefined;
@@ -504,6 +516,14 @@ function variantConditions(
   if (filters.availability === 'in-stock' && !omit.has('availability')) {
     conditions.push(sql`${stockAvailableSql(storefrontId, 'mv.id')} > 0`);
   }
+  // The price belongs to the same variant as the colour and the stock: "Black, SRD 1,000 to 2,000"
+  // must not match a product whose Silver costs SRD 1,500 but whose Black costs SRD 3,000.
+  // Every caller joins this variant's list price as `mpli`.
+  const range = filters.priceRange;
+  if (range && !omit.has('price')) {
+    if (range.minCents !== null) conditions.push(sql`mpli.amount_cents >= ${range.minCents}`);
+    if (range.maxCents !== null) conditions.push(sql`mpli.amount_cents <= ${range.maxCents}`);
+  }
   return conditions;
 }
 
@@ -511,7 +531,10 @@ function hasVariantFilters(filters: CatalogFilters, omit: ReadonlySet<string>): 
   return (
     (asList(filters.colour).length > 0 && !omit.has('colour')) ||
     [...groupedOptions(filters.options).keys()].some((key) => !omit.has(`option:${key}`)) ||
-    (filters.availability === 'in-stock' && !omit.has('availability'))
+    (filters.availability === 'in-stock' && !omit.has('availability')) ||
+    (filters.priceRange !== undefined &&
+      hasPriceRange(filters.priceRange) &&
+      !omit.has('price'))
   );
 }
 
@@ -553,13 +576,53 @@ function catalogFrom(storefront: StorefrontRecord, withImage: boolean) {
   `;
 }
 
+/** One word of a search, matched against everything a shopper might type: name, model, brand, category,
+ *  features, compatibility, and each option's name or SKU. */
+function wordMatch(pattern: string) {
+  return sql`(p.name ILIKE ${pattern} OR sp.title_override ILIKE ${pattern} OR p.summary ILIKE ${pattern}
+      OR p.model_number ILIKE ${pattern} OR b.name ILIKE ${pattern} OR c.name ILIKE ${pattern}
+      OR p.key_features::text ILIKE ${pattern} OR p.compatibility::text ILIKE ${pattern}
+      OR EXISTS (SELECT 1 FROM product_variants qv
+                  WHERE qv.product_id = p.id AND qv.is_active
+                    AND (qv.name ILIKE ${pattern} OR qv.sku ILIKE ${pattern})))`;
+}
+
+/** Every word must match somewhere (so "kz pro 2" finds "KZ ZSN Pro 2"); or the phrase, ignoring spaces
+ *  and punctuation, appears in the name, model, brand or an option's SKU (so "zs 10" finds "ZS10"). */
+function searchCondition(terms: SearchTerms | null) {
+  if (!terms) return sql``;
+  const everyWord = sql.join(terms.patterns.map(wordMatch), sql` AND `);
+  const compact = terms.compact
+    ? sql`OR regexp_replace(lower(p.name || ' ' || coalesce(p.model_number, '') || ' ' || coalesce(b.name, '')), '[^a-z0-9]', '', 'g') LIKE ${`%${terms.compact}%`}
+       OR EXISTS (SELECT 1 FROM product_variants cv
+                   WHERE cv.product_id = p.id AND cv.is_active
+                     AND regexp_replace(lower(cv.sku), '[^a-z0-9]', '', 'g') LIKE ${`%${terms.compact}%`})`
+    : sql``;
+  return sql`AND ((${everyWord}) ${compact})`;
+}
+
+/** Best match first: the exact name, model or SKU, then names that start with the phrase, then names
+ *  that contain every word, then brand matches, then everything else; newest within each. */
+function relevanceOrder(terms: SearchTerms) {
+  const inName = sql.join(
+    terms.patterns.map((pattern) => sql`p.name ILIKE ${pattern}`),
+    sql` AND `,
+  );
+  return sql`(CASE
+      WHEN lower(p.name) = ${terms.phrase} OR lower(coalesce(p.model_number, '')) = ${terms.phrase}
+        OR EXISTS (SELECT 1 FROM product_variants rv WHERE rv.product_id = p.id AND lower(rv.sku) = ${terms.phrase}) THEN 0
+      WHEN lower(p.name) LIKE ${terms.prefix} THEN 1
+      WHEN ${inName} THEN 2
+      WHEN b.name ILIKE ${terms.patterns[0] ?? '%'} THEN 3
+      ELSE 4 END), p.created_at DESC, p.name ASC`;
+}
+
 /** Every public-catalog condition for a set of filters. `omit` leaves a facet's own filter out. */
 function catalogConditions(
   storefront: StorefrontRecord,
   filters: CatalogFilters,
   omit: ReadonlySet<string> = new Set(),
 ) {
-  const [tierLow, tierMid, tierHigh] = priceTierThresholds(storefront.defaultCurrency);
   const category = filters.category?.trim() || null;
   const collection = filters.collection?.trim() || null;
   const brands = asList(filters.brand);
@@ -568,9 +631,8 @@ function catalogConditions(
   const hub = filters.hub ?? null;
   const indoorOutdoor = filters.indoorOutdoor ?? null;
   const newArrival = filters.newArrival ?? false;
-  const priceBucket = omit.has('price') ? null : (filters.price ?? null);
   const availability = omit.has('availability') ? null : (filters.availability ?? null);
-  const likeQuery = filters.q?.trim() ? likeContains(filters.q) : null;
+  const search = searchCondition(searchTerms(filters.q));
 
   const variantExists = hasVariantFilters(filters, omit)
     ? sql`AND EXISTS (
@@ -602,15 +664,9 @@ function catalogConditions(
       AND (${hub}::text IS NULL OR (${hub} = 'required' AND COALESCE(p.buyer_requirements->>'hubRequired', 'false') = 'true') OR (${hub} = 'not-required' AND COALESCE(p.buyer_requirements->>'hubRequired', 'false') <> 'true'))
       AND (${indoorOutdoor}::text IS NULL OR p.buyer_requirements->>'indoorOutdoor' = ${indoorOutdoor})
       AND (NOT ${newArrival} OR p.new_until >= CURRENT_DATE)
-      AND (${priceBucket}::text IS NULL
-        OR (${priceBucket} = 'under-50' AND price.min_price < ${tierLow})
-        OR (${priceBucket} = '50-100' AND price.min_price >= ${tierLow} AND price.min_price < ${tierMid})
-        OR (${priceBucket} = '100-250' AND price.min_price >= ${tierMid} AND price.min_price < ${tierHigh})
-        OR (${priceBucket} = '250-plus' AND price.min_price >= ${tierHigh}))
       ${variantExists}
       ${incoming}
-      AND (${likeQuery}::text IS NULL OR p.name ILIKE ${likeQuery} OR sp.title_override ILIKE ${likeQuery} OR p.summary ILIKE ${likeQuery} OR p.model_number ILIKE ${likeQuery} OR b.name ILIKE ${likeQuery} OR p.key_features::text ILIKE ${likeQuery} OR p.compatibility::text ILIKE ${likeQuery}
-        OR EXISTS (SELECT 1 FROM product_variants qv WHERE qv.product_id = p.id AND qv.is_active AND (qv.name ILIKE ${likeQuery} OR qv.sku ILIKE ${likeQuery})))
+      ${search}
   `;
 }
 
@@ -629,7 +685,11 @@ export async function listCatalogProducts(
 
   // A `NULL` limit reads as "no limit" to Postgres, so the hero's "newest one" read and the
   // grid's "every match" read share this one query with no branching SQL.
-  const order = CATALOG_SORT_CLAUSES[params.sort ?? 'newest'];
+  const terms = searchTerms(params.q);
+  const order =
+    params.sort === 'relevance' && terms
+      ? relevanceOrder(terms)
+      : CATALOG_SORT_CLAUSES[params.sort ?? 'newest'];
   const limit = params.limit ?? null;
   const none: ReadonlySet<string> = new Set();
 
@@ -673,7 +733,17 @@ export async function listCatalogProducts(
       img.height::text AS image_height, img.alt AS image_alt,
       img.blur_data_url AS image_blur,
       ${matchedVariant} AS matched_variant,
-      (SELECT COUNT(*) FROM product_variants cv WHERE cv.product_id = p.id AND cv.is_active)::text AS option_count
+      (SELECT COUNT(*) FROM product_variants cv WHERE cv.product_id = p.id AND cv.is_active)::text AS option_count,
+      (SELECT concat_ws(chr(31), ov.id::text, ov.sku, ov.name, opli.amount_cents::text,
+                        ${stockAvailableSql(storefront.id, 'ov.id')}::text)
+         FROM product_variants ov
+         JOIN price_list_items opli
+           ON opli.variant_id = ov.id
+          AND opli.price_list_id = ${storefront.defaultPriceListId}
+          AND opli.amount_cents > 0
+        WHERE ov.product_id = p.id AND ov.is_active
+        ORDER BY ov.is_default DESC, ov.position
+        LIMIT 1) AS only_option
     ${catalogFrom(storefront, true)}
     WHERE ${catalogConditions(storefront, params)}
     ORDER BY ${order}
@@ -734,6 +804,13 @@ export async function listCatalogProducts(
       priceCurrency: storefront.defaultCurrency,
       image: optionImage ?? baseImage,
       optionCount: num(row.option_count, 1),
+      onlyOption: (() => {
+        if (num(row.option_count, 1) !== 1 || !row.only_option) return null;
+        const [id, sku, name, price, stock] = row.only_option.split('');
+        return id && sku
+          ? { id, sku, name: name ?? '', priceCents: num(price), onHand: num(stock) }
+          : null;
+      })(),
       matchedVariant:
         matchedId && matchedSku
           ? {
@@ -754,16 +831,17 @@ export type CatalogFacets = {
   brands: { name: string; slug: string; count: number }[];
   colours: { value: string; count: number }[];
   options: { key: string; values: { value: string; count: number }[] }[];
-  availability: { inStock: number; incoming: number };
-  prices: Record<'under-50' | '50-100' | '100-250' | '250-plus', number>;
+  availability: { inStock: number; incoming: number; newArrivals: number };
+  /** The lowest and highest public variant price, for the range control's hints. */
+  priceBounds: { minCents: number; maxCents: number } | null;
 };
 
 const EMPTY_FACETS: CatalogFacets = {
   brands: [],
   colours: [],
   options: [],
-  availability: { inStock: 0, incoming: 0 },
-  prices: { 'under-50': 0, '50-100': 0, '100-250': 0, '250-plus': 0 },
+  availability: { inStock: 0, incoming: 0, newArrivals: 0 },
+  priceBounds: null,
 };
 
 /**
@@ -776,7 +854,6 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
   if (!isDatabaseConfigured()) return EMPTY_FACETS;
   const storefront = await getRequestStorefront();
   if (!storefront?.defaultPriceListId) return EMPTY_FACETS;
-  const [tierLow, tierMid, tierHigh] = priceTierThresholds(storefront.defaultCurrency);
   const from = catalogFrom(storefront, false);
 
   // Which option keys exist at all, from the whole public catalogue (not the current filter).
@@ -832,8 +909,9 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
     return rows.map((row) => ({ value: text(row.value), count: num(row.count) }));
   };
 
-  const [brandRows, priceRow, stockCount, incomingCount, colours, options] = await Promise.all([
-    db.execute<Record<string, string | null>>(sql`
+  const [brandRows, priceRow, stockCount, incomingCount, newCount, colours, options] =
+    await Promise.all([
+      db.execute<Record<string, string | null>>(sql`
       SELECT b.name, b.slug, COUNT(*)::text AS count
         ${from}
        WHERE b.id IS NOT NULL AND b.active
@@ -841,25 +919,26 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
        GROUP BY b.name, b.slug
        ORDER BY b.name
     `),
-    db.execute<Record<string, string | null>>(sql`
-      SELECT
-        COUNT(*) FILTER (WHERE price.min_price < ${tierLow})::text AS "under-50",
-        COUNT(*) FILTER (WHERE price.min_price >= ${tierLow} AND price.min_price < ${tierMid})::text AS "50-100",
-        COUNT(*) FILTER (WHERE price.min_price >= ${tierMid} AND price.min_price < ${tierHigh})::text AS "100-250",
-        COUNT(*) FILTER (WHERE price.min_price >= ${tierHigh})::text AS "250-plus"
+      db.execute<Record<string, string | null>>(sql`
+      SELECT MIN(price.min_price)::text AS low, MAX(price.max_price)::text AS high
         ${from}
-       WHERE ${catalogConditions(storefront, filters, new Set(['price']))}
+       WHERE p.catalog_published AND p.status = 'active' AND price.min_price IS NOT NULL
+         AND ${publicStockVisibility(storefront.id)}
     `),
-    db.execute<Record<string, string | null>>(sql`
+      db.execute<Record<string, string | null>>(sql`
       SELECT COUNT(*)::text AS count ${from}
        WHERE ${catalogConditions(storefront, { ...filters, availability: 'in-stock' }, new Set())}
     `),
-    db.execute<Record<string, string | null>>(sql`
+      db.execute<Record<string, string | null>>(sql`
       SELECT COUNT(*)::text AS count ${from}
        WHERE ${catalogConditions(storefront, { ...filters, availability: 'incoming' }, new Set())}
     `),
-    colourOffered
-      ? db.execute<Record<string, string | null>>(sql`
+      db.execute<Record<string, string | null>>(sql`
+      SELECT COUNT(*)::text AS count ${from}
+       WHERE ${catalogConditions(storefront, { ...filters, newArrival: true }, new Set())}
+    `),
+      colourOffered
+        ? db.execute<Record<string, string | null>>(sql`
           SELECT MIN(value) AS value, COUNT(DISTINCT id)::text AS count
             FROM (
               SELECT p.id, ${COLOUR_EXPRESSION} AS value
@@ -879,14 +958,14 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
            GROUP BY lower(value)
            ORDER BY lower(value)
         `)
-      : Promise.resolve([]),
-    Promise.all(
-      otherKeys.map(async (key) => ({
-        key,
-        values: await optionFacet(key, new Set([`option:${key.toLowerCase()}`])),
-      })),
-    ),
-  ]);
+        : Promise.resolve([]),
+      Promise.all(
+        otherKeys.map(async (key) => ({
+          key,
+          values: await optionFacet(key, new Set([`option:${key.toLowerCase()}`])),
+        })),
+      ),
+    ]);
 
   /** Every value the catalogue has, with the count under the current filters (0 when none). */
   const withAll = (all: string[], counted: { value: string; count: number }[]) => {
@@ -922,13 +1001,10 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
     availability: {
       inStock: num(stockCount[0]?.count),
       incoming: num(incomingCount[0]?.count),
+      newArrivals: num(newCount[0]?.count),
     },
-    prices: {
-      'under-50': num(price['under-50']),
-      '50-100': num(price['50-100']),
-      '100-250': num(price['100-250']),
-      '250-plus': num(price['250-plus']),
-    },
+    priceBounds:
+      price.low && price.high ? { minCents: num(price.low), maxCents: num(price.high) } : null,
   };
 }
 
@@ -1009,6 +1085,24 @@ export async function listCatalogCategories(): Promise<CatalogCategory[]> {
     name: text(row.name),
     count: num(row.count),
   }));
+}
+
+/** Words the public catalogue uses (names, brands, models), for "Did you mean" on an empty search. */
+export async function listSearchVocabulary(): Promise<string[]> {
+  if (!isDatabaseConfigured()) return [];
+  const storefront = await getRequestStorefront();
+  if (!storefront?.defaultPriceListId) return [];
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT p.name, b.name AS brand, p.model_number
+      FROM products p
+      JOIN storefront_products sp
+        ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
+      LEFT JOIN brands b ON b.id = p.brand_id
+     WHERE p.catalog_published AND p.status = 'active'
+       AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
+       AND ${publicStockVisibility(storefront.id)}
+  `);
+  return vocabularyFrom(rows.flatMap((row) => [row.name, row.brand, row.model_number]));
 }
 
 export type StorefrontCollection = {
