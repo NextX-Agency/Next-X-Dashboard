@@ -76,9 +76,9 @@ async function SuppliersTable({ searchParams }: { searchParams: Promise<RawSearc
         title="No suppliers yet"
         description="Add Amazon, AliExpress or a local supplier before raising a purchase order against them."
         action={
-          <Suspense fallback={null}>
-            <SupplierSheet />
-          </Suspense>
+          <Button asChild variant="primary" size="sm">
+            <Link href={'/suppliers?new-supplier=1' as Route}>Add supplier</Link>
+          </Button>
         }
       />
     );

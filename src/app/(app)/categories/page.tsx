@@ -73,9 +73,9 @@ async function CategoriesTable({ searchParams }: { searchParams: Promise<RawSear
         title="No categories yet"
         description="Categories group products here and on the public catalog. A product can go without one."
         action={
-          <Suspense fallback={null}>
-            <CategorySheet />
-          </Suspense>
+          <Button asChild variant="primary" size="sm">
+            <Link href={'/categories?new-category=1' as Route}>Add category</Link>
+          </Button>
         }
       />
     );

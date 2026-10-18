@@ -38,7 +38,8 @@ export default defineConfig({
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
     {
       name: 'public',
-      testMatch: /(?:public|store-local|store-a11y|dashboard-local|variants-local)\.spec\.ts/,
+      testMatch:
+        /(?:public|store-local|store-a11y|dashboard-local|variants-local|purchasing-local)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
