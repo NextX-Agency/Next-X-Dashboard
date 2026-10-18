@@ -180,3 +180,17 @@ test('the activity log (owners only) shows what was just done and filters by rec
   await page.goto('/activity?q=zzz-no-such-thing', { waitUntil: 'networkidle' });
   await expect(page.getByText('Nothing matches')).toBeVisible();
 });
+
+test('new order: lines come from the visual picker, with the option photograph', async ({
+  page,
+}) => {
+  await page.goto('/orders/new', { waitUntil: 'networkidle' });
+  await addToSale(page, 'ESSAGER 2m', 2);
+  const line = page.locator('form .divide-y > div').first();
+  await expect(line.locator('img[alt*="ESSAGER 2m"]')).toBeVisible();
+  await expect(line.locator('input[id^="order-qty"]')).toHaveValue('2');
+  await expect(line.locator('input[id^="order-price"]')).not.toHaveValue('');
+  await page.getByRole('button', { name: 'Create draft order' }).click();
+  await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+  await expect(page.getByText('ESSAGER 2m').first()).toBeVisible();
+});

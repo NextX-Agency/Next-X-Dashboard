@@ -4,16 +4,20 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
-import { formatMoney, parseMoney, toDecimalString } from '@/lib/money';
+import type { RateMicros } from '@/lib/fx';
+import { defaultUnitPrice } from '@/lib/line-price';
+import { formatMoney, parseMoney } from '@/lib/money';
 import { createOrder } from '@/server/actions/orders';
-import type { LocationOption, Option, VariantOption } from '@/server/queries/pickers';
+import type { LocationOption, Option, SaleVariantOption } from '@/server/queries/pickers';
+import { LineProduct } from './line-product';
+import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 type Line = { key: string; variantId: string; quantity: string; unitPrice: string };
 type OrderSource = 'manual' | 'pos' | 'web' | 'whatsapp' | 'messenger';
@@ -31,8 +35,10 @@ export function OrderForm({
   variants,
   customers,
   locations,
+  rateMicros,
 }: {
-  variants: VariantOption[];
+  rateMicros: RateMicros;
+  variants: SaleVariantOption[];
   customers: Option[];
   locations: LocationOption[];
 }) {
@@ -48,19 +54,62 @@ export function OrderForm({
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [fulfillmentNotes, setFulfillmentNotes] = useState('');
   const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<Line[]>([newLine()]);
+  const [lines, setLines] = useState<Line[]>([]);
+  const [picker, setPicker] = useState<
+    { mode: 'add' } | { mode: 'replace'; key: string } | null
+  >(null);
+  const pickerOpener = useRef<HTMLElement | null>(null);
+  const openPicker = (next: NonNullable<typeof picker>) => {
+    pickerOpener.current = document.activeElement as HTMLElement | null;
+    setPicker(next);
+  };
 
   const variantsById = useMemo(
     () => new Map(variants.map((variant) => [variant.id, variant])),
     [variants],
   );
-  const variantOptions: ComboboxOption[] = variants.map((variant) => ({
-    value: variant.id,
-    label: `${variant.productName} · ${variant.variantName}`,
-    hint: variant.sku,
-    meta: `${variant.onHand} on hand · ${formatMoney(variant.listPriceCents)}`,
-    disabled: !variant.isActive,
-  }));
+  const inOrder = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of lines) {
+      if (line.variantId) {
+        map.set(
+          line.variantId,
+          (map.get(line.variantId) ?? 0) + (Number.parseInt(line.quantity, 10) || 0),
+        );
+      }
+    }
+    return map;
+  }, [lines]);
+
+  /** One choice from the product browser: list price in the order's currency, as before. */
+  function applySelection(selection: PickerSelection) {
+    if (selection.kind !== 'variant') return;
+    const chosen = variantsById.get(selection.variantId);
+    if (!chosen) return;
+    const quantity = String(Math.max(1, selection.quantity));
+    const target = picker?.mode === 'replace' ? picker.key : null;
+    // The list price is in USD; an SRD order starts from it converted at the current rate.
+    const unitPrice = defaultUnitPrice(chosen.listPriceCents, currency, rateMicros);
+    setLines((current) => {
+      if (target) {
+        return current.map((line) =>
+          line.key === target ? { ...line, variantId: chosen.id, quantity, unitPrice } : line,
+        );
+      }
+      const same = current.find((line) => line.variantId === chosen.id);
+      if (same) {
+        return current.map((line) =>
+          line.key === same.key
+            ? {
+                ...line,
+                quantity: String((Number.parseInt(line.quantity, 10) || 0) + Number(quantity)),
+              }
+            : line,
+        );
+      }
+      return [...current, { ...newLine(), variantId: chosen.id, quantity, unitPrice }];
+    });
+  }
   const customerOptions: ComboboxOption[] = customers.map((customer) => ({
     value: customer.id,
     label: customer.label,
@@ -200,37 +249,19 @@ export function OrderForm({
                   key={line.key}
                   className="grid gap-2 p-4 sm:grid-cols-[1fr_84px_120px_34px]"
                 >
-                  <Field
-                    label={index === 0 ? 'Product' : ''}
-                    htmlFor={`order-variant-${index}`}
-                  >
-                    <Combobox
-                      id={`order-variant-${index}`}
-                      options={variantOptions}
-                      value={line.variantId || null}
-                      onChange={(value) =>
-                        setLines((current) =>
-                          current.map((candidate) =>
-                            candidate.key === line.key
-                              ? {
-                                  ...candidate,
-                                  variantId: value ?? '',
-                                  unitPrice:
-                                    value && variantsById.get(value)
-                                      ? toDecimalString(
-                                          variantsById.get(value)?.listPriceCents ?? 0,
-                                          currency,
-                                        )
-                                      : candidate.unitPrice,
-                                }
-                              : candidate,
-                          ),
-                        )
-                      }
-                      placeholder="Choose a product"
-                      searchPlaceholder="Search by name or SKU"
+                  <div className="min-w-0">
+                    {index === 0 ? (
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                        Product
+                      </span>
+                    ) : null}
+                    <LineProduct
+                      variant={variant}
+                      bundle={undefined}
+                      missing={Boolean(line.variantId) && !variant}
+                      onChange={() => openPicker({ mode: 'replace', key: line.key })}
                     />
-                  </Field>
+                  </div>
                   <Field label={index === 0 ? 'Qty' : ''} htmlFor={`order-qty-${index}`}>
                     <Input
                       id={`order-qty-${index}`}
@@ -258,7 +289,9 @@ export function OrderForm({
                       inputMode="decimal"
                       value={line.unitPrice}
                       placeholder={
-                        variant ? toDecimalString(variant.listPriceCents, currency) : '0.00'
+                        variant
+                          ? defaultUnitPrice(variant.listPriceCents, currency, rateMicros)
+                          : '0.00'
                       }
                       onChange={(event) =>
                         setLines((current) =>
@@ -277,7 +310,6 @@ export function OrderForm({
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Remove line"
-                      disabled={lines.length === 1}
                       onClick={() =>
                         setLines((current) =>
                           current.filter((candidate) => candidate.key !== line.key),
@@ -294,10 +326,11 @@ export function OrderForm({
           <div className="border-line-subtle border-t p-4">
             <button
               type="button"
-              onClick={() => setLines((current) => [...current, newLine()])}
+              onClick={() => openPicker({ mode: 'add' })}
               className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line py-2 text-[12px] text-ink-3 hover:border-line-strong hover:text-ink-2"
             >
-              <Plus className="size-3.5" /> Add another item
+              <Plus className="size-3.5" />{' '}
+              {lines.length === 0 ? 'Add product' : 'Add another product'}
             </button>
           </div>
         </Surface>
@@ -399,6 +432,21 @@ export function OrderForm({
           </SubmitButton>
         </div>
       </Surface>
+      <SaleProductPicker
+        open={picker !== null}
+        onOpenChange={(next) => {
+          if (!next) setPicker(null);
+        }}
+        mode={picker?.mode ?? 'add'}
+        variants={variants}
+        bundles={[]}
+        currency={currency}
+        rateMicros={rateMicros}
+        inSale={inOrder}
+        lineCount={lines.length}
+        returnFocusTo={pickerOpener}
+        onChoose={applySelection}
+      />
     </form>
   );
 }
