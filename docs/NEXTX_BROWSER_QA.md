@@ -69,6 +69,8 @@ reading code and then confirmed.
 | U-1 | P2 | Product create | After "Create product" you land on the list; a new product cannot be published without a photograph | walkthrough | redirect to `/items` | `cdf63b8` opens the product's own page with "Add photos next" | `dashboard-local` |
 | U-2 | P2 | Picker on a phone | Close/Done/stepper buttons 36 px, "Back to results" 18 px high | measured in the browser at 390 px | sizes | `f425cf3` ≥ 44 px | re-measured in the e2e overflow run |
 | U-3 | P2 | SKU conflict | "That already exists. Check for an existing record with the same code or number." | e2e | unique index error text | `8ca2a49` names the SKU and the product that owns it | `dashboard-local` |
+| U-4 | P2 | Product form | Hub, app, Wi-Fi, power, subscription and installation fields (smart-home leftovers) filled the form for audio and watches | walkthrough | always rendered | the block is a closed disclosure unless the product already uses it | `dashboard-local` smart-home test |
+| U-5 | P2 | Every form on a phone | Inputs were 36 px high with 13 px text (small tap target; iOS zooms into fields under 16 px) | measured at 390 px | `control` class | 44 px and 16 px text below the `sm` breakpoint | `dashboard-local` smart-home test (height) |
 
 ## 5. Open issues (not fixed)
 
@@ -77,8 +79,8 @@ reading code and then confirmed.
 | O-1 | **P1 (data)** | Staging Overview | "21 confirmed sales have no receipt in the ledger" and a $35 sale overdue since January. The reconciliation report explains 20 (derived zero-total reservations) plus 1 (`SALE_WITHOUT_PAYMENT_EVENT`); the owner sign-off block is still blank. Not a code defect, but production must not be cut over until it is signed |
 | O-2 | P1 (process) | Release | The import tooling refuses to write without the owner's readiness report ("Migration writes require --readiness-report with every required gate set to PASS"), so the migration rehearsal, and the constraint, RLS and concurrency scripts that depend on its rows, **could not be re-run**. Constraints: 16 of 17 passed on the visual fixture, the one failure needs the imported invoice row |
 | O-3 | P2 (data) | Archived watches | Colourways stored as separate products ("POEDAGAR 989 … Silver & White Dial" and "… Silver & Black Dial", "CURREN 8439 … Silver & Black" and "… Gold & Silver"). They are retired, so the shop does not show them; merging them would be an owner decision |
-| O-4 | P2 | Product form | Smart-home fields (hub, Wi-Fi, Matter, Zigbee…) and an order reference placeholder in Amazon's format remain on audio/watch products; supplier kinds are Amazon / AliExpress / Other |
-| O-5 | P2 | Dashboard on phones | Inputs are 36 px high on the staff forms (below 44 px); lists use cards on phones but the sale and order forms are dense |
+| O-4 | P2 | Product form | The order-reference placeholder in Amazon's format and the supplier kinds (Amazon / AliExpress / Other) remain; the smart-home block is now closed by default (see U-4) |
+| O-5 | P2 | Dashboard on phones | The sale and order forms are dense on a phone (inputs are now 44 px, see U-5) |
 | O-6 | P2 | Purchase orders, quotes, bundles | Still use the text picker; no photograph beside their lines |
 | O-7 | P2 | Dashboard filters | Not done: finance (date range, wallet, type), orders (customer, date), customers, expenses. Products, inventory and sales are done. Stock movement type and date range have no list to filter (the ledger shows movements only on a sale) |
 | O-8 | P2 | Shop | The price filter is four fixed tiers, not a free range; "driver configuration" and similar technical filters are not offered because no such data is populated |

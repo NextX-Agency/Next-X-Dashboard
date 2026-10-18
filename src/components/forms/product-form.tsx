@@ -233,6 +233,28 @@ export function ProductForm({
   const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
 
+  /** The smart-home block opens only for a product that already uses it (fixed at first render, so
+   *  ticking a box inside it never collapses it). */
+  const [smartHomeOpen] = useState(() =>
+    Boolean(
+      initial &&
+        (initial.hubRequired ||
+          initial.appRequired ||
+          initial.accountRequired ||
+          initial.wifiRequired ||
+          initial.neutralWireRequired ||
+          initial.hubName ||
+          initial.appName ||
+          initial.wifiBands ||
+          initial.powerSource ||
+          initial.batteryType ||
+          initial.subscription ||
+          initial.subscriptionNotes ||
+          initial.indoorOutdoor ||
+          initial.installationNotes ||
+          initial.regionalNotes),
+    ),
+  );
   const setVariant = (key: string, patch: Partial<VariantRow>) =>
     setValues((current) => ({
       ...current,
@@ -900,8 +922,18 @@ export function ProductForm({
                 onChange={(event) => set('ecosystems', event.target.value)}
               />
             </Field>
-            <div className="border-t border-line-subtle pt-3">
-              <p className="mb-2 text-[13px] font-medium text-ink">Before you buy</p>
+            <details open={smartHomeOpen} className="group border-t border-line-subtle pt-3">
+              <summary className="mb-2 flex cursor-pointer list-none items-center justify-between text-[13px] font-medium text-ink [&::-webkit-details-marker]:hidden">
+                <span>
+                  Before you buy: hub, app, Wi-Fi, power, subscription
+                  <span className="ml-2 font-normal text-[11px] text-ink-4">
+                    Smart-home details; leave closed for audio and watches
+                  </span>
+                </span>
+                <span aria-hidden="true" className="text-ink-4 group-open:rotate-180">
+                  ▾
+                </span>
+              </summary>
               <div className="flex flex-wrap gap-4 text-[12px] text-ink-2">
                 <label className="flex items-center gap-2">
                   <input
@@ -1040,7 +1072,7 @@ export function ProductForm({
                   onChange={(event) => set('regionalNotes', event.target.value)}
                 />
               </Field>
-            </div>
+            </details>
             <div className="border-t border-line-subtle pt-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-[13px] font-medium text-ink">Frequently asked questions</p>

@@ -60,7 +60,8 @@ export function Field({
 }
 
 const control = [
-  'h-9 w-full rounded-control border bg-raised px-2.5 text-[13px] text-ink',
+  // 44 px and 16 px text on a phone: a comfortable tap target, and iOS does not zoom into the field.
+  'h-9 w-full rounded-control border bg-raised px-2.5 text-[13px] text-ink max-sm:h-11 max-sm:text-[16px]',
   'transition-colors duration-150 outline-none',
   'placeholder:text-ink-4',
   'focus-visible:border-accent-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
@@ -87,7 +88,7 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
       className={cn(
         control,
         'border-line',
-        'h-auto min-h-[72px] resize-y py-2 leading-relaxed',
+        'h-auto min-h-[72px] resize-y py-2 leading-relaxed max-sm:h-auto',
         className,
       )}
       {...props}

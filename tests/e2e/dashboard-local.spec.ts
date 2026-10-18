@@ -238,3 +238,20 @@ test('create a product with two options; a taken SKU is refused by name; both op
   await detail.getByRole('button', { name: /Silver/ }).click();
   await expect(detail.getByText('$27.00').first()).toBeVisible();
 });
+
+test('a new product hides the smart-home block until asked, and phone inputs are tap-sized', async ({
+  page,
+}) => {
+  await page.goto('/items/new', { waitUntil: 'networkidle' });
+  await expect(page.getByText(/Before you buy: hub, app, Wi-Fi/)).toBeVisible();
+  await expect(page.locator('#hubName')).toBeHidden();
+  await page.getByText(/Before you buy: hub, app, Wi-Fi/).click();
+  await expect(page.locator('#hubName')).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/items/new', { waitUntil: 'networkidle' });
+  const height = await page
+    .locator('#name')
+    .evaluate((el) => el.getBoundingClientRect().height);
+  expect(height).toBeGreaterThanOrEqual(44);
+});
