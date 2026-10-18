@@ -227,3 +227,52 @@ test.describe('sales: the visual product picker', () => {
     await expect(dialog.getByRole('button', { name: /Vader/ })).toBeVisible();
   });
 });
+
+for (const width of [390, 768, 1440]) {
+  test(`no horizontal overflow at ${width}px on the option pages and the picker`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = async (label: string) => {
+      const extra = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(extra, `${label} overflows horizontally at ${width}px`).toBeLessThanOrEqual(0);
+    };
+    for (const path of [
+      '/products/kz-test-iem?variant=KZ-TEST-IEM-SLV',
+      '/products/kz-test-case?variant=KZ-TEST-CASE-RED',
+      '/shop?colour=Black&opt=connector:3.5mm',
+      '/cart',
+    ]) {
+      await page.goto(path, { waitUntil: 'networkidle' });
+      await overflow(path);
+    }
+    await page.goto('/sales/new', { waitUntil: 'networkidle' });
+    await overflow('/sales/new');
+    await page.getByRole('button', { name: 'Add product' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByPlaceholder(/search name, model/i).fill('KZT-1');
+    await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('complementary', { name: 'Selected product' })).toBeVisible();
+    await overflow('the picker with a product open');
+    // The dialog itself must not be wider than the screen either.
+    const box = await dialog.boundingBox();
+    expect(box?.width ?? 0).toBeLessThanOrEqual(width);
+  });
+}
+
+test('a card that matched a colour shows that option’s price, stock and name', async ({
+  page,
+}) => {
+  await page.goto('/shop?colour=Purple', { waitUntil: 'networkidle' });
+  const card = page.locator('section[aria-label="Products"] article').first();
+  await expect(card).toContainText('Purple');
+  await expect(card).toContainText('SRD 1,700');
+  await expect(card).not.toContainText('from');
+  await expect(card).toContainText('Only 2 left');
+  await page.goto('/shop?colour=Silver', { waitUntil: 'networkidle' });
+  const silver = page.locator('section[aria-label="Products"] article').first();
+  await expect(silver).toContainText('SRD 1,600');
+  await expect(silver).toContainText('Sold out');
+});

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import type { RateMicros } from '@/lib/fx';
+import { variantLabel } from '@/lib/store-messages';
 import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
 import { StockPill } from './stock-pill';
@@ -23,8 +24,13 @@ export function ProductCard({
   /** First row of a page: load eagerly. */
   priority?: boolean;
 }) {
-  const inStock = product.onHand > 0;
-  const hasRange = product.maxPriceCents > product.minPriceCents;
+  // A card that matched a colour or option shows THAT option's price and stock, not the product's range.
+  const option = product.matchedVariant;
+  const onHand = option ? option.onHand : product.onHand;
+  const minPrice = option ? option.priceCents : product.minPriceCents;
+  const inStock = onHand > 0;
+  const hasRange = !option && product.maxPriceCents > product.minPriceCents;
+  const optionName = option ? variantLabel(option.name) : null;
   const isNew = product.newUntil ? Date.parse(product.newUntil) >= Date.now() : false;
   // A brand label that repeats the start of the name ("KZ" + "KZ AS16 Pro X") is noise.
   const showBrand =
@@ -77,8 +83,9 @@ export function ProductCard({
         >
           {product.name}
         </Link>
+        {optionName ? <p className="text-[13px] text-ink-2">{optionName}</p> : null}
         <StorePrice
-          amountCents={product.minPriceCents}
+          amountCents={minPrice}
           currency={product.priceCurrency}
           srdRate={srdRate}
           size="card"
@@ -86,7 +93,7 @@ export function ProductCard({
           className="mt-auto pt-2"
         />
         <div className="mt-2.5">
-          <StockPill onHand={product.onHand} incoming={product.incoming} />
+          <StockPill onHand={onHand} incoming={option ? 0 : product.incoming} />
         </div>
         <span
           aria-hidden="true"

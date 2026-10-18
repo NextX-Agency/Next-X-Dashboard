@@ -69,7 +69,13 @@ export type CatalogListItem = {
   priceCurrency: 'USD' | 'SRD';
   image: CatalogImage | null;
   /** The first option that satisfies an active colour/option/in-stock filter, so the card can open on it. */
-  matchedVariant: { id: string; sku: string; name: string } | null;
+  matchedVariant: {
+    id: string;
+    sku: string;
+    name: string;
+    priceCents: Cents;
+    onHand: number;
+  } | null;
   /** Publish-adjacent signal: the product row's creation instant, used to
    *  flag recent arrivals ("NEW") in the grid. */
   createdAt: string;
@@ -629,7 +635,8 @@ export async function listCatalogProducts(
   // open the page on that option and show its photograph instead of the product's representative one.
   const matchedVariant = hasVariantFilters(params, none)
     ? sql`(
-        SELECT mv.id::text || '|' || mv.sku || '|' || mv.name
+        SELECT concat_ws(chr(31), mv.id::text, mv.sku, mv.name, mpli.amount_cents::text,
+                         ${stockAvailableSql(storefront.id, 'mv.id')}::text)
           FROM product_variants mv
           JOIN price_list_items mpli
             ON mpli.variant_id = mv.id
@@ -676,7 +683,9 @@ export async function listCatalogProducts(
   const optionImages = matchedIds.length ? await loadProductImages(matchedIds) : new Map();
 
   return rows.map((row) => {
-    const [matchedId, matchedSku, matchedName] = (row.matched_variant ?? '').split('|');
+    const [matchedId, matchedSku, matchedName, matchedPrice, matchedStock] = (
+      row.matched_variant ?? ''
+    ).split('\u001f');
     const resolved =
       matchedId && optionImages.size
         ? resolveVariantImage(
@@ -724,7 +733,13 @@ export async function listCatalogProducts(
       image: optionImage ?? baseImage,
       matchedVariant:
         matchedId && matchedSku
-          ? { id: matchedId, sku: matchedSku, name: matchedName ?? '' }
+          ? {
+              id: matchedId,
+              sku: matchedSku,
+              name: matchedName ?? '',
+              priceCents: num(matchedPrice),
+              onHand: num(matchedStock),
+            }
           : null,
       createdAt: text(row.created_at),
       featured: row.featured === 'true',

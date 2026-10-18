@@ -241,7 +241,7 @@ export function SaleProductPicker({
             </div>
             <Dialog.Close
               aria-label="Close"
-              className="grid size-9 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+              className="grid size-11 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
             >
               <X className="size-4" />
             </Dialog.Close>
@@ -487,7 +487,7 @@ export function SaleProductPicker({
                   <button
                     type="button"
                     onClick={() => setSelected(null)}
-                    className="mb-3 inline-flex items-center gap-1 text-[12px] text-ink-3 hover:text-ink md:hidden"
+                    className="mb-2 -ml-2 inline-flex h-11 items-center gap-1 px-2 text-[13px] text-ink-3 hover:text-ink md:hidden"
                   >
                     <ArrowLeft className="size-3.5" /> Back to results
                   </button>
@@ -513,13 +513,13 @@ export function SaleProductPicker({
                     onHand={bundle ? bundle.availability : (variant?.onHand ?? 0)}
                   />
                   <div className="flex items-center gap-2">
-                    <div className="flex h-10 shrink-0 items-stretch rounded-control border border-line">
+                    <div className="flex h-11 shrink-0 items-stretch rounded-control border border-line">
                       <button
                         type="button"
                         aria-label="Decrease quantity"
                         disabled={parsedQuantity <= 1}
                         onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
-                        className="grid w-9 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35"
+                        className="grid w-11 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35"
                       >
                         <Minus className="size-3.5" />
                       </button>
@@ -544,7 +544,7 @@ export function SaleProductPicker({
                         type="button"
                         aria-label="Increase quantity"
                         onClick={() => setQuantity(String(parsedQuantity + 1))}
-                        className="grid w-9 place-items-center rounded-r-control hover:bg-hover"
+                        className="grid w-11 place-items-center rounded-r-control hover:bg-hover"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -553,7 +553,7 @@ export function SaleProductPicker({
                       type="button"
                       onClick={commit}
                       disabled={Boolean(variant && !variant.isActive)}
-                      className="h-10 flex-1 rounded-control bg-accent px-4 font-medium text-[13px] text-accent-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+                      className="h-11 flex-1 rounded-control bg-accent px-4 font-medium text-[13px] text-accent-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
                     >
                       {mode === 'replace' ? 'Use this product' : 'Add to sale'}
                     </button>
@@ -579,7 +579,7 @@ export function SaleProductPicker({
                 </span>
               )}
             </p>
-            <Dialog.Close className="h-9 shrink-0 rounded-control border border-line bg-base px-4 text-[13px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring">
+            <Dialog.Close className="h-11 shrink-0 rounded-control border border-line bg-base px-5 text-[13px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring">
               {mode === 'replace' ? 'Cancel' : 'Done'}
             </Dialog.Close>
           </footer>
