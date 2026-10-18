@@ -61,11 +61,15 @@ The public shop is English, the staff dashboard is English. All shop wording liv
 ## Components
 
 **Storefront**
-- *Header:* logo, a wide search field (`/shop?q=`), "Questions?" (WhatsApp), the cart. Phones put search
+- *Announcement bar:* the owner's announcement, else pickup, delivery and currency from settings; absent when empty.
+- *Header:* logo, a wide search field (`/shop?q=`), "Questions?" (WhatsApp), the cart; from `lg` a second row of
+  places (all products, each category, how ordering works). Phones put search
   under the logo and add a four-tab bar (Home, Shop, Cart, WhatsApp).
 - *Category chips:* links to `/shop?category=`, with counts; the filter a customer uses first.
-- *Product card:* photograph on the soft field (multiplied, so white cut-outs sit on it), name, **price as
-  the largest thing**, a stock pill, one action. The whole card is one link.
+- *Product card:* photograph on the soft field (multiplied, so white cut-outs sit on it), brand or category, name,
+  **price as the largest thing**, a stock pill, one action: **Add to cart** (one purchasable option), **Choose
+  options** (a choice exists) or **See availability** (sold out). The name is a stretched link over the whole card;
+  Add to cart is a separate button raised above it, so nothing is nested.
 - *Stock pill* (`stock-pill.tsx`): "In stock", "Only n left" only at 2 or fewer, "Sold out" / "On the way".
   Counts above that are never shown.
 - *"Low stock":* a strip on the home page built from real stock at 2 or fewer.
@@ -101,7 +105,9 @@ grids are 2 columns on phones, 3 on tablet, 4 on desktop. Dashboard rail 232 px 
 ## Rules that keep it from turning generic
 
 - No gradient glows, glass or floating shapes. No emoji.
-- No hero banner. The home page is the shop.
+- No decorative hero. The opening composition shows the shop's own products (three photographs in white frames on the
+  logo orange, each linked, with name and price) and a headline that says what is sold; it disappears when there are
+  fewer than two good photographs. See `docs/NEXTX_STOREFRONT_REDESIGN_2026-10-18.md`.
 - No invented claims. Stock text comes from inventory; pickup and delivery lines appear only when the
   owner configured them; categories appear only when they have public products.
 - The storefront never names a product family in a URL.

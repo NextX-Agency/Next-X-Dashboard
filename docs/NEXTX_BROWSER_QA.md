@@ -21,7 +21,7 @@ Final run at the head of the branch (sixth session, with fixes S-3 to V-6), afte
 
 | Suite | Result | What it covers |
 |---|---|---|
-| Unit (`pnpm test`) | **346 / 346** | includes the image policy, sale picker rules (incl. the cost-ranged picker), SRD formatting, default line price, list-filter parsing |
+| Unit (`pnpm test`) | **375 / 375** | includes the image policy, sale picker rules (incl. the cost-ranged picker), SRD formatting, default line price, list-filter parsing |
 | `store-local` + `store-a11y` | 36 / 36 | storefront structure, redirects, 404/410, English, overflow at 3 widths, names/labels/landmarks, focus, dialogs, tap size, contrast, reduced motion |
 | `dashboard-local` | 9 / 9 (incl. the draft, date and phone-order regression test) | every staff page loads without console errors or horizontal overflow; record a sale (picker); oversell policy; expense; activity log; new order (picker); create a product with two options and refuse a duplicate SKU |
 | `purchasing-local` | 1 / 1 | supplier, purchase order (lines chosen in the photo picker), receipt: stock rises by exactly what was received, then the units appear in the sale picker |
@@ -90,6 +90,13 @@ reading code and then confirmed.
 | U-7 | P2 | Record a sale on a phone (390 px) | "Add product" sat about 1,600 px down, below customer, date, payment and currency, which are usually left as they are | browser at 390 px | section order | below `xl` the Items section comes first (CSS `order`; the tab order is unchanged and the desktop layout is untouched) (`5915573`) | browser screenshot at 390 px; `dashboard-local` measures the button's position |
 | V-5 | **P1** | Product page on a phone | The fixed buy bar read "SRD 1,500 · 1 item · Add to cart" and never named the option. The colour swatches are below the fold, so a shopper could add Black without having seen that Silver and Purple exist | browser at 390 px | the bar showed price and quantity only | the bar names the selected option ("Black · 1 item") and changes with it (`67571ce`) | `variants-local` "buy bar names the option"; browser read-back |
 | V-6 | P2 | Shop cards | A product sold in three colours looked like a single item ("from SRD 1,500") until opened | browser at 390 px | `option_count` was selected by the query but never returned | cards show "3 options" (not shown on a card that already matched an option, nor on a one-option product) (`67571ce`) | `variants-local` "a card says a product has several options"; browser read-back |
+| R-1 | **P1** | Shop filters, price with colour, option or stock | The price filter compared the product's cheapest price, while colour, options and stock matched one variant: a product with Black at SRD 3,000 and Silver at SRD 1,500 matched "Black, SRD 1,000 to 2,000" | brief, then code, then proven on a fixture (`price-fixture.sql`) | `price.min_price` bucket in `catalogConditions`, outside the variant `EXISTS` | one inclusive min/max range applied to the same variant row (`variantConditions`); old `?price=` links map onto it; facets give bounds, not tier counts | `catalog-local` (Graphite + 1,000 to 2,000 does not match; Pearl does, card shows Pearl SRD 1,500) |
+| R-2 | P2 | Home, 768 to 1023 px | The hero's product frames collapsed to captions: the grid had a height only from `lg` | screenshot at 768 | missing `md` min-height | `md:min-h-[480px]` | screenshot at 768 |
+| R-3 | P2 | Filters | "Connection" with one choice, and "New arrivals only" when nothing is new, were offered and led nowhere | browser, filter sheet | groups shown on any data | a group needs two choices; "new" needs a new arrival (facet count) | filter sheet read back |
+| R-4 | P2 | Filters sheet on a phone | Opening it blocked the tap for 190 to 340 ms (lab, 4x CPU) | lab probe of three taps | the sheet mounts every group synchronously | opened in a transition | probe: 56 ms |
+| R-5 | P2 | Cards | A photograph whose file fails to load showed a broken-image icon | review | plain `next/image` | `SafeImage` falls back to the placeholder | `catalog-local` (route returns 404) |
+| R-6 | P2 | Cart | Nothing told the customer what happens after pressing send | brief | missing copy | "What happens next" under the button | read back |
+| R-7 | P2 | Product page | No model or SKU on the page; the gallery had no keyboard or swipe | brief | missing | "Model X · SKU Y" follows the option; arrow keys and swipe; counter | `catalog-local` |
 
 ## 5. Open issues (not fixed)
 

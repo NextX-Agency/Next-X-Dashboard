@@ -15,6 +15,17 @@ file at the end of every session. Earlier sessions' detail is in git history and
 | Public language | **English throughout** (owner decision 2026-10-17). | `docs/NEXTX_ENGLISH_CONTENT.md` |
 | Variants and photographs | One image policy, option-aware shop and pickers. | `docs/NEXTX_VARIANTS_AND_IMAGES.md` |
 
+## Seventh session (18 Oct): storefront redesign
+
+Full account, evidence and the list of what is **not** proven: `docs/NEXTX_STOREFRONT_REDESIGN_2026-10-18.md`.
+In one paragraph: a real home page (hero of three real products on the brand orange, category tiles, two
+non-repeating shelves, ordering and pickup card), header navigation, an announcement bar and a fuller footer,
+all from catalogue and settings data; cards with Quick Add and Choose options; a desktop filter sidebar,
+variant-aware min/max price, token search with typo suggestions, best-match sort, history-aware filters;
+model and SKU, arrow keys and swipe on the product page; "what happens next" in the cart. A real P1 was found
+and fixed (price filter ignored the variant). Unit 375/375; Playwright 46/46 plain and 82/82 on fixtures; lab
+LCP 0.7 to 1.3 s, CLS 0. No migration, no dependency change. Not on staging yet.
+
 ## Sixth session (18 Oct): what changed
 
 Six defects found by using the app in the browser and fixed with regression tests (detail in `docs/NEXTX_BROWSER_QA.md` §4, S-3 to V-6):
@@ -32,7 +43,7 @@ Not done this session: staging (it needs the owner's sign-in and the owner's sud
 |---|---|---|
 | Biome | clean (400 files) | clean |
 | TypeScript | clean | clean |
-| Unit tests (vitest) | 346 of 346 | 337 |
+| Unit tests (vitest) | 375 of 375 | 346 |
 | Browser, storefront and accessibility (`store-local`, `store-a11y`) | 36 of 36 | 36 |
 | Browser, dashboard workflows (`dashboard-local`, writes data) | 7 of 7 | 5 |
 | Browser, buy-receive-sell (`purchasing-local`, writes data) | 1 of 1 (new) | – |
