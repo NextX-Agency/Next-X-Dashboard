@@ -327,7 +327,7 @@ export function PurchaseOrderForm({
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
-                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${index}`}>
+                  <Field label="Product" hideLabel={index > 0} htmlFor={`variant-${index}`}>
                     <Combobox
                       id={`variant-${index}`}
                       options={variantOptions}
@@ -346,7 +346,7 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${index}`}>
+                  <Field label="Qty" hideLabel={index > 0} htmlFor={`qty-${index}`}>
                     <Input
                       id={`qty-${index}`}
                       numeric
@@ -364,7 +364,7 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <Field label={index === 0 ? 'Goods (USD)' : ''} htmlFor={`sub-${index}`}>
+                  <Field label="Goods (USD)" hideLabel={index > 0} htmlFor={`sub-${index}`}>
                     <Input
                       id={`sub-${index}`}
                       numeric

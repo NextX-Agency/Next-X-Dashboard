@@ -403,7 +403,8 @@ export function BundleManager({
                 key={component.key}
               >
                 <Field
-                  label={index === 0 ? 'Product' : ''}
+                  label="Product"
+                  hideLabel={index > 0}
                   htmlFor={`bundle-component-${index}`}
                 >
                   <Combobox
@@ -422,7 +423,7 @@ export function BundleManager({
                     searchPlaceholder="Search SKU or name"
                   />
                 </Field>
-                <Field label={index === 0 ? 'Qty' : ''} htmlFor={`bundle-quantity-${index}`}>
+                <Field label="Qty" hideLabel={index > 0} htmlFor={`bundle-quantity-${index}`}>
                   <Input
                     id={`bundle-quantity-${index}`}
                     numeric

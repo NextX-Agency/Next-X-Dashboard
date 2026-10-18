@@ -588,7 +588,7 @@ export function SaleForm({
                     />
                   </div>
 
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${index}`}>
+                  <Field label="Qty" hideLabel={index > 0} htmlFor={`qty-${index}`}>
                     <Input
                       id={`qty-${index}`}
                       numeric
@@ -608,7 +608,8 @@ export function SaleForm({
                   </Field>
 
                   <Field
-                    label={index === 0 ? `Unit (${currency})` : ''}
+                    label={`Unit (${currency})`}
+                    hideLabel={index > 0}
                     htmlFor={`price-${index}`}
                   >
                     <Input

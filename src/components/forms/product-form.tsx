@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useState } from 'react';
@@ -244,8 +245,14 @@ export function ProductForm({
 
   const { execute, isPending } = useAction(action, {
     onSuccess({ data }) {
-      toast.success(isEdit ? `${data?.name} updated` : `${data?.name} created`);
-      router.push('/items');
+      toast.success(
+        isEdit ? `${data?.name} updated` : `${data?.name} created`,
+        isEdit
+          ? undefined
+          : { description: 'Add photos next. A product needs one before it can be published.' },
+      );
+      // A new product goes straight to its own page, where the photographs are added.
+      router.push((isEdit || !data?.id ? '/items' : `/items/${data.id}`) as Route);
       router.refresh();
     },
     onError({ error }) {
@@ -486,7 +493,7 @@ export function ProductForm({
                 key={variant.key}
                 className="grid gap-2 p-4 sm:grid-cols-[1fr_1fr_110px_110px_100px_120px_32px]"
               >
-                <Field label={index === 0 ? 'Option' : ''} htmlFor={`vname-${index}`}>
+                <Field label="Option" hideLabel={index > 0} htmlFor={`vname-${index}`}>
                   <Input
                     id={`vname-${index}`}
                     value={variant.name}
@@ -495,7 +502,7 @@ export function ProductForm({
                     onChange={(event) => setVariant(variant.key, { name: event.target.value })}
                   />
                 </Field>
-                <Field label={index === 0 ? 'SKU' : ''} htmlFor={`vsku-${index}`}>
+                <Field label="SKU" hideLabel={index > 0} htmlFor={`vsku-${index}`}>
                   <Input
                     id={`vsku-${index}`}
                     value={variant.sku}
@@ -507,7 +514,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'Sell (USD)' : ''} htmlFor={`vprice-${index}`}>
+                <Field label="Sell (USD)" hideLabel={index > 0} htmlFor={`vprice-${index}`}>
                   <Input
                     id={`vprice-${index}`}
                     numeric
@@ -519,7 +526,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'Barcode' : ''} htmlFor={`vbarcode-${index}`}>
+                <Field label="Barcode" hideLabel={index > 0} htmlFor={`vbarcode-${index}`}>
                   <Input
                     id={`vbarcode-${index}`}
                     value={variant.barcode}
@@ -529,7 +536,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'List cost' : ''} htmlFor={`vcost-${index}`}>
+                <Field label="List cost" hideLabel={index > 0} htmlFor={`vcost-${index}`}>
                   <Input
                     id={`vcost-${index}`}
                     numeric
@@ -541,7 +548,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label={index === 0 ? 'Weight (g)' : ''} htmlFor={`vweight-${index}`}>
+                <Field label="Weight (g)" hideLabel={index > 0} htmlFor={`vweight-${index}`}>
                   <Input
                     id={`vweight-${index}`}
                     numeric

@@ -262,7 +262,7 @@ export function OrderForm({
                       onChange={() => openPicker({ mode: 'replace', key: line.key })}
                     />
                   </div>
-                  <Field label={index === 0 ? 'Qty' : ''} htmlFor={`order-qty-${index}`}>
+                  <Field label="Qty" hideLabel={index > 0} htmlFor={`order-qty-${index}`}>
                     <Input
                       id={`order-qty-${index}`}
                       numeric
@@ -280,7 +280,8 @@ export function OrderForm({
                     />
                   </Field>
                   <Field
-                    label={index === 0 ? `Unit (${currency})` : ''}
+                    label={`Unit (${currency})`}
+                    hideLabel={index > 0}
                     htmlFor={`order-price-${index}`}
                   >
                     <Input

@@ -15,6 +15,7 @@ export function Field({
   hint,
   error,
   required,
+  hideLabel,
   className,
   children,
 }: {
@@ -23,6 +24,8 @@ export function Field({
   hint?: ReactNode;
   error?: string;
   required?: boolean;
+  /** Keep the label for assistive technology but do not draw it (repeated rows show it once). */
+  hideLabel?: boolean;
   className?: string;
   children: ReactNode;
 }) {
@@ -31,7 +34,13 @@ export function Field({
   return (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className="text-[11px] text-ink-3 uppercase tracking-[0.08em]">
+        <label
+          htmlFor={htmlFor}
+          className={cn(
+            'text-[11px] text-ink-3 uppercase tracking-[0.08em]',
+            hideLabel && 'sr-only',
+          )}
+        >
           {label}
           {required ? <span className="ml-0.5 text-negative">*</span> : null}
         </label>

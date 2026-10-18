@@ -194,3 +194,47 @@ test('new order: lines come from the visual picker, with the option photograph',
   await expect(page).toHaveURL(/\/orders\/[0-9a-f-]{36}$/, { timeout: 20_000 });
   await expect(page.getByText('ESSAGER 2m').first()).toBeVisible();
 });
+
+test('create a product with two options; a taken SKU is refused by name; both options reach the sale picker', async ({
+  page,
+}) => {
+  const run = Date.now().toString(36).toUpperCase();
+  const fill = async (name: string, code: string, skuA: string, skuB: string) => {
+    await page.goto('/items/new', { waitUntil: 'networkidle' });
+    await page.locator('#name').fill(name);
+    await page.locator('#code').fill(code);
+    if (!(await page.locator('#slug').inputValue()))
+      await page.locator('#slug').fill(code.toLowerCase());
+    await page.locator('#vname-0').fill('Black');
+    await page.locator('#vsku-0').fill(skuA);
+    await page.locator('#vprice-0').fill('25.00');
+    await page.getByRole('button', { name: 'Add variant' }).click();
+    // Every row has an accessible name, not only the first.
+    await page.getByLabel('Option', { exact: true }).nth(1).fill('Silver');
+    await page.locator('#vsku-1').fill(skuB);
+    await page.locator('#vprice-1').fill('27.00');
+  };
+
+  await fill(`E2E Two Option IEM ${run}`, `E2E-TWO-${run}`, `E2E-${run}-BLK`, `E2E-${run}-SLV`);
+  await page.getByRole('button', { name: 'Create product' }).click();
+  // A new product opens on its own page so the photographs can be added.
+  await expect(page).toHaveURL(/\/items\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+
+  // The same SKU on another product is named, not hidden behind "already exists".
+  await fill(`E2E Clash ${run}`, `E2E-CLASH-${run}`, `E2E-${run}-BLK`, `E2E-CLASH-${run}-SLV`);
+  await page.getByRole('button', { name: 'Create product' }).click();
+  await expect(
+    page.getByText(new RegExp(`SKU E2E-${run}-BLK is already used by E2E Two Option IEM`)),
+  ).toBeVisible();
+
+  // Both options are listed under one product in the picker, each with its own price.
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /add product/i }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByPlaceholder(/search name, model/i).fill(`E2E-${run}-SLV`);
+  await page.keyboard.press('Enter');
+  const detail = dialog.getByRole('complementary', { name: 'Selected product' });
+  await expect(detail.getByRole('button', { name: /Black/ })).toBeVisible();
+  await detail.getByRole('button', { name: /Silver/ }).click();
+  await expect(detail.getByText('$27.00').first()).toBeVisible();
+});
