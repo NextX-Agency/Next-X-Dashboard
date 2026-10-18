@@ -25,6 +25,14 @@ const search = z
   .catch('')
   .transform((value) => (value === '' ? undefined : value));
 const dir = z.enum(['asc', 'desc']).catch('desc');
+/** A calendar day, `YYYY-MM-DD`. Anything else is ignored rather than raising a 500. */
+const day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .optional()
+  .catch(undefined);
+/** A non-negative decimal amount typed by a person, in whole currency units. */
+const amount = z.coerce.number().min(0).max(1_000_000_000).optional().catch(undefined);
 
 /** One shared shape, since every list needs at least these three. */
 const base = { q: search, page, perPage };
@@ -32,6 +40,11 @@ const base = { q: search, page, perPage };
 export const saleQuerySchema = z.object({
   ...base,
   status: z.enum(['draft', 'confirmed', 'void']).optional().catch(undefined),
+  from: day,
+  to: day,
+  seller: z.string().uuid().optional().catch(undefined),
+  currency: z.enum(['USD', 'SRD']).optional().catch(undefined),
+  payment: z.enum(['paid', 'partly', 'unpaid', 'overdue']).optional().catch(undefined),
   sort: z.enum(['date', 'customer', 'revenue', 'margin']).catch('date'),
   dir,
 });
@@ -66,6 +79,11 @@ export const productQuerySchema = z.object({
   catalog: z.enum(['published', 'unpublished', 'missing']).optional().catch(undefined),
   stock: z.enum(['out-of-stock', 'low-stock']).optional().catch(undefined),
   featured: z.enum(['yes', 'no']).optional().catch(undefined),
+  images: z.enum(['missing', 'has']).optional().catch(undefined),
+  options: z.enum(['multiple', 'single']).optional().catch(undefined),
+  /** List-price range in US$ (the price the product list shows). */
+  minPrice: amount,
+  maxPrice: amount,
   brand: z.string().uuid().optional().catch(undefined),
   category: z.string().uuid().optional().catch(undefined),
   sort: z.enum(['name', 'onHand', 'stockValue', 'updated']).catch('name'),
@@ -75,6 +93,10 @@ export type ProductQuery = z.infer<typeof productQuerySchema>;
 
 export const stockQuerySchema = z.object({
   ...base,
+  category: z.string().uuid().optional().catch(undefined),
+  location: z.string().uuid().optional().catch(undefined),
+  /** in: more than zero on hand, low: at or under the alert level, out: none left, over: oversold. */
+  state: z.enum(['in', 'low', 'out', 'over']).optional().catch(undefined),
   sort: z.enum(['name', 'onHand', 'value']).catch('name'),
   dir,
 });

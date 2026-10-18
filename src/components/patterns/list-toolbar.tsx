@@ -142,3 +142,103 @@ export function ListFilter({
     </Select>
   );
 }
+
+/** A from/to pair of calendar days bound to two params. Either end may be left empty. */
+export function ListDateRange({
+  fromParam = 'from',
+  toParam = 'to',
+  label = 'Date',
+}: {
+  fromParam?: string;
+  toParam?: string;
+  label?: string;
+}) {
+  const [state, setState] = useQueryStates(
+    { [fromParam]: parseAsString, [toParam]: parseAsString, page: parseAsString },
+    { shallow: false, history: 'replace' },
+  );
+  const inputClass =
+    'h-8 rounded-control border border-line bg-raised px-2 text-[12px] text-ink focus-visible:border-accent-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
+  return (
+    <fieldset className="flex items-center gap-1.5">
+      <legend className="sr-only">{label} range</legend>
+      <label className="flex items-center gap-1.5 text-[12px] text-ink-3">
+        <span>{label} from</span>
+        <input
+          type="date"
+          aria-label={`${label} from`}
+          value={state[fromParam] ?? ''}
+          max={state[toParam] ?? undefined}
+          onChange={(event) =>
+            setState({ [fromParam]: event.target.value || null, page: null })
+          }
+          className={inputClass}
+        />
+      </label>
+      <label className="flex items-center gap-1.5 text-[12px] text-ink-3">
+        <span>to</span>
+        <input
+          type="date"
+          aria-label={`${label} to`}
+          value={state[toParam] ?? ''}
+          min={state[fromParam] ?? undefined}
+          onChange={(event) => setState({ [toParam]: event.target.value || null, page: null })}
+          className={inputClass}
+        />
+      </label>
+    </fieldset>
+  );
+}
+
+/** A min/max pair of amounts bound to two params. */
+export function ListNumberRange({
+  minParam,
+  maxParam,
+  label,
+}: {
+  minParam: string;
+  maxParam: string;
+  label: string;
+}) {
+  const [state, setState] = useQueryStates(
+    { [minParam]: parseAsString, [maxParam]: parseAsString, page: parseAsString },
+    { shallow: false, throttleMs: 400, history: 'replace' },
+  );
+  const inputClass =
+    'h-8 w-20 rounded-control border border-line bg-raised px-2 text-[12px] text-ink tabular focus-visible:border-accent-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring';
+  return (
+    <fieldset className="flex items-center gap-1.5">
+      <legend className="sr-only">{label} range</legend>
+      <span className="text-[12px] text-ink-3">{label}</span>
+      <input
+        inputMode="decimal"
+        aria-label={`${label} minimum`}
+        placeholder="Min"
+        value={state[minParam] ?? ''}
+        onChange={(event) =>
+          setState({
+            [minParam]: event.target.value.replace(/[^\d.]/g, '') || null,
+            page: null,
+          })
+        }
+        className={inputClass}
+      />
+      <span aria-hidden="true" className="text-ink-4">
+        –
+      </span>
+      <input
+        inputMode="decimal"
+        aria-label={`${label} maximum`}
+        placeholder="Max"
+        value={state[maxParam] ?? ''}
+        onChange={(event) =>
+          setState({
+            [maxParam]: event.target.value.replace(/[^\d.]/g, '') || null,
+            page: null,
+          })
+        }
+        className={inputClass}
+      />
+    </fieldset>
+  );
+}

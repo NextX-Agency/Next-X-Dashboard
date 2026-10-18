@@ -5,7 +5,12 @@ import { Suspense } from 'react';
 import { SaleActions } from '@/components/forms/row-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import {
+  ListDateRange,
+  ListFilter,
+  ListSearch,
+  ListToolbar,
+} from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +39,7 @@ import { formatDate } from '@/lib/format';
 import { parseListParams, type RawSearchParams, saleQuerySchema } from '@/lib/list-params';
 import { PAYMENT_LABELS, type PaymentBadgeCode } from '@/lib/payment-status';
 import { listSales } from '@/server/queries/lists';
+import { listSellerOptions } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -77,10 +83,9 @@ export default function SalesPage({
         }
       />
       <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by number or customer" />
-          <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
-        </ListToolbar>
+        <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
+          <SalesToolbar />
+        </Suspense>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-14', 'w-36', 'w-20']} />}>
           <SalesTable searchParams={searchParams} />
         </Suspense>
@@ -89,10 +94,49 @@ export default function SalesPage({
   );
 }
 
+const PAYMENT_OPTIONS = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'partly', label: 'Partly paid' },
+  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'overdue', label: 'Overdue' },
+];
+const CURRENCY_OPTIONS = [
+  { value: 'USD', label: 'USD' },
+  { value: 'SRD', label: 'SRD' },
+];
+
+async function SalesToolbar() {
+  const sellers = await listSellerOptions();
+  return (
+    <ListToolbar>
+      <ListSearch placeholder="Search number, customer, product or SKU" />
+      <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
+      <ListFilter param="payment" label="Payment" options={PAYMENT_OPTIONS} />
+      <ListFilter param="currency" label="Currency" options={CURRENCY_OPTIONS} />
+      {sellers.length > 0 ? (
+        <ListFilter
+          param="seller"
+          label="Seller"
+          options={sellers.map((seller) => ({ value: seller.id, label: seller.label }))}
+        />
+      ) : null}
+      <ListDateRange label="Sold" />
+    </ListToolbar>
+  );
+}
+
 async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const raw = await searchParams;
   const query = parseListParams(saleQuerySchema, raw);
-  const hasFilters = Boolean(query.q || query.status);
+  const hasFilters = Boolean(
+    query.q ||
+      query.status ||
+      query.payment ||
+      query.currency ||
+      query.seller ||
+      query.from ||
+      query.to,
+  );
   const result = await listSales(query);
 
   if (result.total === 0 && !hasFilters) {
@@ -376,19 +420,13 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
   );
 }
 
-function buildHref(query: {
-  q?: string;
-  status?: string;
-  sort?: string;
-  dir?: string;
-  page?: number;
-}): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.status) params.set('status', query.status);
-  if (query.sort) params.set('sort', query.sort);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/sales?${search}` : '/sales') as Route;
 }

@@ -1,11 +1,17 @@
 import { ImageOff, Package } from 'lucide-react';
 import type { Metadata, Route } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { ProductActions } from '@/components/forms/row-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import {
+  ListFilter,
+  ListNumberRange,
+  ListSearch,
+  ListToolbar,
+} from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -56,6 +62,14 @@ const STOCK_OPTIONS = [
   { value: 'out-of-stock', label: 'Out of stock' },
   { value: 'low-stock', label: 'Low stock' },
 ];
+const IMAGE_OPTIONS = [
+  { value: 'missing', label: 'No photo' },
+  { value: 'has', label: 'Has photo' },
+];
+const OPTION_OPTIONS = [
+  { value: 'multiple', label: 'Several variants' },
+  { value: 'single', label: 'One variant' },
+];
 const FEATURED_OPTIONS = [
   { value: 'yes', label: 'Featured' },
   { value: 'no', label: 'Not featured' },
@@ -96,11 +110,14 @@ async function ProductsToolbar() {
   const [brands, categories] = await Promise.all([listBrandOptions(), listCategoryOptions()]);
   return (
     <ListToolbar>
-      <ListSearch placeholder="Search by name or code" />
+      <ListSearch placeholder="Search name, code, model, brand or SKU" />
       <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
       <ListFilter param="catalog" label="Catalog" options={CATALOG_OPTIONS} />
       <ListFilter param="stock" label="Stock" options={STOCK_OPTIONS} />
+      <ListFilter param="images" label="Photos" options={IMAGE_OPTIONS} />
+      <ListFilter param="options" label="Variants" options={OPTION_OPTIONS} />
       <ListFilter param="featured" label="Merchandising" options={FEATURED_OPTIONS} />
+      <ListNumberRange minParam="minPrice" maxParam="maxPrice" label="Price US$" />
       <ListFilter
         param="brand"
         label="Brand"
@@ -124,6 +141,10 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
       query.catalog ||
       query.stock ||
       query.featured ||
+      query.images ||
+      query.options ||
+      query.minPrice !== undefined ||
+      query.maxPrice !== undefined ||
       query.brand ||
       query.category,
   );
@@ -234,12 +255,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
                       href={`/items/${row.id}` as Route}
                       className="inline-flex items-center gap-2 rounded-row hover:text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
                     >
-                      {row.imageCount === 0 ? (
-                        <ImageOff
-                          className="size-3.5 shrink-0 text-ink-4"
-                          aria-label="No image"
-                        />
-                      ) : null}
+                      <ProductThumb url={row.imageUrl} name={row.name} />
                       {row.name}
                     </Link>
                     {row.needsReview ? (
@@ -314,9 +330,7 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
             >
               <MobileRowHeader>
                 <span className="flex min-w-0 items-center gap-1.5">
-                  {row.imageCount === 0 ? (
-                    <ImageOff className="size-3.5 shrink-0 text-ink-4" aria-label="No image" />
-                  ) : null}
+                  <ProductThumb url={row.imageUrl} name={row.name} />
                   <span className="min-w-0">
                     <span className="block truncate text-[13px] text-ink">{row.name}</span>
                     <span className="tabular block text-[11px] text-ink-4">{row.code}</span>
@@ -373,29 +387,26 @@ async function ProductsTable({ searchParams }: { searchParams: Promise<RawSearch
   );
 }
 
-function buildHref(query: {
-  q?: string;
-  status?: string;
-  catalog?: string;
-  stock?: string;
-  featured?: string;
-  brand?: string;
-  category?: string;
-  sort?: string;
-  dir?: string;
-  page?: number;
-}): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.status) params.set('status', query.status);
-  if (query.catalog) params.set('catalog', query.catalog);
-  if (query.stock) params.set('stock', query.stock);
-  if (query.featured) params.set('featured', query.featured);
-  if (query.brand) params.set('brand', query.brand);
-  if (query.category) params.set('category', query.category);
-  if (query.sort) params.set('sort', query.sort);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/items?${search}` : '/items') as Route;
+}
+
+/** A small photograph of the product, or a labelled placeholder so a missing photo is visible. */
+function ProductThumb({ url, name }: { url: string | null; name: string }) {
+  return (
+    <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-control bg-white">
+      {url ? (
+        <Image src={url} alt="" fill sizes="36px" className="object-contain p-0.5" />
+      ) : (
+        <ImageOff className="size-4 text-ink-4" aria-label={`No photo of ${name}`} />
+      )}
+    </span>
+  );
 }

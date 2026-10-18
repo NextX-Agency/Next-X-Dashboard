@@ -1,11 +1,12 @@
-import { Boxes } from 'lucide-react';
+import { Boxes, ImageOff } from 'lucide-react';
 import type { Metadata, Route } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { StockAdjustSheet } from '@/components/forms/finance-sheets';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
-import { ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
+import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ import { formatRelative } from '@/lib/format';
 import { parseListParams, type RawSearchParams, stockQuerySchema } from '@/lib/list-params';
 import { formatMoney } from '@/lib/money';
 import { listStock } from '@/server/queries/lists';
+import { listCategoryOptions, listLocationOptions } from '@/server/queries/pickers';
 import { getSettings } from '@/server/queries/reference';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -55,9 +57,9 @@ export default function InventoryPage({
         action={<ExportCsvLink entity="inventory" searchParams={searchParams} />}
       />
       <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by product, variant or SKU" />
-        </ListToolbar>
+        <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
+          <StockToolbar />
+        </Suspense>
         <Suspense fallback={<TableSkeleton rows={4} widths={['w-48', 'w-28', 'w-16']} />}>
           <StockTable searchParams={searchParams} />
         </Suspense>
@@ -66,10 +68,40 @@ export default function InventoryPage({
   );
 }
 
+const STATE_OPTIONS = [
+  { value: 'in', label: 'In stock' },
+  { value: 'low', label: 'Low stock' },
+  { value: 'out', label: 'Out of stock' },
+  { value: 'over', label: 'Below zero' },
+];
+
+async function StockToolbar() {
+  const [categories, locations] = await Promise.all([
+    listCategoryOptions(),
+    listLocationOptions(),
+  ]);
+  return (
+    <ListToolbar>
+      <ListSearch placeholder="Search product, variant, SKU, model or brand" />
+      <ListFilter param="state" label="Stock level" options={STATE_OPTIONS} />
+      <ListFilter
+        param="category"
+        label="Category"
+        options={categories.map((entry) => ({ value: entry.id, label: entry.label }))}
+      />
+      <ListFilter
+        param="location"
+        label="Location"
+        options={locations.map((entry) => ({ value: entry.id, label: entry.name }))}
+      />
+    </ListToolbar>
+  );
+}
+
 async function StockTable({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   const raw = await searchParams;
   const query = parseListParams(stockQuerySchema, raw);
-  const hasFilters = Boolean(query.q);
+  const hasFilters = Boolean(query.q || query.category || query.location || query.state);
   const [result, settings] = await Promise.all([listStock(query), getSettings()]);
   // The same threshold the alerts panel reads, so the "Low" badge here and
   // the "running low" alert on the Overview can never disagree.
@@ -89,11 +121,11 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
     return (
       <EmptyState
         Icon={Boxes}
-        title="No stock matches this search"
-        description="Try a different product, variant or SKU."
+        title="No stock matches these filters"
+        description="Try a different product, variant or SKU, or clear the filters."
         action={
           <Button asChild variant="secondary" size="sm">
-            <Link href="/inventory">Clear search</Link>
+            <Link href="/inventory">Clear filters</Link>
           </Button>
         }
       />
@@ -122,6 +154,7 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
                 </THSort>
                 <TH>SKU</TH>
                 <TH>Category</TH>
+                {query.location ? <TH numeric>At location</TH> : null}
                 <TH numeric>Received</TH>
                 <TH numeric>Sold</TH>
                 <TH numeric>Inbound</TH>
@@ -160,13 +193,23 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
                 return (
                   <TR key={row.variantId}>
                     <TD className="whitespace-nowrap text-ink">
-                      {row.productName}
-                      <span className="text-ink-4"> · {row.variantName}</span>
+                      <span className="inline-flex items-center gap-2">
+                        <StockThumb url={row.imageUrl} name={row.productName} />
+                        <span>
+                          {row.productName}
+                          <span className="text-ink-4"> · {row.variantName}</span>
+                        </span>
+                      </span>
                     </TD>
                     <TD className="tabular whitespace-nowrap text-[12px] text-ink-3">
                       {row.sku}
                     </TD>
                     <TD className="whitespace-nowrap text-ink-3">{row.categoryName ?? '—'}</TD>
+                    {query.location ? (
+                      <TD numeric className="text-ink">
+                        {row.atLocation ?? 0}
+                      </TD>
+                    ) : null}
                     <TD numeric className="text-ink-3">
                       {row.received}
                     </TD>
@@ -243,11 +286,14 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
           return (
             <MobileRow key={row.variantId} interactive={false}>
               <MobileRowHeader>
-                <span className="min-w-0">
-                  <span className="block truncate text-[13px] text-ink">
-                    {row.productName} <span className="text-ink-4">· {row.variantName}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <StockThumb url={row.imageUrl} name={row.productName} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] text-ink">
+                      {row.productName} <span className="text-ink-4">· {row.variantName}</span>
+                    </span>
+                    <span className="tabular block text-[11px] text-ink-4">{row.sku}</span>
                   </span>
-                  <span className="tabular block text-[11px] text-ink-4">{row.sku}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1.5">
                   {negative ? (
@@ -295,12 +341,25 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
   );
 }
 
-function buildHref(query: { q?: string; sort?: string; dir?: string; page?: number }): Route {
+function buildHref(query: Record<string, string | number | undefined>): Route {
   const params = new URLSearchParams();
-  if (query.q) params.set('q', query.q);
-  if (query.sort) params.set('sort', query.sort);
-  if (query.dir) params.set('dir', query.dir);
-  if (query.page && query.page > 1) params.set('page', String(query.page));
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === '' || key === 'perPage') continue;
+    if (key === 'page' && Number(value) <= 1) continue;
+    params.set(key, String(value));
+  }
   const search = params.toString();
   return (search ? `/inventory?${search}` : '/inventory') as Route;
+}
+
+function StockThumb({ url, name }: { url: string | null; name: string }) {
+  return (
+    <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-control bg-white">
+      {url ? (
+        <Image src={url} alt="" fill sizes="32px" className="object-contain p-0.5" />
+      ) : (
+        <ImageOff className="size-3.5 text-ink-4" aria-label={`No photo of ${name}`} />
+      )}
+    </span>
+  );
 }

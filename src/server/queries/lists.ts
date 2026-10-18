@@ -12,7 +12,11 @@ import type {
   StockQuery,
 } from '@/lib/list-params';
 import type { Cents } from '@/lib/money';
-import { type PaymentBadgeCode, paymentBadgeOf } from '@/lib/payment-status';
+import {
+  OVERDUE_AFTER_DAYS,
+  type PaymentBadgeCode,
+  paymentBadgeOf,
+} from '@/lib/payment-status';
 import { db } from '../db/client';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
 import { bool, maybe, num, text } from './row';
@@ -32,7 +36,31 @@ import { bool, maybe, num, text } from './row';
  * easier to make fast when it is written as the one query it actually is.
  */
 
+/**
+ * The photograph for one variant, in SQL: its own first photo, else a shared one (primary first), else
+ * the product's primary photo only when the product has a single option. Mirrors
+ * src/lib/product-images.ts so a list thumbnail matches the shop and the sale picker.
+ */
+function variantImageSql(variantRef: string, productRef: string): SQL {
+  const v = sql.raw(variantRef);
+  const p = sql.raw(productRef);
+  return sql`COALESCE(
+    (SELECT COALESCE(i.thumb_url, i.url) FROM product_images i
+      WHERE i.variant_id = ${v} ORDER BY i.position LIMIT 1),
+    (SELECT COALESCE(i.thumb_url, i.url) FROM product_images i
+      WHERE i.product_id = ${p} AND i.variant_id IS NULL
+      ORDER BY i.is_primary DESC, i.position LIMIT 1),
+    CASE WHEN (SELECT COUNT(*) FROM product_variants sv
+                WHERE sv.product_id = ${p} AND sv.is_active) <= 1
+      THEN (SELECT COALESCE(i.thumb_url, i.url) FROM product_images i
+             WHERE i.product_id = ${p} ORDER BY i.is_primary DESC, i.position LIMIT 1)
+    END
+  )`;
+}
+
 export type ProductRow = {
+  /** The product's representative photograph (thumbnail when one exists), or null. */
+  imageUrl: string | null;
   id: string;
   code: string;
   name: string;
@@ -78,7 +106,39 @@ export async function listProducts(
   const conditions: SQL[] = [];
   if (query.q) {
     const term = `%${query.q}%`;
-    conditions.push(sql`(p.name ILIKE ${term} OR p.code ILIKE ${term})`);
+    conditions.push(sql`(
+      p.name ILIKE ${term} OR p.code ILIKE ${term} OR p.model_number ILIKE ${term}
+      OR EXISTS (SELECT 1 FROM brands qb WHERE qb.id = p.brand_id AND qb.name ILIKE ${term})
+      OR EXISTS (SELECT 1 FROM product_variants qv
+                  WHERE qv.product_id = p.id
+                    AND (qv.sku ILIKE ${term} OR qv.name ILIKE ${term} OR qv.barcode ILIKE ${term}))
+    )`);
+  }
+  if (query.images === 'missing') {
+    conditions.push(
+      sql`NOT EXISTS (SELECT 1 FROM product_images xi WHERE xi.product_id = p.id)`,
+    );
+  }
+  if (query.images === 'has') {
+    conditions.push(sql`EXISTS (SELECT 1 FROM product_images xi WHERE xi.product_id = p.id)`);
+  }
+  if (query.options) {
+    conditions.push(
+      query.options === 'multiple'
+        ? sql`(SELECT COUNT(*) FROM product_variants xv WHERE xv.product_id = p.id AND xv.is_active) > 1`
+        : sql`(SELECT COUNT(*) FROM product_variants xv WHERE xv.product_id = p.id AND xv.is_active) <= 1`,
+    );
+  }
+  // The price range matches a product when any active variant is priced inside it.
+  if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+    const min = Math.round((query.minPrice ?? 0) * 100);
+    const max = query.maxPrice === undefined ? null : Math.round(query.maxPrice * 100);
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM product_variants pv
+       WHERE pv.product_id = p.id AND pv.is_active
+         AND pv.list_price_cents >= ${min}
+         AND (${max}::bigint IS NULL OR pv.list_price_cents <= ${max}::bigint)
+    )`);
   }
   if (query.status) conditions.push(sql`p.status = ${query.status}::product_status`);
   if (query.catalog) {
@@ -125,6 +185,8 @@ export async function listProducts(
       b.name AS brand_name,
       s.name AS supplier_name,
       (SELECT COUNT(*) FROM product_variants v WHERE v.product_id = p.id)::text AS variant_count,
+      (SELECT COALESCE(i.thumb_url, i.url) FROM product_images i WHERE i.product_id = p.id
+        ORDER BY i.is_primary DESC, (i.variant_id IS NULL) DESC, i.position LIMIT 1) AS image_url,
       (SELECT COUNT(*) FROM product_images i WHERE i.product_id = p.id)::text AS image_count,
       COALESCE((SELECT SUM(sl.on_hand) FROM v_stock_levels sl
                  WHERE sl.product_id = p.id), 0)::text AS on_hand,
@@ -154,6 +216,7 @@ export async function listProducts(
   return toPage(
     rows.map((row) => ({
       id: text(row.id),
+      imageUrl: maybe(row.image_url),
       code: text(row.code),
       name: text(row.name),
       needsReview: bool(row.needs_review),
@@ -274,6 +337,9 @@ function parseReadinessImages(value: string | null | undefined): { alt?: string 
 
 export type StockLevelRow = {
   variantId: string;
+  imageUrl: string | null;
+  /** Units held at the selected location, when the list is filtered by location. */
+  atLocation: number | null;
   sku: string;
   productName: string;
   variantName: string;
@@ -308,9 +374,30 @@ export async function listStock(
   if (query.q) {
     const term = `%${query.q}%`;
     conditions.push(
-      sql`(s.sku ILIKE ${term} OR s.product_name ILIKE ${term} OR s.variant_name ILIKE ${term})`,
+      sql`(s.sku ILIKE ${term} OR s.product_name ILIKE ${term} OR s.variant_name ILIKE ${term}
+        OR pr.model_number ILIKE ${term}
+        OR EXISTS (SELECT 1 FROM brands qb WHERE qb.id = pr.brand_id AND qb.name ILIKE ${term}))`,
     );
   }
+  if (query.category) conditions.push(sql`pr.category_id = ${query.category}`);
+  if (query.state === 'in') conditions.push(sql`s.on_hand > 0`);
+  if (query.state === 'out') conditions.push(sql`s.on_hand = 0`);
+  if (query.state === 'over') conditions.push(sql`s.on_hand < 0`);
+  if (query.state === 'low') {
+    conditions.push(
+      sql`s.on_hand > 0 AND s.on_hand <= COALESCE((SELECT low_stock_threshold FROM settings LIMIT 1), 0)`,
+    );
+  }
+  // Legacy movements with no location count at the main location, as the shop's stock does.
+  const atLocation = query.location
+    ? sql`COALESCE((
+        SELECT SUM(lm.quantity) FROM inventory_movements lm
+         WHERE lm.variant_id = s.variant_id
+           AND (lm.location_id = ${query.location}
+                OR (lm.location_id IS NULL AND ${query.location} = (SELECT id FROM locations WHERE slug = 'main' LIMIT 1)))
+      ), 0)`
+    : null;
+  if (atLocation) conditions.push(sql`${atLocation} <> 0`);
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   const orderBy = STOCK_SORT[query.sort] ?? STOCK_SORT.name;
@@ -319,6 +406,8 @@ export async function listStock(
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT
       s.variant_id, s.sku, s.product_name, s.variant_name,
+      ${variantImageSql('s.variant_id', 's.product_id')} AS image_url,
+      ${atLocation ?? sql`NULL::bigint`}::text AS at_location,
       s.on_hand::text, s.total_received::text, s.total_sold::text,
       s.value_cents::text, s.last_movement_at::text,
       c.name AS category_name,
@@ -353,6 +442,8 @@ export async function listStock(
       const valueCents = num(row.value_cents);
       return {
         variantId: text(row.variant_id),
+        imageUrl: maybe(row.image_url),
+        atLocation: row.at_location === null ? null : num(row.at_location),
         sku: text(row.sku),
         productName: text(row.product_name),
         variantName: text(row.variant_name),
@@ -575,9 +666,43 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
   const conditions: SQL[] = [];
   if (query.q) {
     const term = `%${query.q}%`;
-    conditions.push(sql`(s.number ILIKE ${term} OR c.name ILIKE ${term})`);
+    conditions.push(sql`(
+      s.number ILIKE ${term} OR c.name ILIKE ${term}
+      OR EXISTS (
+        SELECT 1 FROM sale_items qi
+          JOIN product_variants qv ON qv.id = qi.variant_id
+          JOIN products qp ON qp.id = qv.product_id
+         WHERE qi.sale_id = s.id
+           AND (qp.name ILIKE ${term} OR qv.sku ILIKE ${term} OR qv.name ILIKE ${term})
+      )
+    )`);
   }
   if (query.status) conditions.push(sql`s.status = ${query.status}::sale_status`);
+  if (query.from) conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date >= ${query.from}::date`);
+  if (query.to) conditions.push(sql`(s.sold_at AT TIME ZONE 'UTC')::date <= ${query.to}::date`);
+  if (query.seller) conditions.push(sql`s.seller_id = ${query.seller}`);
+  if (query.currency) conditions.push(sql`s.currency = ${query.currency}::currency_code`);
+  if (query.payment) {
+    // Same rule as src/lib/payment-status.ts: only a confirmed sale is owed anything.
+    const paid = sql`(
+      COALESCE((SELECT SUM(fp.amount_cents) FROM sale_payments fp WHERE fp.sale_id = s.id), 0)
+      + COALESCE((
+          SELECT SUM(CASE WHEN fl.direction = 'in' THEN fl.amount_cents ELSE -fl.amount_cents END)
+            FROM ledger_entries fl
+           WHERE fl.source_kind = 'sale' AND fl.source_id = s.id AND fl.category = 'sales_receipt'
+        ), 0)
+    )`;
+    const aged = sql.raw(`s.sold_at < now() - interval '${OVERDUE_AFTER_DAYS} days'`);
+    conditions.push(
+      query.payment === 'paid'
+        ? sql`(s.status = 'confirmed' AND ${paid} >= s.total_cents)`
+        : query.payment === 'overdue'
+          ? sql`(s.status = 'confirmed' AND ${paid} < s.total_cents AND ${aged})`
+          : query.payment === 'partly'
+            ? sql`(s.status = 'confirmed' AND ${paid} > 0 AND ${paid} < s.total_cents AND NOT (${aged}))`
+            : sql`(s.status = 'confirmed' AND ${paid} <= 0 AND NOT (${aged}))`,
+    );
+  }
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   // Sequential scan over an ILIKE, not a trigram index: at a few hundred
