@@ -1,96 +1,93 @@
 # Dashboard 2.0 — progress and blockers (resume here)
 
-Last updated 2026-10-17 (fourth session: English shop, polish, dashboard review). Update this file at the
-end of every session. Earlier sessions' detail is in git history and the linked documents.
+Last updated 2026-10-18 (fifth session: visual sale picker, option-aware shop, filters, browser QA). Update this
+file at the end of every session. Earlier sessions' detail is in git history and the linked documents.
 
 ## State at a glance
 
 | Item | State | Evidence |
 |---|---|---|
 | Source of truth | Worktree `C:/Users/lrano/Documents/Codex/2026-10-16/i-w/work/nextx-dashboard-2.0`, branch `nextx-dashboard-2.0`. `D:/Nextly` (upstream) and `D:/Next-X-Dashboard` (old `main`) are untouched. | `git worktree list` |
-| GitHub `origin/nextx-dashboard-2.0` | Run `git log origin/nextx-dashboard-2.0 -1` for the pushed SHA; the owner deploys that full SHA. | |
-| Staging | **Still an older build.** Nothing from the last three sessions has been observed there. The owner runs `deploy/vps/deploy-pinned.sh` at an exact SHA. | |
-| Design | **Rustig** (owner's choice), implemented. `docs/03-design/design-system.md`, `docs/design-review/CREATIVE_DIRECTION.md` §10. | |
-| Public language | **English throughout** (owner decision 2026-10-17). `docs/NEXTX_ENGLISH_CONTENT.md`. | guard tests below |
+| Release candidate | Code last changed in `5448223`; later commits on the branch are documentation only. The owner deploys the **full tip SHA** (`git rev-parse origin/nextx-dashboard-2.0`). No migration, no dependency change and no deploy-script change in this session. | `docs/NEXTX_RELEASE_2026-10-18.md` |
+| Staging | **Still an older build** (seen 2026-10-18 in the signed-in browser: no photo or variant filters on Products, `?colour=` ignored on the shop). The owner runs `deploy/vps/deploy-pinned.sh` at the exact SHA; nothing from this session has run there. | `docs/NEXTX_BROWSER_QA.md` §1 |
+| Production | Untouched. **NO-GO** (see the release document). | |
+| Design | **Rustig** (owner's choice), implemented. | `docs/03-design/design-system.md` |
+| Public language | **English throughout** (owner decision 2026-10-17). | `docs/NEXTX_ENGLISH_CONTENT.md` |
+| Variants and photographs | One image policy, option-aware shop and pickers. | `docs/NEXTX_VARIANTS_AND_IMAGES.md` |
 
 ## Checks run this session (local, against the disposable rehearsal database)
 
 | Check | Result | Baseline before |
 |---|---|---|
-| Biome | clean | clean |
+| Biome | clean (400 files) | clean |
 | TypeScript | clean | clean |
-| Unit tests (vitest) | 313 of 313 | 237 |
-| Browser, storefront (`store-local`) | 15 of 15 | 15 (13 + 2) |
-| Browser, accessibility (`store-a11y`) | 21 of 21 (new) | – |
-| Browser, dashboard workflows (`dashboard-local`) | 5 of 5 (new; writes data, see below) | – |
+| Unit tests (vitest) | 337 of 337 | 313 |
+| Browser, storefront and accessibility (`store-local`, `store-a11y`) | 36 of 36 | 36 |
+| Browser, dashboard workflows (`dashboard-local`, writes data) | 7 of 7 | 5 |
+| Browser, buy-receive-sell (`purchasing-local`, writes data) | 1 of 1 (new) | – |
+| Browser, variants (`variants-local`, needs the variant fixture) | 15 of 15 (new) | – |
 | Production build (`next build`, placeholder self-hosted env) | passes | passes |
+| Constraint rehearsal (visual fixture) | 16 of 17; the failure needs the imported invoice row | 17 of 17 on the sanitized import (2026-09-25) |
+| RLS runtime, concurrency, migration rehearsal | **not re-run**: the importer refuses to write without the owner's readiness report | 128/128 and 15/15 (2026-09-25) |
 
-Run commands are in the header of each spec. `store-local` and `store-a11y` need
-`E2E_VISUAL_FIXTURES=1`; `dashboard-local` writes rows and needs `E2E_DISPOSABLE_DB=1` on a localhost URL,
-then `bash scripts/rehearsal/reset-local.sh` afterwards (stop the dev server first).
+Run commands are in the header of each spec. `store-local` and `store-a11y` need `E2E_VISUAL_FIXTURES=1`;
+`dashboard-local` and `purchasing-local` write rows and need `E2E_DISPOSABLE_DB=1` on a localhost URL, then
+`bash scripts/rehearsal/reset-local.sh` afterwards (stop the dev server first). `variants-local` needs the
+synthetic variant fixture (`psql <rehearsal db> -f scripts/rehearsal/variant-fixture.sql`) and
+`E2E_VARIANT_FIXTURE=1`; run the other suites on a database **without** that fixture (they count 15 products).
 
 ## What changed this session
 
-- **English shop.** Every public page, the metadata, `lang="en-SR"`, the share image, the 404/410 pages, the
-  two customer forms and the quote page. Prices `SRD 4,850`. WhatsApp messages are built in one module
-  (`src/lib/store-messages.ts`) and asserted verbatim in tests. Stored Dutch records are shown in English at
-  display time without touching the database (`src/lib/english-content.ts`). A source scan, a rendered-page
-  scan and a records audit keep Dutch out (`tests/unit/storefront-english.test.ts`, "English throughout" in
-  `store-local`, `scripts/audit/storefront-language.ts`).
-- **Rustig polish.** Card prices align at the card foot; the product photo opens in a dialog; the quote
-  toggle looks like a control; tap targets are at least 40 px; the cart line no longer crushes the product
-  name on a phone; the cart reserves its height so it no longer shifts (CLS 0.24 to 0).
-- **Search.** `%` and `_` in a query are escaped (`src/lib/like.ts`); a storefront title override is searchable.
-- **Structured data.** Product JSON-LD has absolute URLs and a `url`; the Dutch placeholder variant name no
-  longer leaks into it; the meta description falls back to the first paragraph of the English copy.
-- **Dashboard.** All 32 staff pages loaded at 1440 and 390 px with no console errors and no horizontal
-  overflow, and were looked at (contact sheets, not committed). Fixed: hydration mismatches in the new-product
-  and new-purchase-order forms (random ids), the dev-only instant-navigation errors on every list page
-  (`instant = false` per page, `await connection()` on Overview), Bundles and Commissions overflowing at
-  390 px (responsive grids now have a base single column), orange "outline" buttons (now neutral), search
-  placeholders truncated on phones, the Storefronts list showing `/audio`. New: owner-only **Activity log**
-  (`/activity`, read-only, filter and search, shows recorded changes).
-- **Performance (lab).** Production build, Chromium, 390 px, 4x CPU slowdown, Fast 4G
-  (`scripts/perf/lab-vitals.mjs`), median of 3: LCP 0.7 s home, 0.7 s shop, 1.0 s product, 1.4 s cart; CLS 0
-  on all four; about 225 KB of JavaScript transferred per page; 190 KB of images on the shop. One lab machine,
-  not field data. INP is only a proxy: scripted taps under the 4x slowdown took 40 to 144 ms (switch, sort,
-  category chip, closing a sheet) and 128 to 296 ms for **opening the Filters sheet**, the one interaction
-  above the 200 ms target in the lab. Watch it in real-user data before changing anything. No field data exists yet.
+- **Visual sale picker** (Record a sale and New order): photo grid or compact list; search over name, model,
+  brand, SKU and option values; category and stock filters; per-option photograph, price in the sale currency and
+  stock per location; quantity; "Add to sale" keeps the dialog open; keyboard flow (search, Enter, Enter adds one);
+  focus returns to the opener; sale lines show the option photograph. Pricing, costing and posting are unchanged.
+- **One image policy** (`src/lib/product-images.ts`) and the option-aware product page: gallery, price, stock,
+  pickup, add-to-cart, WhatsApp message and cart line share one selected option, mirrored to `?variant=SKU`;
+  labelled colour swatches; the cart shows the option photograph. An option with no photograph shows a
+  placeholder, never another option's photograph.
+- **Shop filters**: brand, colour, other options (connector and so on), price tier, availability; multi-select; a
+  product matches only through one variant that satisfies every variant-level filter; documented facet counts;
+  chips and Clear all; cards open on the matching option.
+- **Dashboard**: filters and thumbnails for products, inventory and sales; option photo badges, per-option
+  upload, "main photo of its option", variant reordering, SKU conflicts named; the sale page shows the current
+  option photograph beside the sale's own snapshot.
+- **Defects fixed** (full list in `docs/NEXTX_BROWSER_QA.md` §4): SRD amounts rendered with the US dollar sign
+  everywhere (including the customer quote page); the SRD order default price was the USD number; pickup stock
+  ignored legacy no-location movements; two stacked dialogs on empty Suppliers and Categories; unlabeled repeated
+  form rows; a sale date filter off by one day (in new code).
+- **Docs and tools**: `NEXTX_VARIANTS_AND_IMAGES.md`, `NEXTX_BROWSER_QA.md`, `audits/2026-10-18-media-audit.md`,
+  `NEXTX_RELEASE_2026-10-18.md`, `scripts/audit/media-integrity.ts`, `scripts/rehearsal/variant-fixture.sql`.
 
 ## Owner actions and open decisions
 
-1. **Deploy to staging.** Run `deploy/vps/deploy-pinned.sh` with the full SHA below and your own sudo
-   password. Then re-run the redirect table and the storefront checklist on staging.
-2. **Apply the English text to the records** so the display fallbacks can be deleted: product titles
-   (storefront title override), Settings text, the KZ AS16 Pro X description and specifications
-   (`docs/NEXTX_ENGLISH_CONTENT.md`). Also rename the price list "Publiek SRD" (staff-visible, Dutch).
-3. **Photography.** All 15 products have exactly one photograph, 500 to 1,500 px square. Weakest: KZ Vader
-   (500 px), KZ EDX Pro and EDX Pro X (640 px), ESSAGER 1 m and 2 m (720 px). Several look like marketplace
-   images; confirm you hold the rights, then reshoot on one background at 1,600 px or more. No second angle
-   exists for any product.
-4. **Pickup and contact details.** Settings has a placeholder WhatsApp number locally and no address or
-   hours. The shop shows only what is configured. Pickup text contradicted itself in the old data
-   (Paramaribo vs Commewijne): confirm one answer.
-5. Watches: keep retired or plan a relaunch. Sellers log in? Month-end lock, bill inbox, budgets
-   (parity matrix rows 17, 21, 22, 23). The 80 migration worksheet findings are untouched.
+1. **Rotate the VPS password.** It was pasted into the chat on 2026-10-18. It was not used.
+2. **Deploy to staging.** On the VPS, check out the full SHA in `~/nextx` (clean tree), then
+   `sudo bash ~/nextx/deploy/vps/deploy-pinned.sh <full-sha>` with your own sudo password. Then run the staging
+   checklist in `docs/NEXTX_RELEASE_2026-10-18.md` §4 and send the results back.
+3. **Sign the reconciliation** (`docs/audits/2026-10-16-reconciliation-report.md`, sign-off block blank) and test
+   the restore of the post-import dump. Both gate production.
+4. **Photography.** See `docs/audits/2026-10-18-media-audit.md`: KZ Vader (500 px), EDX Pro and EDX Pro X (640 px),
+   ESSAGER 1 m and 2 m (720 px, and the same picture), plus a second angle for every product. Confirm you hold the
+   rights.
+5. **Options on real products.** No active product has more than one option today. To sell a colour as an option,
+   edit the product, add a variant per colour with the attribute `colour`, and upload a photograph per colour.
+6. Earlier open items stand: pickup text (Paramaribo or Commewijne), WhatsApp number and hours, retire or relaunch
+   the watches (their colourways are separate archived products), seller logins, month-end lock, bill inbox,
+   budgets, the 80 migration worksheet findings, applying the English text to the stored records.
 
 ## Not done / not verified (do not claim)
 
-- **Staging and production** have not been tested with any of this. Real-device testing (phone, WhatsApp
-  hand-off, no-WhatsApp fallback) was **not** done; only emulated 390 px browsers.
-- **No screen-reader session.** Automated checks cover names, focus, dialogs, tap size, contrast and
-  reduced motion. Contrast is computed per text run and the checker has a self-test.
-- **Dashboard:** pages were reviewed on mostly empty data (the rehearsal database has no sales history);
-  data-heavy layouts (long tables, many rows) are unreviewed. Forms covered by a workflow test: record a sale,
-  oversell policy, log an expense. Not exercised: product create/edit, purchase order receive, order
-  confirm/fulfil, customer edit, payments, settings saves. Permissions for non-owner roles were not tested
-  (the local auth hook signs in as an owner); the Activity log's owner gate is by inspection only.
-- **Parity-matrix gaps still open:** stock transfers between locations (needs a schema decision), finance
-  exception review, branch management, seller workflows, month-end close, supplier bill inbox.
-- **Financial reconciliation reruns, backup/restore, email delivery, role tests** remain readiness
-  requirements and were not touched.
-- The public JSON API (`/api/v1/storefront/*`) returns stored text untranslated.
-- Bundles are not shown anywhere (none exist), so the "Bundles" wording is untested on real data.
+- The new code on staging or production. No real-device test, no screen reader, no staff or viewer role session.
+- Image upload (needs storage); the media audit against the real `product_images` rows (needs the VPS).
+- Dashboard filters for finance, orders, customers and expenses; the text picker remains on purchase orders,
+  quotes and bundles.
+- Migration rehearsal, RLS runtime and concurrency re-run, backup restore of the post-import dump, financial and
+  stock reconciliation re-run, email delivery.
+- Parity-matrix gaps from earlier sessions are unchanged (stock transfers, finance exception review, branches,
+  seller workflows, month-end close, supplier bill inbox).
+- The public JSON API (`/api/v1/storefront/*`) returns stored text untranslated; the cart quote response gained an
+  `imageUrl` field per item.
 
 ## How to run it locally (no Docker)
 
