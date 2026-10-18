@@ -17,17 +17,17 @@ credentials). No real-device test was possible (emulated 390 / 768 / 1440 px bro
 
 ## 2. Automated browser suites (Playwright, Chromium) and unit tests
 
-Final run at the head of the branch, after resetting the disposable database:
+Final run at the head of the branch (sixth session, with fixes S-3 to V-6), after resetting the disposable database. Whole-session totals: unit 346/346; Playwright 46/46 (store-local, store-a11y, dashboard-local, purchasing-local, on the plain fixture) and 24/24 (variants-local, filters-local, on the variant fixture):
 
 | Suite | Result | What it covers |
 |---|---|---|
-| Unit (`pnpm test`) | **343 / 343** | includes the image policy, sale picker rules (incl. the cost-ranged picker), SRD formatting, default line price, list-filter parsing |
+| Unit (`pnpm test`) | **346 / 346** | includes the image policy, sale picker rules (incl. the cost-ranged picker), SRD formatting, default line price, list-filter parsing |
 | `store-local` + `store-a11y` | 36 / 36 | storefront structure, redirects, 404/410, English, overflow at 3 widths, names/labels/landmarks, focus, dialogs, tap size, contrast, reduced motion |
-| `dashboard-local` | 7 / 7 | every staff page loads without console errors or horizontal overflow; record a sale (picker); oversell policy; expense; activity log; new order (picker); create a product with two options and refuse a duplicate SKU |
+| `dashboard-local` | 9 / 9 (incl. the draft, date and phone-order regression test) | every staff page loads without console errors or horizontal overflow; record a sale (picker); oversell policy; expense; activity log; new order (picker); create a product with two options and refuse a duplicate SKU |
 | `purchasing-local` | 1 / 1 | supplier, purchase order (lines chosen in the photo picker), receipt: stock rises by exactly what was received, then the units appear in the sale picker |
 | `filters-local` (needs the variant fixture) | 7 / 7 | photo picker on purchase orders (option photograph, reference cost, change, merge), bundles (component photograph, saved) and quotes (opened from the row menu, price filled); filters: orders (customer, date range incl. the UTC day boundary, payment status, combined, empty state), ledger (type, currency, wallet, date range), customers (last-order range), expenses (date range). Fixtures are inserted with a per-run marker |
-| `variants-local` (needs the variant fixture) | 15 / 15 | option page sync (photo, price, stock, pickup, URL), WhatsApp message, no-photo option, cart photo, combined filters, chips, Clear all, filter sheet, empty result, matched-card price/stock, picker search/option/quantity/keyboard/focus return, picker filters, no horizontal overflow at 390/768/1440 |
-| Lint, types | Biome clean (403 files), `tsc` clean | |
+| `variants-local` (needs the variant fixture) | 17 / 17 (incl. the options-on-cards and buy-bar tests) | option page sync (photo, price, stock, pickup, URL), WhatsApp message, no-photo option, cart photo, combined filters, chips, Clear all, filter sheet, empty result, matched-card price/stock, picker search/option/quantity/keyboard/focus return, picker filters, no horizontal overflow at 390/768/1440 |
+| Lint, types | Biome clean (404 files), `tsc` clean | |
 | Production build (`next build`) | passes | placeholder self-hosted env, as in the progress doc |
 
 Not run: `smoke`, `access`, `storefront` (they need a staging login and write to staging).
@@ -47,6 +47,14 @@ Not run: `smoke`, `access`, `storefront` (they need a staging login and write to
 - Dashboard: products with the new filters (9 queries), inventory (10), sales (12), edit a product, make a photo
   the main photo of its option, rename a SKU to one in use (refused with the owner of the SKU named).
 - Staging, read-only: Overview, Products (34 rows), public `/shop` and every product image URL (see the media audit).
+
+**Sixth session (18 Oct, built-in browser pane, development server, disposable database):**
+
+- Shop at 1440 and 390 px: home, `/shop` search by model, partial name, brand, SKU, no match; brand, category, in-stock, sort and combined queries (read back from the HTML); the filter sheet on a phone (opened, a price tier applied, count and tick read back, Clear shown).
+- Product page at 1440 and 390 px; add to cart; the cart (a stale line from an earlier session for a product that no longer exists was handled and removed); the **WhatsApp link read, not sent** (product, SKU, quantity, price, estimated total, pickup place and date were all correct).
+- Colour-option product at 390 px (synthetic fixture): swatches, sold-out option, sticky buy bar. This found V-5 and V-6.
+- Dashboard as owner: Overview; Record a sale at 1440 px (picker, search, Enter-Enter keyboard add, Escape, line with photograph, Save as draft), then the draft's page, "Save and confirm" (receipt +$38.96, stock −1 unit posted) and the stored dates read in SQL. This found S-3, S-4, S-5. Record a sale at 390 px found U-7.
+- Not done by hand this session: every other dashboard page (only the automated page-load test), tablet width by hand, the staging site (needs the owner's sign-in; no staging session was available to me), any role other than owner.
 
 ## 4. Issue register
 
@@ -76,6 +84,12 @@ reading code and then confirmed.
 | Q-1 | **P1** | Quote requests, row menu: "Create quote" and "Convert to sale" | Choosing either closed the menu and **the dialog disappeared with it**, so neither action could be used from the list | e2e (the new quote picker test: the sheet "detached from the DOM") | `CreateQuoteDialog` / `ConvertQuoteDialog` were rendered inside the Radix menu content, which unmounts when the menu closes (the Edit sheet was already rendered beside the menu) | `fc0565e` the dialogs are controlled and rendered next to the menu | `filters-local` 3 submits a quote ("Secure quote link copied") |
 | L-1 | P2 | Orders, cash ledger, customers, expenses | No way to narrow by customer, date, payment, currency, wallet or direction | the brief (was O-7) | no filter fields | `fc0565e`, see section 7 for what each filter means | `filters-local` 4-7 |
 | U-6 | P2 | Date-range filter on a phone | The "to" date ran past the right edge of the card (also on Sales) | browser at 375 px | non-wrapping flex row | `fc0565e` wraps | screenshot at 375 px; no horizontal overflow on /ledger, /orders, /purchase-orders/new |
+| S-3 | **P1** | Record a sale, "Save as draft" | The confirmation toast said "Sale V001 recorded: $38.96 revenue · $38.96 gross profit" for a **draft**, which has moved no stock, booked no cost and posted no receipt | browser (draft saved by hand on the disposable database) | `createHook.onSuccess` always used the "recorded" text with `totalUsdCents - cogsCents`; a draft has `cogsCents` 0 | the toast now reads "Draft V002 saved: nothing is booked until you confirm it" and shows no profit (`input.confirm` decides) (`5915573`) | `dashboard-local` "a draft books nothing" (fails without the fix, passes with it); browser read-back |
+| S-4 | P1 | Sales list and sale page, draft rows | A draft showed cost $0.00 and a green **100.0% margin** (and the same on every line), as if the whole price were profit | browser | margin was computed from `cogsCents` which a draft has not booked yet | cost, gross and margin show "—" for a draft on the list (desktop and phone) and the sale page (lines, totals, phone cards) (`5915573`) | list and sale page read back in the browser; `dashboard-local` |
+| S-5 | **P1** | Sale page, edit a draft then "Save and confirm" | The **sale date moved back one day** (Oct 18 became Oct 17), and with it the receipt date and the exchange rate looked up for the day | browser, then the stored value (`2026-10-17 21:00:00-03`, which is 18 Oct 00:00 UTC) | the edit form's date was `sale.soldAt.slice(0, 10)` of the database's *text*, written in the database session's time zone (UTC-3 here), while the form and the stored day are UTC | `utcDateInput()` reads the UTC day of the timestamp (`src/lib/format.ts`), unit-tested; on a database whose session time zone is UTC the text was already UTC, so this is latent on the VPS but wrong on any other zone (`5915573`) | unit tests; browser: the edit form loads 2026-10-18 and the confirmed sale keeps `2026-10-18`; `dashboard-local` checks the date field after the round trip |
+| U-7 | P2 | Record a sale on a phone (390 px) | "Add product" sat about 1,600 px down, below customer, date, payment and currency, which are usually left as they are | browser at 390 px | section order | below `xl` the Items section comes first (CSS `order`; the tab order is unchanged and the desktop layout is untouched) (`5915573`) | browser screenshot at 390 px; `dashboard-local` measures the button's position |
+| V-5 | **P1** | Product page on a phone | The fixed buy bar read "SRD 1,500 · 1 item · Add to cart" and never named the option. The colour swatches are below the fold, so a shopper could add Black without having seen that Silver and Purple exist | browser at 390 px | the bar showed price and quantity only | the bar names the selected option ("Black · 1 item") and changes with it (`67571ce`) | `variants-local` "buy bar names the option"; browser read-back |
+| V-6 | P2 | Shop cards | A product sold in three colours looked like a single item ("from SRD 1,500") until opened | browser at 390 px | `option_count` was selected by the query but never returned | cards show "3 options" (not shown on a card that already matched an option, nor on a one-option product) (`67571ce`) | `variants-local` "a card says a product has several options"; browser read-back |
 
 ## 5. Open issues (not fixed)
 
@@ -89,6 +103,9 @@ reading code and then confirmed.
 | O-7 | P2 | Dashboard filters | Reduced: stock movement type and date range still have no list to filter (the ledger shows movements only on a sale). Purchase orders, quotes, wallets, invoices and the activity log were not in scope and have only their earlier filters |
 | O-8 | P2 | Shop | The price filter is four fixed tiers, not a free range; "driver configuration" and similar technical filters are not offered because no such data is populated |
 | O-9 | P2 | Staging build | `/shop?brand=kz&availability=in-stock` returned 0 products on staging (older build) while KZ products have stock; unexplained, re-test after deploying this branch |
+| O-10 | P2 | Cart | A cart line whose product was removed or sold out shows three messages at once ("No price is available…", "This product is no longer available…" and the red banner); one would do. Left alone: it is correct and blocks the order |
+| O-11 | P2 | Dashboard, phone | "Cancel" under the page title is indented differently from the title; the sale form's tab order follows the DOM, not the phone's visual order (Items first) |
+| O-12 | P2 | Method | Every interactive check this session ran in the **development server** (slow first compile, images fade in late), in an emulated 390/768/1440 browser. Nothing was timed, and real phones were not used |
 
 ## 6. Not tested (do not claim)
 

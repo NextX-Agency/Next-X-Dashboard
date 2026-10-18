@@ -1,6 +1,6 @@
 # Dashboard 2.0 — progress and blockers (resume here)
 
-Last updated 2026-10-18 (fifth session: visual sale picker, option-aware shop, filters, browser QA). Update this
+Last updated 2026-10-18 (sixth session: real-browser walkthrough, draft-sale and date fixes, option cues on the shop; fifth session before it: visual sale picker, option-aware shop, filters, browser QA). Update this
 file at the end of every session. Earlier sessions' detail is in git history and the linked documents.
 
 ## State at a glance
@@ -15,13 +15,24 @@ file at the end of every session. Earlier sessions' detail is in git history and
 | Public language | **English throughout** (owner decision 2026-10-17). | `docs/NEXTX_ENGLISH_CONTENT.md` |
 | Variants and photographs | One image policy, option-aware shop and pickers. | `docs/NEXTX_VARIANTS_AND_IMAGES.md` |
 
+## Sixth session (18 Oct): what changed
+
+Six defects found by using the app in the browser and fixed with regression tests (detail in `docs/NEXTX_BROWSER_QA.md` §4, S-3 to V-6):
+
+- **Drafts no longer look like profit.** The toast for a saved draft said "recorded" with a gross profit; the sales list and sale page showed a draft at cost $0.00 and 100% margin. Now "Draft saved: nothing is booked until you confirm it", and cost, gross and margin show —.
+- **Editing a draft no longer moves its date back a day** (found on a database whose session time zone is UTC-3; the VPS's zone was not checked).
+- **Phones:** Record a sale shows the products first; the product page's buy bar names the option being added; shop cards say "3 options".
+- No migration, no dependency change, no deploy-script change. Rollback is redeploying the previous SHA.
+
+Not done this session: staging (it needs the owner's sign-in and the owner's sudo to deploy, so the staging build is still the old one), the production gates, real devices.
+
 ## Checks run this session (local, against the disposable rehearsal database)
 
 | Check | Result | Baseline before |
 |---|---|---|
 | Biome | clean (400 files) | clean |
 | TypeScript | clean | clean |
-| Unit tests (vitest) | 337 of 337 | 313 |
+| Unit tests (vitest) | 346 of 346 | 337 |
 | Browser, storefront and accessibility (`store-local`, `store-a11y`) | 36 of 36 | 36 |
 | Browser, dashboard workflows (`dashboard-local`, writes data) | 7 of 7 | 5 |
 | Browser, buy-receive-sell (`purchasing-local`, writes data) | 1 of 1 (new) | – |
