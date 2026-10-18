@@ -112,7 +112,9 @@ export function formatMoney(
     formatter = new Intl.NumberFormat('en-US', {
       style: options.bare ? 'decimal' : 'currency',
       currency,
-      currencyDisplay: 'narrowSymbol',
+      // The narrow symbol of the Surinamese dollar is "$", the same as the US dollar's. An SRD amount
+      // must never read as USD, so every currency except USD is written with its code ("SRD 1,500.00").
+      currencyDisplay: currency === 'USD' ? 'narrowSymbol' : 'code',
       minimumFractionDigits: fractionDigits,
       maximumFractionDigits: fractionDigits,
     });

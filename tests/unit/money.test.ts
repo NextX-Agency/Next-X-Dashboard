@@ -76,6 +76,14 @@ describe('formatting', () => {
     expect(formatMoney(-4000, 'USD')).toBe('-$40.00');
   });
 
+  it('never writes a Surinamese dollar with the US dollar sign', () => {
+    // Intl's narrow symbol for SRD is "$"; an SRD amount shown as "$246.62" reads as USD.
+    expect(formatMoney(24662, 'SRD').replace(/ /g, ' ')).toBe('SRD 246.62');
+    expect(formatMoney(24662, 'SRD', { bare: true })).toBe('246.62');
+    expect(formatMoney(-150000, 'SRD').replace(/ /g, ' ')).toBe('-SRD 1,500.00');
+    expect(formatMoney(24662, 'SRD')).not.toContain('$');
+  });
+
   it('compacts for chart axes', () => {
     // One decimal below 10k, none above: $1.2k, $9.9k, $12k, $250k.
     expect(formatCompact(22000)).toBe('$220');

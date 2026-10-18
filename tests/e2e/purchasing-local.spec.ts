@@ -73,11 +73,7 @@ test('supplier, purchase order, receipt: stock rises by exactly what was receive
 
   // Open the order and receive everything.
   await page.goto('/purchase-orders', { waitUntil: 'networkidle' });
-  await page
-    .locator('tbody tr', { hasText: supplier })
-    .getByRole('link')
-    .first()
-    .click();
+  await page.locator('tbody tr', { hasText: supplier }).getByRole('link').first().click();
   await expect(page).toHaveURL(/\/purchase-orders\/[0-9a-f-]{36}/);
   await page
     .getByRole('button', { name: /receive/i })
