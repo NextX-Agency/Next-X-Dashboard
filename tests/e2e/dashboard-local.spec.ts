@@ -32,6 +32,27 @@ async function available(page: import('@playwright/test').Page): Promise<number>
   return Number(cell);
 }
 
+/** Choose a product in the visual picker the way staff do: search, open it, set the quantity, add. */
+async function addToSale(
+  page: import('@playwright/test').Page,
+  search: string,
+  quantity?: number,
+): Promise<void> {
+  await page.getByRole('button', { name: /add (another )?product/i }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByPlaceholder(/search name, model/i).fill(search);
+  await dialog
+    .getByRole('button', { name: new RegExp(search) })
+    .first()
+    .click();
+  if (quantity !== undefined)
+    await dialog.getByLabel('Quantity', { exact: true }).fill(String(quantity));
+  await dialog.getByRole('button', { name: 'Add to sale' }).click();
+  await expect(dialog.getByText(/^Added /)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('every dashboard page loads for the owner without console errors', async ({ page }) => {
@@ -95,15 +116,7 @@ test('record a sale: stock goes down, the sale is listed, the cash ledger gets t
   expect(before).toBeGreaterThan(1);
 
   await page.goto('/sales/new', { waitUntil: 'networkidle' });
-  await page.locator('#variant-0').click();
-  await page
-    .getByPlaceholder(/search/i)
-    .last()
-    .fill(PRODUCT);
-  await page
-    .getByRole('option', { name: new RegExp(PRODUCT) })
-    .first()
-    .click();
+  await addToSale(page, PRODUCT);
   await page.locator('#price-0').fill('5.00');
   await page.getByRole('button', { name: 'Record sale', exact: true }).click();
   // Recording returns to the sales list, which now has the sale.
@@ -123,16 +136,7 @@ test('overselling is allowed by design and is flagged afterwards (ADR 0003)', as
   // quantity field warns (aria-invalid) and the shortfall surfaces on Overview as negative stock.
   const onHand = await available(page);
   await page.goto('/sales/new', { waitUntil: 'networkidle' });
-  await page.locator('#variant-0').click();
-  await page
-    .getByPlaceholder(/search/i)
-    .last()
-    .fill(PRODUCT);
-  await page
-    .getByRole('option', { name: new RegExp(PRODUCT) })
-    .first()
-    .click();
-  await page.locator('#qty-0').fill(String(onHand + 1));
+  await addToSale(page, PRODUCT, onHand + 1);
   await page.locator('#price-0').fill('5.00');
   await expect(page.locator('#qty-0')).toHaveAttribute('aria-invalid', 'true');
   await page.getByRole('button', { name: 'Record sale', exact: true }).click();

@@ -272,7 +272,10 @@ export function SaleProductPicker({
                   } else if (event.key === 'Enter') {
                     event.preventDefault();
                     const first = shown[0];
-                    if (first) openProduct(first);
+                    // A second Enter on a single-option product adds one: search, Enter, Enter.
+                    if (first && selected === first.productId && first.variants.length === 1)
+                      commit();
+                    else if (first) openProduct(first);
                     else if (matchingBundles[0]) openBundle(matchingBundles[0]);
                   }
                 }}
