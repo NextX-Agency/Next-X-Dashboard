@@ -68,6 +68,8 @@ export type CatalogListItem = {
   maxPriceCents: Cents;
   priceCurrency: 'USD' | 'SRD';
   image: CatalogImage | null;
+  /** Active options the product is sold in; more than one means a choice (colour and so on) on its page. */
+  optionCount: number;
   /** The first option that satisfies an active colour/option/in-stock filter, so the card can open on it. */
   matchedVariant: {
     id: string;
@@ -731,6 +733,7 @@ export async function listCatalogProducts(
       maxPriceCents: num(row.max_price),
       priceCurrency: storefront.defaultCurrency,
       image: optionImage ?? baseImage,
+      optionCount: num(row.option_count, 1),
       matchedVariant:
         matchedId && matchedSku
           ? {

@@ -84,6 +84,10 @@ export function ProductCard({
           {product.name}
         </Link>
         {optionName ? <p className="text-[13px] text-ink-2">{optionName}</p> : null}
+        {/* Tell shoppers a colour or option choice waits on the product page. */}
+        {!option && product.optionCount > 1 ? (
+          <p className="text-[13px] text-ink-2">{product.optionCount} options</p>
+        ) : null}
         <StorePrice
           amountCents={minPrice}
           currency={product.priceCurrency}

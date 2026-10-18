@@ -276,3 +276,31 @@ test('a card that matched a colour shows that option’s price, stock and name',
   await expect(silver).toContainText('SRD 1,600');
   await expect(silver).toContainText('Sold out');
 });
+
+test('a card says a product has several options before the shopper opens it', async ({
+  page,
+}) => {
+  await page.goto('/shop?q=test', { waitUntil: 'networkidle' });
+  const grid = page.locator('section[aria-label="Products"]');
+  await expect(grid.locator('article', { hasText: 'KZ Test IEM' })).toContainText('3 options');
+  await expect(grid.locator('article', { hasText: 'KZ Test Case' })).toContainText('2 options');
+  // A one-option product shows no such line.
+  await page.goto('/shop?q=zsn', { waitUntil: 'networkidle' });
+  await expect(grid.locator('article').first()).not.toContainText(/\d options/);
+});
+
+test('on a phone the buy bar names the option being added, because the swatches are off screen', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/products/kz-test-iem?variant=KZ-TEST-IEM-PRP', {
+    waitUntil: 'networkidle',
+  });
+  const bar = page.locator('div.fixed.bottom-0', { hasText: 'Add to cart' });
+  await expect(bar).toContainText('Purple');
+  await expect(bar).toContainText('SRD 1,700');
+  // Switching the option changes the bar with it.
+  await page.getByRole('button', { name: /Black/ }).first().click();
+  await expect(bar).toContainText('Black');
+  await expect(bar).not.toContainText('Purple');
+});

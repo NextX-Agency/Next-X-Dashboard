@@ -219,7 +219,14 @@ export function ProductOrderPanel({
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-line border-t bg-base p-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
           <div className="min-w-0">
             <p className="tabular font-extrabold text-[20px] leading-none">{price}</p>
-            <p className="mt-1 text-[12px] text-ink-3">
+            <p className="mt-1 truncate text-[12px] text-ink-3">
+              {/* The swatches sit below the fold on a phone: name the option being added. */}
+              {showVariants ? (
+                <span className="font-semibold text-ink">
+                  {optionName(variant) ?? variant.sku}
+                </span>
+              ) : null}
+              {showVariants ? ' · ' : null}
               {quantity} {quantity === 1 ? 'item' : 'items'}
             </p>
           </div>
