@@ -30,8 +30,8 @@ import { getCurrentRate } from '@/server/queries/overview';
 import {
   listBundleOptions,
   listCustomerOptions,
+  listSaleVariantOptions,
   listSellerOptions,
-  listVariantOptions,
 } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -92,7 +92,7 @@ async function Loader({
 
   if (editing === '1' && sale.status === 'draft') {
     const [variants, customers, sellers, bundles, rate] = await Promise.all([
-      listVariantOptions(),
+      listSaleVariantOptions(),
       listCustomerOptions(),
       listSellerOptions(),
       listBundleOptions(),

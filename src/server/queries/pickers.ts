@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import type { Cents } from '@/lib/money';
+import { type ResolvableImage, resolveVariantImage, thumbSrc } from '@/lib/product-images';
 import { db } from '../db/client';
 import { bool, maybe, num, text } from './row';
 
@@ -81,6 +82,134 @@ export async function listVariantOptions(): Promise<VariantOption[]> {
       valueCents,
       unitCostCents: onHand > 0 ? valueCents / onHand : null,
       isActive: bool(row.is_active),
+    };
+  });
+}
+
+/**
+ * A variant as the visual sale picker needs to show it: what it looks like, what it is, what it
+ * costs and where it is. Everything past `VariantOption` is presentation; the sale form still
+ * submits only a variant id, a quantity and a price, and the server decides the rest.
+ */
+export type SaleVariantOption = VariantOption & {
+  productId: string;
+  brandName: string | null;
+  categoryName: string | null;
+  modelNumber: string | null;
+  /** Structured options such as { colour: "Black" }; empty for a single-option product. */
+  attributes: Record<string, string>;
+  /** Number of selectable options on the parent product, active ones only. */
+  siblingCount: number;
+  /** The resolved photograph for this exact variant (see src/lib/product-images.ts). Null: placeholder. */
+  image: { url: string; alt: string | null } | null;
+  /** Stock per location for this variant, only where something is held. */
+  locations: { id: string; name: string; onHand: number }[];
+};
+
+function parseAttributes(value: string | null | undefined): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(value ?? '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === 'string' && !entry[0].startsWith('legacy'),
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export async function listSaleVariantOptions(): Promise<SaleVariantOption[]> {
+  if (!isDatabaseConfigured()) return [];
+  const [base, details, images, stock] = await Promise.all([
+    listVariantOptions(),
+    db.execute<Record<string, string | null>>(sql`
+      SELECT v.id, v.product_id, v.attributes::text AS attributes,
+             b.name AS brand_name, c.name AS category_name, p.model_number,
+             (SELECT COUNT(*) FROM product_variants s
+               WHERE s.product_id = v.product_id AND s.is_active)::text AS sibling_count
+        FROM product_variants v
+        JOIN products p ON p.id = v.product_id
+        LEFT JOIN brands b ON b.id = p.brand_id
+        LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.status <> 'archived'
+    `),
+    db.execute<Record<string, string | null>>(sql`
+      SELECT i.product_id, i.variant_id, i.url, i.thumb_url, i.width::text, i.height::text,
+             i.alt, i.is_primary::text AS is_primary, i.position::text AS position
+        FROM product_images i
+        JOIN products p ON p.id = i.product_id
+       WHERE p.status <> 'archived'
+    `),
+    db.execute<Record<string, string | null>>(sql`
+      SELECT m.variant_id,
+             COALESCE(m.location_id, (SELECT id FROM locations WHERE slug = 'main' LIMIT 1))
+               AS location_id,
+             SUM(m.quantity)::text AS on_hand
+        FROM inventory_movements m
+       GROUP BY 1, 2
+      HAVING SUM(m.quantity) <> 0
+    `),
+  ]);
+  const locationNames = new Map(
+    (await listLocationOptions()).map((location) => [location.id, location.name]),
+  );
+
+  const detailById = new Map(details.map((row) => [text(row.id), row]));
+  const imagesByProduct = new Map<string, ResolvableImage[]>();
+  for (const row of images) {
+    const list = imagesByProduct.get(text(row.product_id)) ?? [];
+    list.push({
+      url: text(row.url),
+      thumbUrl: maybe(row.thumb_url),
+      width: num(row.width),
+      height: num(row.height),
+      alt: maybe(row.alt),
+      blurDataUrl: null,
+      variantId: maybe(row.variant_id),
+      isPrimary: bool(row.is_primary),
+      position: num(row.position),
+    });
+    imagesByProduct.set(text(row.product_id), list);
+  }
+  const stockByVariant = new Map<string, { id: string; name: string; onHand: number }[]>();
+  for (const row of stock) {
+    const id = maybe(row.location_id);
+    if (!id) continue;
+    const list = stockByVariant.get(text(row.variant_id)) ?? [];
+    list.push({
+      id,
+      name: locationNames.get(id) ?? 'Unknown location',
+      onHand: num(row.on_hand),
+    });
+    stockByVariant.set(text(row.variant_id), list);
+  }
+
+  return base.map((variant) => {
+    const detail = detailById.get(variant.id);
+    const productId = text(detail?.product_id);
+    const siblingCount = num(detail?.sibling_count, 1);
+    const resolved = resolveVariantImage(
+      imagesByProduct.get(productId) ?? [],
+      variant.id,
+      siblingCount,
+    );
+    return {
+      ...variant,
+      productId,
+      brandName: maybe(detail?.brand_name),
+      categoryName: maybe(detail?.category_name),
+      modelNumber: maybe(detail?.model_number),
+      attributes: parseAttributes(detail?.attributes),
+      siblingCount,
+      image: resolved.image
+        ? { url: thumbSrc(resolved.image) ?? resolved.image.url, alt: resolved.image.alt }
+        : null,
+      locations: (stockByVariant.get(variant.id) ?? []).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
     };
   });
 }

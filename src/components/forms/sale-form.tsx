@@ -1,9 +1,10 @@
 'use client';
 
-import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Package, Plus, Repeat2, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
@@ -14,9 +15,11 @@ import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { cn } from '@/lib/cn';
 import { fromBase, type RateMicros, toBase } from '@/lib/fx';
 import { formatMoney, mulDivRound, parseMoney, toDecimalString } from '@/lib/money';
+import { optionLabel, stockLabel } from '@/lib/sale-picker';
 import { createCustomer } from '@/server/actions/reference';
 import { createSale, updateSale } from '@/server/actions/sales';
-import type { BundleOption, Option, VariantOption } from '@/server/queries/pickers';
+import type { BundleOption, Option, SaleVariantOption } from '@/server/queries/pickers';
+import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 /**
  * Recording a sale.
@@ -84,7 +87,7 @@ export function SaleForm({
   bundles = [],
   initial,
 }: {
-  variants: VariantOption[];
+  variants: SaleVariantOption[];
   customers: Option[];
   sellers: (Option & { active: boolean })[];
   rateMicros: RateMicros;
@@ -121,8 +124,17 @@ export function SaleForm({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         serials: item.serials,
-      })) ?? [newLine()],
+      })) ?? [],
   );
+  const pickerOpener = useRef<HTMLElement | null>(null);
+  const openPicker = (next: NonNullable<typeof picker>) => {
+    pickerOpener.current = document.activeElement as HTMLElement | null;
+    setPicker(next);
+  };
+  /** The product browser: adding to the sale, or swapping the product on one line. */
+  const [picker, setPicker] = useState<
+    { mode: 'add' } | { mode: 'replace'; key: string } | null
+  >(null);
 
   const byId = useMemo(
     () => new Map(variants.map((variant) => [variant.id, variant])),
@@ -133,29 +145,72 @@ export function SaleForm({
     [bundles],
   );
 
-  const variantOptions: ComboboxOption[] = useMemo(
-    () => [
-      ...variants.map((variant) => ({
-        value: variant.id,
-        label: `${variant.productName} · ${variant.variantName}`,
-        hint: variant.sku,
-        meta:
-          variant.onHand > 0
-            ? `${variant.onHand} on hand`
-            : variant.onHand < 0
-              ? `${variant.onHand} — oversold`
-              : 'none left',
-        disabled: !variant.isActive,
-      })),
-      ...bundles.map((bundle) => ({
-        value: `bundle:${bundle.id}`,
-        label: `Bundle · ${bundle.name}`,
-        hint: bundle.sku,
-        meta: `${bundle.availability} available`,
-      })),
-    ],
-    [variants, bundles],
-  );
+  /** Quantity already in the sale per variant, so the browser can show "2 in sale". */
+  const inSale = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of lines) {
+      if (!line.variantId) continue;
+      map.set(
+        line.variantId,
+        (map.get(line.variantId) ?? 0) + (Number.parseInt(line.quantity, 10) || 0),
+      );
+    }
+    return map;
+  }, [lines]);
+
+  /** Apply one choice from the product browser. Prices default to the list price in the sale's
+   *  currency, exactly as the old dropdown did; nothing about costing or posting changes here. */
+  function applySelection(selection: PickerSelection) {
+    const quantity = String(Math.max(1, selection.quantity));
+    const target = picker?.mode === 'replace' ? picker.key : null;
+    const toPrice = (cents: number) =>
+      toDecimalString(currency === 'SRD' ? fromBase(cents, rateMicros) : cents);
+
+    let patch: Pick<Line, 'variantId' | 'bundleId' | 'unitPrice'> | null = null;
+    if (selection.kind === 'bundle') {
+      const chosen = bundleById.get(selection.bundleId);
+      const first = chosen?.components[0];
+      if (!chosen || !first) return;
+      patch = {
+        bundleId: chosen.id,
+        variantId: first.variantId,
+        unitPrice: toPrice(chosen.priceCents),
+      };
+    } else {
+      const chosen = byId.get(selection.variantId);
+      if (!chosen) return;
+      patch = {
+        bundleId: null,
+        variantId: chosen.id,
+        unitPrice: toPrice(chosen.listPriceCents),
+      };
+    }
+
+    setLines((current) => {
+      if (target) {
+        return current.map((line) =>
+          line.key === target ? { ...line, ...patch, quantity, serials: '' } : line,
+        );
+      }
+      // The same variant again adds to its line instead of repeating it.
+      const same =
+        !patch.bundleId &&
+        current.find((line) => line.variantId === patch.variantId && !line.bundleId);
+      if (same) {
+        return current.map((line) =>
+          line.key === same.key
+            ? {
+                ...line,
+                quantity: String(
+                  (Number.parseInt(line.quantity, 10) || 0) + Number.parseInt(quantity, 10),
+                ),
+              }
+            : line,
+        );
+      }
+      return [...current, { ...newLine(), ...patch, quantity }];
+    });
+  }
 
   const customerOptions: ComboboxOption[] = customerList.map((customer) => ({
     value: customer.id,
@@ -482,6 +537,16 @@ export function SaleForm({
             title="Items"
             hint="Prices default to the list price and can be overridden"
           />
+          {lines.length === 0 ? (
+            <div className="grid place-items-center gap-1 px-4 py-10 text-center">
+              <Package aria-hidden="true" className="size-7 text-ink-4" />
+              <p className="font-medium text-[14px] text-ink">No products in this sale yet</p>
+              <p className="max-w-[44ch] text-[12px] text-ink-3">
+                Pick products by photo. Search by name, model, brand or SKU, choose the exact
+                option, and keep adding without leaving this page.
+              </p>
+            </div>
+          ) : null}
           <div className="divide-y divide-line-subtle">
             {lines.map((line, index) => {
               const variant = line.variantId ? byId.get(line.variantId) : undefined;
@@ -510,58 +575,19 @@ export function SaleForm({
                     {index + 1}
                   </span>
 
-                  <Field label={index === 0 ? 'Product' : ''} htmlFor={`variant-${index}`}>
-                    <Combobox
-                      id={`variant-${index}`}
-                      options={variantOptions}
-                      value={line.bundleId ? `bundle:${line.bundleId}` : line.variantId}
-                      onChange={(value) => {
-                        if (value?.startsWith('bundle:')) {
-                          const pickedBundle = bundleById.get(value.slice(7));
-                          const first = pickedBundle?.components[0];
-                          if (!pickedBundle || !first) return;
-                          setLines((current) =>
-                            current.map((candidate) =>
-                              candidate.key === line.key
-                                ? {
-                                    ...candidate,
-                                    bundleId: pickedBundle.id,
-                                    variantId: first.variantId,
-                                    unitPrice: toDecimalString(
-                                      currency === 'SRD'
-                                        ? fromBase(pickedBundle.priceCents, rateMicros)
-                                        : pickedBundle.priceCents,
-                                    ),
-                                  }
-                                : candidate,
-                            ),
-                          );
-                          return;
-                        }
-                        const picked = value ? byId.get(value) : undefined;
-                        setLines((current) =>
-                          current.map((candidate) =>
-                            candidate.key === line.key
-                              ? {
-                                  ...candidate,
-                                  variantId: value,
-                                  bundleId: null,
-                                  unitPrice: picked
-                                    ? toDecimalString(
-                                        currency === 'SRD'
-                                          ? fromBase(picked.listPriceCents, rateMicros)
-                                          : picked.listPriceCents,
-                                      )
-                                    : candidate.unitPrice,
-                                }
-                              : candidate,
-                          ),
-                        );
-                      }}
-                      placeholder="Choose a product or bundle"
-                      searchPlaceholder="Search by name or SKU"
+                  <div className="min-w-0">
+                    {index === 0 ? (
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                        Product
+                      </span>
+                    ) : null}
+                    <LineProduct
+                      variant={variant}
+                      bundle={bundle}
+                      missing={Boolean(line.variantId) && !variant && !bundle}
+                      onChange={() => openPicker({ mode: 'replace', key: line.key })}
                     />
-                  </Field>
+                  </div>
 
                   <Field label={index === 0 ? 'Qty' : ''} htmlFor={`qty-${index}`}>
                     <Input
@@ -618,7 +644,6 @@ export function SaleForm({
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Remove line"
-                      disabled={lines.length === 1}
                       onClick={() =>
                         setLines((current) =>
                           current.filter((candidate) => candidate.key !== line.key),
@@ -670,10 +695,16 @@ export function SaleForm({
           <div className="flex items-center justify-between border-line-subtle border-t px-4 py-2.5">
             <button
               type="button"
-              onClick={() => setLines((current) => [...current, newLine()])}
-              className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line py-2 text-[12px] text-ink-3 transition-colors hover:border-line-strong hover:text-ink-2"
+              onClick={() => openPicker({ mode: 'add' })}
+              className={cn(
+                'flex w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                lines.length === 0
+                  ? 'bg-accent font-medium text-accent-ink hover:opacity-90'
+                  : 'border border-dashed border-line text-ink-3 hover:border-line-strong hover:text-ink-2',
+              )}
             >
-              <Plus className="size-3.5" /> Add another product
+              <Plus className="size-3.5" />{' '}
+              {lines.length === 0 ? 'Add product' : 'Add another product'}
             </button>
             <span className="hidden shrink-0 pl-4 tabular text-[11px] text-ink-4 sm:block">
               {lines.length} {lines.length === 1 ? 'line' : 'lines'} · {totals.units}{' '}
@@ -867,7 +898,82 @@ export function SaleForm({
           </p>
         </div>
       </Surface>
+      <SaleProductPicker
+        open={picker !== null}
+        onOpenChange={(next) => {
+          if (!next) setPicker(null);
+        }}
+        mode={picker?.mode ?? 'add'}
+        variants={variants}
+        bundles={bundles}
+        currency={currency}
+        rateMicros={rateMicros}
+        inSale={inSale}
+        lineCount={lines.length}
+        returnFocusTo={pickerOpener}
+        onChoose={applySelection}
+      />
     </form>
+  );
+}
+
+/** The product on one sale line: its photograph, name, exact option and SKU, with a way to change it.
+ *  The photograph is the variant's own (see src/lib/product-images.ts), the same one the shop shows. */
+function LineProduct({
+  variant,
+  bundle,
+  missing,
+  onChange,
+}: {
+  variant: SaleVariantOption | undefined;
+  bundle: BundleOption | undefined;
+  missing: boolean;
+  onChange: () => void;
+}) {
+  const option = variant ? optionLabel(variant) : null;
+  const name = bundle ? bundle.name : variant?.productName;
+  const stock = bundle
+    ? stockLabel(bundle.availability).text
+    : variant
+      ? stockLabel(variant.onHand).text
+      : null;
+  return (
+    <div className="flex items-center gap-3 rounded-control border border-line bg-inset p-1.5">
+      <div className="relative size-12 shrink-0 overflow-hidden rounded-control bg-white">
+        {variant?.image ? (
+          <Image
+            src={variant.image.url}
+            alt={`${name}${option ? ` – ${option}` : ''}`}
+            fill
+            sizes="48px"
+            className="object-contain p-0.5"
+          />
+        ) : (
+          <div className="grid size-full place-items-center">
+            <Package aria-hidden="true" className="size-5 text-ink-4" />
+            <span className="sr-only">No photo</span>
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] text-ink">
+          {missing ? 'Product no longer available' : name}
+        </p>
+        <p className="truncate text-[11px] text-ink-3">
+          {bundle
+            ? `Bundle · ${bundle.sku}`
+            : [option, variant?.sku, stock].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onChange}
+        aria-label={`Change product${name ? ` (${name})` : ''}`}
+        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-control px-2 text-[12px] text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <Repeat2 aria-hidden="true" className="size-3.5" /> Change
+      </button>
+    </div>
   );
 }
 

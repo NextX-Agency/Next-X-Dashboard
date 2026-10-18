@@ -10,8 +10,8 @@ import { getCurrentRate } from '@/server/queries/overview';
 import {
   listBundleOptions,
   listCustomerOptions,
+  listSaleVariantOptions,
   listSellerOptions,
-  listVariantOptions,
 } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -41,7 +41,7 @@ export default function NewSalePage() {
 
 async function Loader() {
   const [variants, customers, sellers, bundles, rate] = await Promise.all([
-    listVariantOptions(),
+    listSaleVariantOptions(),
     listCustomerOptions(),
     listSellerOptions(),
     listBundleOptions(),
