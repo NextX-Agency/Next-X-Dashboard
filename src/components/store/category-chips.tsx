@@ -22,7 +22,7 @@ export function CategoryChips({
       'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 font-semibold text-[14px] transition-colors',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
       selected
-        ? 'border-accent bg-accent text-accent-fg'
+        ? 'border-cta bg-cta text-cta-fg'
         : 'border-line-strong bg-raised text-ink hover:border-accent hover:text-accent',
     );
   return (
@@ -35,7 +35,7 @@ export function CategoryChips({
         aria-current={active === null ? 'page' : undefined}
         className={chip(active === null)}
       >
-        All <span className={active === null ? 'text-accent-fg' : 'text-ink-3'}>{total}</span>
+        All <span className={active === null ? 'text-cta-fg' : 'text-ink-3'}>{total}</span>
       </Link>
       {categories.map((category) => {
         const selected = active === category.slug;
@@ -47,7 +47,7 @@ export function CategoryChips({
             className={chip(selected)}
           >
             {category.name}
-            <span className={selected ? 'text-accent-fg' : 'text-ink-3'}>{category.count}</span>
+            <span className={selected ? 'text-cta-fg' : 'text-ink-3'}>{category.count}</span>
           </Link>
         );
       })}

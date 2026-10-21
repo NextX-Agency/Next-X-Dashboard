@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Blog | NextX Suriname',
+  title: 'Blog',
   description: 'Articles and product tips from NextX.',
   alternates: { canonical: '/blog' },
   robots: { index: false, follow: true },

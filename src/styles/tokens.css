@@ -164,6 +164,11 @@
   --nx-accent-border: #f0c4a2;
   --nx-ring: #c2410c;
 
+  /* Fills for the main shop actions: the logo orange with charcoal type (5.15:1). White on it fails AA. */
+  --nx-cta: #e8590c;
+  --nx-cta-hover: #f2691a;
+  --nx-cta-fg: #141414;
+
   --nx-store-bright: #e8590c;
   --nx-store-bright-soft: #fff1e6;
 

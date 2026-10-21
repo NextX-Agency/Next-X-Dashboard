@@ -195,6 +195,8 @@ test.describe('sales: the visual product picker', () => {
     // The dialog stays open on the search box: a second product follows without leaving the sale.
     await expect(dialog.getByPlaceholder(/search name, model/i)).toBeFocused();
     await dialog.getByPlaceholder(/search name, model/i).fill('essager 1m');
+    // Enter acts on the first result, so wait until the list has narrowed to it.
+    await expect(dialog.getByText(/^1 result/)).toBeVisible();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
     await expect(dialog.getByText(/Added 1 × ESSAGER 1m/)).toBeVisible();

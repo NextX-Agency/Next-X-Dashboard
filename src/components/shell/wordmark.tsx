@@ -6,11 +6,14 @@ export function Wordmark({
   className,
   size = 'md',
   tone = 'auto',
+  label = true,
 }: {
   className?: string;
   size?: 'sm' | 'md';
   /** `night` is for the charcoal navigation rail: always the light-on-dark mark. */
   tone?: 'auto' | 'night';
+  /** The "Dashboard 2.0" tag belongs to staff screens; customer-facing pages show the logo alone. */
+  label?: boolean;
 }) {
   const logoWidth = size === 'sm' ? 74 : 86;
 
@@ -34,9 +37,11 @@ export function Wordmark({
         className={cn('hidden h-auto shrink-0 dark:block', tone === 'night' && 'block')}
         priority
       />
-      <span className="border-line border-l pl-2 text-[11px] font-semibold text-ink-2 leading-tight">
-        Dashboard <span className="whitespace-nowrap text-accent">2.0</span>
-      </span>
+      {label ? (
+        <span className="border-line border-l pl-2 text-[11px] font-semibold text-ink-2 leading-tight">
+          Dashboard <span className="whitespace-nowrap text-accent">2.0</span>
+        </span>
+      ) : null}
     </div>
   );
 }

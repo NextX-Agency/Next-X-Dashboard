@@ -368,7 +368,8 @@ function CategoryTileCard({
   large: boolean;
   tint: boolean;
 }) {
-  const [first, second] = tile.images;
+  // One photograph per tile: a second one stacked on the first, multiplied onto it, reads as a ghost.
+  const [first] = tile.images;
   return (
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
@@ -420,16 +421,6 @@ function CategoryTileCard({
               ? 'right-[-2%] bottom-[-4%] w-[62%] max-w-[460px]'
               : 'right-[-6%] bottom-[-8%] w-[52%] max-w-[240px]',
           )}
-        />
-      ) : null}
-      {large && second ? (
-        <Image
-          src={second.image.url}
-          alt={second.productName}
-          width={second.image.width}
-          height={second.image.height}
-          sizes="(max-width: 768px) 30vw, 18vw"
-          className="absolute top-[6%] right-[4%] hidden w-[30%] max-w-[220px] mix-blend-multiply sm:block"
         />
       ) : null}
     </Link>
@@ -610,7 +601,7 @@ function OrderingAndVisit({
           <ol className="mt-6 grid gap-6 sm:grid-cols-2">
             {steps.map(([title, body], index) => (
               <li key={title} className="flex gap-4">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent font-bold text-[14px] text-accent-fg">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-cta font-bold text-[14px] text-cta-fg">
                   {index + 1}
                 </span>
                 <span>

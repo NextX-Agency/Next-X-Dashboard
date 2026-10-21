@@ -462,7 +462,7 @@ export function StoreCartCheckout({
                     type="button"
                     aria-pressed={pickupDate === value}
                     onClick={() => setPickupDate(value)}
-                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-accent text-accent-fg' : 'text-ink-2 hover:text-ink'}`}
+                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'

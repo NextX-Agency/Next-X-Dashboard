@@ -438,7 +438,7 @@ export const updateMember = ownerAction
           .from(members)
           .where(eq(members.role, 'owner'));
         if (Number(row?.count ?? 0) <= 1) {
-          throw new ActionError('Nextly needs at least one owner.');
+          throw new ActionError('NextX needs at least one owner.');
         }
       }
 

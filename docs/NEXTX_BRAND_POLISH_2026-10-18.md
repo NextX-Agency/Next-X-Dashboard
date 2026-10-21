@@ -60,3 +60,26 @@ the click (cart stayed at 1; failed on the unchanged `32e04a0` too). It now wait
 The deployment to staging needs the owner's sudo on the VPS and a rotated VPS password; the production gates in
 `NEXTX_RELEASE_2026-10-18.md` section 5 are owner-side. None was closed by this session. Production
 (`www.shop-nextx.com`) was only read (HTTP 200) and is untouched.
+
+## 5. Frontend UAT: AI boilerplate and branding pass (21 Oct 2026)
+
+Method: read the rendered text and metadata of every public route and the error pages, searched the source for
+stock marketing words, emoji, gradients and leftover names, then looked at the shop at 1440 and 390 px.
+Screenshots: `docs/design-review/uat1/`, `uat2/`.
+
+| Finding | Fix |
+|---|---|
+| **Ghosting on the home category tiles.** The large tile stacked a second photograph over the first, both `mix-blend-multiply`, so the cable showed through the case. | One photograph per tile. |
+| Main buttons read rust-brown, not NextX orange (white text forced a dark orange). | Shop buttons, chips, switches and badges use the logo orange `#e8590c` with charcoal text (5.15:1, AA); hover `#f2691a`. Dark-orange stays for orange *text* and links. New tokens `--nx-cta`, `--nx-cta-hover`, `--nx-cta-fg`. |
+| A mistyped shop URL showed the staff dashboard's 404: "Dashboard 2.0" tag, "Back to NextX Audio". | Customer-facing 404 (logo only, "Back to the shop", `noindex`). |
+| A shop error told customers that "NextX Dashboard could not load this page". | `(store)/error.tsx`: "Something went wrong on our side", Try again, Back to the shop. |
+| Page titles "FAQ \| NextX Suriname · NextX" (brand twice). | `Frequently asked questions · NextX`, same for blog and customer experiences. |
+| Leftovers: "Nextly needs at least one owner." and a homepage-settings fallback "Hear the difference. Shop NextX Audio." that the shop never shows. | "NextX needs…"; the fallback now matches the shop's own headline. |
+| Test races: sale picker pressed Enter before results narrowed; cart test clicked before hydration. | Both wait for the state they need (passed repeatedly). |
+
+Checked and clean: no stock marketing words ("seamless", "unlock", "elevate" and the like), no emoji, no gradients
+or glows in the shop, one product photograph per card, copy comes from the catalogue and settings.
+
+Not changed, for the owner: the empty FAQ, blog and customer-experience pages are reachable by URL, `noindex` and
+linked from nowhere; they carry honest "nothing published yet" text. `businessName` still defaults to `Nextly` in
+the database schema (the live value is set in Settings); changing the default needs a migration.

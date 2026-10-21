@@ -46,7 +46,7 @@ export function QuickAdd({
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
           justAdded
             ? 'bg-positive-muted text-positive'
-            : 'bg-accent text-accent-fg hover:bg-accent-hover disabled:opacity-50',
+            : 'bg-cta text-cta-fg hover:bg-cta-hover disabled:opacity-50',
         )}
       >
         {justAdded ? (

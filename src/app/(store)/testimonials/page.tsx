@@ -4,7 +4,7 @@ import { whatsappLink } from '@/lib/whatsapp';
 import { getSettings } from '@/server/queries/reference';
 
 export const metadata: Metadata = {
-  title: 'Customer experiences | NextX Suriname',
+  title: 'Customer experiences',
   description: 'What customers say about NextX.',
   alternates: { canonical: '/testimonials' },
   robots: { index: false, follow: true },

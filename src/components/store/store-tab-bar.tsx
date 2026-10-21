@@ -56,7 +56,7 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
           <span className="relative">
             <Icon aria-hidden="true" className="size-5" />
             {key === 'cart' && ready && count > 0 ? (
-              <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-accent px-1 font-bold text-[10px] text-accent-fg">
+              <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-cta px-1 font-bold text-[10px] text-cta-fg">
                 {count}
               </span>
             ) : null}

@@ -18,7 +18,7 @@ export default async function HomepageConfigurationPage() {
   const sections = [
     [
       'Hero',
-      settings?.heroTitle ?? 'Hear the difference. Shop NextX Audio.',
+      settings?.heroTitle ?? 'In-ear monitors and audio accessories.',
       settings?.heroBody ?? 'Uses the storefront settings fallback.',
     ],
     [
