@@ -1,0 +1,8 @@
+# Source is LF everywhere: Biome checks it, and Windows checkouts must not rewrite it to CRLF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.dump binary

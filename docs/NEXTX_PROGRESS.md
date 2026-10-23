@@ -7,7 +7,7 @@ file at the end of every session. Earlier sessions' detail is in git history and
 
 | Item | State | Evidence |
 |---|---|---|
-| Source of truth | Worktree `C:/Users/lrano/Documents/Codex/2026-10-16/i-w/work/nextx-dashboard-2.0`, branch `nextx-dashboard-2.0`. `D:/Nextly` (upstream) and `D:/Next-X-Dashboard` (old `main`) are untouched. | `git worktree list` |
+| Source of truth | `D:/NextX-Dashboard-2.0` (clone of branch `nextx-dashboard-2.0`; the earlier worktree `C:/Users/lrano/Documents/Codex/2026-10-16/i-w/work/nextx-dashboard-2.0` holds the same history). Full manual: `docs/NEXTX_DASHBOARD_2_0_GUIDE.md`. `D:/Nextly` (upstream) and `D:/Next-X-Dashboard` (old `main`) are untouched. | `git worktree list` |
 | Release candidate | Code last changed in `5448223`; later commits on the branch are documentation only. The owner deploys the **full tip SHA** (`git rev-parse origin/nextx-dashboard-2.0`). No migration, no dependency change and no deploy-script change in this session. | `docs/NEXTX_RELEASE_2026-10-18.md` |
 | Staging | **Still an older build** (seen 2026-10-18 in the signed-in browser: no photo or variant filters on Products, `?colour=` ignored on the shop). The owner runs `deploy/vps/deploy-pinned.sh` at the exact SHA; nothing from this session has run there. | `docs/NEXTX_BROWSER_QA.md` §1 |
 | Production | Untouched. **NO-GO** (see the release document). | |

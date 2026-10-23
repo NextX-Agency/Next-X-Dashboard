@@ -1,4 +1,8 @@
-# Nextly documentation
+# NextX Dashboard 2.0 documentation
+
+**New here? Read [NEXTX_DASHBOARD_2_0_GUIDE.md](NEXTX_DASHBOARD_2_0_GUIDE.md) first.** It is the complete manual
+(where everything lives, setup, commands, architecture, brand rules, testing, deployment, production gates).
+The sections below are the earlier Nextly design notes it builds on.
 
 Written as the system was built, not reconstructed afterwards. If something here
 disagrees with the code, the code is right and this file is a bug.
