@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { DocumentActions } from '@/components/invoice/document-actions';
 import { InvoicePaper } from '@/components/invoice/invoice-paper';
 import { getPublicInvoice } from '@/server/queries/invoices';
-import { getSettings } from '@/server/queries/reference';
+import { getAdminSettings } from '@/server/queries/reference';
 
 export const metadata: Metadata = {
   title: 'Invoice / Factuur',
@@ -17,7 +17,7 @@ export default async function PublicInvoicePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const [sale, settings] = await Promise.all([getPublicInvoice(token), getSettings()]);
+  const [sale, settings] = await Promise.all([getPublicInvoice(token), getAdminSettings()]);
   if (!sale) notFound();
 
   return (

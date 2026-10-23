@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { ChevronLeft, ChevronRight, Maximize2, Package, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Package, X } from 'lucide-react';
 import Image from 'next/image';
 import { type KeyboardEvent, type TouchEvent, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
@@ -101,8 +101,8 @@ export function ProductGallery({ name }: { name: string }) {
             src={current.url}
             alt={alt}
             fill
-            priority={index === 0}
-            sizes="(max-width: 1024px) 100vw, 56vw"
+            preload={index === 0}
+            sizes="(max-width: 1023px) 100vw, min(54vw, 700px)"
             className="animate-in fade-in-0 object-contain p-[7%] mix-blend-multiply duration-300"
             {...(current.blurDataUrl
               ? { placeholder: 'blur' as const, blurDataURL: current.blurDataUrl }
@@ -113,20 +113,13 @@ export function ProductGallery({ name }: { name: string }) {
               type="button"
               aria-label={`Enlarge photo of ${name}`}
               onKeyDown={onArrowKeys}
-              className="group absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
-            >
-              <span
-                aria-hidden="true"
-                className="absolute right-3 bottom-3 grid size-10 place-items-center rounded-full bg-base/90 text-ink shadow-sm"
-              >
-                <Maximize2 className="size-4" />
-              </span>
-            </button>
+              className="absolute inset-0 cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
+            />
           </Dialog.Trigger>
           {images.length > 1 ? (
             <span
               aria-hidden="true"
-              className="tabular absolute bottom-3 left-3 rounded-full bg-base/90 px-2.5 py-1 font-semibold text-[12px] text-ink"
+              className="tabular absolute bottom-3 left-4 font-semibold text-[12px] text-ink-2"
             >
               {index + 1} / {images.length}
             </span>
@@ -199,7 +192,7 @@ export function ProductGallery({ name }: { name: string }) {
                 className={cn(
                   'relative block size-16 overflow-hidden rounded-[12px] bg-sunken sm:size-20',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-                  imageIndex === index ? 'ring-2 ring-accent' : 'opacity-70 hover:opacity-100',
+                  imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',
                 )}
               >
                 <Image

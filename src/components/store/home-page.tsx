@@ -1,18 +1,8 @@
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Clock,
-  MapPin,
-  MessageCircle,
-  Phone,
-  Truck,
-  Wallet,
-} from 'lucide-react';
+import { ArrowRight, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { ProductCard } from '@/components/store/product-card';
-import { LOW_STOCK_AT } from '@/components/store/stock-pill';
 import { StorePrice } from '@/components/store/store-price';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
@@ -22,7 +12,10 @@ import {
   accessoryShelf,
   type CategoryTile,
   categoryTiles,
+  DEFAULT_HERO_BODY,
+  DEFAULT_HERO_TITLE,
   latestAdditions,
+  ownerHeroCopy,
   pickShowcase,
 } from '@/lib/home-merchandising';
 import { assortmentMessage } from '@/lib/store-messages';
@@ -44,7 +37,13 @@ type Settings = NonNullable<Awaited<ReturnType<typeof getSettings>>>;
 type Currency = 'USD' | 'SRD';
 
 const SECTION = 'mx-auto w-full max-w-[1320px] px-4 lg:px-8';
+const SECTION_GAP = 'mt-16 lg:mt-24';
 const SECTION_TITLE = 'nx-display text-[clamp(26px,3.4vw,38px)]';
+const FOCUS =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+
+/** 1 -> "01": the numbering the agency site uses for every list of things. */
+const num = (index: number) => String(index + 1).padStart(2, '0');
 
 /**
  * The home page of a shop: an opening composition of real products, the categories as places to go, two
@@ -83,9 +82,7 @@ async function HomeContent() {
   for (const product of latest) used.add(product.id);
   const accessories = accessoryShelf(products, used, 4);
   const tiles = categoryTiles(categories, products);
-  const lastPieces = products.filter(
-    (product) => product.onHand > 0 && product.onHand <= LOW_STOCK_AT,
-  );
+  const inStockCount = products.filter((product) => product.onHand > 0).length;
   const help = whatsappLink(settings?.whatsapp, assortmentMessage(businessName));
 
   return (
@@ -96,6 +93,7 @@ async function HomeContent() {
         srdRate={srdRate}
         businessName={businessName}
         currency={currency}
+        inStockCount={inStockCount}
         whatsappHref={help}
       />
 
@@ -106,14 +104,12 @@ async function HomeContent() {
       {latest.length ? (
         <Shelf
           id="latest"
-          title="Latest additions"
+          title="New in"
           products={latest}
           srdRate={srdRate}
-          action={{ href: SHOP_PATH, label: `View all ${plural(products.length, 'product')}` }}
+          action={{ href: SHOP_PATH, label: `All ${plural(products.length, 'product')}` }}
         />
       ) : null}
-
-      {lastPieces.length ? <LastPieces products={lastPieces} /> : null}
 
       {accessories ? (
         <Shelf
@@ -129,13 +125,17 @@ async function HomeContent() {
       ) : null}
 
       <Suspense fallback={null}>
-        <Sets srdRate={srdRate} />
+        <Sets
+          enabled={Boolean(settings?.homepageFeaturedBundlesEnabled)}
+          limit={settings?.homepageFeaturedBundlesLimit}
+          srdRate={srdRate}
+        />
       </Suspense>
 
-      <OrderingAndVisit
+      <Ordering settings={settings} whatsappHref={help} />
+      <Pickup
         settings={settings}
         pickupLocations={pickupLocations}
-        whatsappHref={help}
         businessName={businessName}
       />
     </div>
@@ -150,6 +150,7 @@ function Hero({
   srdRate,
   businessName,
   currency,
+  inStockCount,
   whatsappHref,
 }: {
   settings: Settings | null;
@@ -157,24 +158,23 @@ function Hero({
   srdRate: RateMicros | undefined;
   businessName: string;
   currency: Currency;
+  inStockCount: number;
   whatsappHref: string | null;
 }) {
-  const title =
-    publicText(settings?.heroTitle?.trim()) || 'In-ear monitors and audio accessories.';
-  const body =
-    publicText(settings?.heroBody?.trim()) ||
-    (settings?.pickupEnabled && whatsappHref
-      ? 'Choose what you want, send your order on WhatsApp and collect it once it is confirmed.'
-      : 'Browse the range, with real photographs, prices and stock.');
+  // The owner's words win; a placeholder ("Welcome To NextX") counts as no words at all.
+  const title = ownerHeroCopy(publicText(settings?.heroTitle)) ?? DEFAULT_HERO_TITLE;
+  const body = ownerHeroCopy(publicText(settings?.heroBody)) ?? DEFAULT_HERO_BODY;
   const eyebrow = [businessName, settings?.city].filter(Boolean).join(' · ');
+  // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
   const facts = [
-    whatsappHref ? { icon: MessageCircle, text: 'Order on WhatsApp' } : null,
+    inStockCount > 0 ? plural(inStockCount, 'product') : null,
+    `Prices in ${currency}`,
     settings?.pickupEnabled
-      ? { icon: MapPin, text: publicText(settings.pickupLabel?.trim()) || 'Pickup available' }
+      ? publicText(settings.pickupLabel?.trim()) ||
+        (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
       : null,
-    settings?.deliveryEnabled ? { icon: Truck, text: 'Delivery available' } : null,
-    { icon: Wallet, text: `Prices in ${currency}` },
-  ].filter((fact): fact is NonNullable<typeof fact> => Boolean(fact));
+    settings?.deliveryEnabled ? 'Delivery available' : null,
+  ].filter((fact): fact is string => Boolean(fact));
 
   return (
     <section aria-labelledby="home-title" className={cn(SECTION, 'pt-6 lg:pt-10')}>
@@ -183,11 +183,11 @@ function Hero({
           <p className="nx-label text-accent">{eyebrow}</p>
           <h1
             id="home-title"
-            className="nx-display mt-4 text-[clamp(38px,5.6vw,72px)] leading-[0.98] text-ink"
+            className="nx-display mt-4 text-balance text-[clamp(36px,5.2vw,68px)] leading-[0.98] text-ink"
           >
             {title}
           </h1>
-          <p className="mt-5 max-w-[46ch] text-[17px] text-ink-2 leading-relaxed">{body}</p>
+          <p className="mt-5 max-w-[44ch] text-[17px] text-ink-2 leading-relaxed">{body}</p>
           <div className="mt-6 flex gap-3 sm:mt-7">
             <Link
               href={SHOP_PATH as never}
@@ -207,14 +207,9 @@ function Hero({
               </a>
             ) : null}
           </div>
-          <ul className="mt-8 hidden flex-wrap gap-x-6 gap-y-2 text-[14px] text-ink-2 sm:flex">
-            {facts.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-2">
-                <Icon aria-hidden="true" className="size-4 text-store-bright" />
-                {text}
-              </li>
-            ))}
-          </ul>
+          <p className="mt-8 border-line border-t pt-4 text-[14px] text-ink-3">
+            {facts.join(' / ')}
+          </p>
         </div>
         {showcase.length ? <Showcase products={showcase} srdRate={srdRate} /> : null}
       </div>
@@ -225,7 +220,8 @@ function Hero({
 /**
  * Up to three real products, large, on the brand colour. Each sits in its own white frame so its true
  * colours show (the photographs are shot on white, so they are never tinted), links to its page and
- * carries its name and price. Two products make a two-frame composition. Nothing here is decoration.
+ * carries its number, name and price. Two products make a two-frame composition. The frames have fixed
+ * proportions, so nothing moves when the photographs arrive.
  */
 function Showcase({
   products,
@@ -249,7 +245,7 @@ function Showcase({
   ];
   return (
     <ul
-      aria-label="Featured products"
+      aria-label="Products"
       className="grid grid-cols-2 gap-3 rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
     >
       {frames.map(({ product, className, large }, index) => (
@@ -269,9 +265,13 @@ function Showcase({
                   src={product.image.url}
                   alt=""
                   fill
-                  priority={index === 0}
+                  // The first frame is the page's largest image: fetch it first, skip the lazy wait.
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                  loading={index === 0 ? 'eager' : 'lazy'}
                   sizes={
-                    large ? '(max-width: 768px) 90vw, 36vw' : '(max-width: 768px) 45vw, 22vw'
+                    large
+                      ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
+                      : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
                   }
                   className="object-contain p-[6%] transition-transform duration-300 ease-out-instrument group-hover:scale-[1.03]"
                 />
@@ -291,7 +291,12 @@ function Showcase({
                   />
                 </span>
               </span>
-              <ArrowUpRight aria-hidden="true" className="size-4 shrink-0 text-ink-3" />
+              <span
+                aria-hidden="true"
+                className="tabular shrink-0 font-bold text-[13px] text-ink-4"
+              >
+                {num(index)}
+              </span>
             </span>
           </Link>
         </li>
@@ -303,9 +308,8 @@ function Showcase({
 /* ------------------------------------------------------------------------------------------------ */
 
 /**
- * The categories as places to go. Their number decides the layout: with three, one large tile and two
- * smaller ones; the tiles alternate soft grey and a warm tint so they are not copies of one card. Each
- * shows a real photograph of something in it and the real lowest price.
+ * The categories as places to go, numbered. Their number decides the layout: with three, one large tile
+ * and two smaller ones. Each shows a real photograph of something in it and the real lowest price.
  */
 function CategoryTiles({
   tiles,
@@ -318,9 +322,9 @@ function CategoryTiles({
 }) {
   const three = tiles.length === 3;
   return (
-    <section aria-labelledby="home-categories" className={cn(SECTION, 'mt-16 lg:mt-24')}>
+    <section aria-labelledby="home-categories" className={cn(SECTION, SECTION_GAP)}>
       <h2 id="home-categories" className={SECTION_TITLE}>
-        Shop by category
+        Categories
       </h2>
       <ul
         className={cn(
@@ -343,10 +347,10 @@ function CategoryTiles({
           >
             <CategoryTileCard
               tile={tile}
+              number={num(index)}
               currency={currency}
               srdRate={srdRate}
               large={three && index === 0}
-              tint={index % 2 === 1}
             />
           </li>
         ))}
@@ -357,16 +361,16 @@ function CategoryTiles({
 
 function CategoryTileCard({
   tile,
+  number,
   currency,
   srdRate,
   large,
-  tint,
 }: {
   tile: CategoryTile;
+  number: string;
   currency: Currency;
   srdRate: RateMicros | undefined;
   large: boolean;
-  tint: boolean;
 }) {
   // One photograph per tile: a second one stacked on the first, multiplied onto it, reads as a ghost.
   const [first] = tile.images;
@@ -374,16 +378,18 @@ function CategoryTileCard({
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
       className={cn(
-        'group relative flex h-full overflow-hidden rounded-[24px] p-5 transition-colors sm:p-7',
-        tint ? 'bg-accent-muted hover:bg-[#ffe6d2]' : 'bg-sunken hover:bg-[#ecebe6]',
+        'group relative flex h-full overflow-hidden rounded-[24px] bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
         large ? 'min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+        FOCUS,
       )}
     >
       <div className="relative z-10 flex max-w-[55%] flex-col">
+        <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
+          {number}
+        </span>
         <h3
           className={cn(
-            'nx-display text-ink',
+            'nx-display mt-3 text-ink underline-offset-4 group-hover:underline',
             large ? 'text-[clamp(26px,3vw,40px)]' : 'text-[clamp(20px,2vw,26px)]',
           )}
         >
@@ -397,24 +403,17 @@ function CategoryTileCard({
             srdRate={srdRate}
             size="sm"
             prefix="from"
-            className="mt-2"
+            className="mt-auto pt-6"
           />
         ) : null}
-        <span className="mt-auto inline-flex items-center gap-1.5 pt-6 font-semibold text-[14px] text-ink">
-          Browse
-          <ArrowRight
-            aria-hidden="true"
-            className="size-4 transition-transform group-hover:translate-x-1"
-          />
-        </span>
       </div>
       {first ? (
         <Image
           src={first.image.url}
-          alt={first.productName}
+          alt=""
           width={first.image.width}
           height={first.image.height}
-          sizes={large ? '(max-width: 768px) 60vw, 34vw' : '(max-width: 768px) 50vw, 22vw'}
+          sizes={large ? '(max-width: 767px) 60vw, 34vw' : '(max-width: 767px) 50vw, 22vw'}
           className={cn(
             'absolute mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.04]',
             large
@@ -443,14 +442,17 @@ function Shelf({
   action: { href: string; label: string };
 }) {
   return (
-    <section aria-labelledby={`home-${id}`} className={cn(SECTION, 'mt-16 lg:mt-24')}>
+    <section aria-labelledby={`home-${id}`} className={cn(SECTION, SECTION_GAP)}>
       <div className="flex items-end justify-between gap-4">
         <h2 id={`home-${id}`} className={SECTION_TITLE}>
           {title}
         </h2>
         <Link
           href={action.href as never}
-          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline"
+          className={cn(
+            'inline-flex min-h-10 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline',
+            FOCUS,
+          )}
         >
           {action.label} <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
@@ -466,57 +468,52 @@ function Shelf({
   );
 }
 
-function LastPieces({ products }: { products: CatalogListItem[] }) {
-  return (
-    <section aria-label="Low stock" className={cn(SECTION, 'mt-10')}>
-      <div className="flex flex-col gap-2 rounded-tile bg-accent-muted p-4 sm:flex-row sm:items-baseline sm:gap-6">
-        <h2 className="font-bold text-[14px] text-accent">Last pieces</h2>
-        <ul className="flex flex-wrap gap-x-6 gap-y-1 text-[14px]">
-          {products.map((product) => (
-            <li key={product.id}>
-              <Link
-                href={storefrontProductPath(null, product.slug) as never}
-                className="font-medium underline-offset-4 hover:underline"
-              >
-                {product.name}
-              </Link>{' '}
-              <span className="text-accent">· Only {product.onHand} left</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-async function Sets({ srdRate }: { srdRate: RateMicros | undefined }) {
-  const settings = await getSettings();
-  if (!settings?.homepageFeaturedBundlesEnabled) return null;
-  const bundles = await listCatalogBundles(settings.homepageFeaturedBundlesLimit);
+/** Bundles as a numbered list of rows: name, what is in it, price. Only when the owner switched it on. */
+async function Sets({
+  enabled,
+  limit,
+  srdRate,
+}: {
+  enabled: boolean;
+  limit: number | undefined;
+  srdRate: RateMicros | undefined;
+}) {
+  if (!enabled) return null;
+  const bundles = await listCatalogBundles(limit);
   if (!bundles.length) return null;
   return (
     <section
       id="sets"
       aria-labelledby="home-bundles"
-      className={cn(SECTION, 'mt-16 scroll-mt-24 lg:mt-24')}
+      className={cn(SECTION, SECTION_GAP, 'scroll-mt-24')}
     >
       <h2 id="home-bundles" className={SECTION_TITLE}>
         Bundles
       </h2>
-      <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {bundles.map((bundle) => (
-          <li key={bundle.id}>
+      <ul className="mt-6 border-line border-b">
+        {bundles.map((bundle, index) => (
+          <li key={bundle.id} className="border-line border-t">
             <Link
               href={`/setups/${bundle.slug}` as never}
-              className="flex h-full flex-col gap-2 rounded-tile border border-line bg-raised p-5 hover:shadow-overlay"
+              className={cn('group flex items-start gap-4 py-5 sm:gap-8', FOCUS)}
             >
-              <span className="font-bold text-[17px]">{bundle.name}</span>
-              {bundle.summary ? (
-                <span className="text-[14px] text-ink-3">{bundle.summary}</span>
-              ) : null}
-              <span className="mt-auto pt-3">
-                <StorePrice usdCents={bundle.priceCents} srdRate={srdRate} size="md" />
+              <span
+                aria-hidden="true"
+                className="tabular w-7 shrink-0 pt-0.5 font-bold text-[14px] text-accent"
+              >
+                {num(index)}
               </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold text-[17px] underline-offset-4 group-hover:underline">
+                  {bundle.name}
+                </span>
+                {bundle.summary ? (
+                  <span className="mt-1 block max-w-[60ch] text-[14px] text-ink-3">
+                    {bundle.summary}
+                  </span>
+                ) : null}
+              </span>
+              <StorePrice usdCents={bundle.priceCents} srdRate={srdRate} size="md" />
             </Link>
           </li>
         ))}
@@ -527,37 +524,92 @@ async function Sets({ srdRate }: { srdRate: RateMicros | undefined }) {
 
 /* ------------------------------------------------------------------------------------------------ */
 
-/** Hours, payment, delivery and pickup places are shown only when the owner has entered them. */
-function OrderingAndVisit({
+/** Four numbered steps, then one line to ask before ordering. The order is always confirmed by NextX. */
+function Ordering({
   settings,
-  pickupLocations,
   whatsappHref,
-  businessName,
 }: {
   settings: Settings | null;
-  pickupLocations: { id: string; name: string }[];
   whatsappHref: string | null;
-  businessName: string;
 }) {
   const pickup = Boolean(settings?.pickupEnabled);
   const delivery = Boolean(settings?.deliveryEnabled);
   const collection =
     pickup && delivery
-      ? 'Collect your order, or arrange delivery.'
+      ? 'Collect it at the place you chose, or arrange delivery with NextX.'
       : pickup
-        ? 'Collect your order once it is confirmed.'
+        ? 'Collect it at the place you chose, once the order is confirmed.'
         : delivery
-          ? 'Arrange delivery with NextX.'
-          : 'Confirm pickup or delivery with NextX.';
+          ? 'NextX arranges delivery with you.'
+          : 'Agree pickup or delivery with NextX.';
   const steps: [string, string][] = [
-    ['Choose', 'Add the products you want to your cart.'],
-    ['Send', 'Send your cart to NextX on WhatsApp.'],
+    ['Choose', 'Add what you want to the cart. Pick a pickup place and date.'],
+    ['Send', 'Your cart opens in WhatsApp as one ready-written message to NextX.'],
     [
-      'Confirmation',
-      'NextX confirms price and stock. Your order is only final once confirmed.',
+      'Confirm',
+      'NextX checks stock and confirms the final price. Nothing is reserved until then.',
     ],
-    ['Receive', collection],
+    ['Collect', collection],
   ];
+  const supportTitle = publicText(settings?.supportTitle?.trim()) || 'Not sure which one?';
+  const supportBody =
+    publicText(settings?.supportBody?.trim()) ||
+    'Tell NextX what you listen to and what you want to spend.';
+
+  return (
+    <section
+      id="how-ordering-works"
+      aria-labelledby="home-ordering"
+      className={cn(SECTION, SECTION_GAP, 'scroll-mt-24')}
+    >
+      <h2 id="home-ordering" className={SECTION_TITLE}>
+        How to order
+      </h2>
+      <ol className="mt-8 grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+        {steps.map(([title, body], index) => (
+          <li key={title} className="border-ink border-t-2 pt-4">
+            <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
+              {num(index)}
+            </span>
+            <h3 className="nx-display mt-3 text-[22px]">{title}</h3>
+            <p className="mt-2 text-[15px] text-ink-2 leading-relaxed">{body}</p>
+          </li>
+        ))}
+      </ol>
+      {whatsappHref ? (
+        <div className="mt-10 flex flex-col gap-4 rounded-[24px] bg-sunken p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <h3 className="nx-display text-[22px]">{supportTitle}</h3>
+            <p className="mt-1.5 text-[15px] text-ink-2">{supportBody}</p>
+          </div>
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="nx-btn nx-btn-primary shrink-0"
+          >
+            <MessageCircle /> Message NextX
+          </a>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Pickup places, hours, payment, delivery and phone: one dark band, each fact only when the owner has
+ * entered it, and no band at all when none are. Full width, so it never has to match another card's height.
+ */
+function Pickup({
+  settings,
+  pickupLocations,
+  businessName,
+}: {
+  settings: Settings | null;
+  pickupLocations: { id: string; name: string }[];
+  businessName: string;
+}) {
+  const delivery = Boolean(settings?.deliveryEnabled);
   const payments = settings?.paymentMethods ?? [];
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   const deliveryLine = [
@@ -569,156 +621,83 @@ function OrderingAndVisit({
     .filter((line): line is string => Boolean(line))
     .map((line) => publicText(line))
     .join(' · ');
-  const hasVisitFacts = Boolean(
-    pickupLocations.length ||
-      settings?.addressLine ||
-      settings?.openingHours ||
-      payments.length ||
-      delivery ||
-      settings?.phone,
-  );
-  const supportTitle = publicText(settings?.supportTitle?.trim()) || 'Need help choosing?';
-  const supportBody =
-    publicText(settings?.supportBody?.trim()) ||
-    'Tell us what you are looking for and we will help you choose.';
+  const hasPickupPlace = Boolean(pickupLocations.length || settings?.addressLine);
+  const hasFacts =
+    hasPickupPlace || settings?.openingHours || payments.length || delivery || settings?.phone;
+  if (!hasFacts) return null;
 
   return (
     <section
-      id="how-ordering-works"
-      aria-labelledby="home-ordering"
-      className={cn(SECTION, 'mt-16 scroll-mt-24 lg:mt-24')}
+      id="pickup"
+      aria-labelledby="home-pickup"
+      className={cn(SECTION, 'mt-10 scroll-mt-24 lg:mt-12')}
     >
-      <div
-        className={cn(
-          'grid gap-4',
-          hasVisitFacts && 'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
-        )}
-      >
-        <div className="rounded-[24px] bg-sunken p-6 sm:p-9">
-          <h2 id="home-ordering" className="nx-display text-[clamp(24px,3vw,32px)]">
-            How ordering works
-          </h2>
-          <ol className="mt-6 grid gap-6 sm:grid-cols-2">
-            {steps.map(([title, body], index) => (
-              <li key={title} className="flex gap-4">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-cta font-bold text-[14px] text-cta-fg">
-                  {index + 1}
-                </span>
-                <span>
-                  <span className="block font-bold text-[16px]">{title}</span>
-                  <span className="mt-1 block text-[14px] text-ink-2 leading-relaxed">
-                    {body}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ol>
-          {whatsappHref ? (
-            <div className="mt-8 flex flex-col gap-4 border-line border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="font-bold text-[17px]">{supportTitle}</h3>
-                <p className="mt-1 text-[14px] text-ink-2">{supportBody}</p>
-              </div>
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="nx-btn nx-btn-primary shrink-0"
-              >
-                <MessageCircle /> Send a message
-              </a>
-            </div>
+      <div className="rounded-[24px] bg-night p-6 text-night-ink sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
+        <h2 id="home-pickup" className="nx-display text-[clamp(26px,3.4vw,38px)]">
+          Pickup and contact
+        </h2>
+        <dl className="mt-8 grid gap-x-10 gap-y-6 text-[15px] sm:grid-cols-2 lg:mt-1">
+          {hasPickupPlace ? (
+            <Fact label="Pickup">
+              {pickupLocations.length ? (
+                <ul>
+                  {pickupLocations.map((location) => (
+                    <li key={location.id}>{publicText(location.name)}</li>
+                  ))}
+                </ul>
+              ) : (
+                address
+              )}
+              {settings?.pickupDetails ? (
+                <p className="mt-1 text-night-ink-2">{publicText(settings.pickupDetails)}</p>
+              ) : null}
+            </Fact>
           ) : null}
-        </div>
-
-        {hasVisitFacts ? (
-          <aside
-            aria-label={`Visit ${businessName}`}
-            className="self-start rounded-[24px] bg-night p-6 text-night-ink sm:p-9"
-          >
-            <h2 className="nx-display text-[clamp(24px,3vw,32px)]">Pickup and contact</h2>
-            <dl className="mt-6 space-y-5 text-[14px]">
-              {pickupLocations.length || settings?.addressLine ? (
-                <VisitRow icon={MapPin} label="Pickup">
-                  {pickupLocations.length ? (
-                    <ul>
-                      {pickupLocations.map((location) => (
-                        <li key={location.id}>{publicText(location.name)}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    address
-                  )}
-                  {settings?.pickupDetails ? (
-                    <p className="mt-1 text-night-ink-2">
-                      {publicText(settings.pickupDetails)}
-                    </p>
-                  ) : null}
-                </VisitRow>
-              ) : null}
-              {settings?.openingHours ? (
-                <VisitRow icon={Clock} label="Opening hours">
-                  {publicText(settings.openingHours)}
-                </VisitRow>
-              ) : null}
-              {payments.length ? (
-                <VisitRow icon={Wallet} label="Payment">
-                  <ul>
-                    {payments.map((method) => (
-                      <li key={method.name}>
-                        {publicText(method.name)}
-                        {method.details ? (
-                          <span className="text-night-ink-2">
-                            {' '}
-                            · {publicText(method.details)}
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </VisitRow>
-              ) : null}
-              {delivery ? (
-                <VisitRow icon={Truck} label="Delivery">
-                  {deliveryLine || 'Available. Ask NextX for the details.'}
-                </VisitRow>
-              ) : null}
-              {settings?.phone ? (
-                <VisitRow icon={Phone} label="Call">
-                  <a
-                    href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}
-                    className="underline underline-offset-4"
-                  >
-                    {settings.phone}
-                  </a>
-                </VisitRow>
-              ) : null}
-            </dl>
-          </aside>
-        ) : null}
+          {settings?.openingHours ? (
+            <Fact label="Opening hours">{publicText(settings.openingHours)}</Fact>
+          ) : null}
+          {payments.length ? (
+            <Fact label="Payment">
+              <ul>
+                {payments.map((method) => (
+                  <li key={method.name}>
+                    {publicText(method.name)}
+                    {method.details ? (
+                      <span className="text-night-ink-2"> · {publicText(method.details)}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </Fact>
+          ) : null}
+          {delivery ? (
+            <Fact label="Delivery">
+              {deliveryLine || `Available. Ask ${businessName} for the details.`}
+            </Fact>
+          ) : null}
+          {settings?.phone ? (
+            <Fact label="Call">
+              <a
+                href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}
+                className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-white"
+              >
+                {settings.phone}
+              </a>
+            </Fact>
+          ) : null}
+        </dl>
       </div>
     </section>
   );
 }
 
-function VisitRow({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: typeof MapPin;
-  label: string;
-  children: React.ReactNode;
-}) {
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-3">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-store-bright" />
-      <div className="min-w-0">
-        <dt className="font-semibold text-[12px] text-night-ink-2 uppercase tracking-[0.08em]">
-          {label}
-        </dt>
-        <dd className="mt-1">{children}</dd>
-      </div>
+    <div className="min-w-0 border-night-line border-t pt-3">
+      <dt className="font-semibold text-[12px] text-night-ink-2 uppercase tracking-[0.08em]">
+        {label}
+      </dt>
+      <dd className="mt-1.5">{children}</dd>
     </div>
   );
 }

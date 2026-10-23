@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   accessoryShelf,
   categoryTiles,
+  DEFAULT_HERO_TITLE,
   latestAdditions,
   type MerchProduct,
+  ownerHeroCopy,
   pickShowcase,
 } from '@/lib/home-merchandising';
 
@@ -130,5 +132,29 @@ describe('accessoryShelf', () => {
         new Set(),
       ),
     ).toBeNull();
+  });
+});
+
+describe('ownerHeroCopy', () => {
+  it('treats empty text and the known placeholders as unset, so the better default shows', () => {
+    expect(ownerHeroCopy(null)).toBeNull();
+    expect(ownerHeroCopy('   ')).toBeNull();
+    expect(ownerHeroCopy('Welcome To NextX')).toBeNull();
+    expect(ownerHeroCopy('  welcome to  NextX ')).toBeNull();
+    expect(
+      ownerHeroCopy('Browse the range, with real photographs, prices and stock.'),
+    ).toBeNull();
+    expect(
+      ownerHeroCopy('In-ear monitors and accessories. Order via WhatsApp; prices in SRD.'),
+    ).toBeNull();
+  });
+
+  it('keeps anything the owner actually wrote, exactly as typed', () => {
+    expect(ownerHeroCopy('IEMs for stage and studio.')).toBe('IEMs for stage and studio.');
+    expect(ownerHeroCopy(' Audio  uit Paramaribo ')).toBe('Audio uit Paramaribo');
+  });
+
+  it('has a default headline of its own', () => {
+    expect(DEFAULT_HERO_TITLE).not.toMatch(/welcome/i);
   });
 });

@@ -28,7 +28,7 @@ import { PAYMENT_LABELS, type PaymentBadgeCode, paymentBadgeOf } from '@/lib/pay
 import { variantLabel } from '@/lib/store-messages';
 import { listActivity } from '@/server/queries/activity';
 import { getSale } from '@/server/queries/documents';
-import { getCurrentRate } from '@/server/queries/overview';
+import { getLiveRate } from '@/server/queries/overview';
 import {
   listBundleOptions,
   listCustomerOptions,
@@ -98,7 +98,7 @@ async function Loader({
       listCustomerOptions(),
       listSellerOptions(),
       listBundleOptions(),
-      getCurrentRate(),
+      getLiveRate(),
     ]);
 
     return (

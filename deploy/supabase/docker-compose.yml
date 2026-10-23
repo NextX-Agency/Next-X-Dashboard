@@ -597,6 +597,11 @@ services:
       NEXT_PUBLIC_APP_URL: ${NEXTX_STAGING_APP_URL}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
       CRON_SECRET: ${NEXTLY_CRON_SECRET}
+    volumes:
+      # Optimised product photographs (next/image + sharp) and the Next.js data cache. Without a
+      # volume every deploy starts with it empty and re-encodes each photo on its first view. A
+      # new named volume is seeded from the image, so it keeps the unprivileged user's ownership.
+      - nextx-web-next-cache:/app/.next/cache
     expose:
       - "3000"
     ports:
@@ -609,5 +614,7 @@ volumes:
     name: ${COMPOSE_PROJECT_NAME:-nextx-staging}-supabase-deno-cache
   nextx-staging-db-data:
     name: ${COMPOSE_PROJECT_NAME:-nextx-staging}-supabase-postgres-data
+  nextx-web-next-cache:
+    name: ${COMPOSE_PROJECT_NAME:-nextx-staging}-web-next-cache
   nextx-staging-storage-data:
     name: ${COMPOSE_PROJECT_NAME:-nextx-staging}-supabase-storage-data

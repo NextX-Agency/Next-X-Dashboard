@@ -47,6 +47,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           changeFrequency: 'daily' as const,
           priority: 0.9,
         },
+        {
+          url: new URL(storefrontPagePath(slug, 'faq'), origin).toString(),
+          changeFrequency: 'monthly' as const,
+          priority: 0.3,
+        },
         ...products.map((product) => ({
           url: new URL(storefrontProductPath(slug, product.slug), origin).toString(),
           changeFrequency: 'weekly' as const,

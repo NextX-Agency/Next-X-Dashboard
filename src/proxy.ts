@@ -6,11 +6,27 @@ import { logServerError, REQUEST_ID_HEADER, withRequestId } from '@/lib/observab
 import { isApiPath, isDatabaseFreePath, isPublicPath } from '@/lib/route-access';
 
 /**
+ * Environment validation parses every variable through zod. It cannot change while the process
+ * runs, so a PASS is remembered (a failure is re-checked, so repairing the environment still
+ * works without a restart). Anonymous storefront traffic used to pay this on every request.
+ */
+let serverEnvironmentKnownValid = false;
+function serverEnvironmentValid(): boolean {
+  if (serverEnvironmentKnownValid) return true;
+  serverEnvironmentKnownValid = isServerEnvironmentValid();
+  return serverEnvironmentKnownValid;
+}
+
+/**
  * Session refresh at the network boundary.
  *
  * In Next.js 16 this file replaces middleware.ts and runs on the Node.js
  * runtime. It refreshes the Supabase auth cookie and protects the private app
  * shell. Server layouts and actions remain the real authorization boundary.
+ *
+ * Public storefront routes (`isPublicPath`) return before any Supabase client is
+ * created, so anonymous shop traffic never makes an auth round trip. Static
+ * assets never reach this function at all (see `config.matcher`).
  */
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -36,7 +52,7 @@ export default async function proxy(request: NextRequest) {
   // Database-free pages remain reachable so the setup and sign-in explanations
   // can be used to repair the environment.
   if (
-    (!process.env.DATABASE_URL || !isServerEnvironmentValid()) &&
+    (!process.env.DATABASE_URL || !serverEnvironmentValid()) &&
     !isDatabaseFreePath(pathname)
   ) {
     const url = request.nextUrl.clone();
@@ -124,6 +140,6 @@ export default async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Everything except static assets and image optimisation output.
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?|mp4|webm)$).*)',
   ],
 };

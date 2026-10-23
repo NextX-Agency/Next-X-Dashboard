@@ -183,4 +183,8 @@
   --nx-shadow-overlay:
     0 6px 16px -4px hsl(40 10% 8% / 0.14), 0 20px 48px -12px hsl(40 10% 8% / 0.18);
   --nx-highlight: transparent;
+
+  /* Error states stay light whatever the OS theme, so alerts never inherit the dashboard's dark values. */
+  --nx-negative: #b42d22;
+  --nx-negative-muted: #fbe9e6;
 }

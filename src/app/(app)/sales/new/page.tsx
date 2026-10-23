@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/patterns/page-header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RATE_SCALE } from '@/lib/fx';
-import { getCurrentRate } from '@/server/queries/overview';
+import { getLiveRate } from '@/server/queries/overview';
 import {
   listBundleOptions,
   listCustomerOptions,
@@ -45,7 +45,7 @@ async function Loader() {
     listCustomerOptions(),
     listSellerOptions(),
     listBundleOptions(),
-    getCurrentRate(),
+    getLiveRate(),
   ]);
 
   return (

@@ -19,7 +19,7 @@ import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/tabl
 import { formatDate, formatRelative, humanise } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
 import { formatMoney } from '@/lib/money';
-import { getSettings, listMembers, listRates } from '@/server/queries/reference';
+import { getAdminSettings, listMembers, listRates } from '@/server/queries/reference';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -229,7 +229,7 @@ async function MembersTable() {
 }
 
 async function BusinessSettings() {
-  const settings = await getSettings();
+  const settings = await getAdminSettings();
   if (!settings) {
     return <p className="px-4 py-8 text-center text-[13px] text-ink-4">Not configured.</p>;
   }
@@ -281,7 +281,7 @@ async function RateAction() {
 }
 
 async function SettingsAction() {
-  const settings = await getSettings();
+  const settings = await getAdminSettings();
   return (
     <SettingsSheet
       initial={{

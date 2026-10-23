@@ -4,14 +4,52 @@ import { LEGACY_AUDIO_REDIRECTS, LEGACY_RETIRED_WATCH_IDS } from './src/lib/lega
 
 assertProductionBuildEnvironment();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Response headers for every route. Production only: `next dev` tooling should not be
+// fenced by them.
+//
+// There is deliberately NO script/style Content-Security-Policy. Next.js renders
+// inline bootstrap scripts and the style system emits inline styles; a strict
+// `script-src` needs per-request nonces, which would force every route fully
+// dynamic and defeat Partial Prerendering. The CSP below only adds the
+// directives that cannot break those inline scripts: framing, `<base>` and plugins.
+const SECURITY_HEADERS = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  {
+    key: 'Content-Security-Policy',
+    value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+  },
+  // Honoured only over HTTPS (Pangolin terminates TLS); no includeSubDomains/preload
+  // so the Supabase and Coolify sibling hostnames are not affected by this app.
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+] as const;
+
 const nextConfig: NextConfig = {
   output: 'standalone',
-  // Everything is dynamic unless explicitly marked `'use cache'`, and nothing
-  // is: this dashboard's figures are live, every write invalidates them, and
-  // caching them made `next build` reach for the database, which turned a
-  // transient connection problem into a failed deploy. Kept on for the
-  // Partial Prerendering it gives the public routes, and because dynamic by
-  // default is the correct posture for a set of books.
+  // The framework's own `X-Powered-By: Next.js` header tells scanners what to aim at.
+  poweredByHeader: false,
+  // gzip of HTML/RSC/JSON is on by default; stated so nobody turns it off, and so it is
+  // obvious it must be switched off if the reverse proxy ever starts compressing instead.
+  compress: true,
+  // Everything is dynamic unless explicitly marked `'use cache'`. The dashboard's
+  // figures are live and never cached. The only cached reads are the public
+  // storefront's read-mostly models (settings, host -> storefront, catalogue,
+  // exchange rate; see `server/queries/cache-tags.ts`): every one is expired by any
+  // staff mutation and bounded by a sub-5-minute lifetime.
+  //
+  // Load-bearing: a `'use cache'` fill IS awaited while `next build` prerenders, and
+  // the build machine has no database (the Dockerfile builds against a placeholder
+  // URL), so a database-backed cached read would fail the build ("getaddrinfo
+  // ENOTFOUND supavisor"). Each such read therefore awaits `connection()` (or
+  // `headers()`) in its uncached wrapper first, which defers it to request time.
+  // Keep that line when adding another cached read.
   cacheComponents: true,
 
   // Automatic memoization. Costs build time, buys us render time on the
@@ -67,11 +105,47 @@ const nextConfig: NextConfig = {
     turbopackFileSystemCacheForDev: true,
   },
 
+  async headers() {
+    if (!isProduction) return [];
+    return [
+      { source: '/:path*', headers: [...SECURITY_HEADERS] },
+      {
+        // Unversioned files copied from `public/` (logos, hero art, favicon): short enough that
+        // replacing one is visible within a day, long enough that a returning visitor does not
+        // revalidate every request. `/_next/static` is fingerprinted and already
+        // `immutable`; `/_next/image` output is governed by `images.minimumCacheTTL`.
+        source: '/:file([^/]+\\.(?:png|jpe?g|gif|webp|avif|svg|ico|woff2?))',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+    ];
+  },
+
   images: {
     // Only self-hosted Storage is allowed for public catalog media.
     // `images.domains` is deprecated in Next 16.
     remotePatterns: supabaseStorageImagePattern(),
-    formats: ['image/avif', 'image/webp'],
+    // WebP only. AVIF encodes several times slower than WebP in sharp; on a shared VPS (the
+    // Supabase stack runs on the same host) every cold product photo would otherwise pay
+    // that CPU cost once per width, and the optimised cache is wiped on each deploy unless
+    // `.next/cache` is a volume. WebP is ~20% larger than AVIF at the same quality: the right
+    // trade here.
+    formats: ['image/webp'],
+    // Product photographs are replaced by uploading a new file (a new storage path), never
+    // edited in place, so an optimised copy can be kept a month instead of the 4 hour
+    // default. Fewer revalidation fetches back to Supabase Storage.
+    minimumCacheTTL: 60 * 60 * 24 * 31,
+    // The default is half the free disk at start-up. The optimised copies live on the same host as
+    // the database and Storage volumes, so cap them; least-recently-used files go first.
+    maximumDiskCacheSize: 2_000_000_000,
+    // Every extra width is another encode on first request. Nothing on the shop is shown wider
+    // than ~1200 CSS px except the full-bleed hero; 2048 and 3840 only multiply the work.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [32, 48, 64, 96, 128, 256, 384],
   },
 };
 

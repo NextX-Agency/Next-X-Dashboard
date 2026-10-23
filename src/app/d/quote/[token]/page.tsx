@@ -4,7 +4,7 @@ import { DocumentActions } from '@/components/invoice/document-actions';
 import { formatDate } from '@/lib/format';
 import { formatMoney } from '@/lib/money';
 import { getPublicQuote } from '@/server/queries/quotes';
-import { getSettings } from '@/server/queries/reference';
+import { getAdminSettings } from '@/server/queries/reference';
 
 export const metadata: Metadata = {
   title: 'Quote / Offerte',
@@ -18,7 +18,7 @@ export default async function PublicQuotePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const [quote, settings] = await Promise.all([getPublicQuote(token), getSettings()]);
+  const [quote, settings] = await Promise.all([getPublicQuote(token), getAdminSettings()]);
   if (!quote) notFound();
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   return (

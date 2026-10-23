@@ -2,12 +2,12 @@ import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import { calculateReorderRecommendations, type ReorderRecommendation } from '@/lib/reorder';
 import { db } from '../db/client';
-import { getSettings } from './reference';
+import { getAdminSettings } from './reference';
 import { num, text } from './row';
 
 export async function getReorderRecommendations(): Promise<ReorderRecommendation[]> {
   if (!isDatabaseConfigured()) return [];
-  const settings = await getSettings();
+  const settings = await getAdminSettings();
   const policy = {
     reviewHorizonDays: settings?.reviewHorizonDays ?? 14,
     safetyStockDays: settings?.safetyStockDays ?? 7,

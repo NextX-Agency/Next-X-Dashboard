@@ -11,6 +11,7 @@ RUN apk add --no-cache libc6-compat
 RUN corepack enable
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Public config is needed while Next.js builds its image allow-list and client
 # bundle. The production config rejects managed Supabase hosts and requires an
@@ -38,12 +39,17 @@ WORKDIR /app
 ARG GIT_COMMIT=unknown
 LABEL org.opencontainers.image.revision=$GIT_COMMIT
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs \
   && mkdir -p .next/cache \
   && chown -R nextjs:nodejs /app
+# `.next/cache` holds the optimised product photographs (next/image + sharp) and the Next.js
+# data cache. It is empty after every deploy, so each photo is re-encoded on first view. Mount a
+# persistent volume at /app/.next/cache in Coolify to keep it across deploys (the directory is
+# created above owned by the unprivileged user, so a fresh named volume inherits that ownership).
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

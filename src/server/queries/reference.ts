@@ -1,9 +1,12 @@
 import { type SQL, sql } from 'drizzle-orm';
+import { cacheLife, cacheTag } from 'next/cache';
+import { connection } from 'next/server';
 import { isDatabaseConfigured } from '@/lib/env';
 import type { CategoryQuery, SupplierQuery } from '@/lib/list-params';
 import type { Cents, CurrencyCode } from '@/lib/money';
 import { balanceCentsOf, type PaymentBadgeCode, paymentBadgeOf } from '@/lib/payment-status';
 import { db } from '../db/client';
+import { CACHE_TAGS, REFERENCE_CACHE_LIFE } from './cache-tags';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
 import { bool, maybe, num, text } from './row';
 
@@ -398,9 +401,60 @@ export type SettingsRow = {
   homepageComingNextLimit: number;
 };
 
-export async function getSettings(): Promise<SettingsRow | null> {
-  if (!isDatabaseConfigured()) return null;
+/**
+ * Settings fields that are business-private planning figures (purchasing budget
+ * and margin targets). They are read only by staff screens and by the actions
+ * that need them, always through the uncached `getAdminSettings`; they are
+ * never part of the cached, storefront-facing `getSettings`.
+ */
+type PrivateSettingsField =
+  | 'weeklyPurchaseBudgetCents'
+  | 'targetBundleMarginBp'
+  | 'defaultBundleDiscountBp';
 
+/** The settings the public storefront (and customer-facing documents) may read. */
+export type PublicSettings = Omit<SettingsRow, PrivateSettingsField>;
+
+/**
+ * Storefront settings, cached across requests.
+ *
+ * This ran as one database round trip on EVERY storefront page view (the store
+ * layout, the home page, the product page and the cart each read it). Now it is
+ * served from memory and refreshed by `CACHE_TAGS.settings`, which every staff
+ * mutation expires (`updateSettings` included), with a one-minute safety net
+ * for edits made outside the app. The cached value omits the private planning
+ * figures; staff code that needs them calls `getAdminSettings`.
+ */
+export async function getSettings(): Promise<PublicSettings | null> {
+  if (!isDatabaseConfigured()) return null;
+  // Request time only: a cached read that ran while `next build` prerenders would reach the
+  // database from a build machine that has none (the cache fill is awaited, unlike a plain query).
+  await connection();
+  return readPublicSettings();
+}
+
+async function readPublicSettings(): Promise<PublicSettings | null> {
+  'use cache';
+  cacheLife(REFERENCE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.settings);
+  const row = await readSettingsRow();
+  if (!row) return null;
+  const {
+    weeklyPurchaseBudgetCents: _budget,
+    targetBundleMarginBp: _margin,
+    defaultBundleDiscountBp: _discount,
+    ...publicSettings
+  } = row;
+  return publicSettings;
+}
+
+/** The full settings row, never cached. For staff screens and actions that act on it. */
+export async function getAdminSettings(): Promise<SettingsRow | null> {
+  if (!isDatabaseConfigured()) return null;
+  return readSettingsRow();
+}
+
+async function readSettingsRow(): Promise<SettingsRow | null> {
   const [row] = await db.execute<Record<string, string>>(sql`
     SELECT business_name, base_currency, display_currency, low_stock_threshold::text,
            quote_validity_days::text, default_payment_days::text,

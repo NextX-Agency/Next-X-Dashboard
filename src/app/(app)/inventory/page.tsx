@@ -36,7 +36,7 @@ import { parseListParams, type RawSearchParams, stockQuerySchema } from '@/lib/l
 import { formatMoney } from '@/lib/money';
 import { listStock } from '@/server/queries/lists';
 import { listCategoryOptions, listLocationOptions } from '@/server/queries/pickers';
-import { getSettings } from '@/server/queries/reference';
+import { getAdminSettings } from '@/server/queries/reference';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -102,7 +102,7 @@ async function StockTable({ searchParams }: { searchParams: Promise<RawSearchPar
   const raw = await searchParams;
   const query = parseListParams(stockQuerySchema, raw);
   const hasFilters = Boolean(query.q || query.category || query.location || query.state);
-  const [result, settings] = await Promise.all([listStock(query), getSettings()]);
+  const [result, settings] = await Promise.all([listStock(query), getAdminSettings()]);
   // The same threshold the alerts panel reads, so the "Low" badge here and
   // the "running low" alert on the Overview can never disagree.
   const lowStockAt = settings?.lowStockThreshold ?? 5;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ShoppingBag } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import type { StoreCartLineInput } from '@/lib/store-cart';
@@ -8,9 +8,10 @@ import { useStoreCart } from './store-cart-provider';
 
 /**
  * "Add to cart" straight from a product card, for a product with exactly one purchasable option.
- * Products with a choice (colour and so on) never get this: their card says "Choose options" and opens
- * the page, so nobody adds a colour they have not seen. The button sits above the card's stretched link
- * (`relative z-10`), so the card stays one link and this stays one real button: no nesting.
+ * Products with a choice (colour and so on) never get this: nobody should add a colour they have not
+ * seen. The button sits above the card's stretched link (`relative z-10`), so the card stays one link
+ * and this stays one real button: no nesting. It stops at what is on hand, counting what is already
+ * in the cart.
  */
 export function QuickAdd({
   line,
@@ -35,25 +36,21 @@ export function QuickAdd({
   }
 
   return (
-    <div className={cn('relative z-10 flex flex-col gap-1.5', className)}>
+    <div className={cn('relative z-10 flex flex-col', className)}>
       <button
         type="button"
         onClick={add}
         disabled={!ready || atLimit}
         aria-label={`Add ${line.productName} to cart`}
         className={cn(
-          'flex h-11 items-center justify-center gap-2 rounded-[10px] font-semibold text-[14px] transition-colors',
+          'flex h-11 items-center justify-center gap-2 rounded-[10px] border font-semibold text-[14px] transition-colors',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
           justAdded
-            ? 'bg-positive-muted text-positive'
-            : 'bg-cta text-cta-fg hover:bg-cta-hover disabled:opacity-50',
+            ? 'border-ink bg-ink text-on-ink'
+            : 'border-ink text-ink hover:border-cta hover:bg-cta hover:text-cta-fg disabled:border-line-strong disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3',
         )}
       >
-        {justAdded ? (
-          <Check aria-hidden="true" className="size-4" />
-        ) : (
-          <ShoppingBag aria-hidden="true" className="size-4" />
-        )}
+        {justAdded ? <Check aria-hidden="true" className="size-4" /> : null}
         {justAdded ? 'Added' : atLimit ? 'All stock in cart' : 'Add to cart'}
       </button>
       {/* The button turns to "Added" and the header's cart count rises; this is the spoken version. */}

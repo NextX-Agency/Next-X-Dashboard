@@ -7,17 +7,19 @@ import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
 import { QuickAdd } from './quick-add';
 import { SafeImage } from './safe-image';
-import { StockPill } from './stock-pill';
+import { StockNote } from './stock-pill';
 import { StorePrice } from './store-price';
 
+/** What a card's photograph is sized for when the caller does not know its grid. */
+const DEFAULT_SIZES = '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw';
+
 /**
- * One product in a grid: the photograph on a soft field, brand and name, the price as the largest thing,
- * a plain-language stock pill and one clear action.
+ * One product in a grid: the photograph on a soft field, brand, name, price, and an action only when
+ * there is one to take.
  *
- * - One purchasable option, in stock: a real "Add to cart" button (Quick Add).
- * - Several options (colour and so on): "Choose options", because nobody should add a colour they
- *   have not seen.
- * - Sold out: "See availability".
+ * - One purchasable option in stock: a real "Add to cart" button (Quick Add).
+ * - Several options: the card says how many; the page is where the choice is made.
+ * - Sold out: the words "Sold out" (or "On the way"). Available needs no label.
  *
  * The name is a stretched link (`::after` covers the card), so the card is ONE link for mouse, touch and
  * keyboard. Quick Add is a sibling button raised above that overlay, so nothing is nested.
@@ -26,11 +28,14 @@ export function ProductCard({
   product,
   srdRate,
   priority = false,
+  sizes = DEFAULT_SIZES,
 }: {
   product: CatalogListItem;
   srdRate?: RateMicros;
-  /** First row of a page: load eagerly. */
+  /** The first visible row: load eagerly and at high priority. */
   priority?: boolean;
+  /** The `sizes` of this card's grid, so the browser fetches the right width. */
+  sizes?: string;
 }) {
   // A card that matched a colour or option shows THAT option's price and stock, not the product's range.
   const option = product.matchedVariant;
@@ -40,7 +45,6 @@ export function ProductCard({
   const hasRange = !option && product.maxPriceCents > product.minPriceCents;
   const several = product.optionCount > 1;
   const optionName = option && several ? variantLabel(option.name) : null;
-  const isNew = product.newUntil ? Date.parse(product.newUntil) >= Date.now() : false;
   // A brand that repeats the start of the name ("KZ" + "KZ AS16 Pro X") says nothing; the category does.
   const brandRepeats = product.brandName
     ? product.name.toLowerCase().startsWith(product.brandName.toLowerCase())
@@ -51,20 +55,19 @@ export function ProductCard({
   const href = option && several ? `${base}?variant=${encodeURIComponent(option.sku)}` : base;
   const only = product.onlyOption;
   const canQuickAdd = !several && inStock && only !== null && only.onHand > 0;
-  const priceHeadline = hasRange ? 'from' : undefined;
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised transition-[box-shadow,border-color] duration-200 focus-within:border-ink hover:border-line-strong hover:shadow-overlay">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised transition-colors duration-200 focus-within:border-ink hover:border-line-strong">
       <div className="relative aspect-square bg-sunken">
         {product.image ? (
           <SafeImage
             src={product.image.url}
             alt={product.image.alt ?? product.name}
             fill
-            priority={priority}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 22vw"
+            {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
+            sizes={sizes}
             className={cn(
-              'object-contain p-[8%] mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.04]',
+              'object-contain p-[8%] mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.03]',
               !inStock && 'opacity-45',
             )}
             fallback={<NoPhoto name={product.name} />}
@@ -75,16 +78,6 @@ export function ProductCard({
         ) : (
           <NoPhoto name={product.name} />
         )}
-        {isNew && inStock ? (
-          <span className="absolute top-3 left-3 rounded-full bg-store-bright px-2.5 py-1 font-bold text-[11px] text-white uppercase tracking-wider">
-            New
-          </span>
-        ) : null}
-        {!inStock ? (
-          <span className="absolute top-3 left-3 rounded-full bg-night px-2.5 py-1 font-bold text-[11px] text-night-ink uppercase tracking-wider">
-            {product.incoming > 0 ? 'On the way' : 'Sold out'}
-          </span>
-        ) : null}
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-3.5 sm:p-4">
@@ -101,7 +94,6 @@ export function ProductCard({
           {product.name}
         </Link>
         {optionName ? <p className="text-[13px] text-ink-2">{optionName}</p> : null}
-        {/* Tell shoppers a choice (colour and so on) waits on the product page. */}
         {several && !option ? (
           <p className="text-[13px] text-ink-2">{product.optionCount} options</p>
         ) : null}
@@ -110,12 +102,10 @@ export function ProductCard({
           currency={product.priceCurrency}
           srdRate={srdRate}
           size="card"
-          prefix={priceHeadline}
+          prefix={hasRange ? 'from' : undefined}
           className="mt-auto pt-2"
         />
-        <div className="mt-2.5">
-          <StockPill onHand={onHand} incoming={option ? 0 : product.incoming} />
-        </div>
+        <StockNote onHand={onHand} incoming={option ? 0 : product.incoming} className="mt-1" />
         {canQuickAdd && only ? (
           <QuickAdd
             className="mt-3"
@@ -132,19 +122,7 @@ export function ProductCard({
               imageUrl: product.image?.url ?? null,
             }}
           />
-        ) : (
-          <span
-            aria-hidden="true"
-            className={cn(
-              'mt-3 flex h-11 items-center justify-center rounded-[10px] font-semibold text-[14px]',
-              inStock
-                ? 'border border-accent text-accent'
-                : 'border border-line-strong text-ink-2',
-            )}
-          >
-            {!inStock ? 'See availability' : several ? 'Choose options' : 'View product'}
-          </span>
-        )}
+        ) : null}
       </div>
     </article>
   );

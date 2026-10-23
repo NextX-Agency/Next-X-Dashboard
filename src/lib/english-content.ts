@@ -13,6 +13,13 @@
  * lists each one.
  */
 
+/**
+ * The shop's own one-line description. What NextX sells, how an order works, which currency. Shown when
+ * the owner has not written a description, and in place of the legacy imported one-liner below.
+ */
+export const STORE_DESCRIPTION_TEXT =
+  'In-ear monitors, wireless earbuds and accessories in Paramaribo. Build a cart, send it on WhatsApp, and NextX confirms price and stock. Prices in SRD.';
+
 /** Whitespace-insensitive comparison key. */
 function key(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
@@ -26,7 +33,7 @@ const LEGACY_TEXT: ReadonlyMap<string, string> = new Map(
       ['Beschikbaar voor ophalen in de winkel.', 'Available for pickup in store.'],
       [
         'In-ear monitors en accessoires. Bestel via WhatsApp; prijzen in SRD.',
-        'In-ear monitors and accessories. Order via WhatsApp; prices in SRD.',
+        STORE_DESCRIPTION_TEXT,
       ],
       // KZ AS16 Pro X specification labels and values.
       ['Kabel', 'Cable'],

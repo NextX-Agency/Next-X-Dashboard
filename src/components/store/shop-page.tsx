@@ -1,4 +1,3 @@
-import { PackageSearch } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { CategoryChips } from '@/components/store/category-chips';
@@ -29,6 +28,10 @@ const SORTS: CatalogSort[] = ['relevance', 'newest', 'name', 'price-asc', 'price
 
 /** Products shown per step; "Show more" adds another step. Plenty for today's catalogue and a long one. */
 const PAGE_SIZE = 24;
+
+/** Two columns on a phone, three from 768 px (beside the 250 px filter rail from 1024 px). */
+const GRID_SIZES =
+  '(max-width: 767px) 50vw, (max-width: 1023px) 33vw, (max-width: 1320px) 22vw, 320px';
 
 function one(value: string | string[] | undefined): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
@@ -105,13 +108,11 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
     { min: one(raw.min), max: one(raw.max), price: one(raw.price) },
     filterOptions.priceCurrency,
   );
-  const [all, categories, facets, rate, everything] = await Promise.all([
+  const [all, categories, facets, rate] = await Promise.all([
     listCatalogProducts({ ...filters, priceRange, sort }),
     listCatalogCategories(),
     listCatalogFacets({ ...filters, priceRange }),
     getCurrentRate(),
-    // The chips show the size of the whole catalogue, not of the current filter.
-    listCatalogProducts({}),
   ]);
 
   const products = all.slice(0, page * PAGE_SIZE);
@@ -164,7 +165,6 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
       <div className="mt-5">
         <CategoryChips
           categories={categories}
-          total={everything.length}
           active={activeCategory ? activeCategory.slug : null}
         />
       </div>
@@ -178,11 +178,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
 
         <div className="min-w-0">
           <div className="space-y-3">
-            <ShopToolbar
-              filters={filterPanel}
-              inStockCount={facets.availability.inStock}
-              total={all.length}
-            />
+            <ShopToolbar filters={filterPanel} total={all.length} />
             <ActiveFilters
               labels={{
                 category: activeCategory?.name,
@@ -211,7 +207,8 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
                     <ProductCard
                       product={product}
                       srdRate={rate?.rateMicros}
-                      priority={index < 4}
+                      priority={index < 3}
+                      sizes={GRID_SIZES}
                     />
                   </li>
                 ))}
@@ -239,32 +236,29 @@ function EmptyResults({
   categories: { slug: string; name: string; count: number }[];
 }) {
   return (
-    <div className="flex flex-col items-start gap-4 rounded-tile bg-sunken p-8 sm:p-12">
-      <PackageSearch aria-hidden="true" className="size-8 text-ink-3" />
-      <div>
-        <h2 className="nx-display text-[24px]">
-          {filtered ? 'Nothing found' : 'No products yet'}
-        </h2>
-        <p className="mt-2 max-w-[48ch] text-[15px] text-ink-2">
-          {filtered
-            ? `No products found${query ? ` for “${query}”` : ' with these filters'}. Try a different search or remove a filter.`
-            : 'Products will appear here with their price, photos and stock once they are published.'}
+    <div className="max-w-[52ch] py-6 sm:py-10">
+      <h2 className="nx-display text-[24px]">
+        {filtered ? 'Nothing found' : 'No products yet'}
+      </h2>
+      <p className="mt-2 text-[15px] text-ink-2">
+        {filtered
+          ? `Nothing matches${query ? ` “${query}”` : ' these filters'}. Try another word or clear a filter.`
+          : 'No products are published yet.'}
+      </p>
+      {suggestion ? (
+        <p className="mt-3 text-[15px] text-ink-2">
+          Did you mean{' '}
+          <Link
+            href={`${SHOP_PATH}?q=${encodeURIComponent(suggestion)}` as never}
+            className="inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-4"
+          >
+            {suggestion}
+          </Link>
+          ?
         </p>
-        {suggestion ? (
-          <p className="mt-3 text-[15px] text-ink-2">
-            Did you mean{' '}
-            <Link
-              href={`${SHOP_PATH}?q=${encodeURIComponent(suggestion)}` as never}
-              className="font-semibold text-ink underline underline-offset-4"
-            >
-              {suggestion}
-            </Link>
-            ?
-          </p>
-        ) : null}
-      </div>
+      ) : null}
       {filtered ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-5 flex flex-wrap gap-2">
           <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
             Clear filters
           </Link>

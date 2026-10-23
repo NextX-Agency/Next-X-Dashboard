@@ -1,6 +1,8 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 
-export const alt = 'NextX: shop online, order via WhatsApp';
+export const alt = 'NextX: in-ear monitors and accessories, Paramaribo';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -10,11 +12,23 @@ export const contentType = 'image/png';
  * dev server. Every real share of this domain is a WhatsApp link to `/` or a
  * product, so a broken or default link preview there is a real loss.
  *
- * Neutral on purpose: the brand is NextX, not one product family. Colours are
- * the storefront's charcoal and orange (`styles/tokens.css`) as literal hex,
- * because the image renderer cannot read CSS variables.
+ * The NextX logo and one line: what the shop sells and where. The image
+ * renderer has one regular-weight font and cannot read CSS variables, so the
+ * logo is the real artwork (`public/nextx-logo-light.png`), with a plain
+ * wordmark only if that file cannot be read.
  */
-export default function Image() {
+async function logoDataUri(): Promise<string | null> {
+  try {
+    const file = await readFile(join(process.cwd(), 'public', 'nextx-logo-light.png'));
+    return `data:image/png;base64,${file.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Image() {
+  const logo = await logoDataUri();
+
   return new ImageResponse(
     <div
       style={{
@@ -22,24 +36,26 @@ export default function Image() {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '72px 88px',
-        background: '#131211',
-        color: '#f4f1ec',
-        borderTop: '10px solid #ee5b0d',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 36,
+        background: '#ffffff',
+        color: '#141414',
+        borderBottom: '14px solid #e8590c',
       }}
     >
-      <div style={{ display: 'flex', fontSize: 120, fontWeight: 900, letterSpacing: -5 }}>
-        <span>Next</span>
-        <span style={{ color: '#ee5b0d' }}>X</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', fontSize: 56, fontWeight: 700, letterSpacing: -2 }}>
-          Shop online, order via WhatsApp.
+      {logo ? (
+        // biome-ignore lint/performance/noImgElement: the OG renderer takes a plain img, not next/image
+        // biome-ignore lint/a11y/useAltText: decorative inside a generated image; the route sets `alt`
+        <img src={logo} width={720} height={286} />
+      ) : (
+        <div style={{ display: 'flex', fontSize: 160, letterSpacing: -6 }}>
+          <span>Next</span>
+          <span style={{ color: '#e8590c' }}>X</span>
         </div>
-        <div style={{ display: 'flex', fontSize: 26, color: '#b7b0a6' }}>
-          Prices in SRD · Suriname
-        </div>
+      )}
+      <div style={{ display: 'flex', fontSize: 44, color: '#3f3f3b' }}>
+        In-ear monitors and accessories. Paramaribo.
       </div>
     </div>,
     { ...size },

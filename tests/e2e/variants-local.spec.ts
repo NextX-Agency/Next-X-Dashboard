@@ -49,7 +49,9 @@ test.describe('shop: the chosen option drives the page', () => {
     const purple = await srcOf(mainPhoto(page));
     expect(purple).toContain('kz-zsn-pro-2');
     await expect(page.getByText('SRD 1,700').first()).toBeVisible();
-    await expect(page.getByText(/Only 2 left/).first()).toBeVisible();
+    // Purple is available (2 on hand): no label, no "Only 2 left", and it can be added.
+    await expect(page.getByText(/Only \d+ left|^In stock$/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Add to cart' }).first()).toBeEnabled();
   });
 
   test('a link to an option opens on it, and the option names the WhatsApp order', async ({
@@ -274,7 +276,7 @@ test('a card that matched a colour shows that option’s price, stock and name',
   await expect(card).toContainText('Purple');
   await expect(card).toContainText('SRD 1,700');
   await expect(card).not.toContainText('from');
-  await expect(card).toContainText('Only 2 left');
+  await expect(card).not.toContainText(/Only \d+ left|In stock/);
   await page.goto('/shop?colour=Silver', { waitUntil: 'networkidle' });
   const silver = page.locator('section[aria-label="Products"] article').first();
   await expect(silver).toContainText('SRD 1,600');

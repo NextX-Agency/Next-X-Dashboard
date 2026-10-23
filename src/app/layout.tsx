@@ -7,12 +7,22 @@ import { Toaster } from '@/components/providers/toaster';
 import { publicAppUrl } from '@/lib/env';
 import './globals.css';
 
+// Fonts. All three are variable families (no `weight` list, so each is ONE latin woff2 rather than
+// one file per weight), `display: 'swap'` so text paints immediately in the metric-adjusted fallback,
+// latin subset only.
+//
+// Only fonts the first paint of the SHOP needs are preloaded. Manrope (the shop's text and headings)
+// and JetBrains Mono (every price and number) are; Instrument Sans only styles the staff dashboard
+// and portals, so it loads when something actually uses it instead of competing with the hero image
+// and the shop's own fonts on every storefront view.
+//
 // Instrument Sans over Inter/Geist: those two are the visual signature of
 // generated dashboards. JetBrains Mono carries every number in the app.
 const sans = Instrument_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-instrument-sans',
+  preload: false,
 });
 
 const mono = JetBrains_Mono({

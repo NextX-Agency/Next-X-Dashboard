@@ -352,33 +352,21 @@ function Compatibility({ product }: { product: CatalogProduct }) {
   const worksWith = [...product.compatibility.platforms, ...product.compatibility.ecosystems];
   const connection = product.compatibility.protocols;
   if (!worksWith.length && !connection.length) return null;
+  const rows: [string, string][] = [];
+  if (worksWith.length) rows.push(['Works with', worksWith.join(', ')]);
+  if (connection.length) rows.push(['Connection', connection.join(', ')]);
   return (
     <section>
       <Heading>Compatibility</Heading>
-      <div className="mt-4 space-y-4">
-        <Chips label="Works with" values={worksWith} />
-        <Chips label="Connection" values={connection} />
-      </div>
-    </section>
-  );
-}
-
-function Chips({ label, values }: { label: string; values: string[] }) {
-  if (!values.length) return null;
-  return (
-    <div>
-      <p className="font-semibold text-[13px] text-ink-3">{label}</p>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {values.map((value) => (
-          <li
-            key={value}
-            className="rounded-full border border-line-strong px-3 py-1 text-[13px] text-ink"
-          >
-            {value}
-          </li>
+      <dl className="mt-4 divide-y divide-line border-line border-y">
+        {rows.map(([name, value]) => (
+          <div key={name} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-4 py-3">
+            <dt className="text-[14px] text-ink-3">{name}</dt>
+            <dd className="font-semibold text-[14px] text-ink">{value}</dd>
+          </div>
         ))}
-      </ul>
-    </div>
+      </dl>
+    </section>
   );
 }
 

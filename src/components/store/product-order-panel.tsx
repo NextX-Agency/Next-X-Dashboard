@@ -1,10 +1,10 @@
 'use client';
 
-import { Check, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Check, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { RestockRequestForm } from '@/components/forms/restock-request-form';
-import { StockPill } from '@/components/store/stock-pill';
+import { StockNote } from '@/components/store/stock-pill';
 import { StorePrice } from '@/components/store/store-price';
 import { WhatsAppCta } from '@/components/store/whatsapp-cta';
 import { cn } from '@/lib/cn';
@@ -18,10 +18,14 @@ import { useStoreCart } from './store-cart-provider';
 import { formatSrd } from './store-price';
 
 /**
- * Price, stock, variant, quantity and the two ways to order. The chosen option lives in
+ * Price, option, quantity and the two ways to order. The chosen option lives in
  * ProductSelectionProvider, shared with the gallery and the pickup list; price and availability come
- * from the server's public catalog read model. On phones the add-to-cart button
- * lives in a bar fixed to the bottom of the screen, so the buy action never scrolls away.
+ * from the server's public catalog read model. Available is the normal state and carries no label:
+ * a status appears only when the option is sold out. On phones the add-to-cart button lives in a bar
+ * fixed to the bottom of the screen, so the buy action never scrolls away.
+ *
+ * A sold-out option cannot be added. Quantity never exceeds what is on hand, counting what is already
+ * in the cart.
  */
 export function ProductOrderPanel({
   productId,
@@ -44,13 +48,16 @@ export function ProductOrderPanel({
   restockNotificationsEnabled: boolean;
 }) {
   const { variants, images, variant, select } = useProductSelection();
-  const [quantity, setQuantity] = useState(1);
+  const [wanted, setWanted] = useState(1);
   const [cartMessage, setCartMessage] = useState('');
   const [added, setAdded] = useState(false);
   const { lines, ready, addLine } = useStoreCart();
   const inStock = variant.onHand > 0;
-  const cartQuantity = lines.find((item) => item.variantId === variant.id)?.quantity ?? 0;
-  const canAdd = ready && inStock && cartQuantity + quantity <= variant.onHand;
+  const inCart = lines.find((item) => item.variantId === variant.id)?.quantity ?? 0;
+  const remaining = Math.max(0, variant.onHand - inCart);
+  // The quantity shown never exceeds what can still be added.
+  const quantity = Math.max(1, Math.min(wanted, remaining));
+  const canAdd = ready && inStock && remaining >= 1;
   const showVariants = variants.length > 1;
   const price =
     variant.priceCurrency === 'SRD'
@@ -67,23 +74,20 @@ export function ProductOrderPanel({
   };
 
   function setQty(next: number) {
-    setQuantity(Math.max(1, Math.min(variant?.onHand ?? 1, next)));
+    setWanted(Math.max(1, Math.min(Math.max(1, remaining), next)));
     setCartMessage('');
     setAdded(false);
   }
 
   function addToCart() {
-    if (!variant) return;
+    const image = resolveVariantImage(images, variant.id, variants.length).image;
     const ok = addLine({
       productId,
       productSlug,
       productName,
       variantId: variant.id,
       variantName: variant.name,
-      imageUrl: (() => {
-        const image = resolveVariantImage(images, variant.id, variants.length).image;
-        return image ? (image.thumbUrl ?? image.url) : null;
-      })(),
+      imageUrl: image ? (image.thumbUrl ?? image.url) : null,
       sku: variant.sku,
       quantity,
       priceCents: variant.listPriceCents,
@@ -96,18 +100,27 @@ export function ProductOrderPanel({
         ? `${quantity} × ${productName} added to your cart.`
         : 'Your cart already holds all available stock.',
     );
+    if (ok) setWanted(1);
   }
+
+  const note =
+    cartMessage ||
+    (inStock && remaining === 0
+      ? 'All available stock is in your cart.'
+      : inStock && inCart > 0
+        ? `${inCart} already in your cart.`
+        : '');
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
         <StorePrice
           amountCents={variant.listPriceCents}
           currency={variant.priceCurrency}
           srdRate={srdRate}
           size="xl"
         />
-        <StockPill onHand={variant.onHand} />
+        <StockNote onHand={variant.onHand} className="text-[15px]" />
       </div>
       {/* Which exact item this is: the SKU follows the chosen option, like the photograph and price. */}
       <p className="tabular mt-2 text-[13px] text-ink-3">
@@ -120,7 +133,7 @@ export function ProductOrderPanel({
           selectedId={variant.id}
           onSelect={(id) => {
             select(id);
-            setQuantity(1);
+            setWanted(1);
             setCartMessage('');
             setAdded(false);
           }}
@@ -136,9 +149,9 @@ export function ProductOrderPanel({
                 aria-label="Decrease quantity"
                 disabled={quantity <= 1}
                 onClick={() => setQty(quantity - 1)}
-                className="grid w-11 place-items-center rounded-l-[12px] hover:bg-hover disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-l-[12px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
               >
-                <Minus className="size-4" />
+                <Minus aria-hidden="true" className="size-4" />
               </button>
               <label className="sr-only" htmlFor="store-cart-quantity">
                 Quantity
@@ -148,7 +161,7 @@ export function ProductOrderPanel({
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={variant.onHand}
+                max={Math.max(1, remaining)}
                 value={quantity}
                 onChange={(event) => {
                   const next = Number.parseInt(event.target.value, 10);
@@ -159,20 +172,19 @@ export function ProductOrderPanel({
               <button
                 type="button"
                 aria-label="Increase quantity"
-                disabled={quantity >= variant.onHand}
+                disabled={quantity >= remaining}
                 onClick={() => setQty(quantity + 1)}
-                className="grid w-11 place-items-center rounded-r-[12px] hover:bg-hover disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-r-[12px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
               >
-                <Plus className="size-4" />
+                <Plus aria-hidden="true" className="size-4" />
               </button>
             </div>
             <button
               type="button"
               disabled={!canAdd}
               onClick={addToCart}
-              className="nx-btn nx-btn-primary h-12 flex-1 max-sm:hidden"
+              className="nx-btn nx-btn-primary h-12 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-sm:hidden"
             >
-              <ShoppingBag aria-hidden="true" />
               Add to cart
             </button>
           </div>
@@ -198,16 +210,13 @@ export function ProductOrderPanel({
         {added ? (
           <Link
             href={CART_PATH as never}
-            className="inline-block font-bold text-[14px] text-ink underline underline-offset-4"
+            className="inline-flex min-h-11 items-center font-bold text-[14px] text-ink underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
           >
             Go to cart
           </Link>
         ) : null}
         <p aria-live="polite" className="min-h-5 text-[13px] text-ink-2">
-          {cartMessage ||
-            (inStock && cartQuantity >= variant.onHand
-              ? 'Your cart already holds all available stock of this product.'
-              : '')}
+          {note}
         </p>
       </div>
 
@@ -226,24 +235,19 @@ export function ProductOrderPanel({
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-line border-t bg-base p-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
           <div className="min-w-0">
             <p className="tabular font-extrabold text-[20px] leading-none">{price}</p>
-            <p className="mt-1 truncate text-[12px] text-ink-3">
-              {/* The swatches sit below the fold on a phone: name the option being added. */}
-              {showVariants ? (
-                <span className="font-semibold text-ink">
-                  {optionName(variant) ?? variant.sku}
-                </span>
-              ) : null}
-              {showVariants ? ' · ' : null}
-              {quantity} {quantity === 1 ? 'item' : 'items'}
-            </p>
+            {/* The swatches sit below the fold on a phone: name the option being added. */}
+            {showVariants ? (
+              <p className="mt-1 truncate font-semibold text-[12px] text-ink-2">
+                {optionName(variant) ?? variant.sku}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
             disabled={!canAdd}
             onClick={addToCart}
-            className="nx-btn nx-btn-primary h-12 flex-1"
+            className="nx-btn nx-btn-primary h-12 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <ShoppingBag aria-hidden="true" />
             Add to cart
           </button>
         </div>
@@ -293,8 +297,8 @@ function VariantSelector({
                 'inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3.5 font-semibold text-[14px] transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 isSelected
-                  ? 'border-accent bg-accent-muted text-accent'
-                  : 'border-line-strong text-ink hover:border-accent',
+                  ? 'border-ink bg-sunken text-ink'
+                  : 'border-line-strong text-ink hover:border-ink',
                 soldOut && !isSelected && 'text-ink-3',
               )}
             >
@@ -316,7 +320,7 @@ function VariantSelector({
               ) : null}
               <span>{label}</span>
               {soldOut ? (
-                <span aria-hidden="true" className="font-medium text-[12px] opacity-70">
+                <span aria-hidden="true" className="font-medium text-[12px] text-ink-3">
                   Sold out
                 </span>
               ) : null}

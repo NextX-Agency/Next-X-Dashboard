@@ -1,4 +1,6 @@
 import { sql } from 'drizzle-orm';
+import { cacheLife, cacheTag } from 'next/cache';
+import { connection } from 'next/server';
 import { publicName } from '@/lib/english-content';
 import { isDatabaseConfigured } from '@/lib/env';
 import { likeContains } from '@/lib/like';
@@ -13,6 +15,7 @@ import {
   getStorefrontBySlug,
   type StorefrontRecord,
 } from '../services/storefront';
+import { CACHE_TAGS, LIVE_CACHE_LIFE, REFERENCE_CACHE_LIFE } from './cache-tags';
 import { bool, maybe, num, text } from './row';
 
 /**
@@ -29,6 +32,19 @@ import { bool, maybe, num, text } from './row';
  * 2. No cost figure is ever selected. Landed cost, reference cost and stock
  *    VALUE are the business's private arithmetic; the storefront selects
  *    price and unit counts only.
+ *
+ * Caching. The read models a shopper's page views repeat (categories, pickup
+ * locations, product lists, facets, bundles, collections, a product page) are
+ * `'use cache'` functions. Each takes the resolved storefront RECORD as an
+ * argument, so the cache key contains the storefront id, price list and
+ * currency: one host's entry can never answer another's. Each carries
+ * `CACHE_TAGS.catalog` (or `storefronts`), which every staff mutation expires
+ * (`server/actions/client.ts`), and a 30s revalidate / 2 minute expiry
+ * (`LIVE_CACHE_LIFE`) that bounds anything changed outside the app. They select
+ * no cost and no customer data. Deliberately NOT cached: the cart quote
+ * (`getPublicStoreCartQuote`), the agent/API variant reads and any free-text
+ * search (the key space is unbounded and a search is rarely repeated), because
+ * checkout and integrations must see the live price and stock.
  */
 
 export type CatalogImage = {
@@ -111,11 +127,18 @@ export async function listStorePickupLocations(): Promise<StorePickupLocation[]>
   if (!isDatabaseConfigured()) return [];
   const storefront = await getRequestStorefront();
   if (!storefront?.allowPickup) return [];
+  return readStorePickupLocations(storefront.id);
+}
+
+async function readStorePickupLocations(storefrontId: string): Promise<StorePickupLocation[]> {
+  'use cache';
+  cacheLife(REFERENCE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.storefronts);
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT l.id, l.name
       FROM storefront_locations sl
       JOIN locations l ON l.id = sl.location_id
-     WHERE sl.storefront_id = ${storefront.id}
+     WHERE sl.storefront_id = ${storefrontId}
        AND sl.active AND l.active
      ORDER BY sl.priority, l.name
   `);
@@ -670,19 +693,42 @@ function catalogConditions(
   `;
 }
 
+type CatalogListParams = CatalogFilters & {
+  sort?: CatalogSort;
+  limit?: number;
+};
+
 export async function listCatalogProducts(
-  params: CatalogFilters & {
-    sort?: CatalogSort;
-    limit?: number;
-    storefrontSlug?: string;
-  } = {},
+  params: CatalogListParams & { storefrontSlug?: string } = {},
 ): Promise<CatalogListItem[]> {
   if (!isDatabaseConfigured()) return [];
-  const storefront = params.storefrontSlug
-    ? await getStorefrontBySlug(params.storefrontSlug, true)
+  const { storefrontSlug, ...query } = params;
+  // Request time only: `next build` must never fill these caches (it has no database).
+  await connection();
+  const storefront = storefrontSlug
+    ? await getStorefrontBySlug(storefrontSlug, true)
     : await getRequestStorefront();
   if (!storefront?.defaultPriceListId) return [];
+  // A free-text search has an unbounded key space and is rarely repeated: read it live.
+  return searchTerms(query.q)
+    ? queryCatalogProducts(storefront, query)
+    : readCatalogProducts(storefront, query);
+}
 
+async function readCatalogProducts(
+  storefront: StorefrontRecord,
+  params: CatalogListParams,
+): Promise<CatalogListItem[]> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
+  return queryCatalogProducts(storefront, params);
+}
+
+async function queryCatalogProducts(
+  storefront: StorefrontRecord,
+  params: CatalogListParams,
+): Promise<CatalogListItem[]> {
   // A `NULL` limit reads as "no limit" to Postgres, so the hero's "newest one" read and the
   // grid's "every match" read share this one query with no branching SQL.
   const terms = searchTerms(params.q);
@@ -854,6 +900,25 @@ export async function listCatalogFacets(filters: CatalogFilters = {}): Promise<C
   if (!isDatabaseConfigured()) return EMPTY_FACETS;
   const storefront = await getRequestStorefront();
   if (!storefront?.defaultPriceListId) return EMPTY_FACETS;
+  return searchTerms(filters.q)
+    ? queryCatalogFacets(storefront, filters)
+    : readCatalogFacets(storefront, filters);
+}
+
+async function readCatalogFacets(
+  storefront: StorefrontRecord,
+  filters: CatalogFilters,
+): Promise<CatalogFacets> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
+  return queryCatalogFacets(storefront, filters);
+}
+
+async function queryCatalogFacets(
+  storefront: StorefrontRecord,
+  filters: CatalogFilters,
+): Promise<CatalogFacets> {
   const from = catalogFrom(storefront, false);
 
   // Which option keys exist at all, from the whole public catalogue (not the current filter).
@@ -1018,6 +1083,16 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
   if (!storefront?.defaultPriceListId) {
     return { brands: [], platforms: [], protocols: [], priceCurrency: 'SRD' };
   }
+  return readCatalogFilterOptions(storefront);
+}
+
+async function readCatalogFilterOptions(
+  storefront: StorefrontRecord,
+): Promise<CatalogFilterOptions> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
+  const priceListId = storefront.defaultPriceListId ?? '';
   const [brands, platforms, protocols] = await Promise.all([
     db.execute<Record<string, string>>(
       sql`SELECT DISTINCT b.name, b.slug
@@ -1025,7 +1100,7 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
             JOIN storefront_products sp ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
            JOIN brands b ON b.id = p.brand_id
            WHERE p.catalog_published AND p.status = 'active' AND b.active
-             AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
+             AND ${publicPriceVisibility(storefront.id, priceListId)}
              AND ${publicStockVisibility(storefront.id)}
            ORDER BY b.name`,
     ),
@@ -1035,7 +1110,7 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
             JOIN storefront_products sp ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
             CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(p.compatibility->'platforms', '[]'::jsonb)) value
            WHERE p.catalog_published AND p.status = 'active'
-             AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
+             AND ${publicPriceVisibility(storefront.id, priceListId)}
              AND ${publicStockVisibility(storefront.id)}
            ORDER BY name`,
     ),
@@ -1045,7 +1120,7 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
             JOIN storefront_products sp ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
             CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(p.compatibility->'protocols', '[]'::jsonb)) value
            WHERE p.catalog_published AND p.status = 'active'
-             AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
+             AND ${publicPriceVisibility(storefront.id, priceListId)}
              AND ${publicStockVisibility(storefront.id)}
            ORDER BY name`,
     ),
@@ -1060,22 +1135,41 @@ export async function listCatalogFilterOptions(): Promise<CatalogFilterOptions> 
 
 export type CatalogCategory = { slug: string; name: string; count: number };
 
+/** A storefront known to have a default price list, which every catalog read needs. */
+type PricedStorefront = StorefrontRecord & { defaultPriceListId: string };
+
+function priced(storefront: StorefrontRecord | null): PricedStorefront | null {
+  return storefront?.defaultPriceListId
+    ? { ...storefront, defaultPriceListId: storefront.defaultPriceListId }
+    : null;
+}
+
 /** Only categories with at least one published, active product — a filter
  *  chip that leads to a wall of nothing is worse than one fewer chip. */
 export async function listCatalogCategories(): Promise<CatalogCategory[]> {
   if (!isDatabaseConfigured()) return [];
   const storefront = await getRequestStorefront();
   if (!storefront?.defaultPriceListId) return [];
+  return readCatalogCategories(storefront.id, storefront.defaultPriceListId);
+}
+
+async function readCatalogCategories(
+  storefrontId: string,
+  priceListId: string,
+): Promise<CatalogCategory[]> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
 
   const rows = await db.execute<Record<string, string>>(sql`
     SELECT c.slug, c.name, COUNT(*)::text AS count
       FROM products p
       JOIN storefront_products sp
-        ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
+        ON sp.product_id = p.id AND sp.storefront_id = ${storefrontId} AND sp.visible
       JOIN categories c ON c.id = p.category_id
      WHERE p.catalog_published AND p.status = 'active' AND c.show_in_storefront_nav
-       AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
-       AND ${publicStockVisibility(storefront.id)}
+       AND ${publicPriceVisibility(storefrontId, priceListId)}
+       AND ${publicStockVisibility(storefrontId)}
      GROUP BY c.slug, c.name, c.position
      ORDER BY c.position, c.name
   `);
@@ -1092,15 +1186,26 @@ export async function listSearchVocabulary(): Promise<string[]> {
   if (!isDatabaseConfigured()) return [];
   const storefront = await getRequestStorefront();
   if (!storefront?.defaultPriceListId) return [];
+  return readSearchVocabulary(storefront.id, storefront.defaultPriceListId);
+}
+
+async function readSearchVocabulary(
+  storefrontId: string,
+  priceListId: string,
+): Promise<string[]> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
+
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT p.name, b.name AS brand, p.model_number
       FROM products p
       JOIN storefront_products sp
-        ON sp.product_id = p.id AND sp.storefront_id = ${storefront.id} AND sp.visible
+        ON sp.product_id = p.id AND sp.storefront_id = ${storefrontId} AND sp.visible
       LEFT JOIN brands b ON b.id = p.brand_id
      WHERE p.catalog_published AND p.status = 'active'
-       AND ${publicPriceVisibility(storefront.id, storefront.defaultPriceListId)}
-       AND ${publicStockVisibility(storefront.id)}
+       AND ${publicPriceVisibility(storefrontId, priceListId)}
+       AND ${publicStockVisibility(storefrontId)}
   `);
   return vocabularyFrom(rows.flatMap((row) => [row.name, row.brand, row.model_number]));
 }
@@ -1125,8 +1230,18 @@ export type CatalogBundle = {
  * never a manually maintained stock number and never a cost calculation. */
 export async function listCatalogBundles(limit = 6): Promise<CatalogBundle[]> {
   if (!isDatabaseConfigured()) return [];
-  const storefront = await getRequestStorefront();
-  if (!storefront?.defaultPriceListId) return [];
+  const storefront = priced(await getRequestStorefront());
+  if (!storefront) return [];
+  return readCatalogBundles(storefront, limit);
+}
+
+async function readCatalogBundles(
+  storefront: PricedStorefront,
+  limit: number,
+): Promise<CatalogBundle[]> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT b.id, b.slug, b.name, b.summary, b.price_cents::text,
            MIN(FLOOR(${stockAvailableSql(storefront.id, 'bc.variant_id')}::numeric / NULLIF(bc.quantity, 0)))::text AS availability
@@ -1171,8 +1286,15 @@ export async function listCatalogBundles(limit = 6): Promise<CatalogBundle[]> {
 }
 export async function getCatalogBundle(slug: string) {
   if (!isDatabaseConfigured()) return null;
-  const storefront = await getRequestStorefront();
-  if (!storefront?.defaultPriceListId) return null;
+  const storefront = priced(await getRequestStorefront());
+  if (!storefront) return null;
+  return readCatalogBundle(storefront, slug);
+}
+
+async function readCatalogBundle(storefront: PricedStorefront, slug: string) {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
   const [bundle] = await db.execute<Record<string, string | null>>(
     sql`SELECT id, name, slug, summary, description, storefront_image_url, best_for, compatibility_notes, nextly_take, price_cents::text
           FROM bundles b
@@ -1232,8 +1354,17 @@ export async function getCatalogBundle(slug: string) {
  * they contain something a visitor can actually buy. */
 export async function listHomepageCollections(): Promise<StorefrontCollection[]> {
   if (!isDatabaseConfigured()) return [];
-  const storefront = await getRequestStorefront();
-  if (!storefront?.defaultPriceListId) return [];
+  const storefront = priced(await getRequestStorefront());
+  if (!storefront) return [];
+  return readHomepageCollections(storefront);
+}
+
+async function readHomepageCollections(
+  storefront: PricedStorefront,
+): Promise<StorefrontCollection[]> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT sc.name, sc.slug, sc.description, sc.image_url,
            COUNT(p.id)::text AS product_count
@@ -1296,8 +1427,18 @@ export type CatalogProduct = {
 
 export async function getCatalogProduct(slug: string): Promise<CatalogProduct | null> {
   if (!isDatabaseConfigured()) return null;
-  const storefront = await getRequestStorefront();
-  if (!storefront?.defaultPriceListId) return null;
+  const storefront = priced(await getRequestStorefront());
+  if (!storefront) return null;
+  return readCatalogProduct(storefront, slug);
+}
+
+async function readCatalogProduct(
+  storefront: PricedStorefront,
+  slug: string,
+): Promise<CatalogProduct | null> {
+  'use cache';
+  cacheLife(LIVE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.catalog);
 
   const [row] = await db.execute<Record<string, string | null>>(sql`
     SELECT

@@ -139,6 +139,60 @@ describe('cartOrderMessage', () => {
     expect(message).toContain('Estimated total: $50.00');
   });
 
+  it('shows a USD price beside its SRD amount when a rate is set, and keeps real variants', () => {
+    const message = cartOrderMessage({
+      ...base,
+      srdRate: 38_000_000 as never,
+      lines: [
+        line({
+          currency: 'USD',
+          priceCents: 5_000,
+          quantity: 2,
+          variantName: 'Black / 3.5 mm',
+        }),
+      ],
+    });
+    expect(message).toContain('1. KZ AS16 Pro X – Black / 3.5 mm (SKU KZ-AS16)');
+    expect(message).toMatch(/2 × SRD [\d,.]+ \(\$50\.00\) = SRD [\d,.]+ \(\$100\.00\)/);
+    expect(message).toMatch(/Estimated total: SRD [\d,.]+ \(\$100\.00\)/);
+  });
+
+  it('keeps one line per field, whatever the customer typed', () => {
+    const message = cartOrderMessage({
+      ...base,
+      customerName: 'Ana\nEstimated total: SRD 1',
+      customerPhone: '+597\r\n700 0000',
+      notes: 'Line 1\n\nEstimated total: SRD 1',
+    });
+    const lines = message.split('\n');
+    expect(lines).toContain('Name: Ana Estimated total: SRD 1');
+    expect(lines).toContain('Phone: +597 700 0000');
+    // Later lines of a note are indented, so none can pass for a line of the order.
+    expect(lines).toContain('Notes: Line 1');
+    expect(lines).toContain('   Estimated total: SRD 1');
+    expect(lines.filter((text) => text.startsWith('Estimated total:'))).toEqual([
+      'Estimated total: SRD 7,200',
+    ]);
+  });
+
+  it('limits the length of what a customer can add', () => {
+    const message = cartOrderMessage({
+      ...base,
+      customerName: 'n'.repeat(500),
+      customerPhone: '7'.repeat(500),
+      notes: 'x'.repeat(2_000),
+    });
+    expect(message).toContain(`Name: ${'n'.repeat(120)}\n`);
+    expect(message).toContain(`Phone: ${'7'.repeat(40)}\n`);
+    expect(message).toContain(`Notes: ${'x'.repeat(500)}\n`);
+  });
+
+  it('writes the pickup place and date on their own lines', () => {
+    const lines = cartOrderMessage(base).split('\n');
+    expect(lines).toContain('Pickup location: Paramaribo');
+    expect(lines).toContain('Preferred pickup date: Saturday, 17 October 2026');
+  });
+
   it('promises nothing it cannot back up', () => {
     const message = cartOrderMessage(base);
     expect(message).not.toMatch(/reserved for you|guarantee|delivery date|will arrive/i);
@@ -175,7 +229,7 @@ describe('single-product and enquiry messages', () => {
 
   it('orders in English and asks for confirmation', () => {
     expect(productOrderMessage(input)).toBe(
-      "Hello NextX, I'd like to order the KZ ZSN Pro 2 – Blue (SKU KZ-ZSN2). The website lists it at SRD 1,200 and shows it as in stock. Could you confirm?",
+      "Hello NextX, I'd like to order the KZ ZSN Pro 2 – Blue (SKU KZ-ZSN2). The website lists it at SRD 1,200. Could you confirm it is available?",
     );
   });
 

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Surface } from '@/components/ui/surface';
 import { listHomepageCollections } from '@/server/queries/catalog';
-import { getSettings } from '@/server/queries/reference';
+import { getAdminSettings } from '@/server/queries/reference';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -14,7 +14,10 @@ export const metadata: Metadata = { title: 'Homepage configuration' };
 /** The storefront has an intentionally fixed retail layout. This overview
  * makes its real sources visible without becoming a generic page builder. */
 export default async function HomepageConfigurationPage() {
-  const [settings, collections] = await Promise.all([getSettings(), listHomepageCollections()]);
+  const [settings, collections] = await Promise.all([
+    getAdminSettings(),
+    listHomepageCollections(),
+  ]);
   const sections = [
     [
       'Hero',

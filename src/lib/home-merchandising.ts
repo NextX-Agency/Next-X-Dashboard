@@ -20,6 +20,31 @@ export type MerchProduct = Pick<
   | 'createdAt'
 >;
 
+/** What the hero says when the owner has not written anything of their own. */
+export const DEFAULT_HERO_TITLE = 'In-ears, accessories, earbuds.';
+export const DEFAULT_HERO_BODY =
+  'Real photographs, prices in SRD. Order on WhatsApp; NextX confirms price and stock before anything is final.';
+
+/**
+ * Copy that was typed or imported as a placeholder, not written for this shop: "Welcome To NextX", the
+ * "Browse the range…" line the first design shipped with, and the importer's one-line summary. A value
+ * that matches is treated as unset, so the better default shows even while the database still holds the
+ * old text. Anything else the owner writes is shown exactly as typed.
+ */
+const PLACEHOLDER_HERO_COPY: readonly RegExp[] = [
+  /^welcome\b/i,
+  /^browse the range\b/i,
+  /^hear the difference\b/i,
+  /^in-ear monitors and accessories\. order via whatsapp/i,
+];
+
+/** The owner's hero text, or null when it is empty or one of the known placeholders above. */
+export function ownerHeroCopy(value: string | null | undefined): string | null {
+  const text = value?.replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return PLACEHOLDER_HERO_COPY.some((pattern) => pattern.test(text)) ? null : text;
+}
+
 /** A photograph this large holds up in the hero's big frame; a 500 px one would blur. */
 export const HERO_MIN_IMAGE_WIDTH = 800;
 

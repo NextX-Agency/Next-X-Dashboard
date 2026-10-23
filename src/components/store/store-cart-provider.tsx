@@ -31,6 +31,27 @@ type StoreCartContextValue = {
   clear: () => void;
 };
 
+/**
+ * Browser storage can be missing or throw (private windows, blocked site data, a full quota). The cart
+ * then works for the visit and simply is not remembered; it must never crash the page.
+ */
+function readStoredCart(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredCart(key: string, value: string | null) {
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    // Not remembered on this device; the cart in memory is still correct.
+  }
+}
+
 const StoreCartContext = createContext<StoreCartContextValue | null>(null);
 
 export function StoreCartProvider({
@@ -51,15 +72,14 @@ export function StoreCartProvider({
   }, []);
 
   useEffect(() => {
-    const loaded = parseStoreCart(window.localStorage.getItem(storageKey));
+    const loaded = parseStoreCart(readStoredCart(storageKey));
     commit(loaded);
     setLoadedKey(storageKey);
   }, [commit, storageKey]);
 
   useEffect(() => {
     if (loadedKey !== storageKey) return;
-    if (lines.length) window.localStorage.setItem(storageKey, JSON.stringify(lines));
-    else window.localStorage.removeItem(storageKey);
+    writeStoredCart(storageKey, lines.length ? JSON.stringify(lines) : null);
   }, [lines, loadedKey, storageKey]);
 
   useEffect(() => {

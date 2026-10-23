@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { Wordmark } from '@/components/shell/wordmark';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
  * Root segment boundary: covers the public routes (/login, /setup,
  * /no-access, /auth/error, /design-system) — anything that throws inside the
  * `(app)` shell hits `(app)/error.tsx` instead, which keeps the sidebar and
- * topbar on screen. This one matches the full-page style those public routes
- * already use (Wordmark, a toned icon badge, a short explanation).
+ * topbar on screen. A customer can land here too (the shop shares the root
+ * layout), so it carries the logo alone and no dashboard wording.
  */
 export default function RootError({
   error,
@@ -26,26 +26,25 @@ export default function RootError({
   return (
     <div className="grid min-h-dvh place-items-center px-6">
       <div className="w-full max-w-[380px]">
-        <Wordmark />
-        <div className="mt-8 flex size-9 items-center justify-center rounded-control bg-negative-muted text-negative">
-          <AlertTriangle className="size-5" />
-        </div>
-        <h1 className="mt-4 font-medium text-[18px] text-ink tracking-[-0.02em]">
-          NextX Dashboard could not load this page
+        <Wordmark label={false} />
+        <h1 className="mt-10 font-extrabold text-[28px] text-ink leading-tight tracking-[-0.03em]">
+          This page did not load.
         </h1>
-        <p className="mt-2 text-[13px] text-ink-3 leading-relaxed">
-          Try again once. If it keeps happening, mention the error code
+        <p className="mt-3 text-[14px] text-ink-2 leading-relaxed">
+          Try once more. If it fails again
           {error.digest ? (
             <>
-              {' '}
-              <span className="tabular text-ink-2">{error.digest}</span>
+              , quote reference <span className="tabular text-ink">{error.digest}</span>
             </>
-          ) : null}{' '}
-          to support.
+          ) : null}
+          , tell NextX.
         </p>
-        <div className="mt-6">
-          <Button variant="primary" onClick={reset}>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Button variant="primary" size="lg" onClick={reset}>
             Try again
+          </Button>
+          <Button asChild variant="secondary" size="lg">
+            <Link href="/shop">Go to the shop</Link>
           </Button>
         </div>
       </div>

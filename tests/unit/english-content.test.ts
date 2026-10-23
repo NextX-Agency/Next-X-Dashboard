@@ -70,7 +70,7 @@ describe('storefront description', () => {
       storefrontDescription(
         'In-ear monitors en accessoires. Bestel via WhatsApp; prijzen in SRD.',
       ),
-    ).toBe('In-ear monitors and accessories. Order via WhatsApp; prices in SRD.');
+    ).toBe(STORE_DESCRIPTION);
     expect(storefrontDescription('Audio from Paramaribo.')).toBe('Audio from Paramaribo.');
   });
 

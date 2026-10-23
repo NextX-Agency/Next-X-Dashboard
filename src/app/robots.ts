@@ -8,25 +8,47 @@ import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
  * crawlers not to bother requesting the rest at all.
  */
 const PRIVATE_PATHS = [
+  // Staff dashboard.
   '/dashboard',
   '/items',
   '/customers',
   '/sales',
+  '/orders',
+  '/quotes',
   '/purchase-orders',
   '/inventory',
+  '/bundles',
+  '/price-lists',
+  '/storefront',
+  '/storefronts',
+  '/reorder',
+  '/activity',
+  '/commissions',
   '/ledger',
+  '/finance',
+  '/wallets',
+  '/obligations',
+  '/reconciliation',
+  '/exchange-rates',
   '/expenses',
   '/owners',
   '/reports',
   '/settings',
   '/categories',
   '/suppliers',
+  '/invoices',
+  // Sign-in and setup.
   '/login',
   '/setup',
-  '/design-system',
-  '/api',
-  '/cart',
+  '/auth',
   '/no-access',
+  '/design-system',
+  '/preview',
+  // Customer documents reached only through a private link, and the shopper's cart.
+  '/d/',
+  '/invoice',
+  '/cart',
+  '/api',
 ];
 
 /**

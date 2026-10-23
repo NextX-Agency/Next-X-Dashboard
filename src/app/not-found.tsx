@@ -1,4 +1,3 @@
-import { Compass } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Wordmark } from '@/components/shell/wordmark';
@@ -22,19 +21,16 @@ export default function RootNotFound() {
         <div className="flex justify-center">
           <Wordmark label={false} />
         </div>
-        <div className="mx-auto mt-8 flex size-9 items-center justify-center rounded-control border border-line-subtle bg-inset text-ink-4">
-          <Compass className="size-5" />
-        </div>
-        <h1 className="mt-4 font-medium text-[18px] text-ink tracking-[-0.02em]">
-          Nothing here
+        <p className="mt-10 font-semibold text-[13px] text-ink-3">404</p>
+        <h1 className="mt-2 font-extrabold text-[28px] text-ink leading-tight tracking-[-0.03em]">
+          Nothing at this address.
         </h1>
-        <p className="mt-2 text-[13px] text-ink-3 leading-relaxed">
-          That page doesn’t exist, or the link is out of date. The shop has everything that is
-          in stock right now.
+        <p className="mt-3 text-[14px] text-ink-2 leading-relaxed">
+          The link may be old, or the page was removed. The shop shows what is available now.
         </p>
         <div className="mt-6 flex justify-center">
-          <Button asChild variant="primary">
-            <Link href="/shop">Back to the shop</Link>
+          <Button asChild variant="primary" size="lg">
+            <Link href="/shop">Go to the shop</Link>
           </Button>
         </div>
       </div>

@@ -1,31 +1,49 @@
 'use client';
 
-import { MessageCircle, Minus, Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { MessageCircle, Minus, Package, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RateMicros } from '@/lib/fx';
 import {
   applyStoreCartQuote,
-  type StoreCartLine,
   type StoreCartQuoteLine,
+  storeCartCount,
   storeCartSubtotal,
 } from '@/lib/store-cart';
-import { cartOrderMessage, customerMoney, variantLabel } from '@/lib/store-messages';
+import {
+  cartOrderMessage,
+  customerMoney,
+  enquiryMessage,
+  variantLabel,
+} from '@/lib/store-messages';
+import { plural } from '@/lib/store-money';
 import { SHOP_PATH, storefrontProductPath } from '@/lib/storefront-domain';
 import { whatsappDigits, whatsappLink } from '@/lib/whatsapp';
 import { useStoreCart } from './store-cart-provider';
 
 type PickupLocation = { id: string; name: string };
+
+/**
+ * What the server said about the variants in the cart. It does not depend on quantities, so a quantity
+ * change is checked against it on the spot and only a change of products asks the server again.
+ */
 type CartQuoteState =
-  | { requestKey: string; status: 'error' }
+  | { variantKey: string; status: 'error' }
   | {
-      requestKey: string;
       status: 'ready';
-      lines: StoreCartLine[];
+      /** Every variant this answer was asked about. A quote still holds after one of them is removed. */
+      variantIds: string[];
+      items: StoreCartQuoteLine[];
       unavailableVariantIds: string[];
     };
+
+function quoteCovers(quote: CartQuoteState | null, variantIds: string[]) {
+  return quote?.status === 'ready' && variantIds.every((id) => quote.variantIds.includes(id));
+}
+
+/** How often the page asks again while it stays open, so a price or stock change shows before ordering. */
+const QUOTE_REFRESH_MS = 60_000;
 
 function paramariboDate(offsetDays = 0) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -41,8 +59,11 @@ function paramariboDate(offsetDays = 0) {
 }
 
 function fieldClassName() {
-  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none';
+  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 }
+
+const focusRing =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 export function StoreCartCheckout({
   businessName,
@@ -61,29 +82,55 @@ export function StoreCartCheckout({
 }) {
   const { lines, ready, setQuantity, removeLine, clear } = useStoreCart();
   const [cartQuote, setCartQuote] = useState<CartQuoteState | null>(null);
-  const [quoteRetry, setQuoteRetry] = useState(0);
+  const [quoteTick, setQuoteTick] = useState(0);
+  const [announcement, setAnnouncement] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [pickupLocationId, setPickupLocationId] = useState(locations[0]?.id ?? '');
   const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'custom'>('today');
   const [customDate, setCustomDate] = useState('');
-  const quoteRequestItems = useMemo(
-    () => lines.map(({ variantId, quantity }) => ({ variantId, quantity })),
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
+
+  const variantKey = useMemo(
+    () =>
+      JSON.stringify(
+        lines
+          .map((line) => line.variantId)
+          .slice()
+          .sort(),
+      ),
     [lines],
   );
-  const quoteRequestKey = JSON.stringify(quoteRequestItems);
-  const quoteAttemptKey = `${quoteRequestKey}:${quoteRetry}`;
-  const currentCartQuote = cartQuote?.requestKey === quoteAttemptKey ? cartQuote : null;
-  const readyCartQuote = currentCartQuote?.status === 'ready' ? currentCartQuote : null;
+  const readyCartQuote =
+    cartQuote?.status === 'ready' &&
+    quoteCovers(
+      cartQuote,
+      lines.map((line) => line.variantId),
+    )
+      ? cartQuote
+      : null;
   const quoteReady = readyCartQuote !== null;
-  const quoteError = currentCartQuote?.status === 'error';
-  const displayLines = readyCartQuote?.lines ?? lines;
+  const quoteError =
+    !quoteReady && cartQuote?.status === 'error' && cartQuote.variantKey === variantKey;
+
+  const refreshed = useMemo(
+    () =>
+      readyCartQuote
+        ? applyStoreCartQuote(lines, readyCartQuote.items, readyCartQuote.unavailableVariantIds)
+        : null,
+    [lines, readyCartQuote],
+  );
+  const displayLines = refreshed?.lines ?? lines;
+  const unavailableIds = refreshed?.unavailableVariantIds ?? [];
   const currencyMismatch =
     quoteReady && displayLines.some((line) => line.currency !== displayLines[0]?.currency);
   const stockIssue =
     quoteReady &&
     displayLines.some((line) => line.available === 0 || line.quantity > line.available);
+  const itemCount = storeCartCount(lines);
   const whatsappNumber = whatsappDigits(whatsapp);
   const selectedLocation = locations.find((location) => location.id === pickupLocationId);
   const requestedPickupDate =
@@ -95,17 +142,22 @@ export function StoreCartCheckout({
   const formReady =
     (locations.length === 0 || Boolean(selectedLocation)) && Boolean(requestedPickupDate);
 
+  // Ask the server about the products in the cart: when they change, and again every minute or when the
+  // customer comes back to the tab, so the figures they send are the ones the shop shows now.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `quoteTick` is the trigger that asks again.
   useEffect(() => {
-    if (!ready || lines.length === 0) return;
+    if (!ready || variantKey === '[]') return;
 
-    const requestKey = quoteAttemptKey;
     const controller = new AbortController();
-
     const timeout = window.setTimeout(() => {
+      const items = linesRef.current.map(({ variantId, quantity }) => ({
+        variantId,
+        quantity,
+      }));
       void fetch('/api/v1/storefront/cart/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: quoteRequestItems }),
+        body: JSON.stringify({ items }),
         cache: 'no-store',
         signal: controller.signal,
       })
@@ -115,15 +167,22 @@ export function StoreCartCheckout({
             items: StoreCartQuoteLine[];
             unavailableVariantIds: string[];
           };
-          const refreshed = applyStoreCartQuote(
-            lines,
-            payload.items,
-            payload.unavailableVariantIds,
-          );
-          setCartQuote({ requestKey, status: 'ready', ...refreshed });
+          setCartQuote({
+            status: 'ready',
+            variantIds: JSON.parse(variantKey) as string[],
+            items: payload.items,
+            unavailableVariantIds: payload.unavailableVariantIds,
+          });
         })
         .catch(() => {
-          if (!controller.signal.aborted) setCartQuote({ requestKey, status: 'error' });
+          if (controller.signal.aborted) return;
+          // A failed background refresh keeps the last good answer for these products; only a cart with
+          // no answer at all shows the error.
+          setCartQuote((previous) =>
+            quoteCovers(previous, JSON.parse(variantKey) as string[])
+              ? previous
+              : { variantKey, status: 'error' },
+          );
         });
     }, 150);
 
@@ -131,7 +190,20 @@ export function StoreCartCheckout({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [lines, quoteAttemptKey, quoteRequestItems, ready]);
+  }, [quoteTick, ready, variantKey]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setQuoteTick((tick) => tick + 1);
+    };
+    const interval = window.setInterval(refresh, QUOTE_REFRESH_MS);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [ready]);
 
   const totals = useMemo(() => {
     const currencies = [...new Set(displayLines.map((line) => line.currency))];
@@ -172,226 +244,301 @@ export function StoreCartCheckout({
   ]);
   const orderUrl =
     whatsappMessage && whatsappNumber ? whatsappLink(whatsappNumber, whatsappMessage) : null;
+  const questionUrl = whatsappNumber
+    ? whatsappLink(whatsappNumber, enquiryMessage(businessName))
+    : null;
+
+  // After something leaves the page, keyboard and screen reader users start again from the heading.
+  const settleFocus = useCallback(() => headingRef.current?.focus(), []);
+
+  function changeQuantity(name: string, variantId: string, quantity: number) {
+    setQuantity(variantId, quantity);
+    setAnnouncement(`${name}: quantity ${quantity}.`);
+  }
+
+  function removeItem(name: string, variantId: string) {
+    removeLine(variantId);
+    setAnnouncement(`${name} removed from your cart.`);
+    settleFocus();
+  }
+
+  function emptyCart() {
+    clear();
+    setAnnouncement('Your cart is empty.');
+    settleFocus();
+  }
+
+  /** One press: drop what is sold out or no longer listed, lower the rest to what is in stock. */
+  function matchStock() {
+    for (const line of displayLines) {
+      if (line.available === 0) removeLine(line.variantId);
+      else if (line.quantity > line.available) setQuantity(line.variantId, line.available);
+    }
+    setAnnouncement('Your cart now matches what is in stock.');
+    settleFocus();
+  }
 
   if (!ready) {
     return (
-      <div
-        className="mx-auto min-h-[70svh] w-full max-w-[1320px] px-4 py-16 lg:px-8"
-        aria-live="polite"
-      >
-        <p className="nx-label text-ink-3">Loading your cart…</p>
+      <div className="mx-auto min-h-[70svh] w-full max-w-[1320px] px-4 py-16 lg:px-8">
+        <p role="status" className="nx-label text-ink-3">
+          Loading your cart…
+        </p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto grid min-h-[70svh] w-full max-w-[1320px] content-start gap-10 px-4 pt-10 pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <section aria-labelledby="cart-heading" className="min-w-0">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="nx-label text-ink-3">Your order</p>
+            <p className="nx-label text-ink-3">
+              {lines.length ? plural(itemCount, 'item') : 'Your order'}
+            </p>
             <h1
               id="cart-heading"
-              className="nx-display mt-2 text-[clamp(36px,5vw,64px)] text-ink"
+              ref={headingRef}
+              tabIndex={-1}
+              className="nx-display mt-2 text-[clamp(36px,5vw,64px)] text-ink focus:outline-none"
             >
               Cart
             </h1>
           </div>
           {lines.length ? (
-            <Button type="button" variant="ghost" size="sm" onClick={clear}>
+            <button
+              type="button"
+              onClick={emptyCart}
+              className={`nx-btn nx-btn-line nx-btn-sm ${focusRing}`}
+            >
               <Trash2 aria-hidden="true" />
               Empty cart
-            </Button>
+            </button>
           ) : null}
         </div>
 
         {lines.length === 0 ? (
-          <div className="mt-8 flex flex-col items-start gap-4 border-line border-y py-14">
-            <ShoppingBag aria-hidden="true" className="size-8 text-ink-3" />
-            <div>
-              <h2 className="nx-display text-[28px] text-ink">Your cart is empty</h2>
-              <p className="mt-2 max-w-[46ch] text-[15px] text-ink-2">
-                Add products to prepare an order for WhatsApp.
-              </p>
+          <div className="mt-8 border-line border-y py-14">
+            <h2 className="nx-display text-[28px] text-ink">Your cart is empty</h2>
+            <p className="mt-2 max-w-[46ch] text-[15px] text-ink-2 leading-relaxed">
+              Add products in the shop. The cart turns them into one WhatsApp message for NextX.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
+                Go to the shop
+              </Link>
+              {questionUrl ? (
+                <a
+                  href={questionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="nx-btn nx-btn-line"
+                >
+                  <MessageCircle aria-hidden="true" />
+                  Ask on WhatsApp
+                </a>
+              ) : null}
             </div>
-            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
-              Browse products
-            </Link>
           </div>
         ) : (
-          <div className="mt-8 divide-y divide-line border-line border-y">
-            {displayLines.map((line) => {
-              const quoteUnavailable =
-                quoteReady && readyCartQuote.unavailableVariantIds.includes(line.variantId);
-              const overStock =
-                quoteReady &&
-                (quoteUnavailable || line.available === 0 || line.quantity > line.available);
-              return (
-                <article
-                  key={line.variantId}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5 sm:flex sm:flex-wrap sm:gap-x-5"
-                >
-                  <div className="col-span-3 flex min-w-0 items-start gap-4 sm:flex-1">
-                    <div className="relative size-[72px] shrink-0 overflow-hidden rounded-[12px] bg-sunken">
-                      {line.imageUrl ? (
-                        <Image
-                          src={line.imageUrl}
-                          alt={`${line.productName}${variantLabel(line.variantName) ? ` – ${variantLabel(line.variantName)}` : ''}`}
-                          fill
-                          sizes="72px"
-                          className="object-contain p-1.5 mix-blend-multiply"
-                        />
-                      ) : (
-                        <div className="grid size-full place-items-center">
-                          <Package aria-hidden="true" className="size-6 text-ink-4" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <a
-                        href={storefrontProductPath(storefrontSlug, line.productSlug)}
-                        className="text-[16px] font-semibold text-ink hover:text-accent"
-                      >
-                        {line.productName}
-                      </a>
-                      <p className="mt-0.5 text-[12px] text-ink-3">
-                        {[variantLabel(line.variantName), line.sku].filter(Boolean).join(' · ')}
-                      </p>
-                      <p className="mt-2 text-[13px] tabular text-ink-2">
-                        {!quoteReady
-                          ? 'The current price appears once we have checked it.'
-                          : quoteUnavailable
-                            ? 'No price is available for this product right now.'
-                            : `${customerMoney(line.priceCents, line.currency, srdRate)} each`}
-                      </p>
-                      {overStock ? (
-                        <p className="mt-1 text-[12px] text-negative">
-                          {line.available === 0
-                            ? 'This product is no longer available. Remove it to continue.'
-                            : `Only ${line.available} available. Lower the quantity to continue.`}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex items-center border border-ink">
-                    <button
-                      type="button"
-                      aria-label={`Decrease quantity of ${line.productName}`}
-                      className="grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9"
-                      disabled={line.quantity <= 1}
-                      onClick={() => setQuantity(line.variantId, line.quantity - 1)}
-                    >
-                      <Minus aria-hidden="true" className="size-4" />
-                    </button>
-                    <span className="min-w-7 text-center text-[13px] tabular text-ink">
-                      {line.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label={`Increase quantity of ${line.productName}`}
-                      className="grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9"
-                      disabled={
-                        !quoteReady || line.quantity >= line.available || line.quantity >= 9999
-                      }
-                      onClick={() => setQuantity(line.variantId, line.quantity + 1)}
-                    >
-                      <Plus aria-hidden="true" className="size-4" />
-                    </button>
-                  </div>
-                  <p className="text-right text-[15px] font-semibold tabular text-ink sm:w-28">
-                    {quoteReady && !overStock
-                      ? customerMoney(
-                          storeCartSubtotal([line], line.currency),
-                          line.currency,
-                          srdRate,
-                        )
-                      : '—'}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${line.productName}`}
-                    onClick={() => removeLine(line.variantId)}
+          <>
+            <p className="mt-4 max-w-[60ch] text-[14px] text-ink-2 leading-relaxed">
+              An order is final only once NextX confirms price and stock on WhatsApp.
+            </p>
+            <div className="mt-6 divide-y divide-line border-line border-y">
+              {displayLines.map((line) => {
+                const label = variantLabel(line.variantName);
+                const fullName = `${line.productName}${label ? `, ${label}` : ''}`;
+                const gone = quoteReady && unavailableIds.includes(line.variantId);
+                const soldOut = quoteReady && (gone || line.available === 0);
+                const overStock = quoteReady && !soldOut && line.quantity > line.available;
+                const lineProblem = soldOut || overStock;
+                const noteId = `cart-note-${line.variantId}`;
+                return (
+                  <article
+                    key={line.variantId}
+                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5"
                   >
-                    <Trash2 aria-hidden="true" />
-                  </Button>
-                </article>
-              );
-            })}
-          </div>
+                    <div className="col-span-3 flex min-w-0 items-start gap-4">
+                      <div className="relative size-[72px] shrink-0 overflow-hidden rounded-[12px] bg-sunken">
+                        {line.imageUrl ? (
+                          <Image
+                            src={line.imageUrl}
+                            alt=""
+                            fill
+                            sizes="72px"
+                            className="object-contain p-1.5 mix-blend-multiply"
+                          />
+                        ) : (
+                          <div className="grid size-full place-items-center">
+                            <Package aria-hidden="true" className="size-6 text-ink-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={
+                            storefrontProductPath(storefrontSlug, line.productSlug) as never
+                          }
+                          className={`text-[16px] font-semibold text-ink hover:text-accent ${focusRing}`}
+                        >
+                          {line.productName}
+                        </Link>
+                        <p className="mt-0.5 text-[12px] text-ink-3">
+                          {[label, line.sku].filter(Boolean).join(' · ')}
+                        </p>
+                        <p className="mt-2 text-[13px] tabular text-ink-2">
+                          {!quoteReady
+                            ? 'Checking the current price…'
+                            : gone
+                              ? 'No longer listed'
+                              : `${customerMoney(line.priceCents, line.currency, srdRate)} each`}
+                        </p>
+                        {lineProblem ? (
+                          <p
+                            id={noteId}
+                            className="mt-1 text-[13px] font-medium text-[#b42d22]"
+                          >
+                            {soldOut
+                              ? gone
+                                ? 'No longer available from NextX. Remove it to continue.'
+                                : 'Sold out. Remove it to continue.'
+                              : `Only ${line.available} in stock. Lower the quantity to continue.`}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex items-center border border-ink">
+                      <button
+                        type="button"
+                        aria-label={`Decrease quantity of ${fullName}`}
+                        className={`grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
+                        disabled={line.quantity <= 1}
+                        onClick={() =>
+                          changeQuantity(fullName, line.variantId, line.quantity - 1)
+                        }
+                      >
+                        <Minus aria-hidden="true" className="size-4" />
+                      </button>
+                      <span className="min-w-8 text-center text-[14px] tabular text-ink">
+                        {line.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Increase quantity of ${fullName}`}
+                        className={`grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
+                        disabled={
+                          !quoteReady ||
+                          line.quantity >= line.available ||
+                          line.quantity >= 9999
+                        }
+                        onClick={() =>
+                          changeQuantity(fullName, line.variantId, line.quantity + 1)
+                        }
+                      >
+                        <Plus aria-hidden="true" className="size-4" />
+                      </button>
+                    </div>
+                    <p className="text-right text-[15px] font-semibold tabular text-ink">
+                      {quoteReady && !lineProblem
+                        ? customerMoney(
+                            storeCartSubtotal([line], line.currency),
+                            line.currency,
+                            srdRate,
+                          )
+                        : '—'}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${fullName} from the cart`}
+                      className={`grid size-11 place-items-center text-ink-2 hover:text-[#b42d22] ${focusRing}`}
+                      onClick={() => removeItem(fullName, line.variantId)}
+                    >
+                      <Trash2 aria-hidden="true" className="size-4" />
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </>
         )}
       </section>
 
       {lines.length ? (
-        <aside className="h-fit border-ink border-t-2 bg-raised p-5 sm:p-6 lg:sticky lg:top-24">
-          <h2 className="nx-display text-[24px] text-ink">Order via WhatsApp</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-ink-3">
-            Send your list to {businessName}. The team confirms stock and the final price.
-          </p>
+        <aside
+          aria-labelledby="cart-summary-heading"
+          className="h-fit border-ink border-t-2 bg-raised p-5 sm:p-6 lg:sticky lg:top-24"
+        >
+          <h2 id="cart-summary-heading" className="nx-display text-[24px] text-ink">
+            Send the order
+          </h2>
 
           <div className="mt-5 space-y-2 border-line border-y py-4">
             {quoteReady && !stockIssue ? (
               totals.map(({ currency, amount }) => (
                 <div key={currency} className="flex items-baseline justify-between gap-4">
-                  <span className="text-[12px] text-ink-3">Estimated total</span>
-                  <span className="text-[18px] font-semibold tabular text-ink">
+                  <span className="text-[13px] text-ink-2">Estimated total</span>
+                  <span className="text-[20px] font-semibold tabular text-ink">
                     {customerMoney(amount, currency, srdRate)}
                   </span>
                 </div>
               ))
             ) : quoteReady ? (
-              <p className="text-[12px] text-ink-3">
-                Lower or remove unavailable quantities to see a total.
+              <p className="text-[13px] text-ink-2">
+                The total shows once every item is in stock.
               </p>
             ) : (
-              <p className="text-[12px] text-ink-3">
-                The total appears once current prices have been checked.
+              <p className="text-[13px] text-ink-2">
+                The total shows once prices have been checked.
               </p>
             )}
           </div>
 
           {quoteReady ? (
-            <p className="mt-3 text-[12px] text-ink-3" role="status">
-              Price and stock just checked. Stock is only reserved once the shop confirms your
-              order.
+            <p className="mt-3 text-[13px] text-ink-2" role="status">
+              Price and stock just checked. Nothing is reserved until NextX confirms your order.
             </p>
           ) : quoteError ? (
             <div
-              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
+              className="mt-3 bg-[#fbe9e6] px-3 py-3 text-[13px] text-[#b42d22]"
               role="alert"
             >
-              <p>We could not check price and stock. Try again before you send your order.</p>
-              <Button
+              <p>Price and stock could not be checked. Try again before you send the order.</p>
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-1 text-negative"
-                onClick={() => setQuoteRetry((retry) => retry + 1)}
+                onClick={() => setQuoteTick((tick) => tick + 1)}
+                className={`mt-2 min-h-11 font-semibold underline underline-offset-2 ${focusRing}`}
               >
                 Check again
-              </Button>
+              </button>
             </div>
           ) : (
-            <p className="mt-3 text-[12px] text-ink-3" role="status">
+            <p className="mt-3 text-[13px] text-ink-2" role="status">
               Checking price and stock…
             </p>
           )}
 
           {stockIssue ? (
-            <p
-              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
+            <div
+              className="mt-3 bg-[#fbe9e6] px-3 py-3 text-[13px] text-[#b42d22]"
               role="alert"
             >
-              Adjust or remove unavailable items before you order.
-            </p>
+              <p>Some items are sold out or above what is in stock.</p>
+              <button
+                type="button"
+                onClick={matchStock}
+                className={`mt-2 min-h-11 font-semibold underline underline-offset-2 ${focusRing}`}
+              >
+                Update the cart to match stock
+              </button>
+            </div>
           ) : null}
           {currencyMismatch ? (
-            <p
-              className="mt-3 bg-negative-muted px-3 py-2 text-[12px] text-negative"
-              role="alert"
-            >
-              Your cart contains different currencies. Empty it and add the products again.
+            <p className="mt-3 bg-[#fbe9e6] px-3 py-3 text-[13px] text-[#b42d22]" role="alert">
+              The cart mixes currencies. Empty it and add the products again.
             </p>
           ) : null}
 
@@ -407,7 +554,7 @@ export function StoreCartCheckout({
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
                 className={fieldClassName()}
-                placeholder="Your name"
+                placeholder="Optional"
               />
             </div>
             <div>
@@ -422,7 +569,7 @@ export function StoreCartCheckout({
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
                 className={fieldClassName()}
-                placeholder="Your WhatsApp number"
+                placeholder="Optional"
               />
             </div>
             <div>
@@ -446,8 +593,11 @@ export function StoreCartCheckout({
                   ))}
                 </select>
               ) : (
-                <p className="mt-1.5 min-h-11 border border-line bg-sunken px-3 py-2.5 text-[14px] text-ink-2">
-                  {fallbackLocation ?? 'Confirm the pickup location with the shop'}
+                <p
+                  id="cart-pickup-location"
+                  className="mt-1.5 min-h-11 border border-line bg-sunken px-3 py-2.5 text-[14px] text-ink-2"
+                >
+                  {fallbackLocation ?? 'NextX confirms the pickup location on WhatsApp'}
                 </p>
               )}
             </div>
@@ -462,7 +612,7 @@ export function StoreCartCheckout({
                     type="button"
                     aria-pressed={pickupDate === value}
                     onClick={() => setPickupDate(value)}
-                    className={`px-2 py-2.5 font-medium transition-colors ${pickupDate === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
+                    className={`min-h-11 px-2 font-medium transition-colors ${focusRing} ${pickupDate === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'
@@ -494,13 +644,13 @@ export function StoreCartCheckout({
                 rows={3}
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
-                placeholder="Anything the shop should know?"
+                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                placeholder="Optional"
               />
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-5">
             {orderUrl ? (
               <a
                 href={orderUrl}
@@ -508,40 +658,51 @@ export function StoreCartCheckout({
                 rel="noopener noreferrer"
                 className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
               >
-                <MessageCircle />
+                <MessageCircle aria-hidden="true" />
                 Send order via WhatsApp
               </a>
             ) : (
-              <Button
+              <button
                 type="button"
-                variant="primary"
-                size="lg"
                 disabled
-                className="h-12 w-full rounded-tile"
+                className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
               >
                 {!whatsappNumber
-                  ? 'WhatsApp number not available'
+                  ? 'Ordering is unavailable right now'
                   : quoteError
-                    ? 'Price and stock check failed'
+                    ? 'Price and stock not checked'
                     : !quoteReady
                       ? 'Checking price and stock…'
                       : stockIssue
                         ? 'Adjust unavailable items'
                         : currencyMismatch
-                          ? 'Empty the cart and try again'
+                          ? 'Empty the cart and start again'
                           : 'Choose a pickup date'}
-              </Button>
+              </button>
             )}
-            <div className="mt-4 rounded-tile bg-sunken p-4 text-[13px] text-ink-2 leading-relaxed">
-              <h3 className="font-bold text-[13px] text-ink">What happens next</h3>
-              <ol className="mt-2 list-decimal space-y-1 pl-4">
-                <li>WhatsApp opens with your order written out. Press send there.</li>
-                <li>{businessName} replies to confirm price, stock and pickup.</li>
-                <li>Your order is only final once {businessName} has confirmed it.</li>
-              </ol>
-            </div>
-            <p className="mt-3 text-center text-[12px] text-ink-3">
-              Your cart is saved on this device until you empty it.
+
+            <ol className="mt-6 space-y-3 border-line border-t pt-5 text-[13px] text-ink-2 leading-relaxed">
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="tabular font-semibold text-ink">
+                  01
+                </span>
+                <span>WhatsApp opens with your order written out. Press send there.</span>
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="tabular font-semibold text-ink">
+                  02
+                </span>
+                <span>{businessName} replies to confirm price, stock and pickup.</span>
+              </li>
+              <li className="flex gap-3">
+                <span aria-hidden="true" className="tabular font-semibold text-ink">
+                  03
+                </span>
+                <span>The order is final only after that confirmation.</span>
+              </li>
+            </ol>
+            <p className="mt-5 text-[12px] text-ink-3 leading-relaxed">
+              The cart stays on this device until you empty it.
             </p>
           </div>
         </aside>

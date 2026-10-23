@@ -76,5 +76,21 @@ describe('legacy public URLs and staging indexing', () => {
     expect(disallowed).toContain('/cart');
     expect(disallowed).toContain('/items');
     expect(disallowed).not.toContain('/products');
+    // Staff screens, sign-in and private document links stay out of the crawl, and so does nothing
+    // a shopper should find.
+    for (const path of [
+      '/dashboard',
+      '/orders',
+      '/storefront',
+      '/d/',
+      '/invoice',
+      '/auth',
+      '/api',
+    ]) {
+      expect(disallowed, path).toContain(path);
+    }
+    for (const path of ['/', '/shop', '/products/', '/faq', '/_next']) {
+      expect(disallowed, path).not.toContain(path);
+    }
   });
 });

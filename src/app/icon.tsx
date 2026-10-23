@@ -6,10 +6,10 @@ export const contentType = 'image/png';
 /**
  * Root-scoped so both the dashboard and storefront tabs get a real icon
  * instead of the browser default — there was none at all before this.
- * Colours are the NextX navy and orange (`styles/tokens.css`'s
- * `.nx-store` block) copied as literal hex: Satori (the renderer behind
- * `ImageResponse`) can't read live CSS custom properties, so these must be
- * kept in sync by hand if that palette ever changes.
+ * Colours are NextX charcoal and the logo orange (`styles/tokens.css`)
+ * copied as literal hex: Satori (the renderer behind `ImageResponse`)
+ * can't read live CSS custom properties, so these must be kept in sync by
+ * hand if that palette ever changes.
  */
 export default function Icon() {
   return new ImageResponse(
@@ -20,14 +20,14 @@ export default function Icon() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0f202e',
+        background: '#141414',
         borderRadius: 7,
       }}
     >
       <div
         style={{
           display: 'flex',
-          color: '#f7931e',
+          color: '#e8590c',
           fontSize: 25,
           fontWeight: 800,
           lineHeight: 1,

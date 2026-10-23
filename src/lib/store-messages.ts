@@ -51,7 +51,7 @@ export function productOrderMessage(input: {
 }): string {
   const variant = input.variantName ? ` – ${input.variantName}` : '';
   const sku = input.sku ? ` (SKU ${input.sku})` : '';
-  return `Hello ${input.businessName}, I'd like to order the ${input.productName}${variant}${sku}. The website lists it at ${input.price} and shows it as in stock. Could you confirm?`;
+  return `Hello ${input.businessName}, I'd like to order the ${input.productName}${variant}${sku}. The website lists it at ${input.price}. Could you confirm it is available?`;
 }
 
 export function productRestockMessage(input: {
@@ -88,13 +88,19 @@ export type CartMessageInput = {
   notes?: string;
 };
 
+/** A single-line field: any line break a pasted value carries becomes a space. */
+function oneLine(value: string | undefined, maxLength: number): string {
+  return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
 /** The whole cart as one message. Subtotals are per currency; currencies are never added together. */
 export function cartOrderMessage(input: CartMessageInput): string {
   const { lines, srdRate } = input;
   const currencies = [...new Set(lines.map((line) => line.currency))];
-  const name = input.customerName?.trim();
-  const phone = input.customerPhone?.trim();
-  const notes = input.notes?.trim();
+  // The form limits these, and so do we: a customer's text must not be able to pass for a line of the order.
+  const name = oneLine(input.customerName, 120);
+  const phone = oneLine(input.customerPhone, 40);
+  const notes = input.notes?.trim().slice(0, 500);
   return [
     `Hello ${input.businessName}, I'd like to order the following items:`,
     '',
@@ -115,7 +121,8 @@ export function cartOrderMessage(input: CartMessageInput): string {
     ...(phone ? [`Phone: ${phone}`] : []),
     `Pickup location: ${input.pickupLocation}`,
     `Preferred pickup date: ${formatPickupDate(input.pickupDate)}`,
-    ...(notes ? [`Notes: ${notes}`] : []),
+    // Later lines of a note are indented under it.
+    ...(notes ? [`Notes: ${notes.replace(/\s*\r?\n\s*/g, '\n   ')}`] : []),
     '',
     'Please confirm current stock and the final price.',
     'Stock is only reserved once the shop confirms my order.',

@@ -3,12 +3,11 @@
 /**
  * The last resort: a throw inside the root layout itself.
  *
- * This is the only boundary that replaces `<html>` and `<body>` entirely — a
- * throw here means `ThemeProvider` and the font providers in
- * `src/app/layout.tsx` never got to run, so this cannot lean on either. Kept
- * deliberately plain and inline-styled rather than importing Tailwind
- * classes or the design tokens: the whole point of this file is to render
- * something legible when everything above it has already failed.
+ * This is the only boundary that replaces `<html>` and `<body>` entirely, so a throw here means the
+ * theme and font providers in `src/app/layout.tsx` never ran and this cannot lean on either. It is
+ * plain and inline-styled on purpose: its one job is to render something legible when everything above
+ * it has failed. It is customer-facing (the shop shares the root layout), so it says nothing about
+ * the staff dashboard and nothing from the error beyond an opaque reference.
  */
 export default function GlobalError({
   error,
@@ -17,8 +16,20 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const button = {
+    height: 44,
+    padding: '0 20px',
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+  } as const;
+
   return (
-    <html lang="en">
+    <html lang="en-SR">
       <body
         style={{
           margin: 0,
@@ -26,45 +37,48 @@ export default function GlobalError({
           display: 'grid',
           placeItems: 'center',
           padding: '24px',
-          background: '#0b1017',
-          color: '#e6edf3',
+          background: '#131211',
+          color: '#f4f1ec',
           fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
         }}
       >
-        <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
-          <p style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>
-            NextX Dashboard could not load this page
+        <main style={{ width: '100%', maxWidth: 420 }}>
+          <p style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: -1 }}>
+            Next<span style={{ color: '#ee5b0d' }}>X</span>
           </p>
-          <p
-            style={{
-              marginTop: 8,
-              fontSize: 13,
-              lineHeight: 1.6,
-              color: '#9aa7b2',
-            }}
-          >
-            Try again once. If it keeps happening, mention the error code
-            {error.digest ? ` ${error.digest}` : ''} to support. The error has been logged.
+          <h1 style={{ margin: '32px 0 0', fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
+            This page did not load.
+          </h1>
+          <p style={{ marginTop: 12, fontSize: 15, lineHeight: 1.6, color: '#c9c3ba' }}>
+            Try once more. If it fails again, tell NextX
+            {error.digest ? ` and quote reference ${error.digest}` : ''}.
           </p>
-          <button
-            type="button"
-            onClick={reset}
-            style={{
-              marginTop: 20,
-              height: 32,
-              padding: '0 14px',
-              borderRadius: 6,
-              border: '1px solid #ee5b0d',
-              background: '#ee5b0d',
-              color: '#0f0e0d',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Try again
-          </button>
-        </div>
+          <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              onClick={reset}
+              style={{
+                ...button,
+                border: '1px solid #ee5b0d',
+                background: '#ee5b0d',
+                color: '#131211',
+              }}
+            >
+              Try again
+            </button>
+            <a
+              href="/shop"
+              style={{
+                ...button,
+                border: '1px solid #6b665e',
+                background: 'transparent',
+                color: '#f4f1ec',
+              }}
+            >
+              Go to the shop
+            </a>
+          </div>
+        </main>
       </body>
     </html>
   );

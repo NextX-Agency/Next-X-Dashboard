@@ -126,7 +126,7 @@ test.describe('storefront cart', () => {
 
     await page.goto('/cart');
     await expect(page.getByRole('heading', { name: 'Cart', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Order via WhatsApp' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Send the order' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cart, 2 items' })).toBeVisible();
     await expect(
       page.getByText('Price and stock just checked', { exact: false }),

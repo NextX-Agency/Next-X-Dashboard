@@ -5,7 +5,7 @@ import { Money } from '@/components/ui/money';
 import { Skeleton, SkeletonNumber } from '@/components/ui/skeleton';
 import type { RateMicros } from '@/lib/fx';
 import type { Cents } from '@/lib/money';
-import { getCashFlow, getCurrentRate, getPosition } from '@/server/queries/overview';
+import { getCashFlow, getLiveRate, getPosition } from '@/server/queries/overview';
 
 /**
  * Where the business stands, in four numbers.
@@ -18,7 +18,7 @@ export async function PositionStrip() {
   const [position, cashFlow, rate] = await Promise.all([
     getPosition(),
     getCashFlow(12),
-    getCurrentRate(),
+    getLiveRate(),
   ]);
 
   const balances = cashFlow.map((point) => point.balanceCents);

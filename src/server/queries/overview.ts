@@ -1,8 +1,11 @@
 import { sql } from 'drizzle-orm';
+import { cacheLife, cacheTag } from 'next/cache';
+import { connection } from 'next/server';
 import { isDatabaseConfigured } from '@/lib/env';
 import type { Cents } from '@/lib/money';
 import { OVERDUE_AFTER_DAYS } from '@/lib/payment-status';
 import { db } from '../db/client';
+import { CACHE_TAGS, REFERENCE_CACHE_LIFE } from './cache-tags';
 import { bool, maybe, text } from './row';
 
 /**
@@ -280,13 +283,37 @@ export async function getOwnerEquity(): Promise<OwnerRow[]> {
   }));
 }
 
-/** Most recent exchange rate on or before now. */
-export async function getCurrentRate(): Promise<{
-  rateMicros: number;
-  effectiveFrom: Date;
-} | null> {
-  if (!isDatabaseConfigured()) return null;
+type CurrentRate = { rateMicros: number; effectiveFrom: Date };
 
+/**
+ * Most recent exchange rate on or before now, cached across requests for the
+ * public storefront (it was one database round trip per page view, and a rate
+ * changes a few times a month at most). Expired by `CACHE_TAGS.fxRate` on every
+ * staff mutation, `createFxRate` included; the short `cacheLife` covers a rate
+ * dated in the future becoming effective by itself. Staff screens that book or
+ * report money use `getLiveRate` instead.
+ */
+export async function getCurrentRate(): Promise<CurrentRate | null> {
+  if (!isDatabaseConfigured()) return null;
+  // Request time only, so `next build` never fills this cache (it has no database).
+  await connection();
+  return readCurrentRate();
+}
+
+async function readCurrentRate(): Promise<CurrentRate | null> {
+  'use cache';
+  cacheLife(REFERENCE_CACHE_LIFE);
+  cacheTag(CACHE_TAGS.fxRate);
+  return readLiveRate();
+}
+
+/** The same read, never cached: for dashboard pages and reports that handle money. */
+export async function getLiveRate(): Promise<CurrentRate | null> {
+  if (!isDatabaseConfigured()) return null;
+  return readLiveRate();
+}
+
+async function readLiveRate(): Promise<CurrentRate | null> {
   const [row] = await db.execute<{ rate_micros: string; effective_from: string }>(sql`
     SELECT rate_micros::text, effective_from::text
       FROM fx_rates

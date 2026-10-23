@@ -6,7 +6,7 @@ import { optimumBundlePrice } from '@/lib/reorder';
 import { bundleSchema, uuid } from '@/lib/schemas';
 import { db } from '../db/client';
 import { bundleComponents, bundles, products, productVariants } from '../db/schema';
-import { getSettings } from '../queries/reference';
+import { getAdminSettings } from '../queries/reference';
 import { logActivity, type Tx } from '../services/posting';
 import { ActionError, writeAction } from './client';
 
@@ -176,7 +176,7 @@ export const recalculateBundlePrice = writeAction
   .metadata({ action: 'recalculated', entity: 'bundle price' })
   .inputSchema(bundlePriceSchema)
   .action(async ({ parsedInput: input }) => {
-    const settings = await getSettings();
+    const settings = await getAdminSettings();
     const targetMargin =
       input.targetMargin ?? (settings?.targetBundleMarginBp ?? 3000) / 10_000;
     const discount = input.discount ?? (settings?.defaultBundleDiscountBp ?? 500) / 10_000;

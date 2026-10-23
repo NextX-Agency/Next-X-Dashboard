@@ -76,30 +76,27 @@ export default async function StoreLayout({ children }: { children: ReactNode })
     listStorePickupLocations(),
   ]);
   const storeName = settings?.businessName ?? 'NextX';
+  // The footer writes its own line when the owner has not; only a real description is passed on.
+  const resolvedDescription = storefrontDescription(
+    storefront?.description,
+    settings?.storeDescription,
+  );
+  const ownerDescription =
+    resolvedDescription === STORE_DESCRIPTION ? null : resolvedDescription;
 
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
       <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-manrope)] text-ink">
-        <AnnouncementBar
-          announcement={settings?.announcement}
-          pickup={Boolean(settings?.pickupEnabled)}
-          pickupLabel={settings?.pickupLabel}
-          delivery={Boolean(settings?.deliveryEnabled)}
-          currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
-        />
+        <AnnouncementBar announcement={settings?.announcement} />
         <StoreHeader
           storeName={storeName}
           whatsapp={settings?.whatsapp ?? null}
           categories={categories}
         />
-        <main className="w-full flex-1 pb-16 sm:pb-0">{children}</main>
+        <main className="w-full flex-1">{children}</main>
         <StoreFooter
           settings={settings}
-          description={storefrontDescription(
-            storefront?.description,
-            settings?.storeDescription,
-          )}
-          currency={storefront?.defaultCurrency ?? settings?.displayCurrency ?? 'SRD'}
+          description={ownerDescription}
           year={year}
           categories={categories}
           pickupLocations={pickupLocations}

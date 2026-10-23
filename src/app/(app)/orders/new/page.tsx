@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { OrderForm } from '@/components/forms/order-form';
 import { PageHeader } from '@/components/patterns/page-header';
 import { RATE_SCALE } from '@/lib/fx';
-import { getCurrentRate } from '@/server/queries/overview';
+import { getLiveRate } from '@/server/queries/overview';
 import {
   listCustomerOptions,
   listLocationOptions,
@@ -20,7 +20,7 @@ export default async function NewOrderPage() {
     listSaleVariantOptions(),
     listCustomerOptions(),
     listLocationOptions(),
-    getCurrentRate(),
+    getLiveRate(),
   ]);
   return (
     <>

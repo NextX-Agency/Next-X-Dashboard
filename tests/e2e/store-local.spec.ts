@@ -26,12 +26,11 @@ test.describe('neutral storefront structure', () => {
     await expect(page.getByRole('link', { name: /go to the homepage/ })).toBeVisible();
     // The shop's places are named in the header and the page itself, not just a product grid.
     await expect(page.getByRole('navigation', { name: 'Shop sections' })).toBeVisible();
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'Shop by category' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Categories' })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    // No staff link in the customer header.
-    await expect(page.locator('header').getByText('Staff sign-in')).toHaveCount(0);
+    // No staff link anywhere on the public shop, header or footer.
+    await expect(page.getByText('Staff sign-in')).toHaveCount(0);
+    await expect(page.locator('a[href="/login"]')).toHaveCount(0);
   });
 
   test('no public URL carries a product family', async ({ page }) => {
@@ -96,7 +95,9 @@ test.describe('catalogue and product page', () => {
     await page.goto(`/products/${PRODUCT.slug}`);
     await expect(page.getByRole('heading', { level: 1, name: PRODUCT.name })).toBeVisible();
     await expect(page.getByText(PRODUCT.price, { exact: false }).first()).toBeVisible();
-    await expect(page.getByText(/Only 2 left|In stock/).first()).toBeVisible();
+    // Available is the default and carries no label: no "In stock" pill, no "Only n left".
+    await expect(page.getByText(/^In stock$|Only \d+ left/)).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Order via WhatsApp/ })).toBeVisible();
     const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
     expect(canonical).toContain(`/products/${PRODUCT.slug}`);
     const jsonLd = await page

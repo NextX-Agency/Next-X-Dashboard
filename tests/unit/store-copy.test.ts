@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
 
+describe('STORE_DESCRIPTION', () => {
+  it('says what is sold, where, and how an order works, without filler', () => {
+    expect(STORE_DESCRIPTION).toMatch(/in-ear monitors/i);
+    expect(STORE_DESCRIPTION).toMatch(/Paramaribo/);
+    expect(STORE_DESCRIPTION).toMatch(/WhatsApp/);
+    expect(STORE_DESCRIPTION).toMatch(/SRD/);
+    expect(STORE_DESCRIPTION).not.toMatch(
+      /welcome|seamless|premium|elevate|curated|discover|unlock|!/i,
+    );
+    expect(STORE_DESCRIPTION.length).toBeLessThanOrEqual(160);
+  });
+});
+
 describe('storefrontDescription', () => {
   it('ignores the generic legacy description and falls back to reviewed copy', () => {
     const legacy =

@@ -106,18 +106,25 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
           <section className="mt-10">
             <h2 className="nx-display text-[24px]">Included</h2>
             <ul className="mt-4 divide-y divide-line border-line border-y">
-              {bundle.items.map((item) => (
+              {bundle.items.map((item, index) => (
                 <li
                   key={`${item.productName}-${item.variantName}`}
                   className="flex justify-between gap-4 py-3 text-[15px]"
                 >
-                  <span>
-                    {item.productName}
-                    {item.variantName ? (
-                      <span className="text-ink-3"> · {item.variantName}</span>
-                    ) : null}
+                  <span className="flex gap-3">
+                    <span aria-hidden="true" className="tabular text-ink-3">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span>
+                      {item.productName}
+                      {item.variantName ? (
+                        <span className="text-ink-3"> · {item.variantName}</span>
+                      ) : null}
+                    </span>
                   </span>
-                  <span className="tabular text-ink-3">×{item.quantity}</span>
+                  <span className="tabular text-ink-3">
+                    <span className="sr-only">Quantity </span>×{item.quantity}
+                  </span>
                 </li>
               ))}
             </ul>

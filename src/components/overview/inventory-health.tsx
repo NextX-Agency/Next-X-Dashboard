@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Money } from '@/components/ui/money';
 import { cn } from '@/lib/cn';
 import { getInventoryHealth } from '@/server/queries/overview';
-import { getSettings } from '@/server/queries/reference';
+import { getAdminSettings } from '@/server/queries/reference';
 
 /**
  * Stock, read as a position rather than a list.
@@ -16,7 +16,7 @@ import { getSettings } from '@/server/queries/reference';
  * is answered by the shape rather than by comparing three columns of digits.
  */
 export async function InventoryHealth() {
-  const [rows, settings] = await Promise.all([getInventoryHealth(6), getSettings()]);
+  const [rows, settings] = await Promise.all([getInventoryHealth(6), getAdminSettings()]);
   // The same threshold the alerts panel reads, so a "Low" badge here and a
   // "running low" alert there can never disagree.
   const lowStockAt = settings?.lowStockThreshold ?? 5;

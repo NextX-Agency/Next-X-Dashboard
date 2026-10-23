@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Member } from '../auth';
 import { getCurrentMember, requireMember, requireOwner, requireWrite } from '../auth';
 import { ActionError } from '../errors';
+import { invalidatePublicData } from '../queries/cache-tags';
 
 /**
  * Server Action clients.
@@ -68,16 +69,61 @@ export const memberAction = base.use(async ({ next }) => {
   return next({ ctx: { member } satisfies ActionContext });
 });
 
+/**
+ * Public-storefront cache invalidation.
+ *
+ * The storefront reads settings, storefronts, the catalogue (products, prices,
+ * stock, images, categories, collections, bundles) and the exchange rate through
+ * `'use cache'` read models (see `queries/cache-tags.ts`). Rather than trust
+ * every one of the ~90 mutations to remember the right tag, the two
+ * authenticated clients below expire all of them after ANY mutation runs. A
+ * mutation built on `writeAction`/`ownerAction` therefore cannot leave a stale
+ * price or stock figure on the shop, and a new action cannot forget to wire it.
+ *
+ * It runs after the handler (and so after its transaction has committed) and in
+ * `finally`, so a handler that threw or redirected after a partial write still
+ * expires the caches. Over-invalidation is deliberate: a few extra cache
+ * refills per staff write cost far less than one stale price.
+ *
+ * `publicAction` and `memberAction` are exempt on purpose: they never change
+ * catalogue data (a quote or restock request, a notification read flag), and an
+ * anonymous visitor must not be able to flush the cache at will.
+ */
+export function expirePublicCachesAfterMutation(): void {
+  try {
+    invalidatePublicData();
+  } catch (error) {
+    // Never let a cache problem turn a committed write into an error toast.
+    console.error('[cache] could not expire public storefront caches', error);
+  }
+}
+
 /** The default for mutations. Owners and staff; viewers are refused. */
-export const writeAction = base.use(async ({ next }) => {
-  const member = await requireWrite();
-  return next({ ctx: { member } satisfies ActionContext });
-});
+export const writeAction = base
+  .use(async ({ next }) => {
+    const member = await requireWrite();
+    return next({ ctx: { member } satisfies ActionContext });
+  })
+  .use(async ({ next }) => {
+    try {
+      return await next();
+    } finally {
+      expirePublicCachesAfterMutation();
+    }
+  });
 
 /** Team management, settings, deletions. */
-export const ownerAction = base.use(async ({ next }) => {
-  const member = await requireOwner();
-  return next({ ctx: { member } satisfies ActionContext });
-});
+export const ownerAction = base
+  .use(async ({ next }) => {
+    const member = await requireOwner();
+    return next({ ctx: { member } satisfies ActionContext });
+  })
+  .use(async ({ next }) => {
+    try {
+      return await next();
+    } finally {
+      expirePublicCachesAfterMutation();
+    }
+  });
 
 export { getCurrentMember };

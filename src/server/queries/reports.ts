@@ -3,7 +3,7 @@ import { isDatabaseConfigured } from '@/lib/env';
 import { toBase } from '@/lib/fx';
 import type { Cents } from '@/lib/money';
 import { db } from '../db/client';
-import { getCurrentRate } from './overview';
+import { getLiveRate } from './overview';
 import { listRates } from './reference';
 import { num, text } from './row';
 
@@ -320,7 +320,7 @@ export async function getFxExposure(): Promise<FxExposure> {
   }
 
   const [rate, ledgerRow, revenueRow, rates] = await Promise.all([
-    getCurrentRate(),
+    getLiveRate(),
     db.execute<{ srd_cents: string; srd_usd_cents: string; total_usd_cents: string }>(sql`
       SELECT
         COALESCE(SUM(amount_cents) FILTER (WHERE currency = 'SRD'), 0)::text AS srd_cents,

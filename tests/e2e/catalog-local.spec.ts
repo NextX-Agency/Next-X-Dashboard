@@ -158,7 +158,8 @@ test.describe('product cards: Quick Add and Choose options', () => {
     await page.goto('/shop?q=test+iem', { waitUntil: 'networkidle' });
     const iem = cardNamed(page, /KZ Test IEM/);
     await expect(iem).toContainText('3 options');
-    await expect(iem).toContainText('Choose options');
+    // No stock label and no fake button: an available product says nothing about stock.
+    await expect(iem).not.toContainText(/In stock|left/);
     await expect(iem.getByRole('button')).toHaveCount(0);
     // The whole card is the link: a click on the photograph's area opens the page.
     await iem.click({ position: { x: 150, y: 140 } });

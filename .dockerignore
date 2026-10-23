@@ -1,15 +1,41 @@
+# Version control and editor/agent state
 .git
+.gitattributes
+.github
+.claude
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Build output and caches (the image builds its own)
 .next
+.next-build
+.turbo
+.pnpm-store
 node_modules
+*.tsbuildinfo
+
+# Secrets and local environment (only the example file is allowed in)
 .env*
 !.env.example
+.vercel
+
+# Test and review output
 *.log
 coverage
 playwright-report
+blob-report
 test-results
+tests/e2e/.auth
+
+# Operational and local-only data
 migration-reports
 .local-rehearsal
-.vercel
-.turbo
-# The app build does not need Supabase Compose files, local credentials or data.
-deploy/supabase
+
+# ~16 MB of design-review screenshots and synthetic product photography used for local review only
+docs/design-review
+public/dev-fixtures
+
+# The app build does not need Supabase Compose files, VPS scripts, local credentials or data.
+deploy

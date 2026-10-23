@@ -25,8 +25,8 @@ import { formatRate } from '@/lib/fx';
 import { isPeriodPreset, type PeriodPreset } from '@/lib/report-period';
 import {
   getCashFlow,
-  getCurrentRate,
   getImportPipeline,
+  getLiveRate,
   getSetupState,
 } from '@/server/queries/overview';
 
@@ -257,7 +257,7 @@ async function Waterfall({ searchParams }: { searchParams: SearchParams }) {
 }
 
 async function RateNote() {
-  const rate = await getCurrentRate();
+  const rate = await getLiveRate();
   if (!rate) return <span>No exchange rate set</span>;
   return (
     <span>

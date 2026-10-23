@@ -83,14 +83,11 @@ function activeCount(state: {
 /** Availability toggle, sort and the filters sheet. Search lives in the header. */
 export function ShopToolbar({
   filters,
-  inStockCount,
   total,
 }: {
   filters: ReactNode;
   /** How many products match, shown beside the controls on a wide screen. */
   total?: number;
-  /** Products you could see with "in stock only" on, for the label. */
-  inStockCount?: number;
 }) {
   const [state, setState] = useQueryStates(queryState, options);
   const onlyInStock = state.availability === 'in-stock';
@@ -114,9 +111,6 @@ export function ShopToolbar({
           />
         </span>
         In-stock items only
-        {inStockCount !== undefined && !onlyInStock ? (
-          <span className="tabular font-normal text-[13px] text-ink-3">({inStockCount})</span>
-        ) : null}
       </button>
       {total !== undefined ? (
         <p
@@ -175,11 +169,11 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
     <Dialog.Root open={open} onOpenChange={(next) => startTransition(() => setOpen(next))}>
       <Dialog.Trigger asChild>
         <button type="button" className="nx-btn nx-btn-line nx-btn-sm h-11">
-          <SlidersHorizontal /> Filters
+          <SlidersHorizontal aria-hidden="true" /> Filters
           {count > 0 ? (
-            <span className="tabular grid min-w-5 place-items-center rounded-full bg-cta px-1.5 font-semibold text-[12px] text-cta-fg">
-              {count}
-              <span className="sr-only"> active</span>
+            <span className="tabular font-semibold">
+              ({count}
+              <span className="sr-only"> active</span>)
             </span>
           ) : null}
         </button>
@@ -192,8 +186,11 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
             <Dialog.Description className="sr-only">
               Narrow down the products in the shop. Choices apply immediately.
             </Dialog.Description>
-            <Dialog.Close aria-label="Close" className="-mr-2 grid size-10 place-items-center">
-              <X className="size-5" />
+            <Dialog.Close
+              aria-label="Close"
+              className="-mr-2 grid size-11 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <X aria-hidden="true" className="size-5" />
             </Dialog.Close>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
@@ -247,6 +244,11 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
   const set = (key: keyof typeof queryState, value: string | string[] | null) =>
     setState({ [key]: value, page: null });
   const list = (value: string[]) => (value.length ? value : null);
+  // "In stock only" is the switch above the grid; this group holds only what can still change the result.
+  const showIncoming =
+    (data.availability?.incoming ?? 0) > 0 || state.availability === 'incoming';
+  const showNew = state.new === 'true' || (data.availability?.newArrivals ?? 0) > 0;
+  const showAvailability = showIncoming || showNew;
 
   return (
     <div className="space-y-8">
@@ -360,39 +362,32 @@ export function ShopFilters({ data }: { data: ShopFilterOptions }) {
         </Group>
       ) : null}
 
-      <Group title="Availability">
-        <Choice
-          active={state.availability === 'in-stock'}
-          {...(data.availability ? { count: data.availability.inStock } : {})}
-          onClick={() =>
-            set('availability', state.availability === 'in-stock' ? null : 'in-stock')
-          }
-        >
-          In stock
-        </Choice>
-        {data.availability && data.availability.incoming > 0 ? (
-          <Choice
-            active={state.availability === 'incoming'}
-            count={data.availability.incoming}
-            onClick={() =>
-              set('availability', state.availability === 'incoming' ? null : 'incoming')
-            }
-          >
-            Coming soon
-          </Choice>
-        ) : null}
-        {state.new === 'true' || (data.availability?.newArrivals ?? 0) > 0 ? (
-          <Choice
-            active={state.new === 'true'}
-            {...(data.availability?.newArrivals !== undefined
-              ? { count: data.availability.newArrivals }
-              : {})}
-            onClick={() => set('new', state.new === 'true' ? null : 'true')}
-          >
-            New arrivals only
-          </Choice>
-        ) : null}
-      </Group>
+      {showAvailability ? (
+        <Group title="Availability">
+          {showIncoming ? (
+            <Choice
+              active={state.availability === 'incoming'}
+              count={data.availability?.incoming ?? 0}
+              onClick={() =>
+                set('availability', state.availability === 'incoming' ? null : 'incoming')
+              }
+            >
+              On the way
+            </Choice>
+          ) : null}
+          {showNew ? (
+            <Choice
+              active={state.new === 'true'}
+              {...(data.availability?.newArrivals !== undefined
+                ? { count: data.availability.newArrivals }
+                : {})}
+              onClick={() => set('new', state.new === 'true' ? null : 'true')}
+            >
+              New arrivals
+            </Choice>
+          ) : null}
+        </Group>
+      ) : null}
     </div>
   );
 }
@@ -520,7 +515,7 @@ function Choice({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'group flex min-h-10 items-center justify-between gap-3 border-l-2 py-1.5 pr-1 pl-3 text-left text-[14px] transition-colors',
+        'group flex min-h-11 items-center justify-between gap-3 border-l-2 py-1.5 pr-1 pl-3 text-left text-[14px] transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring',
         active
           ? 'border-store-bright font-semibold text-accent'
@@ -592,11 +587,11 @@ export function ActiveFilters({
     chips.push({ id: 'platform', label: state.platform, remove: clear({ platform: null }) });
   if (state.protocol)
     chips.push({ id: 'protocol', label: state.protocol, remove: clear({ protocol: null }) });
-  if (state.new) chips.push({ id: 'new', label: 'New', remove: clear({ new: null }) });
+  if (state.new) chips.push({ id: 'new', label: 'New arrivals', remove: clear({ new: null }) });
   if (state.availability)
     chips.push({
       id: 'availability',
-      label: state.availability === 'in-stock' ? 'In stock' : 'Coming soon',
+      label: state.availability === 'in-stock' ? 'In stock only' : 'On the way',
       remove: clear({ availability: null }),
     });
   if (!chips.length) return null;
@@ -608,7 +603,7 @@ export function ActiveFilters({
           type="button"
           aria-label={`Remove filter: ${chip.label}`}
           onClick={chip.remove}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-cta px-3.5 font-semibold text-[13px] text-cta-fg hover:bg-cta-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex h-11 items-center gap-1.5 rounded-[10px] border border-line-strong px-3 font-semibold text-[13px] text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:h-9"
         >
           {chip.label}
           <X aria-hidden="true" className="size-3.5" />
@@ -634,7 +629,7 @@ export function ActiveFilters({
             page: null,
           })
         }
-        className="min-h-9 px-1 text-[13px] font-medium text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-2 focus-visible:outline-ring"
+        className="min-h-11 px-1 text-[13px] font-medium text-ink underline underline-offset-4 hover:text-accent focus-visible:outline-2 focus-visible:outline-ring lg:min-h-9"
       >
         Clear all
       </button>
