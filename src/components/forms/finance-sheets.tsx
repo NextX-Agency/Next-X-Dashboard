@@ -10,12 +10,13 @@ import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field'
 import { Money } from '@/components/ui/money';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import { formatMoney } from '@/lib/money';
 import { createFxRate, updateSettings } from '@/server/actions/finance';
 import { adjustStock } from '@/server/actions/products';
 import { receivePurchaseOrder } from '@/server/actions/purchase-orders';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 /* ── Exchange rate ───────────────────────────────────────────────────────── */
 

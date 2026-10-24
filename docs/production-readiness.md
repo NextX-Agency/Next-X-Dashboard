@@ -5,6 +5,10 @@ current [cutover gate](NEXTX_PRODUCTION_CUTOVER.md) and
 [feature/content parity audit](NEXTX_FEATURE_PARITY.md). They are authoritative
 for the live source counts and blockers.
 
+> The live deployment, its backup/monitoring/rollback state and a ranked blocker list are in
+> [05-operations/go-live-checklist.md](05-operations/go-live-checklist.md). This page is the generic
+> gate list.
+
 ## Required environment
 
 - Isolated Coolify staging application built from the checked-in Dockerfile.

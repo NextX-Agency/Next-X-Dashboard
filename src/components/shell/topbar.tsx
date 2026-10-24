@@ -44,14 +44,14 @@ export function Topbar({
       {/* Mobile navigation */}
       <Dialog.Root open={navOpen} onOpenChange={setNavOpen}>
         <Dialog.Trigger
-          className="grid size-8 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-hover hover:text-ink lg:hidden"
+          className="-ml-2 grid size-11 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring lg:hidden"
           aria-label="Open navigation"
         >
-          <MenuIcon className="size-4" />
+          <MenuIcon aria-hidden="true" className="size-4" />
         </Dialog.Trigger>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 lg:hidden" />
-          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[248px] border-line border-r bg-raised data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left duration-200 lg:hidden">
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0 lg:hidden" />
+          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[248px] border-line border-r bg-raised motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:slide-out-to-left motion-safe:data-[state=open]:slide-in-from-left motion-safe:duration-200 lg:hidden">
             <VisuallyHidden>
               <Dialog.Title>Navigation</Dialog.Title>
             </VisuallyHidden>
@@ -64,7 +64,7 @@ export function Topbar({
         <CommandPalette />
       </div>
 
-      <Button asChild variant="ghost" size="sm">
+      <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
         <Link href="/" target="_blank" rel="noopener noreferrer">
           <Store className="size-4" /> <span className="hidden sm:inline">View shop</span>
         </Link>
@@ -80,7 +80,7 @@ export function Topbar({
           <button
             type="button"
             className={cn(
-              'flex h-8 items-center gap-2 rounded-control pr-1.5 pl-1 text-[13px] text-ink-2',
+              'flex h-11 items-center gap-2 rounded-control pr-1.5 pl-1 text-[13px] text-ink-2 sm:h-8',
               'transition-colors hover:bg-hover hover:text-ink',
               'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
             )}
@@ -97,6 +97,11 @@ export function Topbar({
           <p className="mt-1 text-[11px] text-ink-3">{ROLE_LABEL[member.role]}</p>
         </Label>
         <Separator />
+        <Item asChild className="sm:hidden">
+          <Link href="/" target="_blank" rel="noopener noreferrer">
+            <Store className="size-4 text-ink-4" /> View shop
+          </Link>
+        </Item>
         <Item asChild>
           <Link href="/settings">
             <Settings className="size-4 text-ink-4" /> Settings

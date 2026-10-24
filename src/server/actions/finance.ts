@@ -1,8 +1,9 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { normaliseToUsd } from '@/lib/fx';
+import { isManuallyReversible } from '@/lib/finance-rules';
+import { assessRateChange, normaliseToUsd } from '@/lib/fx';
 import {
   expenseSchema,
   fxRateSchema,
@@ -26,6 +27,10 @@ import { defaultWalletFor, logActivity, postLedgerEntry } from '../services/post
 import { rateForRecord, rateOn } from '../services/rates';
 import { ActionError, ownerAction, writeAction } from './client';
 
+/** A second identical submit inside this window is a double click or a retry,
+ *  not a second purchase. */
+const DUPLICATE_WINDOW_SECONDS = 45;
+
 /**
  * An expense is money leaving the business, so by default it posts to the cash
  * ledger as well. The toggle exists for the case where the payment was already
@@ -37,6 +42,31 @@ export const createExpense = writeAction
   .inputSchema(expenseSchema)
   .action(async ({ parsedInput: input, ctx }) => {
     const result = await db.transaction(async (tx) => {
+      // Serialise a member's identical submits, then look for the first one.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`expense:${ctx.member.id}:${input.description}:${input.amountCents}`}, 0))`,
+      );
+      const [recent] = await tx
+        .select({ id: expenses.id })
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.createdById, ctx.member.id),
+            eq(expenses.description, input.description),
+            eq(expenses.amountCents, input.amountCents),
+            eq(expenses.currency, input.currency),
+            eq(expenses.occurredAt, input.occurredAt),
+            isNull(expenses.voidedAt),
+            gt(
+              expenses.createdAt,
+              sql`now() - make_interval(secs => ${DUPLICATE_WINDOW_SECONDS})`,
+            ),
+          ),
+        )
+        .orderBy(desc(expenses.createdAt))
+        .limit(1);
+      if (recent) return { id: recent.id, description: input.description };
+
       const rateMicros =
         input.currency === 'SRD'
           ? await rateOn(input.occurredAt, tx)
@@ -270,6 +300,7 @@ export const updateExpense = writeAction
   .inputSchema(expenseSchema.extend({ id: uuid }))
   .action(async ({ parsedInput: input, ctx }) => {
     const result = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM expenses WHERE id = ${input.id} FOR UPDATE`);
       const [existing] = await tx
         .select()
         .from(expenses)
@@ -397,6 +428,7 @@ export const voidExpense = ownerAction
   .inputSchema(z.object({ id: uuid, reason: z.string().trim().min(3).max(500) }))
   .action(async ({ parsedInput: input, ctx }) => {
     const description = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM expenses WHERE id = ${input.id} FOR UPDATE`);
       const [expense] = await tx
         .select()
         .from(expenses)
@@ -410,7 +442,12 @@ export const voidExpense = ownerAction
         .select()
         .from(ledgerEntries)
         .where(eq(ledgerEntries.sourceId, expense.id));
+      const alreadyReversed = new Set(
+        postings.flatMap((entry) => (entry.reversalOfId ? [entry.reversalOfId] : [])),
+      );
       for (const entry of postings) {
+        // Only an original posting is reversed, and only once.
+        if (entry.reversalOfId || alreadyReversed.has(entry.id)) continue;
         await postLedgerEntry(tx, {
           direction: entry.direction === 'in' ? 'out' : 'in',
           category: entry.category,
@@ -461,6 +498,29 @@ export const createLedgerEntry = writeAction
   .inputSchema(ledgerEntrySchema)
   .action(async ({ parsedInput: input, ctx }) => {
     await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${ctx.member.id}:${input.description}:${input.amountCents}`}, 0))`,
+      );
+      const [recent] = await tx
+        .select({ id: ledgerEntries.id })
+        .from(ledgerEntries)
+        .where(
+          and(
+            eq(ledgerEntries.createdById, ctx.member.id),
+            eq(ledgerEntries.eventType, 'manual'),
+            eq(ledgerEntries.description, input.description),
+            eq(ledgerEntries.amountCents, input.amountCents),
+            eq(ledgerEntries.direction, input.direction),
+            eq(ledgerEntries.occurredAt, input.occurredAt),
+            gt(
+              ledgerEntries.createdAt,
+              sql`now() - make_interval(secs => ${DUPLICATE_WINDOW_SECONDS})`,
+            ),
+          ),
+        )
+        .limit(1);
+      if (recent) return;
+
       if (input.category === 'owner_contribution' || input.category === 'owner_draw') {
         const [principal] = await tx
           .select({ isPrincipal: members.isPrincipal })
@@ -522,6 +582,7 @@ export const reverseLedgerEntry = writeAction
   .inputSchema(z.object({ id: uuid, reason: z.string().trim().min(3).max(500) }))
   .action(async ({ parsedInput: input, ctx }) => {
     const description = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM ledger_entries WHERE id = ${input.id} FOR UPDATE`);
       const [entry] = await tx
         .select()
         .from(ledgerEntries)
@@ -529,6 +590,12 @@ export const reverseLedgerEntry = writeAction
         .limit(1);
 
       if (!entry) throw new ActionError('That entry no longer exists.');
+
+      // An entry that a document posted (a sale payment, an expense, a refund,
+      // a transfer) is undone by voiding that document. Reversing only the
+      // cash would leave the sale showing "paid" with no money behind it.
+      const verdict = isManuallyReversible(entry);
+      if (!verdict.ok) throw new ActionError(verdict.reason);
 
       const [existingReversal] = await tx
         .select({ id: ledgerEntries.id })
@@ -603,6 +670,19 @@ export const createFxRate = writeAction
   .inputSchema(fxRateSchema)
   .action(async ({ parsedInput: input, ctx }) => {
     await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ rateMicros: fxRates.rateMicros })
+        .from(fxRates)
+        .where(and(eq(fxRates.base, 'USD'), eq(fxRates.quote, 'SRD')))
+        .orderBy(desc(fxRates.effectiveFrom))
+        .limit(1);
+      const assessment = assessRateChange(current?.rateMicros, input.rate);
+      if (assessment.status === 'implausible') throw new ActionError(assessment.message);
+      if (assessment.status === 'large-change' && !input.confirmLargeChange) {
+        throw new ActionError(
+          `${assessment.message} Tick the confirmation box if the new rate is correct.`,
+        );
+      }
       await tx.insert(fxRates).values({
         base: 'USD',
         quote: 'SRD',

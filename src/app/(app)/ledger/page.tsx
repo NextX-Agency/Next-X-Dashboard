@@ -219,7 +219,9 @@ async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchPa
                     <Money cents={row.balanceCents} size="sm" tone="muted" />
                   </TD>
                   <TD className="text-right">
-                    <LedgerActions id={row.id} description={row.description} />
+                    {row.reversible ? (
+                      <LedgerActions id={row.id} description={row.description} />
+                    ) : null}
                   </TD>
                 </TR>
               ))}
@@ -256,7 +258,9 @@ async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchPa
               </MobileRowMetaItem>
             </MobileRowMeta>
             <div className="flex justify-end pt-0.5">
-              <LedgerActions id={row.id} description={row.description} />
+              {row.reversible ? (
+                <LedgerActions id={row.id} description={row.description} />
+              ) : null}
             </div>
           </MobileRow>
         ))}

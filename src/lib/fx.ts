@@ -67,3 +67,44 @@ export function isRateStale(
   const ageMs = now.getTime() - effectiveFrom.getTime();
   return ageMs > maxAgeDays * 24 * 60 * 60 * 1000;
 }
+
+/** SRD per USD. The market has sat between roughly 7 and 60 for a decade; the
+ *  bounds are deliberately far outside that and only catch decimal-point typos. */
+export const MIN_PLAUSIBLE_RATE_MICROS = 1 * RATE_SCALE;
+export const MAX_PLAUSIBLE_RATE_MICROS = 500 * RATE_SCALE;
+
+/** A new rate that moves this far from the previous one needs a second look. */
+export const LARGE_RATE_CHANGE_RATIO = 0.25;
+
+export type RateAssessment =
+  | { status: 'ok' }
+  | { status: 'implausible'; message: string }
+  | { status: 'large-change'; change: number; message: string };
+
+/**
+ * Sanity-check a rate before it becomes the rate every new SRD sale is booked
+ * at. Entering "385" for 38.5 would silently misvalue every sale until
+ * somebody noticed, and historic documents keep the rate they were created with.
+ */
+export function assessRateChange(
+  previous: RateMicros | null | undefined,
+  next: RateMicros,
+): RateAssessment {
+  if (next < MIN_PLAUSIBLE_RATE_MICROS || next > MAX_PLAUSIBLE_RATE_MICROS) {
+    return {
+      status: 'implausible',
+      message: `${formatRate(next, 4)} SRD per USD is outside the believable range (1 to 500). Check the decimal point.`,
+    };
+  }
+  if (previous && previous > 0) {
+    const change = (next - previous) / previous;
+    if (Math.abs(change) > LARGE_RATE_CHANGE_RATIO) {
+      return {
+        status: 'large-change',
+        change,
+        message: `That is ${(Math.abs(change) * 100).toFixed(0)}% ${change > 0 ? 'higher' : 'lower'} than the current rate (${formatRate(previous, 4)}).`,
+      };
+    }
+  }
+  return { status: 'ok' };
+}

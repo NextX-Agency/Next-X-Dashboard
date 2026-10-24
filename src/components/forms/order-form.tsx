@@ -11,9 +11,12 @@ import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
+import { businessDateInput } from '@/lib/business-date';
+import { describeIssues } from '@/lib/form-issues';
 import type { RateMicros } from '@/lib/fx';
 import { defaultUnitPrice } from '@/lib/line-price';
 import { formatMoney, parseMoney } from '@/lib/money';
+import { orderSchema } from '@/lib/schemas';
 import { createOrder } from '@/server/actions/orders';
 import type { LocationOption, Option, SaleVariantOption } from '@/server/queries/pickers';
 import { LineProduct } from './line-product';
@@ -29,7 +32,7 @@ const newLine = (): Line => ({
   quantity: '1',
   unitPrice: '',
 });
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 export function OrderForm({
   variants,
@@ -55,6 +58,9 @@ export function OrderForm({
   const [fulfillmentNotes, setFulfillmentNotes] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
+  /** One key per form instance: a double click cannot create two orders. */
+  const idempotencyKey = useRef(crypto.randomUUID());
+  const [issues, setIssues] = useState<string[]>([]);
   const [picker, setPicker] = useState<
     { mode: 'add' } | { mode: 'replace'; key: string } | null
   >(null);
@@ -110,6 +116,20 @@ export function OrderForm({
       return [...current, { ...newLine(), variantId: chosen.id, quantity, unitPrice }];
     });
   }
+  /** Re-price lines still at their list price; a USD 77.92 must not become SRD 77.92. */
+  function changeCurrency(next: 'USD' | 'SRD') {
+    if (next === currency) return;
+    setLines((current) =>
+      current.map((line) => {
+        const variant = variantsById.get(line.variantId);
+        if (!variant) return line;
+        return line.unitPrice === defaultUnitPrice(variant.listPriceCents, currency, rateMicros)
+          ? { ...line, unitPrice: defaultUnitPrice(variant.listPriceCents, next, rateMicros) }
+          : line;
+      }),
+    );
+    setCurrency(next);
+  }
   const customerOptions: ComboboxOption[] = customers.map((customer) => ({
     value: customer.id,
     label: customer.label,
@@ -127,7 +147,11 @@ export function OrderForm({
   const action = useAction(createOrder, {
     onSuccess({ data }) {
       if (!data) return;
-      toast.success(`Order ${data.number} created`);
+      toast.success(
+        data.reused
+          ? `Order ${data.number} was already created`
+          : `Order ${data.number} created`,
+      );
       router.push(`/orders/${data.id}` as Route);
       router.refresh();
     },
@@ -138,6 +162,7 @@ export function OrderForm({
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (action.isPending) return;
     const items = lines
       .filter((line) => line.variantId)
       .map((line) => ({
@@ -147,7 +172,7 @@ export function OrderForm({
       }));
     if (!locationId) return toast.error('Choose a fulfillment location');
     if (!items.length) return toast.error('Add at least one item');
-    action.execute({
+    const payload = {
       customerId,
       source,
       orderDate,
@@ -161,7 +186,16 @@ export function OrderForm({
       fulfillmentNotes: fulfillmentNotes || undefined,
       notes: notes || undefined,
       items,
-    });
+    };
+    const check = orderSchema.safeParse(payload);
+    if (!check.success) {
+      const messages = describeIssues(check.error.issues);
+      setIssues(messages);
+      toast.error('Fix the problems listed beside the button', { description: messages[0] });
+      return;
+    }
+    setIssues([]);
+    action.execute({ ...payload, idempotencyKey: idempotencyKey.current });
   }
 
   return (
@@ -214,7 +248,7 @@ export function OrderForm({
                 <Select
                   id="order-currency"
                   value={currency}
-                  onChange={(event) => setCurrency(event.target.value as 'USD' | 'SRD')}
+                  onChange={(event) => changeCurrency(event.target.value as 'USD' | 'SRD')}
                 >
                   <option value="USD">USD</option>
                   <option value="SRD">SRD</option>
@@ -428,6 +462,19 @@ export function OrderForm({
           </p>
         </div>
         <div className="border-line-subtle border-t p-4">
+          {issues.length > 0 ? (
+            <div
+              role="alert"
+              className="mb-3 rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative"
+            >
+              <p className="font-medium">Fix these first</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {issues.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <SubmitButton pending={action.isPending} size="lg" className="w-full">
             Create draft order
           </SubmitButton>

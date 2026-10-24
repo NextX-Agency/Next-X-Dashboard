@@ -6,6 +6,7 @@ import type { Cents } from '@/lib/money';
 import { OVERDUE_AFTER_DAYS } from '@/lib/payment-status';
 import { db } from '../db/client';
 import { CACHE_TAGS, REFERENCE_CACHE_LIFE } from './cache-tags';
+import { pnlTotals } from './reports';
 import { bool, maybe, text } from './row';
 
 /**
@@ -140,60 +141,10 @@ export async function getWaterfall({ from, to }: { from: Date; to: Date }): Prom
   if (!isDatabaseConfigured())
     return { revenueCents: 0, cogsCents: 0, grossCents: 0, expensesCents: 0, netCents: 0 };
 
-  // Bind ISO strings rather than Date objects. PostgreSQL infers the
-  // timestamp type from the compared columns while the driver gets a stable
-  // parameter representation.
-  const fromIso = from.toISOString();
-  const toIso = to.toISOString();
-
-  const [row] = await db.execute<{
-    revenue: string;
-    cogs: string;
-    expenses: string;
-    refunds: string;
-    restocked: string;
-  }>(sql`
-    SELECT
-      COALESCE((
-        SELECT SUM(total_usd_cents) FROM sales
-         WHERE status = 'confirmed' AND sold_at >= ${fromIso} AND sold_at < ${toIso}
-      ), 0)::text AS revenue,
-      COALESCE((
-        SELECT SUM(cogs_cents) FROM sales
-         WHERE status = 'confirmed' AND sold_at >= ${fromIso} AND sold_at < ${toIso}
-      ), 0)::text AS cogs,
-      COALESCE((
-        SELECT SUM(amount_usd_cents) FROM expenses
-         WHERE voided_at IS NULL AND occurred_at >= ${fromIso} AND occurred_at < ${toIso}
-      ), 0)::text AS expenses,
-      COALESCE((
-        SELECT SUM(amount_usd_cents) FROM ledger_entries
-         WHERE category = 'refund' AND source_kind = 'sale'
-           AND (
-             source_id IN (SELECT id FROM sales)
-             OR source_id IN (SELECT id FROM sale_refunds)
-           )
-           AND occurred_at >= ${fromIso} AND occurred_at < ${toIso}
-      ), 0)::text AS refunds,
-      COALESCE((
-        SELECT SUM(value_cents) FROM inventory_movements
-         WHERE kind = 'return' AND source_kind = 'sale'
-           AND occurred_at >= ${fromIso} AND occurred_at < ${toIso}
-      ), 0)::text AS restocked
-  `);
-
-  const revenueCents = Number(row?.revenue ?? 0) - Number(row?.refunds ?? 0);
-  const cogsCents = Number(row?.cogs ?? 0) - Number(row?.restocked ?? 0);
-  const expensesCents = Number(row?.expenses ?? 0);
-  const grossCents = revenueCents - cogsCents;
-
-  return {
-    revenueCents,
-    cogsCents,
-    grossCents,
-    expensesCents,
-    netCents: grossCents - expensesCents,
-  };
+  // Delegated, not copied: this used to carry its own SQL and counted every non-voided expense
+  // (stock purchases and owner draws included), so the Overview and the P&L report disagreed
+  // about the same period. One definition lives in queries/reports.ts.
+  return pnlTotals(from, to);
 }
 
 export type StockRow = {

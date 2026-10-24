@@ -29,6 +29,7 @@ import {
   getLiveRate,
   getSetupState,
 } from '@/server/queries/overview';
+import { getDefaultPeriod } from '@/server/queries/reports';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -144,7 +145,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
               hint="Where the money actually goes"
               action={
                 <Suspense fallback={null}>
-                  <PeriodSelector defaultValue="all" />
+                  <WaterfallPeriodSelector />
                 </Suspense>
               }
             />
@@ -252,8 +253,13 @@ async function SetupSection() {
 
 async function Waterfall({ searchParams }: { searchParams: SearchParams }) {
   const { period } = await searchParams;
-  const preset: PeriodPreset = isPeriodPreset(period) ? period : 'all';
+  const preset: PeriodPreset = isPeriodPreset(period) ? period : await getDefaultPeriod();
   return <MarginWaterfall preset={preset} />;
+}
+
+/** The control must show the same default the figures were computed for. */
+async function WaterfallPeriodSelector() {
+  return <PeriodSelector defaultValue={await getDefaultPeriod()} />;
 }
 
 async function RateNote() {

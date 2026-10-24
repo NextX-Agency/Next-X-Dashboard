@@ -8,7 +8,7 @@ import { ProfitAndLossReport } from '@/components/reports/profit-and-loss';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isPeriodPreset, type PeriodPreset } from '@/lib/report-period';
 import type { ProductMarginSort } from '@/server/queries/reports';
-import { getFxExposure } from '@/server/queries/reports';
+import { getDefaultPeriod, getFxExposure } from '@/server/queries/reports';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -26,7 +26,7 @@ export default function ReportsPage({ searchParams }: { searchParams: SearchPara
         description="Profit and loss over a chosen period, margin by product, and exposure to the exchange rate — everything already in the ledgers, read back out."
         action={
           <Suspense fallback={null}>
-            <PeriodSelector />
+            <ReportsPeriodSelector />
           </Suspense>
         }
       />
@@ -47,6 +47,11 @@ export default function ReportsPage({ searchParams }: { searchParams: SearchPara
   );
 }
 
+/** The control must show the same default the figures were computed for. */
+async function ReportsPeriodSelector() {
+  return <PeriodSelector defaultValue={await getDefaultPeriod()} />;
+}
+
 async function FxSection() {
   const exposure = await getFxExposure();
   return <FxExposureReport exposure={exposure} />;
@@ -54,13 +59,13 @@ async function FxSection() {
 
 async function PnlSection({ searchParams }: { searchParams: SearchParams }) {
   const { period } = await searchParams;
-  const preset: PeriodPreset = isPeriodPreset(period) ? period : 'all';
+  const preset: PeriodPreset = isPeriodPreset(period) ? period : await getDefaultPeriod();
   return <ProfitAndLossReport preset={preset} />;
 }
 
 async function MarginSection({ searchParams }: { searchParams: SearchParams }) {
   const { period, marginSort } = await searchParams;
-  const preset: PeriodPreset = isPeriodPreset(period) ? period : 'all';
+  const preset: PeriodPreset = isPeriodPreset(period) ? period : await getDefaultPeriod();
   const sort: ProductMarginSort =
     marginSort === 'revenue' || marginSort === 'units' ? marginSort : 'gross';
   return <MarginByProduct sort={sort} period={preset} />;

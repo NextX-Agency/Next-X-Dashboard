@@ -44,6 +44,11 @@ export const sales = pgTable(
     invoiceNumber: text(),
     /** SHA-256 of the revocable, unguessable customer invoice token. */
     publicTokenHash: text(),
+    /** The shared invoice link stops working after this moment. Null keeps the
+     *  pre-expiry behaviour for links issued before expiry existed. */
+    publicTokenExpiresAt: timestamp({ withTimezone: true }),
+    /** Client-generated key makes a retried or double-clicked create a no-op. */
+    idempotencyKey: uuid(),
     customerId: uuid().references(() => customers.id, { onDelete: 'set null' }),
     sellerId: uuid().references(() => sellers.id, { onDelete: 'set null' }),
     status: saleStatus().notNull().default('draft'),
@@ -84,6 +89,7 @@ export const sales = pgTable(
     uniqueIndex('sales_number_key').on(t.number),
     uniqueIndex('sales_invoice_number_key').on(t.invoiceNumber),
     uniqueIndex('sales_public_token_key').on(t.publicTokenHash),
+    uniqueIndex('sales_idempotency_key').on(t.idempotencyKey),
     index('sales_customer_idx').on(t.customerId),
     index('sales_seller_idx').on(t.sellerId),
     index('sales_sold_at_idx').on(t.soldAt.desc()),

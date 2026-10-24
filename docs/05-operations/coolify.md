@@ -1,5 +1,10 @@
 # Coolify self-hosting
 
+> **Historical.** This page records the Coolify staging attempt of September 2026. The live stack runs
+> as a plain Docker Compose project (`nextx`) deployed with `deploy/vps/deploy-nextx.sh` and
+> `deploy/vps/deploy-pinned.sh`, published through Pangolin, not Coolify. For the current state of
+> backups, monitoring, rollback and open blockers read [go-live-checklist.md](go-live-checklist.md).
+
 Nextly is built as a standalone Next.js 16 Node application and is deployed
 from the repository `Dockerfile`. The container listens on port 3000, runs as
 an unprivileged user and reports readiness at `/api/health`.

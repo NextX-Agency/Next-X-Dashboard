@@ -103,12 +103,13 @@ export function CommandPalette() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex h-8 w-full max-w-[280px] min-w-0 items-center justify-center gap-2 rounded-control border border-line bg-inset px-2.5 sm:justify-start',
+          'flex h-11 w-full max-w-[280px] min-w-0 items-center justify-center gap-2 rounded-control border border-line bg-inset px-2.5 sm:h-8 sm:justify-start',
           'text-[13px] text-ink-4 transition-colors hover:border-line-strong hover:text-ink-3',
           'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
         )}
       >
-        <Search className="size-3.5 shrink-0" />
+        <Search aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="sr-only sm:hidden">Search or jump to</span>
         <span className="hidden min-w-0 flex-1 truncate text-left sm:inline">
           Search or jump to
         </span>
@@ -119,15 +120,15 @@ export function CommandPalette() {
 
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0" />
           <Dialog.Content
             className={cn(
               'fixed top-[18vh] left-1/2 z-50 w-[min(560px,calc(100vw-2rem))] -translate-x-1/2',
               'overflow-hidden rounded-card border border-line bg-overlay shadow-overlay',
-              'data-[state=open]:animate-in data-[state=closed]:animate-out',
-              'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-              'data-[state=closed]:zoom-out-98 data-[state=open]:zoom-in-98',
-              'duration-150',
+              'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out',
+              'motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0',
+              'motion-safe:data-[state=closed]:zoom-out-98 motion-safe:data-[state=open]:zoom-in-98',
+              'motion-safe:data-[state=open]:slide-in-from-top-2 motion-safe:duration-150',
             )}
           >
             <VisuallyHidden>
@@ -231,7 +232,7 @@ function Item({
       keywords={keywords}
       onSelect={onSelect}
       className={cn(
-        'flex h-9 cursor-pointer items-center gap-2.5 rounded-control px-3 text-[13px] text-ink-2',
+        'flex h-11 cursor-pointer items-center gap-2.5 rounded-control px-3 text-[13px] text-ink-2 sm:h-9',
         'data-[selected=true]:bg-hover data-[selected=true]:text-ink',
       )}
     >

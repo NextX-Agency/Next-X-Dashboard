@@ -5,6 +5,7 @@ import { RateSheet, SettingsSheet } from '@/components/forms/finance-sheets';
 import { InviteMemberSheet } from '@/components/forms/invite-member-sheet';
 import { MemberActions } from '@/components/forms/row-actions';
 import { PageHeader } from '@/components/patterns/page-header';
+import { PublicCopyPreview } from '@/components/settings/public-copy-preview';
 import { Badge } from '@/components/ui/badge';
 import {
   MobileList,
@@ -79,6 +80,16 @@ export default async function SettingsPage() {
           />
           <Suspense fallback={<Skeleton className="m-4 h-24" />}>
             <BusinessSettings />
+          </Suspense>
+        </Surface>
+
+        <Surface className="overflow-hidden">
+          <SurfaceHeader
+            title="What customers read"
+            hint="The saved announcement and hero text on the shop"
+          />
+          <Suspense fallback={<Skeleton className="m-4 h-24" />}>
+            <PublicCopy />
           </Suspense>
         </Surface>
       </div>
@@ -263,6 +274,18 @@ async function BusinessSettings() {
         value={`${settings.targetBundleMarginBp / 100}% margin · ${settings.defaultBundleDiscountBp / 100}% discount`}
       />
     </dl>
+  );
+}
+
+async function PublicCopy() {
+  const settings = await getAdminSettings();
+  return (
+    <PublicCopyPreview
+      announcement={settings?.announcement ?? null}
+      heroTitle={settings?.heroTitle ?? null}
+      heroBody={settings?.heroBody ?? null}
+      whatsapp={settings?.whatsapp ?? null}
+    />
   );
 }
 

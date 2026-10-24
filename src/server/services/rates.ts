@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { RATE_SCALE, type RateMicros } from '@/lib/fx';
 import { db } from '../db/client';
+import { ActionError } from '../errors';
 import type { Tx } from './posting';
 
 /**
@@ -39,7 +40,8 @@ export async function rateOn(date: Date, tx?: Tx): Promise<RateMicros> {
   const fallback = earliest[0]?.rate_micros;
   if (fallback) return Number(fallback);
 
-  throw new Error(
+  // An ActionError so staff read the instruction instead of "Something went wrong".
+  throw new ActionError(
     'No exchange rate has been set. Add one in Settings before recording SRD amounts.',
   );
 }

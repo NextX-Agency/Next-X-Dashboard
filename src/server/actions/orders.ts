@@ -2,6 +2,7 @@
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { normaliseToUsd } from '@/lib/fx';
+import { formatMoney } from '@/lib/money';
 import { assertOrderTransition, type OrderStatus } from '@/lib/order-state';
 import { orderIdSchema, orderSchema } from '@/lib/schemas';
 import { db } from '../db/client';
@@ -27,6 +28,7 @@ import {
   getAvailability,
   releaseExpiredReservations,
 } from '../services/reservations';
+import { heldOnSale } from '../services/sale-money';
 import { ActionError, writeAction } from './client';
 
 type OrderRow = typeof orders.$inferSelect;
@@ -83,6 +85,19 @@ export const createOrder = writeAction
   .inputSchema(orderSchema)
   .action(async ({ parsedInput: input, ctx }) => {
     const result = await db.transaction(async (tx) => {
+      // Same retry/double-click guard as createSale: the second request waits
+      // for the first and gets its order back instead of a duplicate draft.
+      if (input.idempotencyKey) {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`order:${input.idempotencyKey}`}, 0))`,
+        );
+        const [existing] = await tx
+          .select({ id: orders.id, number: orders.number })
+          .from(orders)
+          .where(eq(orders.idempotencyKey, input.idempotencyKey))
+          .limit(1);
+        if (existing) return { ...existing, reused: true as const };
+      }
       await assertActiveLocation(tx, input.locationId);
       const variants = await loadOrderVariants(
         tx,
@@ -110,19 +125,18 @@ export const createOrder = writeAction
           soldAt: input.orderDate,
           notes: input.notes ?? null,
           createdById: ctx.member.id,
+          idempotencyKey: input.idempotencyKey ?? null,
         })
         .returning({ id: orders.id });
       if (!order) throw new ActionError('Could not create the order.');
 
       let totalCents = 0;
-      let totalUsdCents = 0;
       for (const [position, item] of input.items.entries()) {
         const variant = variants.get(item.variantId);
         if (!variant) throw new ActionError('One order item no longer exists.');
         const lineTotalCents = item.unitPriceCents * item.quantity;
         const lineTotalUsdCents = normaliseToUsd(lineTotalCents, input.currency, rateMicros);
         totalCents += lineTotalCents;
-        totalUsdCents += lineTotalUsdCents;
         await tx.insert(orderItems).values({
           saleId: order.id,
           variantId: item.variantId,
@@ -131,6 +145,9 @@ export const createOrder = writeAction
           skuSnapshot: variant.sku,
           quantity: item.quantity,
           unitPriceCents: item.unitPriceCents,
+          // The exact extended amount: documents read it, and it used to be
+          // left at 0 on every order line.
+          lineTotalCents,
           unitPriceUsdCents: normaliseToUsd(item.unitPriceCents, input.currency, rateMicros),
           lineTotalUsdCents,
           position: position + 1,
@@ -139,7 +156,12 @@ export const createOrder = writeAction
 
       await tx
         .update(orders)
-        .set({ totalCents, totalUsdCents, grossProfitCents: totalUsdCents })
+        .set({
+          totalCents,
+          // Converted once for the document, the way a payment is converted.
+          totalUsdCents: normaliseToUsd(totalCents, input.currency, rateMicros),
+          grossProfitCents: normaliseToUsd(totalCents, input.currency, rateMicros),
+        })
         .where(eq(orders.id, order.id));
 
       await tx.insert(orderFulfillments).values({
@@ -160,7 +182,7 @@ export const createOrder = writeAction
         entityId: order.id,
         entityLabel: number,
       });
-      return { id: order.id, number };
+      return { id: order.id, number, reused: false as const };
     });
     return result;
   });
@@ -351,6 +373,9 @@ export const completeOrder = writeAction
         .set({
           status: 'confirmed',
           workflowStatus: 'completed',
+          // An invoice can only exist for goods that left; numbered here, in
+          // the same series as a directly recorded sale.
+          invoiceNumber: order.invoiceNumber ?? (await nextDocumentNumber(tx, 'INV-')),
           cogsCents,
           grossProfitCents: order.totalUsdCents - cogsCents,
         })
@@ -384,6 +409,12 @@ export const cancelOrder = writeAction
         );
       }
       requireTransition(order.workflowStatus as OrderStatus, 'cancelled');
+      const held = await heldOnSale(tx, order.id);
+      if (held > 0) {
+        throw new ActionError(
+          `${formatMoney(held, order.currency)} has been received on this order and not paid back. Refund it first (or void the payment if it was a mistake), then cancel.`,
+        );
+      }
       const active = await tx
         .select({ id: inventoryReservations.id })
         .from(inventoryReservations)

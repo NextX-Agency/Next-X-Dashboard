@@ -294,6 +294,239 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTION: storefront only
+   ══════════════════════════════════════════════════════════════════════════
+   Subtle, CSS-first, compositor-only (opacity, translate, scale; colour and
+   box-shadow on hover). Rules of this section:
+
+   - Tokens (--nx-ease, --nx-dur-*, --nx-rise, --nx-stagger) live in tokens.css.
+   - Everything that MOVES sits inside `prefers-reduced-motion: no-preference`,
+     so a visitor who asked for less motion gets none. The shared reduced-motion
+     rule in the base layer additionally collapses every duration.
+   - Nothing is hidden by default. Entrances are `backwards` fills of a keyframe
+     animation, scroll reveals sit inside `@supports (animation-timeline: …)`,
+     and image fades are applied by a ref callback (SafeImage), so no CSS, no JS
+     or an old browser all show the finished page.
+   - No animated layout properties: zero CLS. The LCP candidates (hero headline,
+     first product image) are never faded.
+   - Hover transforms only under `@media (hover: hover)`; touch gets press feedback.
+   - Unlayered on purpose, so it wins over the Tailwind utilities it replaces. */
+
+@keyframes nx-rise {
+  from {
+    opacity: 0;
+    translate: 0 var(--nx-rise-y, 10px);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes nx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes nx-pop {
+  from {
+    opacity: 0;
+    scale: 0.7;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes nx-bump {
+  0%,
+  100% {
+    scale: 1;
+  }
+  40% {
+    scale: 1.2;
+  }
+}
+@keyframes nx-leave {
+  to {
+    opacity: 0;
+    translate: 12px 0;
+  }
+}
+@keyframes nx-edge {
+  from {
+    box-shadow:
+      0 1px 0 0 transparent,
+      0 10px 20px -14px transparent;
+  }
+  to {
+    box-shadow:
+      0 1px 0 0 var(--nx-border),
+      0 10px 20px -14px hsl(40 10% 8% / 0.25);
+  }
+}
+/* If a lazy image never reports back (load and error both lost), show it anyway after a while. */
+@keyframes nx-img-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Colour-only micro-states. Safe for everyone, including reduced motion. */
+.nx-card {
+  transition:
+    border-color var(--nx-dur-base) var(--nx-ease),
+    box-shadow var(--nx-dur-base) var(--nx-ease);
+}
+.nx-press {
+  transition-property: background-color, color, border-color, box-shadow, opacity;
+  transition-duration: var(--nx-dur-fast);
+  transition-timing-function: var(--nx-ease);
+}
+@media (hover: hover) {
+  .nx-card-slot:hover > .nx-card {
+    box-shadow:
+      0 12px 24px -14px hsl(40 10% 8% / 0.28),
+      0 2px 6px -2px hsl(40 10% 8% / 0.08);
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  /* The 1 px press nudge on buttons is a transform too. */
+  .nx-store .nx-btn:active {
+    translate: none;
+  }
+}
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* Entrance on load (hero text, hero frames 2 and 3, cart lines): starts visible if animations are
+     unavailable, plays once, never loops. */
+  .nx-enter {
+    --nx-rise-y: 8px;
+    animation: nx-rise var(--nx-dur-slow) var(--nx-ease) backwards;
+    animation-delay: calc(var(--i, 0) * var(--nx-stagger));
+  }
+  .nx-leave {
+    animation: nx-leave var(--nx-dur-base) var(--nx-ease) forwards;
+  }
+
+  /* Buttons, cards: hover and press. */
+  .nx-store .nx-btn {
+    transition-property: background-color, color, border-color, box-shadow, translate, scale;
+  }
+  .nx-store .nx-btn:active {
+    translate: 0 1px;
+    scale: 0.985;
+  }
+  .nx-press {
+    transition-property:
+      background-color, color, border-color, box-shadow, opacity, translate, scale;
+  }
+  .nx-press:active {
+    scale: 0.975;
+  }
+
+  .nx-card {
+    transition:
+      border-color var(--nx-dur-base) var(--nx-ease),
+      box-shadow var(--nx-dur-base) var(--nx-ease),
+      translate var(--nx-dur-base) var(--nx-ease),
+      scale var(--nx-dur-fast) var(--nx-ease);
+  }
+  .nx-card:active {
+    scale: 0.985;
+  }
+
+  /* Photographs: fade in as they load (SafeImage marks a lazy, still-loading image) and zoom
+     gently when the card, tile or frame holding them is hovered. */
+  .nx-img {
+    transition:
+      opacity var(--nx-dur-base) var(--nx-ease),
+      scale var(--nx-dur-slow) var(--nx-ease);
+  }
+  .nx-img[data-nx-pending] {
+    opacity: 0;
+    animation: nx-img-failsafe 1ms linear 6s forwards;
+  }
+
+  /* Small confirmations. */
+  .nx-pop {
+    animation: nx-pop var(--nx-dur-base) var(--nx-ease) backwards;
+  }
+  .nx-bump {
+    animation: nx-bump 320ms var(--nx-ease);
+  }
+  .nx-swap {
+    animation: nx-fade var(--nx-dur-fast) var(--nx-ease) backwards;
+  }
+
+  /* Phone tab bar: the active tab's icon settles up a touch. */
+  .nx-tab svg {
+    transition: scale var(--nx-dur-base) var(--nx-ease);
+  }
+  .nx-tab[aria-current="page"] svg {
+    scale: 1.1;
+  }
+
+  @media (hover: hover) {
+    .nx-card-slot:hover > .nx-card {
+      translate: 0 -2px;
+    }
+    .nx-zoom-host:hover .nx-img {
+      scale: 1.03;
+    }
+    .nx-store .nx-btn-primary:hover {
+      translate: 0 -1px;
+      box-shadow: 0 8px 16px -10px hsl(21 90% 40% / 0.6);
+    }
+    /* :active after :hover so a press wins over the hover lift. */
+    .nx-store .nx-btn-primary:active {
+      translate: 0 1px;
+      box-shadow: none;
+    }
+  }
+}
+
+/* Scroll-driven effects: pure CSS, only where the browser can do them. */
+@supports (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    /* Reveal as the element rises into view: ~160 px of scroll, then it is just there. Elements
+       already on screen at load are past the range, so they are fully visible. */
+    .nx-reveal {
+      --nx-rise-y: var(--nx-rise);
+      animation: nx-rise linear backwards;
+      animation-timeline: view();
+      animation-range: entry calc(var(--i, 0) * 28px) entry calc(160px + var(--i, 0) * 28px);
+    }
+    /* Only the first four siblings are staggered. */
+    .nx-stagger > :nth-child(1) {
+      --i: 0;
+    }
+    .nx-stagger > :nth-child(2) {
+      --i: 1;
+    }
+    .nx-stagger > :nth-child(3) {
+      --i: 2;
+    }
+    .nx-stagger > :nth-child(n + 4) {
+      --i: 3;
+    }
+  }
+}
+@supports (animation-timeline: scroll()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    /* The sticky header gains a hairline and a soft edge over the first 56 px of scroll. */
+    .nx-header {
+      animation: nx-edge linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0px 56px;
+    }
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Print. The invoice route is the only thing meant to reach paper, so on print
    we force a light document regardless of the on-screen theme (nobody wants a

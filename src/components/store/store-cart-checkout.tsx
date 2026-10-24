@@ -3,7 +3,7 @@
 import { MessageCircle, Minus, Package, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RateMicros } from '@/lib/fx';
 import {
   applyStoreCartQuote,
@@ -62,6 +62,9 @@ function fieldClassName() {
   return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 }
 
+/** How long a removed line fades out before it leaves the list (matches `.nx-leave`). */
+const LEAVE_MS = 200;
+
 const focusRing =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
@@ -84,6 +87,8 @@ export function StoreCartCheckout({
   const [cartQuote, setCartQuote] = useState<CartQuoteState | null>(null);
   const [quoteTick, setQuoteTick] = useState(0);
   const [announcement, setAnnouncement] = useState('');
+  // The line that is fading out; it is removed from the cart when the fade ends.
+  const [leaving, setLeaving] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -257,9 +262,19 @@ export function StoreCartCheckout({
   }
 
   function removeItem(name: string, variantId: string) {
-    removeLine(variantId);
-    setAnnouncement(`${name} removed from your cart.`);
-    settleFocus();
+    const finish = () => {
+      removeLine(variantId);
+      setLeaving(null);
+      setAnnouncement(`${name} removed from your cart.`);
+      settleFocus();
+    };
+    // A short fade first, unless the visitor asked for less motion.
+    if (leaving || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (!leaving) finish();
+      return;
+    }
+    setLeaving(variantId);
+    window.setTimeout(finish, LEAVE_MS);
   }
 
   function emptyCart() {
@@ -349,7 +364,7 @@ export function StoreCartCheckout({
               An order is final only once NextX confirms price and stock on WhatsApp.
             </p>
             <div className="mt-6 divide-y divide-line border-line border-y">
-              {displayLines.map((line) => {
+              {displayLines.map((line, lineIndex) => {
                 const label = variantLabel(line.variantName);
                 const fullName = `${line.productName}${label ? `, ${label}` : ''}`;
                 const gone = quoteReady && unavailableIds.includes(line.variantId);
@@ -360,7 +375,10 @@ export function StoreCartCheckout({
                 return (
                   <article
                     key={line.variantId}
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5"
+                    className={`nx-enter grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5${
+                      leaving === line.variantId ? ' nx-leave' : ''
+                    }`}
+                    style={{ '--i': Math.min(lineIndex, 4) } as CSSProperties}
                   >
                     <div className="col-span-3 flex min-w-0 items-start gap-4">
                       <div className="relative size-[72px] shrink-0 overflow-hidden rounded-[12px] bg-sunken">
@@ -415,7 +433,7 @@ export function StoreCartCheckout({
                       <button
                         type="button"
                         aria-label={`Decrease quantity of ${fullName}`}
-                        className={`grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
+                        className={`grid size-11 place-items-center text-ink nx-press hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
                         disabled={line.quantity <= 1}
                         onClick={() =>
                           changeQuantity(fullName, line.variantId, line.quantity - 1)
@@ -429,7 +447,7 @@ export function StoreCartCheckout({
                       <button
                         type="button"
                         aria-label={`Increase quantity of ${fullName}`}
-                        className={`grid size-11 place-items-center text-ink hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
+                        className={`grid size-11 place-items-center text-ink nx-press hover:bg-hover disabled:opacity-35 sm:size-9 ${focusRing}`}
                         disabled={
                           !quoteReady ||
                           line.quantity >= line.available ||
@@ -454,7 +472,7 @@ export function StoreCartCheckout({
                     <button
                       type="button"
                       aria-label={`Remove ${fullName} from the cart`}
-                      className={`grid size-11 place-items-center text-ink-2 hover:text-[#b42d22] ${focusRing}`}
+                      className={`grid size-11 place-items-center nx-press text-ink-2 hover:text-[#b42d22] ${focusRing}`}
                       onClick={() => removeItem(fullName, line.variantId)}
                     >
                       <Trash2 aria-hidden="true" className="size-4" />

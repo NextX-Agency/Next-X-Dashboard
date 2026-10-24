@@ -57,74 +57,82 @@ export function ProductCard({
   const canQuickAdd = !several && inStock && only !== null && only.onHand > 0;
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised transition-colors duration-200 focus-within:border-ink hover:border-line-strong">
-      <div className="relative aspect-square bg-sunken">
-        {product.image ? (
-          <SafeImage
-            src={product.image.url}
-            alt={product.image.alt ?? product.name}
-            fill
-            {...(priority ? { loading: 'eager' as const, fetchPriority: 'high' as const } : {})}
-            sizes={sizes}
-            className={cn(
-              'object-contain p-[8%] mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.03]',
-              !inStock && 'opacity-45',
-            )}
-            fallback={<NoPhoto name={product.name} />}
-            {...(product.image.blurDataUrl
-              ? { placeholder: 'blur' as const, blurDataURL: product.image.blurDataUrl }
-              : {})}
-          />
-        ) : (
-          <NoPhoto name={product.name} />
-        )}
-      </div>
+    <div className="nx-card-slot nx-zoom-host h-full">
+      <article className="nx-card relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised focus-within:border-ink hover:border-line-strong">
+        <div className="relative aspect-square bg-sunken">
+          {product.image ? (
+            <SafeImage
+              src={product.image.url}
+              alt={product.image.alt ?? product.name}
+              fill
+              {...(priority
+                ? { loading: 'eager' as const, fetchPriority: 'high' as const }
+                : {})}
+              sizes={sizes}
+              className={cn(
+                'object-contain p-[8%] mix-blend-multiply',
+                !inStock && 'opacity-45',
+              )}
+              fallback={<NoPhoto name={product.name} />}
+              {...(product.image.blurDataUrl
+                ? { placeholder: 'blur' as const, blurDataURL: product.image.blurDataUrl }
+                : {})}
+            />
+          ) : (
+            <NoPhoto name={product.name} />
+          )}
+        </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-3.5 sm:p-4">
-        {eyebrow ? (
-          <p className="font-semibold text-[11px] text-ink-3 uppercase tracking-[0.08em]">
-            {eyebrow}
-          </p>
-        ) : null}
-        {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
-        <Link
-          href={href as never}
-          className="line-clamp-2 font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
-        >
-          {product.name}
-        </Link>
-        {optionName ? <p className="text-[13px] text-ink-2">{optionName}</p> : null}
-        {several && !option ? (
-          <p className="text-[13px] text-ink-2">{product.optionCount} options</p>
-        ) : null}
-        <StorePrice
-          amountCents={minPrice}
-          currency={product.priceCurrency}
-          srdRate={srdRate}
-          size="card"
-          prefix={hasRange ? 'from' : undefined}
-          className="mt-auto pt-2"
-        />
-        <StockNote onHand={onHand} incoming={option ? 0 : product.incoming} className="mt-1" />
-        {canQuickAdd && only ? (
-          <QuickAdd
-            className="mt-3"
-            line={{
-              productId: product.id,
-              productSlug: product.slug,
-              productName: product.name,
-              variantId: only.id,
-              variantName: only.name,
-              sku: only.sku,
-              priceCents: only.priceCents,
-              currency: product.priceCurrency,
-              available: only.onHand,
-              imageUrl: product.image?.url ?? null,
-            }}
+        <div className="flex flex-1 flex-col gap-1 p-3.5 sm:p-4">
+          {eyebrow ? (
+            <p className="font-semibold text-[11px] text-ink-3 uppercase tracking-[0.08em]">
+              {eyebrow}
+            </p>
+          ) : null}
+          {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
+          <Link
+            href={href as never}
+            className="line-clamp-2 font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+          >
+            {product.name}
+          </Link>
+          {optionName ? <p className="text-[13px] text-ink-2">{optionName}</p> : null}
+          {several && !option ? (
+            <p className="text-[13px] text-ink-2">{product.optionCount} options</p>
+          ) : null}
+          <StorePrice
+            amountCents={minPrice}
+            currency={product.priceCurrency}
+            srdRate={srdRate}
+            size="card"
+            prefix={hasRange ? 'from' : undefined}
+            className="mt-auto pt-2"
           />
-        ) : null}
-      </div>
-    </article>
+          <StockNote
+            onHand={onHand}
+            incoming={option ? 0 : product.incoming}
+            className="mt-1"
+          />
+          {canQuickAdd && only ? (
+            <QuickAdd
+              className="mt-3"
+              line={{
+                productId: product.id,
+                productSlug: product.slug,
+                productName: product.name,
+                variantId: only.id,
+                variantName: only.name,
+                sku: only.sku,
+                priceCents: only.priceCents,
+                currency: product.priceCurrency,
+                available: only.onHand,
+                imageUrl: product.image?.url ?? null,
+              }}
+            />
+          ) : null}
+        </div>
+      </article>
+    </div>
   );
 }
 

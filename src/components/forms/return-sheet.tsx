@@ -51,7 +51,15 @@ export function ReturnSheet({
     onSuccess({ data }) {
       toast.success(`${data?.number} return recorded`, {
         description: data
-          ? `${formatMoney(data.creditCents, data.currency)} credit created, ${data.units} unit${data.units === 1 ? '' : 's'} back in stock. Refund it separately when the cash leaves.`
+          ? `${formatMoney(data.creditCents, data.currency)} credit created, ${data.units} unit${data.units === 1 ? '' : 's'} back in stock. Refund it separately when the cash leaves.${
+              data.commissionReducedCents > 0
+                ? ` The seller's unpaid commission fell by ${formatMoney(data.commissionReducedCents, data.currency)}.`
+                : ''
+            }${
+              data.commissionOverpaidCents > 0
+                ? ` ${formatMoney(data.commissionOverpaidCents, data.currency)} of commission was already paid out on these goods.`
+                : ''
+            }`
           : undefined,
       });
       setOpen(false);
@@ -111,6 +119,7 @@ export function ReturnSheet({
           id={formId}
           onSubmit={(event) => {
             event.preventDefault();
+            if (isPending) return;
             if (chosen.length === 0) {
               toast.error('Pick at least one unit to return');
               return;

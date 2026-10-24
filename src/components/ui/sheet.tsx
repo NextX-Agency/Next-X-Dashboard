@@ -40,17 +40,17 @@ export function Sheet({
         <Dialog.Overlay
           className={cn(
             'fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px]',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out',
+            'motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0',
           )}
         />
         <Dialog.Content
           className={cn(
             'fixed inset-y-0 right-0 z-50 flex w-full flex-col border-line-subtle border-l bg-base shadow-overlay',
             size === 'lg' ? 'sm:max-w-[720px]' : 'sm:max-w-[560px]',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
-            'duration-200 ease-out-instrument',
+            'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out',
+            'motion-safe:data-[state=closed]:slide-out-to-right motion-safe:data-[state=open]:slide-in-from-right',
+            'motion-safe:duration-200 ease-out-instrument',
           )}
         >
           <header className="flex shrink-0 items-start justify-between gap-4 border-line-subtle border-b px-5 py-4">
@@ -67,7 +67,7 @@ export function Sheet({
               )}
             </div>
             <Dialog.Close
-              className="grid size-7 shrink-0 place-items-center rounded-control text-ink-4 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+              className="grid size-11 shrink-0 place-items-center rounded-control text-ink-4 sm:size-7 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
               aria-label="Close"
             >
               <X className="size-4" />

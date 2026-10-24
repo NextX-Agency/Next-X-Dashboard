@@ -30,7 +30,7 @@ export function StoreHeader({
   const navLink =
     'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 border-transparent font-semibold text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
   return (
-    <header className="sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
+    <header className="nx-header sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
       <div className="mx-auto w-full max-w-[1320px] px-4 lg:px-8">
         <div className="flex h-16 items-center gap-3 sm:gap-6">
           <Link
@@ -59,7 +59,7 @@ export function StoreHeader({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Message us on WhatsApp (opens WhatsApp)"
-                className="hidden h-11 min-w-11 items-center justify-center gap-2 rounded-[10px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
+                className="hidden h-11 min-w-11 items-center justify-center gap-2 nx-press rounded-[10px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
               >
                 <MessageCircle aria-hidden="true" className="size-5" />
                 <span className="hidden md:inline">WhatsApp</span>
@@ -81,9 +81,6 @@ export function StoreHeader({
               {category.name}
             </Link>
           ))}
-          <Link href={'/#how-ordering-works' as never} className={`${navLink} ml-auto`}>
-            How ordering works
-          </Link>
         </nav>
         <div className="pb-3 sm:hidden">
           <Suspense fallback={<div className="h-11 rounded-[12px] bg-sunken" />}>

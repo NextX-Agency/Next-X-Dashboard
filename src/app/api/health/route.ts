@@ -45,7 +45,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const migrations = isMigrationEnvironmentValid();
 
   try {
+    const startedAt = performance.now();
     await db.execute(sql`select 1`);
+    const databaseMs = Math.round(performance.now() - startedAt);
 
     return withRequestId(
       NextResponse.json(
@@ -53,6 +55,10 @@ export async function GET(request: Request): Promise<NextResponse> {
           ok: true,
           status: migrations ? 'ready' : 'degraded',
           checks: { environment: true, database: true, migrations },
+          // Two numbers an uptime monitor can alert on without any extra query: a database round
+          // trip that has grown slow, and an uptime that keeps resetting (a crash loop).
+          databaseMs,
+          uptimeSeconds: Math.round(process.uptime()),
         },
         { headers: { 'Cache-Control': 'no-store' } },
       ),

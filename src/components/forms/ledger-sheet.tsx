@@ -9,19 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import { useUrlSheet } from '@/lib/use-url-sheet';
 import { createLedgerEntry } from '@/server/actions/finance';
 import type { Option } from '@/server/queries/pickers';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 const CATEGORIES = [
   { value: 'owner_contribution', label: 'Owner contribution', direction: 'in' },
   { value: 'owner_draw', label: 'Owner draw', direction: 'out' },
-  { value: 'sales_receipt', label: 'Sales receipt', direction: 'in' },
-  { value: 'purchase', label: 'Stock purchase', direction: 'out' },
-  { value: 'refund', label: 'Refund', direction: 'out' },
-  { value: 'other', label: 'Other', direction: 'in' },
+  { value: 'other', label: 'Other (correction)', direction: 'in' },
 ] as const;
 
 /**
@@ -57,7 +55,7 @@ export function LedgerSheet({
   const initialDirection =
     CATEGORIES.find((c) => c.value === initialCategory)?.direction ?? 'in';
 
-  const [category] = useState<string>(initialCategory);
+  const [category, setCategory] = useState<string>(initialCategory);
   const [direction, setDirection] = useState<'in' | 'out'>(initialDirection);
   const [description, setDescription] = useState('');
   const [occurredAt, setOccurredAt] = useState(today());
@@ -134,6 +132,7 @@ export function LedgerSheet({
                   value={category}
                   onChange={(event) => {
                     const next = event.target.value;
+                    setCategory(next);
                     const match = CATEGORIES.find((entry) => entry.value === next);
                     if (match) setDirection(match.direction);
                   }}

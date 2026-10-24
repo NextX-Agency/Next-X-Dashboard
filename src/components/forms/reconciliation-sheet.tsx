@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import { completeReconciliation, createReconciliation } from '@/server/actions/finance-core';
 import type { WalletRow } from '@/server/queries/finance';
 
 export function ReconciliationSheet({ wallets }: { wallets: WalletRow[] }) {
   const [open, setOpen] = useState(false);
   const [walletId, setWalletId] = useState(wallets[0]?.id ?? '');
-  const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().slice(0, 10));
+  const [periodEnd, setPeriodEnd] = useState(businessDateInput());
   const [statementBalanceCents, setStatementBalanceCents] = useState('');
   const [notes, setNotes] = useState('');
   const formId = useId();

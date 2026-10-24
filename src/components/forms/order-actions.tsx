@@ -78,7 +78,7 @@ export function OrderActions({
         {status === 'confirmed' || status === 'ready' ? (
           <Item onSelect={() => complete.execute({ id })}>Complete order</Item>
         ) : null}
-        {balance > 0 && status !== 'draft' && status !== 'completed' ? (
+        {balance > 0 && status !== 'draft' ? (
           <Item onSelect={() => setPaying(true)}>Record payment</Item>
         ) : null}
         {status !== 'completed' ? (
@@ -87,7 +87,7 @@ export function OrderActions({
           </Item>
         ) : null}
       </Menu>
-      {balance > 0 && status !== 'draft' && status !== 'completed' ? (
+      {balance > 0 && status !== 'draft' ? (
         <RecordPaymentSheet
           open={paying}
           onOpenChange={setPaying}
@@ -101,7 +101,7 @@ export function OrderActions({
         open={cancelling}
         onOpenChange={setCancelling}
         title={`Cancel ${number}?`}
-        description="The order stays on the books and any active stock reservations are released."
+        description="The order stays on the books and any active stock reservations are released. An order that has received money must be refunded first."
         confirmLabel="Cancel order"
         pending={cancel.isPending}
         onConfirm={() => cancel.execute({ id })}

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { CART_PATH, SHOP_PATH } from '@/lib/storefront-domain';
 import { useStoreCart } from './store-cart-provider';
+import { useCountBump } from './use-count-bump';
 
 /**
  * Phone navigation: four tabs at the thumb. Hidden on product pages, where the buy bar takes the
@@ -14,6 +15,7 @@ import { useStoreCart } from './store-cart-provider';
 export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
   const pathname = usePathname();
   const { count, ready } = useStoreCart();
+  const bump = useCountBump(count, ready);
   if (pathname.startsWith('/products/')) return null;
 
   const tabs = [
@@ -36,7 +38,7 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
 
   const tabClass = (active: boolean) =>
     cn(
-      'flex h-14 flex-col items-center justify-center gap-0.5 font-semibold text-[11px]',
+      'nx-press nx-tab flex h-14 flex-col items-center justify-center gap-0.5 font-semibold text-[11px]',
       'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
       active ? 'text-accent' : 'text-ink-3',
     );
@@ -56,7 +58,13 @@ export function StoreTabBar({ whatsappHref }: { whatsappHref: string | null }) {
           <span className="relative">
             <Icon aria-hidden="true" className="size-5" />
             {key === 'cart' && ready && count > 0 ? (
-              <span className="absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-cta px-1 font-bold text-[10px] text-cta-fg">
+              <span
+                key={bump}
+                className={cn(
+                  'absolute -top-1.5 -right-2.5 grid min-w-4 place-items-center rounded-full bg-cta px-1 font-bold text-[10px] text-cta-fg',
+                  bump > 0 && 'nx-bump',
+                )}
+              >
                 {count}
               </span>
             ) : null}

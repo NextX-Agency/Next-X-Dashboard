@@ -19,9 +19,17 @@ export function csvCell(value: string | number | null | undefined): string {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-/** Keep spreadsheet applications from evaluating exported text as a formula. */
+/**
+ * Keep spreadsheet applications from evaluating exported text as a formula.
+ *
+ * Leading `=`, `+`, `@`, tab and carriage return always trigger evaluation. A leading `-` does too
+ * (`-2+3`, `-cmd|...`), but a plain negative number (`-1250`, `-3.5`) is data, not a formula, and
+ * prefixing it would turn every refund and outflow in the ledger export into text.
+ */
 function neutralise(text: string): string {
-  return /^[=+@]/.test(text) ? `'${text}` : text;
+  if (/^[=+@\t\r]/.test(text)) return `'${text}`;
+  if (text.startsWith('-') && !/^-\d[\d.,]*$/.test(text)) return `'${text}`;
+  return text;
 }
 
 export function toCsv<T>(

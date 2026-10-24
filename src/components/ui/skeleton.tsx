@@ -11,7 +11,7 @@ import { cn } from '@/lib/cn';
 export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <div
-      className={cn('animate-pulse rounded-control bg-inset', className)}
+      className={cn('rounded-control bg-inset motion-safe:animate-pulse', className)}
       style={style}
       aria-hidden="true"
     />

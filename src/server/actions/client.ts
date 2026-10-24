@@ -1,8 +1,10 @@
 import { createSafeActionClient } from 'next-safe-action';
 import { z } from 'zod';
+import { describeDbError, loggableError } from '@/lib/db-errors';
 import type { Member } from '../auth';
 import { getCurrentMember, requireMember, requireOwner, requireWrite } from '../auth';
 import { ActionError } from '../errors';
+import { enforcePublicWriteLimit } from '../public-rate-limit';
 import { invalidatePublicData } from '../queries/cache-tags';
 
 /**
@@ -37,15 +39,18 @@ const base = createSafeActionClient({
     // line back into something you can triage instead of a bare stack trace.
     if (error instanceof ActionError) return error.message;
 
-    console.error(`[action] ${metadata.action} ${metadata.entity}`, error);
+    // One structured line, scrubbed: no SQL, bound parameters or constraint `detail` (key values),
+    // which would put customer data in the logs. See lib/db-errors.ts.
+    console.error(
+      JSON.stringify({
+        scope: 'action',
+        action: metadata.action,
+        entity: metadata.entity,
+        ...loggableError(error),
+      }),
+    );
 
-    if (error.message.includes('duplicate key')) {
-      return 'That already exists. Check for an existing record with the same code or number.';
-    }
-    if (error.message.includes('violates foreign key')) {
-      return 'Something this refers to no longer exists. Reload and try again.';
-    }
-    return 'Something went wrong. The error has been logged.';
+    return describeDbError(error) ?? 'Something went wrong. The error has been logged.';
   },
 });
 
@@ -59,7 +64,11 @@ export type ActionContext = { member: Member };
  * record, validated entirely by their input schema. Do not reach for this to
  * "fix" an auth error on a mutation that should be on `writeAction`.
  */
-export const publicAction = base;
+export const publicAction = base.use(async ({ next, metadata }) => {
+  // Anyone on the internet can call this: throttle before doing any work.
+  await enforcePublicWriteLimit(`public-action:${metadata.entity}`);
+  return next();
+});
 
 /** Any invited member, including viewers, may change their own notification
  * read state. The notification service still scopes every mutation by member

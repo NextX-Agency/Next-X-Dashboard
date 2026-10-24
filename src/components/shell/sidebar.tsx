@@ -39,7 +39,7 @@ export function Sidebar({
       <div className="px-2">
         <Link
           href="/dashboard"
-          className="inline-flex rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex min-h-11 items-center rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:min-h-0"
         >
           <Wordmark />
         </Link>
@@ -62,7 +62,7 @@ export function Sidebar({
                   onClick={onNavigate}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-9 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px]',
+                    'flex h-11 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] lg:h-9',
                     'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                     active ? 'bg-accent-muted text-accent' : 'text-ink hover:bg-hover',
                   )}
@@ -82,7 +82,7 @@ export function Sidebar({
                 aria-controls={`nav-${group.id}`}
                 onClick={() => setToggled((state) => ({ ...state, [group.id]: !open }))}
                 className={cn(
-                  'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] text-ink',
+                  'flex h-11 w-full items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] text-ink lg:h-9',
                   'hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                 )}
               >
@@ -91,7 +91,7 @@ export function Sidebar({
                 <ChevronDown
                   aria-hidden="true"
                   className={cn(
-                    'size-3.5 text-ink-3 transition-transform',
+                    'size-3.5 text-ink-3 transition-transform motion-safe:duration-200',
                     open && 'rotate-180',
                   )}
                 />
@@ -99,7 +99,7 @@ export function Sidebar({
               {open ? (
                 <ul
                   id={`nav-${group.id}`}
-                  className="mt-0.5 mb-1.5 ml-[18px] flex flex-col gap-px border-line-subtle border-l pl-2"
+                  className="mt-0.5 mb-1.5 ml-[18px] flex flex-col gap-px border-line-subtle border-l pl-2 motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:animate-in motion-safe:duration-200"
                 >
                   {group.items.map((item) => {
                     const active = item === currentItem;
@@ -110,7 +110,7 @@ export function Sidebar({
                           onClick={onNavigate}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'flex h-8 items-center rounded-control px-2.5 text-[13px]',
+                            'flex h-11 items-center rounded-control px-2.5 text-[13px] lg:h-8',
                             'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                             active
                               ? 'bg-accent-muted font-semibold text-accent'

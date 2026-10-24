@@ -2,6 +2,7 @@
 
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { describeInviteError } from '@/lib/auth-errors';
 import { publicAppUrl } from '@/lib/env';
 import {
   brandSchema,
@@ -463,9 +464,18 @@ export const updateMember = ownerAction
     return { fullName: input.fullName };
   });
 
-/** Invite a new member through Supabase Auth, then create the matching books
- * row. The auth user is linked immediately so the first sign-in cannot claim
- * an unintended case-variant email row. */
+/**
+ * Invite a new member through Supabase Auth, then create the matching books row.
+ *
+ * The invitation email links to `/auth/set-password`, where the person chooses a password. (The
+ * admin API issues implicit-flow links, whose tokens arrive in the URL fragment; the old
+ * `/auth/callback` target only understood PKCE `?code=` links, so a real invitation could never be
+ * accepted.) The auth user is linked immediately so the first sign-in cannot claim an unintended
+ * case-variant email row.
+ *
+ * Email delivery needs SMTP configured on the Supabase Auth service. Without it GoTrue refuses and
+ * the owner sees the failure instead of a members row that claims an invitation nobody received.
+ */
 export const inviteMember = ownerAction
   .metadata({ action: 'invited', entity: 'member' })
   .inputSchema(memberSchema)
@@ -481,10 +491,10 @@ export const inviteMember = ownerAction
 
     const admin = createAdminClient();
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${publicAppUrl()}/auth/callback`,
+      redirectTo: `${publicAppUrl()}/auth/set-password`,
     });
     if (error || !data.user) {
-      throw new ActionError(error?.message ?? 'Supabase could not send the invitation.');
+      throw new ActionError(describeInviteError(error));
     }
 
     try {

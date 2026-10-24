@@ -1,7 +1,9 @@
 import { type SQL, sql } from 'drizzle-orm';
+import { connection } from 'next/server';
 import { isDatabaseConfigured } from '@/lib/env';
 import { toBase } from '@/lib/fx';
 import type { Cents } from '@/lib/money';
+import { type PeriodPreset, periodRange } from '@/lib/report-period';
 import { db } from '../db/client';
 import { getLiveRate } from './overview';
 import { listRates } from './reference';
@@ -67,7 +69,33 @@ function operatingExpensePredicate(): SQL {
  * hand-entered refund or adjustment is someone's categorisation, not an
  * unwinding of revenue.
  */
-async function pnlTotals(from: Date, to: Date): Promise<ProfitAndLossTotals> {
+/**
+ * The period to show when nobody has chosen one.
+ *
+ * A small shop closes its books a month at a time, so "this month" is the question people ask
+ * first; but an empty month (the 2nd of the month, or a quiet week) would greet them with a blank
+ * report. Use this month once it has any confirmed sale or running cost, otherwise lifetime.
+ */
+export async function getDefaultPeriod(now?: Date): Promise<PeriodPreset> {
+  if (!isDatabaseConfigured()) return 'all';
+  // The answer depends on today's date: request-time data, so say so before reading the clock.
+  if (!now) await connection();
+  now ??= new Date();
+  const { from, to } = periodRange('month', now);
+  const [row] = await db.execute<{ active: boolean }>(sql`
+    SELECT (
+      EXISTS (SELECT 1 FROM sales
+               WHERE status = 'confirmed' AND sold_at >= ${from.toISOString()} AND sold_at < ${to.toISOString()})
+      OR EXISTS (SELECT 1 FROM expenses
+                  WHERE voided_at IS NULL AND occurred_at >= ${from.toISOString()} AND occurred_at < ${to.toISOString()})
+    ) AS active
+  `);
+  return row?.active ? 'month' : 'all';
+}
+
+/** The one definition of revenue, cost of goods and operating expenses for a window. The Overview
+ *  waterfall reads this too, so the two screens cannot disagree about the same period. */
+export async function pnlTotals(from: Date, to: Date): Promise<ProfitAndLossTotals> {
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
 

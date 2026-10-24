@@ -188,3 +188,19 @@
   --nx-negative: #b42d22;
   --nx-negative-muted: #fbe9e6;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Motion tokens (storefront). One easing, three durations, one reveal
+   distance, one stagger step. The rules that use them live in the clearly
+   delimited MOTION section of globals.css and are all gated behind
+   `prefers-reduced-motion: no-preference`.
+   `--nx-ease` is the same curve as the Tailwind `ease-out-instrument` utility.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --nx-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nx-dur-fast: 150ms; /* colour, press */
+  --nx-dur-base: 250ms; /* hover lift, fades */
+  --nx-dur-slow: 400ms; /* entrances, image zoom */
+  --nx-rise: 12px; /* how far a reveal travels */
+  --nx-stagger: 50ms; /* step between the first few items */
+}

@@ -1,3 +1,5 @@
+import type { Route } from 'next';
+import Link from 'next/link';
 import { connection } from 'next/server';
 import { cn } from '@/lib/cn';
 import { formatCompact, formatMoney } from '@/lib/money';
@@ -45,15 +47,33 @@ export async function MarginWaterfall({ preset = 'all' }: { preset?: PeriodPrese
 
   if (revenueCents === 0 && expensesCents === 0) {
     return (
-      <p className="px-4 py-10 text-center text-[13px] text-ink-4">
-        No confirmed sales or expenses yet. This is where revenue, cost of goods and running
-        costs will resolve into a net result.
-      </p>
+      <div className="px-4 py-10 text-center">
+        <p className="text-[13px] text-ink-4">
+          {preset === 'all'
+            ? 'No confirmed sales or expenses yet. This is where revenue, cost of goods and running costs will resolve into a net result.'
+            : 'No confirmed sales or expenses in this period.'}
+        </p>
+        {preset === 'all' ? (
+          <Link
+            href="/sales/new"
+            className="mt-2 inline-flex min-h-11 items-center text-[13px] text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring lg:min-h-8"
+          >
+            Record your first sale
+          </Link>
+        ) : (
+          <Link
+            href={'?period=all' as Route}
+            className="mt-2 inline-flex min-h-11 items-center text-[13px] text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring lg:min-h-8"
+          >
+            Show all time
+          </Link>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 motion-safe:fade-in-0 motion-safe:animate-in motion-safe:duration-300">
       <div className="flex h-[168px] items-stretch gap-2">
         {steps.map((step) => {
           const start = step.delta === null ? floor : step.value - step.delta;

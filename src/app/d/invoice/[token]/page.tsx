@@ -5,9 +5,12 @@ import { InvoicePaper } from '@/components/invoice/invoice-paper';
 import { getPublicInvoice } from '@/server/queries/invoices';
 import { getAdminSettings } from '@/server/queries/reference';
 
+// The link is the credential: keep it out of search results, caches and the
+// Referer header of anything the page links to.
 export const metadata: Metadata = {
   title: 'Invoice / Factuur',
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: false, nocache: true, noarchive: true, nosnippet: true },
+  referrer: 'no-referrer',
 };
 export const instant = false;
 /** Customer-facing invoice link. The token is the only credential. */

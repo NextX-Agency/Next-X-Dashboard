@@ -330,6 +330,20 @@
       "when": 1792166872577,
       "tag": "0046_legacy_reservation_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792799283484,
+      "tag": "0047_sales_idempotency_and_invoice_link_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1792799400000,
+      "tag": "0048_member_privilege_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import {
   listCustomerOptions,
   listSaleVariantOptions,
   listSellerOptions,
+  listWalletChoices,
 } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -40,12 +41,13 @@ export default function NewSalePage() {
 }
 
 async function Loader() {
-  const [variants, customers, sellers, bundles, rate] = await Promise.all([
+  const [variants, customers, sellers, bundles, rate, wallets] = await Promise.all([
     listSaleVariantOptions(),
     listCustomerOptions(),
     listSellerOptions(),
     listBundleOptions(),
     getLiveRate(),
+    listWalletChoices(),
   ]);
 
   return (
@@ -55,6 +57,7 @@ async function Loader() {
       sellers={sellers}
       rateMicros={rate?.rateMicros ?? RATE_SCALE}
       bundles={bundles}
+      wallets={wallets}
     />
   );
 }

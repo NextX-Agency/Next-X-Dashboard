@@ -25,9 +25,28 @@ export type InvoicePaperSale = {
   paymentMethod: string;
   soldAt: string;
   dueAt: string | null;
-  notes: string | null;
+  /** Received so far, in the currency of the sale. Omit to print no payment lines. */
+  paidCents?: number;
   items: InvoicePaperItem[];
 };
+
+/**
+ * What the paper says about the document itself. Internal notes never print:
+ * the field is a private memo ("customer haggled", "check serial") and this
+ * component is also what a customer opens from a shared link.
+ */
+export function invoiceStamp(
+  status: string,
+  totalCents: number,
+  paidCents: number | undefined,
+): { label: string; tone: 'paid' | 'due' | 'void' | 'draft' } {
+  if (status === 'void') return { label: 'Void / Vervallen', tone: 'void' };
+  if (status === 'draft') return { label: 'Draft / Concept', tone: 'draft' };
+  if (paidCents === undefined) return { label: 'Invoice', tone: 'due' };
+  if (totalCents > 0 && paidCents >= totalCents)
+    return { label: 'Paid / Betaald', tone: 'paid' };
+  return { label: 'Balance due / Openstaand', tone: 'due' };
+}
 
 export function InvoicePaper({
   sale,
@@ -39,6 +58,9 @@ export function InvoicePaper({
   const currency = sale.currency;
   const subtotalCents = sale.totalCents + sale.discountCents;
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
+  const stamp = invoiceStamp(sale.status, sale.totalCents, sale.paidCents);
+  const paidCents = Math.min(sale.paidCents ?? 0, sale.totalCents);
+  const balanceCents = Math.max(0, sale.totalCents - (sale.paidCents ?? 0));
 
   return (
     <article className="invoice rounded-card border border-line bg-raised p-8 shadow-raised">
@@ -67,7 +89,17 @@ export function InvoicePaper({
             {sale.invoiceNumber ?? sale.number}
           </p>
           <p className="tabular mt-1 text-[12px] text-ink-3">{formatDate(sale.soldAt)}</p>
-          <p className="text-[12px] text-ink-3">{humanise(sale.status)}</p>
+          <p
+            className={
+              stamp.tone === 'paid'
+                ? 'font-medium text-[12px] text-positive'
+                : stamp.tone === 'due'
+                  ? 'font-medium text-[12px] text-warning'
+                  : 'font-medium text-[12px] text-negative'
+            }
+          >
+            {stamp.label}
+          </p>
         </div>
       </header>
 
@@ -148,13 +180,21 @@ export function InvoicePaper({
             {formatMoney(sale.totalCents, currency)}
           </dd>
         </div>
+        {sale.paidCents !== undefined && sale.status === 'confirmed' ? (
+          <>
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-3">Paid / Betaald</dt>
+              <dd className="tabular text-ink">−{formatMoney(paidCents, currency)}</dd>
+            </div>
+            <div className="flex justify-between gap-4 border-t border-line pt-2">
+              <dt className="font-medium text-ink">Balance due / Openstaand</dt>
+              <dd className="tabular font-medium text-ink">
+                {formatMoney(balanceCents, currency)}
+              </dd>
+            </div>
+          </>
+        ) : null}
       </dl>
-
-      {sale.notes ? (
-        <p className="mt-6 whitespace-pre-line border-t border-line pt-4 text-[12px] text-ink-3">
-          {sale.notes}
-        </p>
-      ) : null}
       {settings?.invoiceFooter ? (
         <footer className="mt-6 whitespace-pre-line border-t border-line pt-4 text-center text-[11px] text-ink-4">
           {settings.invoiceFooter}

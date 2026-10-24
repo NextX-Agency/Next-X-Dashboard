@@ -3,6 +3,7 @@ import { eq, isNull, sql } from 'drizzle-orm';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { isDatabaseConfigured, isLocalRehearsalConnection } from '@/lib/env';
+import { canClaimInvitation } from '@/lib/member-claim';
 import { logServerError } from '@/lib/observability';
 import { createClient } from '@/lib/supabase/server';
 import { db } from './db/client';
@@ -67,6 +68,9 @@ export const getCurrentMember = cache(async (): Promise<Member | null> => {
     .limit(1);
 
   if (existing) return existing;
+
+  // Never link an unverified address to an existing member row (see lib/member-claim.ts).
+  if (!canClaimInvitation(user)) return null;
 
   // First sign-in claims the invitation: a member row created before this
   // person ever had an auth account, matched on email. Leonardo and Youri hold

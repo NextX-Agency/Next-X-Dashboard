@@ -33,8 +33,12 @@ export function ProductGallery({ name }: { name: string }) {
       index: typeof next === 'function' ? next(index) : next,
     });
   const [open, setOpen] = useState(false);
+  // The main photograph fades in when the visitor changes it, never on first paint: it is the page's LCP.
+  const [firstUrl] = useState(images[0]?.url);
+  const [changed, setChanged] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const current = images[index];
+  if (!changed && current && current.url !== firstUrl) setChanged(true);
   const optionLabel = variants.length > 1 ? optionName(variant) : null;
 
   if (!current) {
@@ -103,7 +107,10 @@ export function ProductGallery({ name }: { name: string }) {
             fill
             preload={index === 0}
             sizes="(max-width: 1023px) 100vw, min(54vw, 700px)"
-            className="animate-in fade-in-0 object-contain p-[7%] mix-blend-multiply duration-300"
+            className={cn(
+              'object-contain p-[7%] mix-blend-multiply',
+              changed && 'animate-in fade-in-0 duration-300 ease-out-instrument',
+            )}
             {...(current.blurDataUrl
               ? { placeholder: 'blur' as const, blurDataURL: current.blurDataUrl }
               : {})}
@@ -127,10 +134,10 @@ export function ProductGallery({ name }: { name: string }) {
         </div>
 
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-night/70 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-night/70 duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content
             onKeyDown={onArrowKeys}
-            className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-tile bg-base text-ink shadow-overlay sm:inset-8 lg:inset-x-[12%] lg:inset-y-8"
+            className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-tile bg-base text-ink shadow-overlay duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-2 data-[state=open]:slide-in-from-bottom-2 sm:inset-8 lg:inset-x-[12%] lg:inset-y-8"
           >
             <div className="flex h-14 shrink-0 items-center justify-between border-line border-b px-4">
               <Dialog.Title className="truncate pr-4 font-semibold text-[15px]">
@@ -192,6 +199,7 @@ export function ProductGallery({ name }: { name: string }) {
                 className={cn(
                   'relative block size-16 overflow-hidden rounded-[12px] bg-sunken sm:size-20',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                  'nx-press',
                   imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',
                 )}
               >

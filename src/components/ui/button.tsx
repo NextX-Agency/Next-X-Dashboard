@@ -9,7 +9,8 @@ import { cn } from '@/lib/cn';
  * Deliberately not the stock shadcn button. Tighter radius, a 1px inner
  * highlight on solid fills so they read as physical in dark mode, and a
  * pressed state that actually moves. Height steps are 28/32/36, not the
- * default 36/40/44: this is a dense operations tool, not a marketing page.
+ * default 36/40/44: this is a dense operations tool, not a marketing page. On a phone
+ * (below the `sm` breakpoint) every size grows to a 44px target.
  */
 const button = cva(
   [
@@ -32,14 +33,14 @@ const button = cva(
         danger:
           'bg-negative text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18)] hover:brightness-110',
         outline: 'border border-line-strong bg-transparent text-ink hover:bg-hover',
-        link: 'h-auto p-0 text-accent underline-offset-4 hover:underline',
+        link: 'h-auto p-0 text-accent underline-offset-4 hover:underline max-sm:h-auto',
       },
       size: {
-        sm: 'h-7 px-2.5 text-[13px]',
-        md: 'h-8 px-3 text-[13px]',
-        lg: 'h-9 px-4 text-sm',
-        icon: 'size-8 p-0',
-        'icon-sm': 'size-7 p-0',
+        sm: 'h-7 px-2.5 text-[13px] max-sm:h-11 max-sm:px-3.5',
+        md: 'h-8 px-3 text-[13px] max-sm:h-11 max-sm:px-4',
+        lg: 'h-9 px-4 text-sm max-sm:h-11',
+        icon: 'size-8 p-0 max-sm:size-11',
+        'icon-sm': 'size-7 p-0 max-sm:size-11',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

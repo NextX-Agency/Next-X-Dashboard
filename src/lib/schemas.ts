@@ -2,6 +2,13 @@ import { z } from 'zod';
 import { EXPENSE_CLASSIFICATIONS } from './expense-classification';
 import { parseRate } from './fx';
 import { parseMoney } from './money';
+import {
+  normaliseAssetUrl,
+  normaliseClockTime,
+  normaliseInstagram,
+  normalisePhone,
+  PUBLIC_COPY_LIMITS,
+} from './settings-fields';
 import { isStorefrontDomain, normalizeStorefrontDomain } from './storefront-domain';
 
 /**
@@ -89,6 +96,37 @@ const optionalText = z
   .max(2000)
   .optional()
   .transform((value) => (value === '' ? undefined : value));
+
+/** Optional text that must pass `normalise` when present; empty means "not set". */
+function optionalNormalised(
+  normalise: (value: string) => string | null,
+  message: string,
+  max = 200,
+) {
+  return z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max} characters`)
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) return undefined;
+      const cleaned = normalise(value);
+      if (cleaned === null) {
+        ctx.addIssue({ code: 'custom', message });
+        return z.NEVER;
+      }
+      return cleaned;
+    });
+}
+
+function limitedText(max: number) {
+  return z
+    .string()
+    .trim()
+    .max(max, `Keep this under ${max} characters`)
+    .optional()
+    .transform((value) => (value === '' ? undefined : value));
+}
 
 export const currency = z.enum(['USD', 'SRD']);
 export const paymentMethod = z.enum(['cash', 'bank_transfer', 'card', 'other']);
@@ -517,12 +555,39 @@ const serialList = z
   .default([])
   .transform((serials) => [...new Set(serials)]);
 
+/**
+ * Sane ceilings for a sale line. Without them a typo ("1000000000" units) is
+ * valid until the database rejects the integer, and what staff then see is
+ * "Something went wrong". 100,000 units and 10 million per unit are far beyond
+ * anything NextX sells and keep `unit x quantity` far below 2^53.
+ */
+export const MAX_LINE_QUANTITY = 100_000;
+export const MAX_UNIT_PRICE_CENTS = 1_000_000_000;
+export const MAX_DOCUMENT_CENTS = 100_000_000_000;
+
+export const lineQuantity = z.coerce
+  .number({ error: 'Enter the number of units' })
+  .int('Whole units only')
+  .min(1, 'Must be at least 1')
+  .max(
+    MAX_LINE_QUANTITY,
+    `At most ${MAX_LINE_QUANTITY.toLocaleString('en-US')} units per line`,
+  );
+
+export const unitPriceInput = positiveMoney.refine((cents) => cents <= MAX_UNIT_PRICE_CENTS, {
+  message: 'That price is unrealistically high — check the decimal point',
+});
+
+const boundedMoney = moneyInput.refine((cents) => cents <= MAX_DOCUMENT_CENTS, {
+  message: 'That amount is unrealistically high — check the decimal point',
+});
+
 export const saleItemSchema = z
   .object({
     variantId: uuid,
     bundleId: optionalUuid,
-    quantity,
-    unitPriceCents: positiveMoney,
+    quantity: lineQuantity,
+    unitPriceCents: unitPriceInput,
     serials: serialList,
   })
   .refine((item) => item.serials.length <= item.quantity, {
@@ -548,8 +613,14 @@ export const saleSchema = z
     currency,
     paymentMethod,
     notes: optionalText,
-    discountCents: moneyInput.default(0),
+    discountCents: boundedMoney.default(0),
     discountReason: optionalText,
+    /** Wallet the payment lands in. Empty means "the wallet matching the
+     *  method", resolved server-side; sent explicitly when the cashier picks. */
+    walletId: optionalUuid.optional(),
+    /** Stable across a retry or double click: the same key never creates a
+     *  second sale. Generated once per form instance. */
+    idempotencyKey: uuid.optional(),
     /** Draft records the intent without moving stock, cash or margin. */
     confirm: z.boolean().default(true),
     /** On a confirmed sale, whether the money arrived with it (the default —
@@ -561,8 +632,11 @@ export const saleSchema = z
      *  the money is in hand and the ledger must say so. Clamped to the total
      *  by the action; never trusted to be well-formed here because the total
      *  is computed from the items, not typed. */
-    paidNowCents: moneyInput.default(0),
-    items: z.array(saleItemSchema).min(1, 'Add at least one item'),
+    paidNowCents: boundedMoney.default(0),
+    items: z
+      .array(saleItemSchema)
+      .min(1, 'Add at least one item')
+      .max(100, 'At most 100 lines'),
   })
   .refine((sale) => sale.discountCents >= 0, {
     message: 'A discount cannot be negative — raise the unit price instead',
@@ -585,7 +659,9 @@ export const saleSchema = z
 /** Money received against a confirmed sale (F-4). */
 export const salePaymentSchema = z.object({
   saleId: uuid,
-  amountCents: positiveMoney,
+  amountCents: positiveMoney.refine((cents) => cents <= MAX_DOCUMENT_CENTS, {
+    message: 'That amount is unrealistically high — check the decimal point',
+  }),
   /** Stable across a client retry so the same payment cannot post twice. */
   idempotencyKey: uuid.optional(),
   /** Optional: payments are banked on the day they arrive. An empty date input
@@ -594,6 +670,9 @@ export const salePaymentSchema = z.object({
   receivedAt: z
     .union([dateInput, z.literal('')])
     .transform((value) => (value === '' ? undefined : value))
+    .refine((date) => date === undefined || date <= new Date(), {
+      message: 'A payment cannot be dated in the future',
+    })
     .optional(),
   paymentMethod,
   walletId: optionalUuid.optional(),
@@ -609,6 +688,9 @@ export const saleRefundSchema = z.object({
   refundedAt: z
     .union([dateInput, z.literal('')])
     .transform((value) => (value === '' ? undefined : value))
+    .refine((date) => date === undefined || date <= new Date(), {
+      message: 'A refund cannot be dated in the future',
+    })
     .optional(),
   reason: z.string().trim().min(3, 'Say why the money was refunded').max(500),
   idempotencyKey: uuid.optional(),
@@ -618,8 +700,8 @@ export const saleRefundSchema = z.object({
 
 export const orderItemSchema = z.object({
   variantId: uuid,
-  quantity,
-  unitPriceCents: positiveMoney,
+  quantity: lineQuantity,
+  unitPriceCents: unitPriceInput,
 });
 
 export const orderSchema = z.object({
@@ -640,7 +722,10 @@ export const orderSchema = z.object({
   deliveryAddress: optionalText,
   fulfillmentNotes: optionalText,
   notes: optionalText,
-  items: z.array(orderItemSchema).min(1, 'Add at least one item'),
+  items: z.array(orderItemSchema).min(1, 'Add at least one item').max(100, 'At most 100 lines'),
+  /** Stable across a retry or double click: the same key never creates a
+   *  second order. */
+  idempotencyKey: uuid.optional(),
 });
 
 export const orderIdSchema = z.object({ id: uuid });
@@ -691,20 +776,18 @@ export const recurringExpenseSchema = z.object({
 export const ledgerEntrySchema = z
   .object({
     direction: z.enum(['in', 'out']),
-    category: z.enum([
-      'owner_contribution',
-      'owner_draw',
-      'sales_receipt',
-      'purchase',
-      'shipping',
-      'operating',
-      'refund',
-      'other',
-    ]),
+    // Receipts, refunds, purchases and running costs are posted by their own
+    // documents (a sale payment, a purchase order, an expense). Letting a
+    // person type them here is how the cash ledger drifts from the paperwork.
+    category: z.enum(['owner_contribution', 'owner_draw', 'other']),
     description: shortText,
-    occurredAt: dateInput,
+    occurredAt: dateInput.refine((date) => date <= new Date(), {
+      message: 'A cash movement cannot be dated in the future',
+    }),
     currency,
-    amountCents: positiveMoney,
+    amountCents: positiveMoney.refine((cents) => cents <= MAX_DOCUMENT_CENTS, {
+      message: 'That amount is unrealistically high — check the decimal point',
+    }),
     paymentMethod,
     walletId: optionalUuid.optional(),
     locationId: optionalUuid.optional(),
@@ -721,6 +804,8 @@ export const fxRateSchema = z.object({
   rate: rateInput,
   effectiveFrom: dateInput,
   note: optionalText,
+  /** Needed when the new rate differs a lot from the current one. */
+  confirmLargeChange: z.boolean().default(false),
 });
 
 export const settingsSchema = z.object({
@@ -744,21 +829,44 @@ export const settingsSchema = z.object({
   legalName: optionalText,
   addressLine: optionalText,
   city: optionalText,
-  phone: optionalText,
-  whatsapp: optionalText,
-  email: optionalText,
+  phone: optionalNormalised(
+    normalisePhone,
+    'Enter a phone number such as 8123456 or +597 812 3456',
+    40,
+  ),
+  whatsapp: optionalNormalised(
+    normalisePhone,
+    'Enter the WhatsApp number such as 8123456 or +597 812 3456. Digits only, with the country code if it is not Suriname',
+    40,
+  ),
+  email: z
+    .union([z.literal(''), z.string().trim().max(200).email('Not a valid email address')])
+    .optional()
+    .transform((value) => (value ? value.toLowerCase() : undefined)),
   taxId: optionalText,
-  logoUrl: optionalText,
+  logoUrl: optionalNormalised(
+    normaliseAssetUrl,
+    'Use a secure https:// image address, or a path starting with /',
+    500,
+  ),
   invoiceFooter: optionalText,
   // Storefront footer (P0-10). Free text so the business can phrase hours and
   // handle however it likes; the footer only renders what is filled in.
-  instagram: optionalText,
-  openingHours: optionalText,
+  instagram: optionalNormalised(
+    normaliseInstagram,
+    'Enter the Instagram handle, for example nextx.sr (letters, numbers, dots and underscores)',
+    120,
+  ),
+  openingHours: limitedText(PUBLIC_COPY_LIMITS.openingHours),
   pickupEnabled: z.boolean().default(false),
   pickupLabel: optionalText,
   pickupDetails: optionalText,
   sameDayPickupEnabled: z.boolean().default(false),
-  pickupCutoffTime: optionalText,
+  pickupCutoffTime: optionalNormalised(
+    normaliseClockTime,
+    'Use 24-hour time such as 15:30',
+    10,
+  ),
   deliveryEnabled: z.boolean().default(false),
   deliveryDetails: optionalText,
   deliveryAreas: optionalText,
@@ -768,11 +876,11 @@ export const settingsSchema = z.object({
     .array(z.object({ name: shortText, details: optionalText }))
     .max(10)
     .default([]),
-  announcement: optionalText,
-  heroTitle: optionalText,
-  heroBody: optionalText,
-  supportTitle: optionalText,
-  supportBody: optionalText,
+  announcement: limitedText(PUBLIC_COPY_LIMITS.announcement),
+  heroTitle: limitedText(PUBLIC_COPY_LIMITS.heroTitle),
+  heroBody: limitedText(PUBLIC_COPY_LIMITS.heroBody),
+  supportTitle: limitedText(PUBLIC_COPY_LIMITS.supportTitle),
+  supportBody: limitedText(PUBLIC_COPY_LIMITS.supportBody),
   defaultNewArrivalDays: z.coerce.number().int().min(1).max(365).default(30),
   homepageAvailableNowEnabled: z.boolean().default(true),
   homepageAvailableNowLimit: z.coerce.number().int().min(1).max(24).default(6),

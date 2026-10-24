@@ -34,6 +34,7 @@ import {
   listCustomerOptions,
   listSaleVariantOptions,
   listSellerOptions,
+  listWalletChoices,
 } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -93,12 +94,13 @@ async function Loader({
   if (!sale) notFound();
 
   if (editing === '1' && sale.status === 'draft') {
-    const [variants, customers, sellers, bundles, rate] = await Promise.all([
+    const [variants, customers, sellers, bundles, rate, wallets] = await Promise.all([
       listSaleVariantOptions(),
       listCustomerOptions(),
       listSellerOptions(),
       listBundleOptions(),
       getLiveRate(),
+      listWalletChoices(),
     ]);
 
     return (
@@ -108,6 +110,7 @@ async function Loader({
         sellers={sellers}
         rateMicros={rate?.rateMicros ?? RATE_SCALE}
         bundles={bundles}
+        wallets={wallets}
         initial={{
           id: sale.id,
           customerId: sale.customerId,
@@ -388,20 +391,20 @@ async function Loader({
                     <td className="h-9 px-3" />
                   </tr>
                 ) : null}
-                <tr>
-                  <td className="h-9 px-3 text-[12px] text-ink-3" colSpan={4}>
-                    {sale.discountCents > 0 ? 'Discount' : 'Totals'}
-                  </td>
-                  <td className="h-9 px-3 text-right">
-                    {sale.discountCents > 0 ? (
+                {sale.discountCents > 0 ? (
+                  <tr>
+                    <td className="h-9 px-3 text-[12px] text-ink-3" colSpan={4}>
+                      Discount
+                    </td>
+                    <td className="h-9 px-3 text-right">
                       <span className="text-[12px] text-ink-3">
                         −<Money cents={discountUsdCents} size="sm" tone="muted" />
                       </span>
-                    ) : null}
-                  </td>
-                  <td className="h-9 px-3" />
-                  <td className="h-9 px-3" />
-                </tr>
+                    </td>
+                    <td className="h-9 px-3" />
+                    <td className="h-9 px-3" />
+                  </tr>
+                ) : null}
                 <tr>
                   <td className="h-9 px-3 text-[12px] text-ink-3" colSpan={4}>
                     Totals

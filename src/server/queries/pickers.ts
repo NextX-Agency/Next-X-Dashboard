@@ -463,3 +463,27 @@ export async function listOpenPurchaseOrders(): Promise<
     totalCents: num(row.total_cents),
   }));
 }
+
+export type WalletChoice = {
+  id: string;
+  name: string;
+  currency: 'USD' | 'SRD';
+  kind: 'cash' | 'bank_transfer' | 'card' | 'other';
+};
+
+/** Active wallets with the facts a cashier needs to pick one: currency and kind. */
+export async function listWalletChoices(): Promise<WalletChoice[]> {
+  if (!isDatabaseConfigured()) return [];
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT id, name, currency::text AS currency, kind::text AS kind
+      FROM wallets
+     WHERE active = true
+     ORDER BY currency, name
+  `);
+  return rows.map((row) => ({
+    id: text(row.id),
+    name: text(row.name),
+    currency: text(row.currency, 'USD') as WalletChoice['currency'],
+    kind: text(row.kind, 'cash') as WalletChoice['kind'],
+  }));
+}

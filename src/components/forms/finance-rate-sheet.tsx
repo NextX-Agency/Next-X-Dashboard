@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
@@ -8,12 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldRow, Input, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import { createFxRate } from '@/server/actions/finance';
 
 export function FinanceRateSheet() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  /** Set when the server says the new rate is far from the current one. */
+  const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const [rate, setRate] = useState('');
-  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [effectiveFrom, setEffectiveFrom] = useState(businessDateInput());
   const [note, setNote] = useState('');
   const formId = useId();
   const action = useAction(createFxRate, {
@@ -21,9 +27,14 @@ export function FinanceRateSheet() {
       toast.success('Exchange rate recorded');
       setOpen(false);
       setRate('');
-      window.location.reload();
+      setNeedsConfirm(false);
+      setConfirmed(false);
+      router.refresh();
     },
-    onError: ({ error }) => toast.error(error.serverError ?? 'Could not record exchange rate'),
+    onError: ({ error }) => {
+      if (error.serverError?.includes('Tick the confirmation box')) setNeedsConfirm(true);
+      toast.error(error.serverError ?? 'Could not record exchange rate');
+    },
   });
   return (
     <>
@@ -50,7 +61,12 @@ export function FinanceRateSheet() {
           id={formId}
           onSubmit={(event) => {
             event.preventDefault();
-            action.execute({ rate, effectiveFrom, note: note || undefined });
+            action.execute({
+              rate,
+              effectiveFrom,
+              note: note || undefined,
+              confirmLargeChange: confirmed,
+            });
           }}
         >
           <SheetSection title="USD → SRD">
@@ -76,6 +92,20 @@ export function FinanceRateSheet() {
                 />
               </Field>
             </FieldRow>
+            {needsConfirm ? (
+              <label className="flex cursor-pointer items-start gap-2 rounded-control border border-warning/40 bg-warning-muted p-3 text-[12px] text-ink-2">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(event) => setConfirmed(event.target.checked)}
+                  className="mt-0.5 size-4 accent-accent"
+                />
+                <span>
+                  This rate is very different from the current one and I have checked it. Every
+                  new SRD sale will be booked at this rate.
+                </span>
+              </label>
+            ) : null}
             <Field label="Note" htmlFor={`${formId}-note`}>
               <Textarea
                 id={`${formId}-note`}

@@ -8,7 +8,8 @@ import { getAdminSettings } from '@/server/queries/reference';
 
 export const metadata: Metadata = {
   title: 'Quote / Offerte',
-  robots: { index: false, follow: false },
+  robots: { index: false, follow: false, nocache: true, noarchive: true, nosnippet: true },
+  referrer: 'no-referrer',
 };
 export const instant = false;
 

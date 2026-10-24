@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm';
-import { buildCommissionDrafts } from '@/lib/commission-rules';
+import { and, eq } from 'drizzle-orm';
+import { buildCommissionDrafts, netCommissionBases } from '@/lib/commission-rules';
 import { normaliseToUsd } from '@/lib/fx';
+import { mulDivRound } from '@/lib/money';
 import {
   commissions,
   locations,
@@ -11,6 +12,7 @@ import {
   sellerCategoryRates,
   sellers,
 } from '../db/schema';
+import { ActionError } from '../errors';
 import type { Tx } from './posting';
 
 /** Freeze the commission arithmetic alongside a newly confirmed sale. */
@@ -49,7 +51,10 @@ export async function createSaleCommissions(
     .from(sellers)
     .where(eq(sellers.id, sale.sellerId))
     .limit(1);
-  if (!seller?.active) throw new Error('The selected seller is inactive or no longer exists.');
+  if (!seller?.active)
+    throw new ActionError(
+      'The selected seller is inactive or no longer exists. Choose another seller.',
+    );
 
   const [location] = seller.locationId
     ? await tx
@@ -111,4 +116,104 @@ export async function createSaleCommissions(
       createdById: memberId,
     })),
   );
+}
+
+/**
+ * Keep unpaid commissions honest after goods come back.
+ *
+ * A commission is earned on goods the customer kept. Rates stay frozen on each
+ * commission row, so only the basis is recomputed from the units not returned.
+ * Rows that are already paid are never touched — a payout is a fact — but the
+ * amount over-paid is returned so the caller can tell the owner.
+ */
+export async function netOpenCommissionsForReturns(
+  tx: Tx,
+  saleId: string,
+): Promise<{ reducedCents: number; overpaidCents: number }> {
+  const rows = await tx.select().from(commissions).where(eq(commissions.saleId, saleId));
+  if (rows.length === 0) return { reducedCents: 0, overpaidCents: 0 };
+
+  const [sale] = await tx
+    .select({ discountCents: sales.discountCents })
+    .from(sales)
+    .where(eq(sales.id, saleId))
+    .limit(1);
+  if (!sale) return { reducedCents: 0, overpaidCents: 0 };
+
+  const lines = await tx
+    .select({
+      id: saleItems.id,
+      quantity: saleItems.quantity,
+      quantityReturned: saleItems.quantityReturned,
+      unitPriceCents: saleItems.unitPriceCents,
+      bundleId: saleItems.bundleId,
+      categoryId: products.categoryId,
+    })
+    .from(saleItems)
+    .innerJoin(productVariants, eq(productVariants.id, saleItems.variantId))
+    .innerJoin(products, eq(products.id, productVariants.productId))
+    .where(eq(saleItems.saleId, saleId))
+    .orderBy(saleItems.position);
+
+  const bases = netCommissionBases({
+    discountCents: sale.discountCents,
+    lines: lines.map((line) => ({
+      id: line.id,
+      categoryId: line.categoryId,
+      unitPriceCents: line.unitPriceCents,
+      quantity: line.quantity,
+      quantityReturned: line.quantityReturned,
+      bundle: line.bundleId !== null,
+    })),
+  });
+
+  let reducedCents = 0;
+  let overpaidCents = 0;
+  for (const row of rows) {
+    if (row.status === 'cancelled') continue;
+    const basisCents = bases.get(row.groupKey)?.basisCents ?? 0;
+    const amountCents = mulDivRound(basisCents, row.rateBps, 10_000);
+    if (amountCents >= row.amountCents) continue;
+    if (row.status === 'paid') {
+      overpaidCents += row.amountCents - amountCents;
+      continue;
+    }
+    reducedCents += row.amountCents - amountCents;
+    // The table forbids a zero amount, so a group whose goods all came back
+    // is cancelled with its original figures kept as the record of what it was.
+    await tx
+      .update(commissions)
+      .set(
+        amountCents === 0
+          ? { status: 'cancelled' }
+          : {
+              basisCents,
+              amountCents,
+              amountUsdCents: normaliseToUsd(amountCents, row.currency, row.fxRateMicros),
+            },
+      )
+      .where(and(eq(commissions.id, row.id), eq(commissions.status, 'open')));
+  }
+  return { reducedCents, overpaidCents };
+}
+
+/** A voided sale earns nothing. Unpaid commissions are cancelled; the amount
+ *  already paid out (if any) is returned so it can be flagged for the owner. */
+export async function cancelOpenCommissionsForSale(
+  tx: Tx,
+  saleId: string,
+): Promise<{ cancelledCents: number; paidCents: number }> {
+  const rows = await tx.select().from(commissions).where(eq(commissions.saleId, saleId));
+  let cancelledCents = 0;
+  let paidCents = 0;
+  for (const row of rows) {
+    if (row.status === 'paid') paidCents += row.amountCents;
+    if (row.status !== 'open') continue;
+    cancelledCents += row.amountCents;
+    await tx
+      .update(commissions)
+      .set({ status: 'cancelled' })
+      .where(and(eq(commissions.id, row.id), eq(commissions.status, 'open')));
+  }
+  return { cancelledCents, paidCents };
 }

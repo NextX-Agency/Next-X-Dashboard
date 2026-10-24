@@ -1,8 +1,9 @@
 import { ArrowRight, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { type CSSProperties, Suspense } from 'react';
 import { ProductCard } from '@/components/store/product-card';
+import { SafeImage } from '@/components/store/safe-image';
 import { StorePrice } from '@/components/store/store-price';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
@@ -44,6 +45,9 @@ const FOCUS =
 
 /** 1 -> "01": the numbering the agency site uses for every list of things. */
 const num = (index: number) => String(index + 1).padStart(2, '0');
+
+/** Delay step for the quiet entrance (`.nx-enter`); the headline and the first photograph never wait. */
+const stagger = (index: number): CSSProperties => ({ '--i': index }) as CSSProperties;
 
 /**
  * The home page of a shop: an opening composition of real products, the categories as places to go, two
@@ -132,7 +136,6 @@ async function HomeContent() {
         />
       </Suspense>
 
-      <Ordering settings={settings} whatsappHref={help} />
       <Pickup
         settings={settings}
         pickupLocations={pickupLocations}
@@ -180,15 +183,20 @@ function Hero({
     <section aria-labelledby="home-title" className={cn(SECTION, 'pt-6 lg:pt-10')}>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
         <div className="flex flex-col justify-center lg:py-8">
-          <p className="nx-label text-accent">{eyebrow}</p>
+          <p className="nx-label nx-enter text-accent">{eyebrow}</p>
           <h1
             id="home-title"
             className="nx-display mt-4 text-balance text-[clamp(36px,5.2vw,68px)] leading-[0.98] text-ink"
           >
             {title}
           </h1>
-          <p className="mt-5 max-w-[44ch] text-[17px] text-ink-2 leading-relaxed">{body}</p>
-          <div className="mt-6 flex gap-3 sm:mt-7">
+          <p
+            className="nx-enter mt-5 max-w-[44ch] text-[17px] text-ink-2 leading-relaxed"
+            style={stagger(1)}
+          >
+            {body}
+          </p>
+          <div className="nx-enter mt-6 flex gap-3 sm:mt-7" style={stagger(2)}>
             <Link
               href={SHOP_PATH as never}
               className="nx-btn nx-btn-primary flex-1 px-5 sm:flex-none sm:px-7"
@@ -207,7 +215,10 @@ function Hero({
               </a>
             ) : null}
           </div>
-          <p className="mt-8 border-line border-t pt-4 text-[14px] text-ink-3">
+          <p
+            className="nx-enter mt-8 border-line border-t pt-4 text-[14px] text-ink-3"
+            style={stagger(3)}
+          >
             {facts.join(' / ')}
           </p>
         </div>
@@ -249,10 +260,14 @@ function Showcase({
       className="grid grid-cols-2 gap-3 rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
     >
       {frames.map(({ product, className, large }, index) => (
-        <li key={product.id} className={cn('min-w-0', className)}>
+        <li
+          key={product.id}
+          className={cn('min-w-0', index > 0 && 'nx-enter', className)}
+          style={index > 0 ? stagger(index) : undefined}
+        >
           <Link
             href={storefrontProductPath(null, product.slug) as never}
-            className="group flex h-full flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="group nx-zoom-host flex h-full flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <span
               className={cn(
@@ -273,7 +288,7 @@ function Showcase({
                       ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
                       : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
                   }
-                  className="object-contain p-[6%] transition-transform duration-300 ease-out-instrument group-hover:scale-[1.03]"
+                  className="nx-img object-contain p-[6%]"
                 />
               ) : null}
             </span>
@@ -323,12 +338,12 @@ function CategoryTiles({
   const three = tiles.length === 3;
   return (
     <section aria-labelledby="home-categories" className={cn(SECTION, SECTION_GAP)}>
-      <h2 id="home-categories" className={SECTION_TITLE}>
+      <h2 id="home-categories" className={cn(SECTION_TITLE, 'nx-reveal')}>
         Categories
       </h2>
       <ul
         className={cn(
-          'mt-6 grid gap-3 sm:gap-4',
+          'nx-stagger mt-6 grid gap-3 sm:gap-4',
           three
             ? 'md:grid-cols-6 md:grid-rows-2'
             : tiles.length === 2
@@ -340,7 +355,7 @@ function CategoryTiles({
           <li
             key={tile.slug}
             className={cn(
-              'min-w-0',
+              'nx-reveal min-w-0',
               three && index === 0 && 'md:col-span-4 md:row-span-2',
               three && index > 0 && 'md:col-span-2',
             )}
@@ -378,7 +393,7 @@ function CategoryTileCard({
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
       className={cn(
-        'group relative flex h-full overflow-hidden rounded-[24px] bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
+        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[24px] bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
         large ? 'min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
         FOCUS,
       )}
@@ -408,14 +423,15 @@ function CategoryTileCard({
         ) : null}
       </div>
       {first ? (
-        <Image
+        <SafeImage
+          fallback={null}
           src={first.image.url}
           alt=""
           width={first.image.width}
           height={first.image.height}
           sizes={large ? '(max-width: 767px) 60vw, 34vw' : '(max-width: 767px) 50vw, 22vw'}
           className={cn(
-            'absolute mix-blend-multiply transition-transform duration-300 ease-out-instrument group-hover:scale-[1.04]',
+            'absolute mix-blend-multiply',
             large
               ? 'right-[-2%] bottom-[-4%] w-[62%] max-w-[460px]'
               : 'right-[-6%] bottom-[-8%] w-[52%] max-w-[240px]',
@@ -443,7 +459,7 @@ function Shelf({
 }) {
   return (
     <section aria-labelledby={`home-${id}`} className={cn(SECTION, SECTION_GAP)}>
-      <div className="flex items-end justify-between gap-4">
+      <div className="nx-reveal flex items-end justify-between gap-4">
         <h2 id={`home-${id}`} className={SECTION_TITLE}>
           {title}
         </h2>
@@ -457,9 +473,9 @@ function Shelf({
           {action.label} <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </div>
-      <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <ul className="nx-stagger mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {products.map((product) => (
-          <li key={product.id}>
+          <li key={product.id} className="nx-reveal">
             <ProductCard product={product} srdRate={srdRate} />
           </li>
         ))}
@@ -487,10 +503,10 @@ async function Sets({
       aria-labelledby="home-bundles"
       className={cn(SECTION, SECTION_GAP, 'scroll-mt-24')}
     >
-      <h2 id="home-bundles" className={SECTION_TITLE}>
+      <h2 id="home-bundles" className={cn(SECTION_TITLE, 'nx-reveal')}>
         Bundles
       </h2>
-      <ul className="mt-6 border-line border-b">
+      <ul className="nx-reveal mt-6 border-line border-b">
         {bundles.map((bundle, index) => (
           <li key={bundle.id} className="border-line border-t">
             <Link
@@ -523,78 +539,6 @@ async function Sets({
 }
 
 /* ------------------------------------------------------------------------------------------------ */
-
-/** Four numbered steps, then one line to ask before ordering. The order is always confirmed by NextX. */
-function Ordering({
-  settings,
-  whatsappHref,
-}: {
-  settings: Settings | null;
-  whatsappHref: string | null;
-}) {
-  const pickup = Boolean(settings?.pickupEnabled);
-  const delivery = Boolean(settings?.deliveryEnabled);
-  const collection =
-    pickup && delivery
-      ? 'Collect it at the place you chose, or arrange delivery with NextX.'
-      : pickup
-        ? 'Collect it at the place you chose, once the order is confirmed.'
-        : delivery
-          ? 'NextX arranges delivery with you.'
-          : 'Agree pickup or delivery with NextX.';
-  const steps: [string, string][] = [
-    ['Choose', 'Add what you want to the cart. Pick a pickup place and date.'],
-    ['Send', 'Your cart opens in WhatsApp as one ready-written message to NextX.'],
-    [
-      'Confirm',
-      'NextX checks stock and confirms the final price. Nothing is reserved until then.',
-    ],
-    ['Collect', collection],
-  ];
-  const supportTitle = publicText(settings?.supportTitle?.trim()) || 'Not sure which one?';
-  const supportBody =
-    publicText(settings?.supportBody?.trim()) ||
-    'Tell NextX what you listen to and what you want to spend.';
-
-  return (
-    <section
-      id="how-ordering-works"
-      aria-labelledby="home-ordering"
-      className={cn(SECTION, SECTION_GAP, 'scroll-mt-24')}
-    >
-      <h2 id="home-ordering" className={SECTION_TITLE}>
-        How to order
-      </h2>
-      <ol className="mt-8 grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map(([title, body], index) => (
-          <li key={title} className="border-ink border-t-2 pt-4">
-            <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
-              {num(index)}
-            </span>
-            <h3 className="nx-display mt-3 text-[22px]">{title}</h3>
-            <p className="mt-2 text-[15px] text-ink-2 leading-relaxed">{body}</p>
-          </li>
-        ))}
-      </ol>
-      {whatsappHref ? (
-        <div className="mt-10 flex flex-col gap-4 rounded-[24px] bg-sunken p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <div>
-            <h3 className="nx-display text-[22px]">{supportTitle}</h3>
-            <p className="mt-1.5 text-[15px] text-ink-2">{supportBody}</p>
-          </div>
-          <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="nx-btn nx-btn-primary shrink-0"
-          >
-            <MessageCircle /> Message NextX
-          </a>
-        </div>
-      ) : null}
-    </section>
-  );
-}
 
 /**
  * Pickup places, hours, payment, delivery and phone: one dark band, each fact only when the owner has
@@ -632,7 +576,7 @@ function Pickup({
       aria-labelledby="home-pickup"
       className={cn(SECTION, 'mt-10 scroll-mt-24 lg:mt-12')}
     >
-      <div className="rounded-[24px] bg-night p-6 text-night-ink sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
+      <div className="nx-reveal rounded-[24px] bg-night p-6 text-night-ink sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
         <h2 id="home-pickup" className="nx-display text-[clamp(26px,3.4vw,38px)]">
           Pickup and contact
         </h2>
@@ -704,7 +648,10 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 function HomeSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 pt-6 lg:px-8" aria-hidden="true">
+    <div
+      className="mx-auto w-full max-w-[1320px] px-4 min-h-[100svh] pt-6 lg:px-8"
+      aria-hidden="true"
+    >
       <div className="grid gap-8 lg:grid-cols-[5fr_6fr]">
         <div className="space-y-4 py-8">
           <Skeleton className="h-4 w-40" />

@@ -104,10 +104,10 @@ export function ShopToolbar({
       >
         <span
           aria-hidden="true"
-          className={`relative h-6 w-10 rounded-full transition-colors ${onlyInStock ? 'bg-cta' : 'bg-line-strong'}`}
+          className={`nx-press relative h-6 w-10 rounded-full ${onlyInStock ? 'bg-cta' : 'bg-line-strong'}`}
         >
           <span
-            className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${onlyInStock ? 'left-[18px]' : 'left-0.5'}`}
+            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform duration-200 ease-out-instrument ${onlyInStock ? 'translate-x-4' : ''}`}
           />
         </span>
         In-stock items only
@@ -179,8 +179,8 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-night/60 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="nx-store fixed inset-y-0 right-0 z-50 flex w-[min(92vw,400px)] flex-col bg-base text-ink shadow-overlay duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-night/60 duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="nx-store fixed inset-y-0 right-0 z-50 flex w-[min(92vw,400px)] flex-col bg-base text-ink shadow-overlay duration-250 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
           <div className="flex h-16 shrink-0 items-center justify-between border-line border-b px-5">
             <Dialog.Title className="nx-label text-ink-2">Filters</Dialog.Title>
             <Dialog.Description className="sr-only">
@@ -515,7 +515,7 @@ function Choice({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        'group flex min-h-11 items-center justify-between gap-3 border-l-2 py-1.5 pr-1 pl-3 text-left text-[14px] transition-colors',
+        'group nx-press flex min-h-11 items-center justify-between gap-3 border-l-2 py-1.5 pr-1 pl-3 text-left text-[14px]',
         'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring',
         active
           ? 'border-store-bright font-semibold text-accent'

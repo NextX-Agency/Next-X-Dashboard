@@ -14,6 +14,7 @@ import {
   type paymentMethod,
   wallets,
 } from '../db/schema';
+import { ActionError } from '../errors';
 
 /**
  * Posting.
@@ -200,10 +201,12 @@ export async function postLedgerEntry(tx: Tx, posting: LedgerPosting): Promise<v
       .from(wallets)
       .where(sql`${wallets.id} = ${posting.walletId}`)
       .limit(1);
-    if (!wallet) throw new Error('Wallet does not exist.');
-    if (!wallet.active) throw new Error('The selected wallet is inactive.');
+    if (!wallet) throw new ActionError('That wallet no longer exists.');
+    if (!wallet.active) throw new ActionError('The selected wallet is inactive.');
     if (wallet.currency !== posting.currency) {
-      throw new Error('Wallet currency must match the posting currency.');
+      throw new ActionError(
+        `The wallet holds ${wallet.currency} but this is a ${posting.currency} amount. Choose a ${posting.currency} wallet.`,
+      );
     }
   }
 

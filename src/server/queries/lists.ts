@@ -1,6 +1,7 @@
 import { type SQL, sql } from 'drizzle-orm';
 import { type CatalogReadiness, catalogReadiness } from '@/lib/catalog-readiness';
 import { isDatabaseConfigured } from '@/lib/env';
+import { isManuallyReversible } from '@/lib/finance-rules';
 import type {
   CustomerQuery,
   ExpenseQuery,
@@ -444,6 +445,8 @@ export async function listStock(
   );
 }
 
+const isTrue = (value: unknown) => value === true || value === 't' || value === 'true';
+
 export type LedgerRow = {
   id: string;
   seq: number;
@@ -455,6 +458,9 @@ export type LedgerRow = {
   paymentMethod: string;
   walletName: string | null;
   eventType: string;
+  /** False when a document posted this entry (void the document instead) or it
+   *  has already been reversed. Mirrors the server's own refusal. */
+  reversible: boolean;
   netCents: Cents;
   balanceCents: Cents;
 };
@@ -498,8 +504,12 @@ export async function listLedger(
       l.description, l.payment_method::text, l.net_usd_cents::text,
       l.balance_usd_cents::text, m.full_name AS member_name, w.name AS wallet_name,
       l.event_type,
+      le.source_kind::text AS source_kind,
+      (le.reversal_of_id IS NOT NULL) AS is_reversal,
+      EXISTS (SELECT 1 FROM ledger_entries r WHERE r.reversal_of_id = l.id) AS is_reversed,
       COUNT(*) OVER()::text AS total_count
     FROM v_cash_ledger l
+    LEFT JOIN ledger_entries le ON le.id = l.id
     LEFT JOIN members m ON m.id = l.member_id
     LEFT JOIN wallets w ON w.id = l.wallet_id
     ${where}
@@ -521,6 +531,13 @@ export async function listLedger(
       paymentMethod: text(row.payment_method),
       walletName: maybe(row.wallet_name),
       eventType: text(row.event_type, 'legacy'),
+      reversible:
+        !isTrue(row.is_reversed) &&
+        isManuallyReversible({
+          sourceKind: text(row.source_kind, 'manual'),
+          eventType: text(row.event_type, 'legacy'),
+          reversalOfId: isTrue(row.is_reversal) ? 'reversal' : null,
+        }).ok,
       netCents: num(row.net_usd_cents),
       balanceCents: num(row.balance_usd_cents),
     })),

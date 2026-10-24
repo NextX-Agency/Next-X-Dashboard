@@ -61,6 +61,31 @@ export function allocateCommissionDiscount(
   return shares.map((share) => share.cents);
 }
 
+/** Commission groups after the document discount, before any rate applies. */
+export function groupCommissionBases(
+  lines: CommissionLine[],
+  discountCents: number,
+): Map<string, { categoryId: string | null; basisCents: number }> {
+  const discountShares = allocateCommissionDiscount(lines, discountCents);
+  const groups = new Map<string, { categoryId: string | null; basisCents: number }>();
+  lines.forEach((line, index) => {
+    if (!Number.isSafeInteger(line.basisCents) || line.basisCents < 0) {
+      throw new Error('Sale lines have invalid totals.');
+    }
+    const basisCents = line.basisCents - (discountShares[index] ?? 0);
+    const groupKey = line.bundle
+      ? `bundle:${line.id}`
+      : `category:${line.categoryId ?? 'none'}`;
+    const group = groups.get(groupKey) ?? {
+      categoryId: line.categoryId,
+      basisCents: 0,
+    };
+    group.basisCents += basisCents;
+    groups.set(groupKey, group);
+  });
+  return groups;
+}
+
 /**
  * Legacy-compatible precedence: category override, then seller default, then
  * location fallback. Rate values are basis points (2.50% = 250).
@@ -79,26 +104,8 @@ export function buildCommissionDrafts(input: {
     }
   }
 
-  const discountShares = allocateCommissionDiscount(lines, discountCents);
-  const groups = new Map<string, { categoryId: string | null; basisCents: number }>();
-  lines.forEach((line, index) => {
-    if (!Number.isSafeInteger(line.basisCents) || line.basisCents < 0) {
-      throw new Error('Sale lines have invalid totals.');
-    }
-    const basisCents = line.basisCents - (discountShares[index] ?? 0);
-    const groupKey = line.bundle
-      ? `bundle:${line.id}`
-      : `category:${line.categoryId ?? 'none'}`;
-    const group = groups.get(groupKey) ?? {
-      categoryId: line.bundle ? line.categoryId : line.categoryId,
-      basisCents: 0,
-    };
-    group.basisCents += basisCents;
-    groups.set(groupKey, group);
-  });
-
   const drafts: CommissionDraft[] = [];
-  for (const [groupKey, group] of groups) {
+  for (const [groupKey, group] of groupCommissionBases(lines, discountCents)) {
     const categoryRate = group.categoryId ? categoryRates.get(group.categoryId) : undefined;
     const rateBps =
       categoryRate !== undefined
@@ -110,4 +117,42 @@ export function buildCommissionDrafts(input: {
     if (amountCents > 0) drafts.push({ groupKey, ...group, rateBps, amountCents });
   }
   return drafts;
+}
+
+export type ReturnableCommissionLine = {
+  id: string;
+  categoryId: string | null;
+  unitPriceCents: number;
+  quantity: number;
+  quantityReturned: number;
+  bundle: boolean;
+};
+
+/**
+ * What an already-frozen commission group is worth once returns are netted out.
+ *
+ * The rate on a commission row never changes (old rates must not rewrite it),
+ * so only the BASIS is recomputed: each line keeps the units not returned, and
+ * the document discount shrinks in proportion to the goods that stayed. The
+ * result is keyed by group, and a group whose goods all came back is 0.
+ */
+export function netCommissionBases(input: {
+  lines: ReturnableCommissionLine[];
+  discountCents: number;
+}): Map<string, { categoryId: string | null; basisCents: number }> {
+  const gross = input.lines.reduce((sum, line) => sum + line.unitPriceCents * line.quantity, 0);
+  const net = input.lines.reduce(
+    (sum, line) => sum + line.unitPriceCents * (line.quantity - line.quantityReturned),
+    0,
+  );
+  const discountCents = gross === 0 ? 0 : mulDivRound(input.discountCents, net, gross);
+  return groupCommissionBases(
+    input.lines.map((line) => ({
+      id: line.id,
+      categoryId: line.categoryId,
+      basisCents: line.unitPriceCents * (line.quantity - line.quantityReturned),
+      bundle: line.bundle,
+    })),
+    Math.min(discountCents, net),
+  );
 }

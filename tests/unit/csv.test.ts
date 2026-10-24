@@ -30,4 +30,18 @@ describe('CSV exports', () => {
       ),
     ).toBe('\uFEFFvalue\r\n"\'=HYPERLINK(""https://example.com"")"\r\n');
   });
+
+  it('neutralises every formula trigger but leaves negative numbers alone', () => {
+    const cell = (value: string) =>
+      toCsv([{ value }], [{ label: 'v', value: (row) => row.value }]).split('\r\n')[1];
+    expect(cell('+1+1')).toBe("'+1+1");
+    expect(cell('@SUM(A1)')).toBe("'@SUM(A1)");
+    expect(cell('-2+3')).toBe("'-2+3");
+    expect(cell('-cmd|x')).toBe("'-cmd|x");
+    expect(cell('\tcmd')).toBe("'\tcmd");
+    // Ledger outflows and refunds are negative numbers; they must stay numeric.
+    expect(cell('-1250')).toBe('-1250');
+    expect(cell('-3.5')).toBe('-3.5');
+    expect(cell('-1,250.00')).toBe('"-1,250.00"');
+  });
 });

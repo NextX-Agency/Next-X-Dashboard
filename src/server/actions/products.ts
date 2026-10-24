@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { consumeStock } from '@/lib/costing';
 import { mulDivRound } from '@/lib/money';
 import { productSchema, uuid } from '@/lib/schemas';
+import { adjustmentProblem } from '@/lib/stock-rules';
 import { db } from '../db/client';
 import {
   inventoryMovements,
@@ -79,6 +80,37 @@ async function assertSkusAvailable(
       `SKU ${taken.sku} is already used by ${taken.product}. Use a different SKU.`,
     );
   }
+}
+
+/**
+ * True when anything still points at one of these variants through a RESTRICT foreign key: stock
+ * movements, sale and purchase lines, bundle components, reservations, reorder history and the
+ * migration archives. Such a variant is history and can only be deactivated; deleting it would
+ * fail with a raw constraint error (or, worse, succeed and orphan a record elsewhere).
+ */
+async function variantsHaveReferences(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  variantIds: string[],
+): Promise<boolean> {
+  if (variantIds.length === 0) return false;
+  const ids = sql.join(
+    variantIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+  const [row] = await tx.execute<{ used: string }>(sql`
+    SELECT (
+      EXISTS (SELECT 1 FROM inventory_movements WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM sale_items WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM sale_item_components WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM purchase_order_items WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM bundle_components WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM inventory_reservations WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM reorder_recommendations WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM legacy_stock_transfer_archive WHERE variant_id IN (${ids}))
+      OR EXISTS (SELECT 1 FROM legacy_reservation_archive WHERE variant_id IN (${ids}))
+    )::text AS used
+  `);
+  return row?.used === 'true';
 }
 
 /** Publishing is a public promise, so enforce the minimum page quality at the
@@ -349,15 +381,7 @@ export const updateProduct = writeAction
         );
 
       for (const variant of dropped) {
-        const [used] = await tx.execute<{ used: string }>(sql`
-          SELECT (
-            EXISTS (SELECT 1 FROM inventory_movements WHERE variant_id = ${variant.id})
-            OR EXISTS (SELECT 1 FROM sale_items WHERE variant_id = ${variant.id})
-            OR EXISTS (SELECT 1 FROM purchase_order_items WHERE variant_id = ${variant.id})
-          )::text AS used
-        `);
-
-        if (used?.used === 'true') {
+        if (await variantsHaveReferences(tx, [variant.id])) {
           await tx
             .update(productVariants)
             .set({ isActive: false })
@@ -417,15 +441,21 @@ export const setProductStatus = writeAction
         await assertCatalogPublishable(tx, input.id, input.status ?? product.status);
       }
 
+      // An archived or draft product must not stay marked as published: re-activating it later
+      // would otherwise put it straight back on the shop without a fresh publish check.
+      const leavingActive = input.status !== undefined && input.status !== 'active';
+      const publishedChange =
+        leavingActive && input.catalogPublished === undefined ? false : input.catalogPublished;
+
       await tx
         .update(products)
         .set({
           ...(input.status ? { status: input.status } : {}),
-          ...(input.catalogPublished === undefined
+          ...(publishedChange === undefined
             ? {}
             : {
-                catalogPublished: input.catalogPublished,
-                catalogPublishedAt: input.catalogPublished
+                catalogPublished: publishedChange,
+                catalogPublishedAt: publishedChange
                   ? (product.catalogPublishedAt ?? new Date())
                   : null,
               }),
@@ -487,6 +517,14 @@ export const adjustStock = writeAction
       // races a concurrent sale reading the same average, and both write a cost
       // based on stock only one of them can have.
       const valuation = await lockValuation(tx, input.variantId);
+
+      // Judged against the locked figure, not whatever the browser last showed.
+      const problem = adjustmentProblem({
+        kind: input.kind,
+        quantity: input.quantity,
+        onHand: valuation.quantity,
+      });
+      if (problem) throw new ActionError(problem);
 
       // Value the adjustment at the current weighted average, so a correction
       // does not silently change what the remaining stock is worth per unit.
@@ -578,7 +616,9 @@ export const deleteProduct = ownerAction
           .where(eq(quoteRequests.productId, input.id))
           .limit(1);
 
-        if (movement || sold || ordered || quoted) {
+        const referenced = await variantsHaveReferences(tx, ids);
+
+        if (movement || sold || ordered || quoted || referenced) {
           throw new ActionError(
             'This product has stock or trading history. Archive it instead of deleting it.',
           );

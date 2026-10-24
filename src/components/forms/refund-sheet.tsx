@@ -71,7 +71,16 @@ export function RefundSheet({
 
   return (
     <>
-      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => {
+          // Re-read the refundable balance every time: after a partial refund
+          // the sheet used to open with the amount from the previous visit.
+          setAmount(toDecimalString(refundableCents, currency));
+          setOpen(true);
+        }}
+      >
         <Banknote className="size-3.5" /> Refund payment
       </Button>
       <Sheet
@@ -99,6 +108,7 @@ export function RefundSheet({
           id={formId}
           onSubmit={(event) => {
             event.preventDefault();
+            if (action.isPending) return;
             if (parsed <= 0 || parsed > refundableCents) {
               toast.error(
                 `Enter an amount between 0.01 and ${formatMoney(refundableCents, currency)}`,

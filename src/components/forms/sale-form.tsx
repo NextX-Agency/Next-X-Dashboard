@@ -1,9 +1,9 @@
 'use client';
 
-import { AlertTriangle, Package, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, CircleAlert, Package, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
@@ -11,12 +11,20 @@ import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field'
 import { Money, Percent } from '@/components/ui/money';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
+import { businessDateInput } from '@/lib/business-date';
 import { cn } from '@/lib/cn';
+import { describeIssues } from '@/lib/form-issues';
 import { fromBase, type RateMicros, toBase } from '@/lib/fx';
 import { formatMoney, mulDivRound, parseMoney, toDecimalString } from '@/lib/money';
+import { saleSchema } from '@/lib/schemas';
 import { createCustomer } from '@/server/actions/reference';
 import { createSale, updateSale } from '@/server/actions/sales';
-import type { BundleOption, Option, SaleVariantOption } from '@/server/queries/pickers';
+import type {
+  BundleOption,
+  Option,
+  SaleVariantOption,
+  WalletChoice,
+} from '@/server/queries/pickers';
 import { LineProduct } from './line-product';
 import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
@@ -57,7 +65,7 @@ const parseSerials = (value: string): string[] =>
     .map((serial) => serial.trim())
     .filter(Boolean);
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 export type SaleFormValues = {
   id: string;
@@ -84,6 +92,7 @@ export function SaleForm({
   sellers,
   rateMicros,
   bundles = [],
+  wallets = [],
   initial,
 }: {
   variants: SaleVariantOption[];
@@ -91,6 +100,8 @@ export function SaleForm({
   sellers: (Option & { active: boolean })[];
   rateMicros: RateMicros;
   bundles?: BundleOption[];
+  /** Active wallets, so the cashier can say where the money landed. */
+  wallets?: WalletChoice[];
   /** Omit for a blank form. Editing is only ever offered for a draft — see
    *  updateSale, which refuses anything else. */
   initial?: SaleFormValues;
@@ -100,9 +111,31 @@ export function SaleForm({
 
   const [customerId, setCustomerId] = useState<string | null>(initial?.customerId ?? null);
   const [customerList, setCustomerList] = useState(customers);
-  const [sellerId, setSellerId] = useState<string | null>(
-    initial?.sellerId ?? sellers.find((seller) => seller.active)?.id ?? null,
-  );
+  // A seller earns commission, so the form never picks one on a guess. With a
+  // single active seller there is nothing to choose; otherwise it starts from
+  // whoever was chosen last on this device, and the cashier confirms.
+  const activeSellers = sellers.filter((seller) => seller.active);
+  const [sellerId, setSellerId] = useState<string | null>(() => {
+    if (initial) return initial.sellerId;
+    return activeSellers.length === 1 ? (activeSellers[0]?.id ?? null) : null;
+  });
+  // Restored after hydration: reading storage during the first render would
+  // make the server and client HTML disagree.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restore once on mount.
+  useEffect(() => {
+    if (initial || activeSellers.length < 2) return;
+    try {
+      const remembered = window.localStorage.getItem('nextx.lastSeller');
+      if (activeSellers.some((seller) => seller.id === remembered)) setSellerId(remembered);
+    } catch {
+      // Blocked storage: nothing to restore.
+    }
+  }, []);
+  const [walletId, setWalletId] = useState('');
+  /** One key per form instance: a double click or a retry cannot book twice. */
+  const idempotencyKey = useRef(crypto.randomUUID());
+  const [issues, setIssues] = useState<string[]>([]);
+  const [leaving, setLeaving] = useState<Set<string>>(() => new Set());
   const [soldAt, setSoldAt] = useState(initial?.soldAt ?? today());
   const [currency, setCurrency] = useState<'USD' | 'SRD'>(initial?.currency ?? 'USD');
   const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod ?? 'cash');
@@ -156,6 +189,63 @@ export function SaleForm({
     }
     return map;
   }, [lines]);
+
+  /** The list price of a line in a given currency, as the input shows it. */
+  function listPriceFor(line: Line, inCurrency: 'USD' | 'SRD'): string | null {
+    const cents = line.bundleId
+      ? bundleById.get(line.bundleId)?.priceCents
+      : line.variantId
+        ? byId.get(line.variantId)?.listPriceCents
+        : undefined;
+    if (cents === undefined) return null;
+    return toDecimalString(inCurrency === 'SRD' ? fromBase(cents, rateMicros) : cents);
+  }
+
+  /**
+   * Switching currency re-prices every line still at its list price. Without
+   * this a USD price of 77.92 became SRD 77.92 (about US$2) and the sale
+   * recorded at a loss. A price the cashier typed by hand is left alone; the
+   * below-cost warning covers that case.
+   */
+  function changeCurrency(next: 'USD' | 'SRD') {
+    if (next === currency) return;
+    setLines((current) =>
+      current.map((line) =>
+        listPriceFor(line, currency) === line.unitPrice
+          ? { ...line, unitPrice: listPriceFor(line, next) ?? line.unitPrice }
+          : line,
+      ),
+    );
+    setCurrency(next);
+    setWalletId('');
+  }
+
+  function chooseSeller(next: string | null) {
+    setSellerId(next);
+    try {
+      if (next) window.localStorage.setItem('nextx.lastSeller', next);
+    } catch {
+      // Private mode or blocked storage: the preference simply is not remembered.
+    }
+  }
+
+  /** Fade the row out, then drop it. Reduced-motion users get an instant removal. */
+  function removeLine(key: string) {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setLines((current) => current.filter((candidate) => candidate.key !== key));
+      return;
+    }
+    setLeaving((current) => new Set(current).add(key));
+    window.setTimeout(() => {
+      setLines((current) => current.filter((candidate) => candidate.key !== key));
+      setLeaving((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }, 160);
+  }
 
   /** Apply one choice from the product browser. Prices default to the list price in the sale's
    *  currency, exactly as the old dropdown did; nothing about costing or posting changes here. */
@@ -308,6 +398,7 @@ export function SaleForm({
 
     const revenue = gross - discountUsd;
     return {
+      belowCost: cogs > 0 && revenue < cogs,
       gross,
       revenue,
       discount: discountUsd,
@@ -323,6 +414,7 @@ export function SaleForm({
    *  USD revenue below — the ledger receives the native amount and converts it
    *  at the rate frozen on the sale. */
   const nativeTotal = useMemo(() => {
+    // (see the note above: the payable amount in the sale's own currency)
     let grossNative = 0;
     for (const line of lines) {
       if (!line.variantId) continue;
@@ -362,7 +454,11 @@ export function SaleForm({
     onSuccess({ data, input }) {
       // A draft has booked nothing: no cost of goods, no stock movement, no receipt.
       // Reporting its "gross profit" would show the whole price as profit.
-      if (input.confirm) {
+      if (data?.reused) {
+        toast.info(`Sale ${data.number} was already recorded`, {
+          description: 'That submit was a repeat, so nothing was booked twice.',
+        });
+      } else if (input.confirm) {
         toast.success(`Sale ${data?.number} recorded`, {
           description: data
             ? `${formatMoney(data.totalUsdCents)} revenue · ${formatMoney(
@@ -380,7 +476,9 @@ export function SaleForm({
     },
     onError({ error }) {
       toast.error(error.serverError ?? 'Could not record the sale', {
-        description: error.validationErrors ? 'Check the highlighted fields.' : undefined,
+        description: error.validationErrors
+          ? 'Check the problems listed on the page.'
+          : undefined,
       });
     },
   });
@@ -392,7 +490,9 @@ export function SaleForm({
     },
     onError({ error }) {
       toast.error(error.serverError ?? 'Could not update the sale', {
-        description: error.validationErrors ? 'Check the highlighted fields.' : undefined,
+        description: error.validationErrors
+          ? 'Check the problems listed on the page.'
+          : undefined,
       });
     },
   });
@@ -414,6 +514,7 @@ export function SaleForm({
   });
 
   function submit(confirm: boolean) {
+    if (isPending) return;
     const items = lines
       .filter((line) => line.variantId)
       .map((line) => ({
@@ -429,11 +530,7 @@ export function SaleForm({
       return;
     }
 
-    // `execute` is a union of the create and update action's own function
-    // types — the branch above already guarantees the right shape reaches
-    // the right action.
-    execute({
-      ...(isEdit ? { id: initial?.id as string } : {}),
+    const payload = {
       customerId,
       sellerId,
       soldAt,
@@ -442,10 +539,35 @@ export function SaleForm({
       notes: notes || undefined,
       discountCents: discount || '0',
       discountReason: discountReason || undefined,
+      walletId: walletId || null,
       confirm,
       paidInFull: !confirm || paidInFull,
-      paidNowCents: String(confirm && !paidInFull ? depositCents : 0),
+      // The deposit field holds a decimal string; send it as typed so the
+      // schema parses it exactly once.
+      paidNowCents: confirm && !paidInFull ? toDecimalString(depositCents) : '0',
       items,
+    };
+
+    // The same schema the server runs, before anything is sent: problems are
+    // listed on the page in words instead of a toast pointing at nothing.
+    const check = saleSchema.safeParse(payload);
+    if (!check.success) {
+      const messages = describeIssues(check.error.issues);
+      setIssues(messages);
+      toast.error('Fix the problems listed above the Record button', {
+        description: messages[0],
+      });
+      return;
+    }
+    setIssues([]);
+
+    // `execute` is a union of the create and update action's own function
+    // types — the branch above already guarantees the right shape reaches
+    // the right action.
+    execute({
+      ...(isEdit ? { id: initial?.id as string } : {}),
+      ...payload,
+      ...(isEdit ? {} : { idempotencyKey: idempotencyKey.current }),
     } as never);
   }
 
@@ -455,7 +577,25 @@ export function SaleForm({
         event.preventDefault();
         submit(true);
       }}
-      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
+      onKeyDown={(event) => {
+        // Enter inside a field used to submit the whole form: typing a quantity
+        // and pressing Enter booked the sale, moved stock and posted cash.
+        // Enter now moves to the next field; Ctrl or Cmd + Enter records.
+        if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement)) return;
+        if (event.target.type === 'checkbox' || event.target.type === 'radio') return;
+        event.preventDefault();
+        if (event.ctrlKey || event.metaKey) {
+          submit(true);
+          return;
+        }
+        const fields = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
+          ),
+        );
+        fields[fields.indexOf(event.target) + 1]?.focus();
+      }}
+      className="grid grid-cols-1 gap-4 pb-24 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:pb-0"
     >
       {/* On a phone the products come first: the sale details are usually left as they are. */}
       <div className="flex flex-col gap-4">
@@ -486,7 +626,7 @@ export function SaleForm({
                   id="seller"
                   options={sellerOptions}
                   value={sellerId}
-                  onChange={setSellerId}
+                  onChange={chooseSeller}
                   placeholder="Select a seller"
                   searchPlaceholder="Search sellers"
                   emptyLabel="No sellers match."
@@ -531,7 +671,7 @@ export function SaleForm({
               <Select
                 id="currency"
                 value={currency}
-                onChange={(event) => setCurrency(event.target.value as 'USD' | 'SRD')}
+                onChange={(event) => changeCurrency(event.target.value as 'USD' | 'SRD')}
               >
                 <option value="USD">USD — US Dollar</option>
                 <option value="SRD">SRD — Surinamese Dollar</option>
@@ -577,13 +717,18 @@ export function SaleForm({
               return (
                 <div
                   key={line.key}
-                  className="grid gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]"
+                  className={cn(
+                    'grid grid-cols-2 gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]',
+                    'motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:animate-in motion-safe:duration-200',
+                    leaving.has(line.key) &&
+                      'motion-safe:fade-out-0 motion-safe:animate-out motion-safe:duration-150 motion-safe:fill-mode-forwards',
+                  )}
                 >
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
 
-                  <div className="min-w-0">
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
                     {index === 0 ? (
                       <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
                         Product
@@ -639,28 +784,33 @@ export function SaleForm({
                     />
                   </Field>
 
-                  <div className={index === 0 ? 'pt-0.5' : ''}>
-                    <span className="hidden self-center tabular text-right text-[13px] text-ink-2 sm:block">
-                      {line.variantId && lineTotal > 0 ? toDecimalString(lineTotal) : '—'}
-                    </span>
-                  </div>
-
                   <div
-                    className={cn('flex', index === 0 ? 'items-end pb-0.5' : 'items-center')}
+                    className={cn(
+                      'col-span-2 flex items-center justify-between sm:col-span-1 sm:contents',
+                    )}
                   >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove line"
-                      onClick={() =>
-                        setLines((current) =>
-                          current.filter((candidate) => candidate.key !== line.key),
-                        )
-                      }
+                    <div className={index === 0 ? 'sm:pt-0.5' : ''}>
+                      <span className="tabular text-right text-[13px] text-ink-2 sm:block">
+                        <span className="text-ink-4 sm:hidden">Line total </span>
+                        {line.variantId && lineTotal > 0
+                          ? toDecimalString(lineTotal, currency)
+                          : '—'}
+                      </span>
+                    </div>
+
+                    <div
+                      className={cn('flex', index === 0 ? 'items-end pb-0.5' : 'items-center')}
                     >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove line ${index + 1}`}
+                        onClick={() => removeLine(line.key)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {line.variantId ? (
@@ -668,7 +818,7 @@ export function SaleForm({
                       label="Serial numbers"
                       htmlFor={`serials-${index}`}
                       hint={`Optional — one per line, up to ${quantity || 1} for this line`}
-                      className="sm:col-span-6"
+                      className="col-span-2 sm:col-span-6"
                     >
                       <Textarea
                         id={`serials-${index}`}
@@ -690,7 +840,7 @@ export function SaleForm({
                   ) : null}
 
                   {oversold ? (
-                    <p className="flex items-center gap-1.5 text-[11px] text-warning sm:col-span-6">
+                    <p className="col-span-2 flex items-center gap-1.5 text-[11px] text-warning sm:col-span-6">
                       <AlertTriangle className="size-3" />
                       {bundle
                         ? `Only ${bundle.availability} complete bundle${bundle.availability === 1 ? '' : 's'} available. The sale will still record, and component shortfalls will be flagged.`
@@ -766,6 +916,14 @@ export function SaleForm({
       <Surface className="xl:sticky xl:top-20">
         <SurfaceHeader title="Margin" hint="Recomputed as you type" />
         <dl className="space-y-2 p-4">
+          {currency === 'SRD' ? (
+            <div className="flex items-baseline justify-between gap-3 rounded-control bg-inset px-2.5 py-2">
+              <dt className="font-medium text-[13px] text-ink">Customer pays</dt>
+              <dd className="tabular font-medium text-[15px] text-ink">
+                {formatMoney(nativeTotal, 'SRD')}
+              </dd>
+            </div>
+          ) : null}
           <Row label="Units" value={String(totals.units)} />
           <Row label="Subtotal" value={formatMoney(totals.gross)} />
           {totals.discount > 0 ? (
@@ -796,6 +954,24 @@ export function SaleForm({
               Charged in SRD at {(rateMicros / 1_000_000).toFixed(2)}. The books record{' '}
               {formatMoney(totals.revenue)}.
             </p>
+          ) : null}
+
+          {totals.belowCost ? (
+            <div
+              role="alert"
+              className="flex items-start gap-1.5 rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[11px] text-negative"
+            >
+              <CircleAlert className="mt-0.5 size-3 shrink-0" />
+              <span>
+                This sale is below cost: you would lose {formatMoney(Math.abs(totals.profit))}.
+                Check the prices and the discount.
+              </span>
+            </div>
+          ) : totals.revenue > 0 && totals.cogs > 0 && totals.profit / totals.revenue < 0.1 ? (
+            <div className="flex items-start gap-1.5 rounded-control border border-warning/40 bg-warning-muted p-2.5 text-[11px] text-warning">
+              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+              <span>Margin is under 10%. Is the discount intended?</span>
+            </div>
           ) : null}
 
           {totals.shortfalls.length > 0 ? (
@@ -867,6 +1043,36 @@ export function SaleForm({
                 </span>
               </label>
             </div>
+            {wallets.some((wallet) => wallet.currency === currency) ? (
+              <div className="mt-2">
+                <Field
+                  label="Money lands in"
+                  htmlFor="sale-wallet"
+                  hint="Empty picks the wallet matching the payment method"
+                >
+                  <Select
+                    id="sale-wallet"
+                    value={walletId}
+                    onChange={(event) => {
+                      setWalletId(event.target.value);
+                      // The method follows the wallet: a transfer into the bank
+                      // wallet is a bank transfer.
+                      const chosen = wallets.find((wallet) => wallet.id === event.target.value);
+                      if (chosen) setPaymentMethod(chosen.kind);
+                    }}
+                  >
+                    <option value="">Automatic</option>
+                    {wallets
+                      .filter((wallet) => wallet.currency === currency)
+                      .map((wallet) => (
+                        <option key={wallet.id} value={wallet.id}>
+                          {wallet.name}
+                        </option>
+                      ))}
+                  </Select>
+                </Field>
+              </div>
+            ) : null}
             {!paidInFull ? (
               <div className="mt-2">
                 <Field
@@ -889,6 +1095,19 @@ export function SaleForm({
         </div>
 
         <div className="flex flex-col gap-2 border-line-subtle border-t p-4">
+          {issues.length > 0 ? (
+            <div
+              role="alert"
+              className="rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative"
+            >
+              <p className="font-medium">Fix these first</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {issues.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <SubmitButton pending={isPending} size="lg" className="w-full">
             {isEdit ? 'Save and confirm' : 'Record sale'}
           </SubmitButton>

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { ExpenseReceipt } from '@/components/forms/expense-receipt';
 import { ExpenseSheet } from '@/components/forms/expense-sheet';
@@ -178,7 +178,10 @@ export function SaleActions({
   const voidAction = useAction(voidSale, {
     onSuccess({ data }) {
       toast.success(`${data?.number} voided`, {
-        description: 'Its stock and cash postings have been removed.',
+        description:
+          data && data.paidCommissionCents > 0
+            ? 'Stock and cash postings removed. Its commission was already paid out — review it under Commissions.'
+            : 'Its stock and cash postings have been removed and any unpaid commission cancelled.',
       });
       setVoiding(false);
       router.refresh();
@@ -390,6 +393,12 @@ export function RecordPaymentSheet({
   const [amount, setAmount] = useState(toDecimalString(balanceCents, currency));
   const [method, setMethod] = useState('cash');
   const [receivedAt, setReceivedAt] = useState('');
+
+  // The balance changes after every payment; a sheet that stays mounted must
+  // not open on the previous visit's amount.
+  useEffect(() => {
+    if (open) setAmount(toDecimalString(balanceCents, currency));
+  }, [open, balanceCents, currency]);
   const [notes, setNotes] = useState('');
   const [idempotencyKey, setIdempotencyKey] = useState<string>();
   const formId = useId();
@@ -449,6 +458,7 @@ export function RecordPaymentSheet({
         id={formId}
         onSubmit={(event) => {
           event.preventDefault();
+          if (payAction.isPending) return;
           const key = idempotencyKey ?? crypto.randomUUID();
           setIdempotencyKey(key);
           payAction.execute({

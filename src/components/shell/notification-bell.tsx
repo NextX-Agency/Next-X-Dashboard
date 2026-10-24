@@ -37,9 +37,9 @@ export function NotificationBell({
         <button
           type="button"
           aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
-          className="relative grid size-8 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          className="relative grid size-11 place-items-center sm:size-8 rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         >
-          <Bell className="size-4" />
+          <Bell aria-hidden="true" className="size-4" />
           {unreadCount > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-semibold text-accent-fg">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -54,7 +54,7 @@ export function NotificationBell({
           {unreadCount > 0 ? (
             <button
               type="button"
-              className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
+              className="inline-flex min-h-11 items-center gap-1 text-[11px] text-accent hover:underline sm:min-h-0"
               onClick={() => markAll.execute({})}
             >
               <CheckCheck className="size-3.5" /> Mark all read

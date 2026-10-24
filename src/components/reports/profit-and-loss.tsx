@@ -1,3 +1,5 @@
+import type { Route } from 'next';
+import Link from 'next/link';
 import { Money, Percent } from '@/components/ui/money';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { cn } from '@/lib/cn';
@@ -25,9 +27,19 @@ export async function ProfitAndLossReport({ preset }: { preset: PeriodPreset }) 
     return (
       <Surface>
         <SurfaceHeader title="Profit and loss" hint={`${rangeLabel}`} />
-        <p className="px-4 py-10 text-center text-[13px] text-ink-4">
-          No confirmed sales or expenses in this period.
-        </p>
+        <div className="px-4 py-10 text-center">
+          <p className="text-[13px] text-ink-4">
+            No confirmed sales or expenses in this period.
+          </p>
+          {preset !== 'all' ? (
+            <Link
+              href={'?period=all' as Route}
+              className="mt-2 inline-flex min-h-11 items-center text-[13px] text-accent underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring lg:min-h-8"
+            >
+              Show all time
+            </Link>
+          ) : null}
+        </div>
       </Surface>
     );
   }

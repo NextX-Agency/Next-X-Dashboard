@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import {
+  CART_QUOTE_GLOBAL,
+  CART_QUOTE_PER_CLIENT,
+  checkPublicRateLimit,
+} from '@/server/public-rate-limit';
 import { getPublicStoreCartQuote } from '@/server/queries/catalog';
 import { getRequestStorefront } from '@/server/services/storefront';
 
@@ -21,6 +26,25 @@ const quoteRequestSchema = z
   .refine(({ items }) => new Set(items.map((item) => item.variantId)).size === items.length);
 
 export async function POST(request: Request) {
+  // Public and unauthenticated, and it reads the database: bound how often one client can ask.
+  const limit = await checkPublicRateLimit(
+    'cart-quote',
+    CART_QUOTE_PER_CLIENT,
+    CART_QUOTE_GLOBAL,
+  );
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many cart updates. Please wait a moment.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limit.retryAfterSeconds),
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

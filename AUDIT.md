@@ -3,6 +3,27 @@
 **Audited** 2 September 2026 · **Branch** `main` @ `cba07ea` · **Stack** Next 16.3 · React 19.2 · Drizzle · Supabase
 **Findings** 24 defects · 16 proposed features · 12 blocking
 
+> **Re-verified against the code on 2026-10-24.** This September audit is historical. Status of its
+> dashboard findings today (checked by reading the current code, not by trusting this document):
+>
+> | Finding | Today |
+> |---|---|
+> | P0-3 drift alert measures only the net | Fixed: `unposted_sales` / `unposted_orders` counts exist in `queries/alerts.ts` |
+> | P0-4 future-dated sale / "All time" cap | Partly: the sale form now rejects a future date server-side (`schemas.ts`); `all` is still bounded at tomorrow by design |
+> | P0-6 reports default to an empty period | Fixed, and improved: default is "This month" once it has activity, else "All time" (`getDefaultPeriod`) |
+> | P0-7 Owners page has no write action | Fixed (`OwnerActions`) |
+> | **P0-8 invitations can never be accepted** | **Confirmed true on 2026-10-24** (wrong link target, no set-password page, no reset flow, no SMTP). Fixed in code in this release; production still needs SMTP |
+> | P0-9 multi-line sale entry hidden | Fixed (`Add another product`) |
+> | P0-11 publishing buried | Fixed (row action `setProductStatus`) |
+> | P0-12 dark by default | Fixed (`defaultTheme="system"`) |
+> | P1-4 hard-coded admin address on sign-in | Fixed |
+> | P1-8 touch targets / contrast | Touch targets fixed below `sm` in this release; contrast computed: all text tokens meet 4.5:1 except faint text on the sunken surface in light mode (4.45:1) |
+> | P2-1 command palette searches data | Partly: serial numbers only; sales, customers and products are not searched |
+> | P2-3 activity page | Fixed (`/activity`) |
+> | §08 password reset absent | Fixed in code in this release |
+> | §08 leaked-password protection | Not available as a Supabase Cloud toggle any more; self-hosted needs `GOTRUE_PASSWORD_HIBP_ENABLED` (not passed by the Compose file) |
+> | §08 error monitoring, backups, rate limiting | See [go-live-checklist](docs/05-operations/go-live-checklist.md): backups and monitoring are still missing; public forms are now rate limited |
+
 ---
 
 ## Verdict

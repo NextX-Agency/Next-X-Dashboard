@@ -10,6 +10,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import {
   EXPENSE_CLASSIFICATION_LABELS,
   EXPENSE_CLASSIFICATIONS,
@@ -19,7 +20,7 @@ import { useUrlSheet } from '@/lib/use-url-sheet';
 import { createExpense, updateExpense } from '@/server/actions/finance';
 import type { Option } from '@/server/queries/pickers';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 export type ExpenseValues = {
   id: string;

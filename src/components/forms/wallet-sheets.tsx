@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import {
   createWallet,
   transferBetweenWallets,
@@ -121,7 +122,7 @@ export function WalletTransferSheet({ wallets }: { wallets: WalletRow[] }) {
   );
   const [destinationWalletId, setDestinationWalletId] = useState('');
   const [amountCents, setAmountCents] = useState('');
-  const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 10));
+  const [occurredAt, setOccurredAt] = useState(businessDateInput());
   const [note, setNote] = useState('');
   const [idempotencyKey, setIdempotencyKey] = useState<string>();
   const formId = useId();

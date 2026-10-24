@@ -6,6 +6,7 @@ import { InvoicePaper } from '@/components/invoice/invoice-paper';
 import { formatMoney } from '@/lib/money';
 import { requireMember } from '@/server/auth';
 import { getSale } from '@/server/queries/documents';
+import { getInvoiceLinkState } from '@/server/queries/invoices';
 import { getAdminSettings } from '@/server/queries/reference';
 
 /** Authenticated print view for the owner/staff workspace. */
@@ -15,7 +16,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   await connection();
   await requireMember();
   const { id } = await params;
-  const [sale, settings] = await Promise.all([getSale(id), getAdminSettings()]);
+  const [sale, settings, linkState] = await Promise.all([
+    getSale(id),
+    getAdminSettings(),
+    getInvoiceLinkState(id),
+  ]);
   if (!sale) notFound();
 
   return (
@@ -25,6 +30,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         number={sale.number}
         whatsapp={settings?.whatsapp ?? null}
         totalText={`${formatMoney(sale.totalCents, sale.currency)} ${sale.currency}`}
+        canShare={sale.status === 'confirmed'}
+        linkActive={linkState.active}
+        linkExpiresAt={linkState.expiresAt}
       />
       <InvoicePaper sale={sale} settings={settings} />
     </main>

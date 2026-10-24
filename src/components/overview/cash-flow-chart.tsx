@@ -42,7 +42,7 @@ export function CashFlowChart({ data }: { data: CashFlowPoint[] }) {
   }));
 
   return (
-    <div className="h-[220px] w-full px-1 pt-1">
+    <div className="h-[220px] w-full px-1 pt-1 motion-safe:fade-in-0 motion-safe:animate-in motion-safe:duration-300">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
           <CartesianGrid vertical={false} stroke="var(--nx-chart-grid)" strokeDasharray="2 4" />

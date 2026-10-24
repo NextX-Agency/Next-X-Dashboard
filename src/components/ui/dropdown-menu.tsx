@@ -37,7 +37,7 @@ export function Menu({
           <button
             type="button"
             aria-label="Actions"
-            className="grid size-7 place-items-center rounded-control text-ink-4 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            className="grid size-11 place-items-center rounded-control text-ink-4 sm:size-7 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
             <MoreHorizontal className="size-4" />
           </button>
@@ -49,8 +49,9 @@ export function Menu({
           sideOffset={4}
           className={cn(
             'z-50 min-w-[176px] overflow-hidden rounded-card border border-line bg-overlay p-1 shadow-overlay',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out',
-            'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-150',
+            'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out',
+            'motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0',
+            'motion-safe:data-[state=open]:zoom-in-98 motion-safe:duration-150',
             contentClassName,
           )}
         >
@@ -65,11 +66,13 @@ export function Item({
   onSelect,
   danger,
   asChild,
+  className,
   children,
 }: {
   onSelect?: () => void;
   danger?: boolean;
   asChild?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   return (
@@ -77,10 +80,11 @@ export function Item({
       onSelect={onSelect}
       asChild={asChild}
       className={cn(
-        'flex h-8 cursor-pointer items-center gap-2 rounded-control px-2.5 text-[13px] outline-none',
+        'flex h-11 cursor-pointer items-center gap-2 rounded-control px-2.5 text-[13px] outline-none sm:h-8',
         danger
           ? 'text-negative data-[highlighted]:bg-negative-muted'
           : 'text-ink-2 data-[highlighted]:bg-hover data-[highlighted]:text-ink',
+        className,
       )}
     >
       {children}

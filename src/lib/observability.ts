@@ -1,3 +1,5 @@
+import { loggableError } from './db-errors';
+
 /** Header used to correlate a browser request with server-side logs. */
 export const REQUEST_ID_HEADER = 'x-nextly-request-id';
 
@@ -10,11 +12,10 @@ export function withRequestId<T extends Response>(response: T, requestId: string
   return response;
 }
 
-/** Log only safe error metadata; never serialize request headers or secrets. */
+/**
+ * Log only safe error metadata; never serialize request headers, secrets, SQL parameters or
+ * database error details (which carry customer data). See `loggableError`.
+ */
 export function logServerError(scope: string, requestId: string, error: unknown): void {
-  const detail =
-    error instanceof Error
-      ? { name: error.name, message: error.message }
-      : { message: String(error) };
-  console.error(JSON.stringify({ scope, requestId, ...detail }));
+  console.error(JSON.stringify({ scope, requestId, ...loggableError(error) }));
 }

@@ -10,13 +10,14 @@ import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field'
 import { Money } from '@/components/ui/money';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { businessDateInput } from '@/lib/business-date';
 import {
   createFinanceObligation,
   recordFinanceObligationPayment,
 } from '@/server/actions/finance-core';
 import type { FinanceObligationRow, WalletRow } from '@/server/queries/finance';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => businessDateInput();
 
 export function FinanceObligationSheet() {
   const [open, setOpen] = useState(false);

@@ -10,6 +10,7 @@ import { formatMoney } from '@/lib/money';
 import { balanceCentsOf, paymentStatusOf } from '@/lib/payment-status';
 import {
   moneyInput,
+  optionalUuid,
   quantity,
   salePaymentSchema,
   saleRefundSchema,
@@ -20,7 +21,9 @@ import { db } from '../db/client';
 import {
   bundleComponents,
   bundles,
+  inventoryReservations,
   ledgerEntries,
+  orderFulfillments,
   products,
   productVariants,
   saleItemComponents,
@@ -29,8 +32,13 @@ import {
   salePayments,
   saleRefunds,
   sales,
+  wallets,
 } from '../db/schema';
-import { createSaleCommissions } from '../services/commissions';
+import {
+  cancelOpenCommissionsForSale,
+  createSaleCommissions,
+  netOpenCommissionsForReturns,
+} from '../services/commissions';
 import {
   clearDocumentPostings,
   consumeStockFor,
@@ -45,6 +53,7 @@ import {
   type Tx,
 } from '../services/posting';
 import { rateForRecord, rateOn } from '../services/rates';
+import { heldOnSale, lockSale, paidOnSale, refundedOnSale } from '../services/sale-money';
 import { ActionError, writeAction } from './client';
 
 /**
@@ -108,6 +117,17 @@ async function insertPayment(
   const walletId =
     input.walletId ??
     (await defaultWalletFor(tx, { currency: input.currency, method: input.method }));
+  // How the customer paid follows where the money landed: a transfer into the
+  // bank wallet is a bank transfer, whatever the sale form's method said.
+  let method = input.method;
+  if (input.walletId) {
+    const [chosen] = await tx
+      .select({ kind: wallets.kind })
+      .from(wallets)
+      .where(eq(wallets.id, input.walletId))
+      .limit(1);
+    if (chosen) method = chosen.kind as PaymentMethodName;
+  }
 
   const [payment] = await tx
     .insert(salePayments)
@@ -116,7 +136,7 @@ async function insertPayment(
       amountCents: input.amountCents,
       currency: input.currency,
       fxRateMicros: input.rateMicros,
-      method: input.method,
+      method,
       walletId,
       receivedAt: input.receivedAt,
       notes: input.notes ?? null,
@@ -135,7 +155,7 @@ async function insertPayment(
     currency: input.currency,
     rateMicros: input.rateMicros,
     amountCents: input.amountCents,
-    paymentMethod: input.method,
+    paymentMethod: method,
     occurredAt: input.receivedAt,
     memberId: input.memberId,
     sourceKind: 'sale',
@@ -149,45 +169,41 @@ async function insertPayment(
   return { id: payment.id, amountCents: input.amountCents, reused: false };
 }
 
-/** What has been paid on a sale so far, in the currency of the sale. */
-async function paidOnSale(tx: Tx, saleId: string): Promise<Cents> {
-  const [row] = await tx.execute<{ paid: string }>(
-    sql`SELECT (
-      COALESCE((SELECT SUM(amount_cents) FROM sale_payments
-                 WHERE sale_id = ${saleId} AND status = 'confirmed'), 0)
-      + COALESCE((
-          SELECT SUM(CASE WHEN direction = 'in' THEN amount_cents ELSE -amount_cents END)
-            FROM ledger_entries
-           WHERE source_kind = 'sale'
-             AND source_id = ${saleId}
-             AND category = 'sales_receipt'
-        ), 0)
-    )::text AS paid`,
-  );
-  return Number(row?.paid ?? 0);
+/** An order (stock reserved, fulfilled later) has its own workflow. Running it
+ *  through the direct-sale actions would move stock without its reservations. */
+async function assertNotFulfillmentOrder(tx: Tx, saleId: string): Promise<void> {
+  const [fulfillment] = await tx
+    .select({ id: orderFulfillments.id })
+    .from(orderFulfillments)
+    .where(eq(orderFulfillments.orderId, saleId))
+    .limit(1);
+  if (fulfillment) {
+    throw new ActionError(
+      'This record is an order with a fulfilment. Confirm, complete or cancel it from Orders so its stock reservation stays consistent.',
+    );
+  }
 }
 
-async function refundedOnSale(tx: Tx, saleId: string): Promise<Cents> {
-  const [row] = await tx.execute<{ refunded: string }>(sql`
-    SELECT (
-      COALESCE((SELECT SUM(amount_cents) FROM sale_refunds WHERE sale_id = ${saleId}), 0)
-      + COALESCE((
-          SELECT SUM(amount_cents)
-            FROM ledger_entries
-           WHERE source_kind = 'sale'
-             AND source_id = ${saleId}
-             AND category = 'refund'
-             AND direction = 'out'
-        ), 0)
-    )::text AS refunded
-  `);
-  return Number(row?.refunded ?? 0);
-}
-
-async function lockSale(tx: Tx, saleId: string) {
-  await tx.execute(sql`SELECT id FROM sales WHERE id = ${saleId} FOR UPDATE`);
-  const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1);
-  return sale;
+/** A client-supplied wallet must be able to hold this sale's money. */
+async function assertWalletFor(
+  tx: Tx,
+  walletId: string | null | undefined,
+  currency: CurrencyCode,
+): Promise<void> {
+  if (!walletId) return;
+  const [wallet] = await tx
+    .select({ currency: wallets.currency, active: wallets.active, name: wallets.name })
+    .from(wallets)
+    .where(eq(wallets.id, walletId))
+    .limit(1);
+  if (!wallet) throw new ActionError('That wallet no longer exists.');
+  if (!wallet.active)
+    throw new ActionError(`${wallet.name} is inactive. Choose another wallet.`);
+  if (wallet.currency !== currency) {
+    throw new ActionError(
+      `${wallet.name} holds ${wallet.currency}, but this sale is in ${currency}. Choose a ${currency} wallet.`,
+    );
+  }
 }
 
 async function assertSellableVariants(tx: Tx, variantIds: string[]): Promise<void> {
@@ -394,20 +410,155 @@ const returnItemsSchema = z
       ctx.addIssue({ code: 'custom', message: 'Choose each sale line only once.' });
     }
   });
+type SaleInput = z.infer<typeof saleSchema>;
+
+/**
+ * Everything the two write paths (a new sale, an edited draft) have in common:
+ * lines, totals, commissions and the money that arrived with the sale.
+ *
+ * One body means a fix to the arithmetic cannot land in one path and miss the
+ * other, which is exactly how the old copy-pasted pair drifted.
+ */
+async function writeSaleBody(
+  tx: Tx,
+  input: {
+    saleId: string;
+    number: string;
+    sale: SaleInput;
+    memberId: string;
+    rateMicros: RateMicros;
+    bundleMap: Map<string, ResolvedBundle>;
+  },
+): Promise<{
+  totalCents: Cents;
+  totalUsdCents: Cents;
+  cogsCents: Cents;
+  shortfallTotal: number;
+}> {
+  const { sale } = input;
+  let grossCents = 0;
+  let cogsCents = 0;
+  let shortfallTotal = 0;
+
+  for (const [index, item] of sale.items.entries()) {
+    const line = await createSaleLine(tx, {
+      saleId: input.saleId,
+      number: input.number,
+      soldAt: sale.soldAt,
+      currency: sale.currency,
+      rateMicros: input.rateMicros,
+      memberId: input.memberId,
+      item,
+      bundle: item.bundleId ? input.bundleMap.get(item.bundleId) : undefined,
+      confirm: sale.confirm,
+      position: index + 1,
+    });
+    grossCents += line.totalCents;
+    cogsCents += line.cogsCents;
+    shortfallTotal += line.shortfall;
+  }
+
+  // The discount is subtracted from the document, never from the lines:
+  // `sale_items` keeps what each product was charged at so price
+  // realisation stays measurable, while `total_*` is what is payable and
+  // what the receipt posts for.
+  const totalCents = grossCents - sale.discountCents;
+  if (totalCents < 0)
+    throw new ActionError('The discount cannot exceed the total of the items.');
+  // Converted once for the whole document, with the same function a receipt
+  // uses. Summing per-line conversions drifted from the receipt by a cent or
+  // two on SRD sales, so revenue and the cash that paid for it disagreed.
+  const totalUsdCents = normaliseToUsd(totalCents, sale.currency, input.rateMicros);
+
+  await tx
+    .update(sales)
+    .set({
+      totalCents,
+      totalUsdCents,
+      discountCents: sale.discountCents,
+      discountReason: sale.discountReason ?? null,
+      cogsCents,
+      grossProfitCents: totalUsdCents - cogsCents,
+      workflowStatus: sale.confirm ? 'completed' : 'draft',
+    })
+    .where(eq(sales.id, input.saleId));
+
+  if (sale.confirm) await createSaleCommissions(tx, input.saleId, input.memberId);
+
+  // A draft has not happened yet, so it moves no cash. A confirmed sale whose
+  // money has not arrived posts nothing either (F-4): the balance stays
+  // receivable until each payment banks its own receipt. Every amount that did
+  // arrive, including a paid-in-full sale, goes through insertPayment so the
+  // payment row and its ledger receipt cannot drift.
+  if (sale.confirm) {
+    const paidNow = sale.paidInFull ? totalCents : Math.min(sale.paidNowCents ?? 0, totalCents);
+    if (paidNow > 0 && totalCents > 0) {
+      await insertPayment(tx, {
+        saleId: input.saleId,
+        number: `${input.number}${sale.customerId || !sale.paidInFull ? '' : ' (walk-in)'}`,
+        amountCents: paidNow,
+        currency: sale.currency,
+        rateMicros: input.rateMicros,
+        method: sale.paymentMethod,
+        receivedAt: sale.soldAt,
+        memberId: input.memberId,
+        walletId: sale.walletId ?? null,
+      });
+    }
+  }
+
+  return { totalCents, totalUsdCents, cogsCents, shortfallTotal };
+}
+
+async function sellableIdsOf(tx: Tx, items: SaleInput['items']) {
+  const bundleMap = await resolveSaleBundles(tx, items);
+  const sellableIds = items.flatMap((item) => {
+    const bundle = item.bundleId ? bundleMap.get(item.bundleId) : undefined;
+    return bundle
+      ? bundle.components.map((component) => component.variantId)
+      : [item.variantId];
+  });
+  return { bundleMap, sellableIds };
+}
+
 export const createSale = writeAction
   .metadata({ action: 'created', entity: 'sale' })
   .inputSchema(saleSchema)
   .action(async ({ parsedInput: input, ctx }) => {
     const result = await db.transaction(async (tx) => {
-      const bundleMap = await resolveSaleBundles(tx, input.items);
-      const sellableIds = input.items.flatMap((item) => {
-        const bundle = item.bundleId ? bundleMap.get(item.bundleId) : undefined;
-        return bundle
-          ? bundle.components.map((component) => component.variantId)
-          : [item.variantId];
-      });
+      // A retried or double-clicked submit carries the same key. The advisory
+      // lock makes the second request wait for the first to commit, then find
+      // its sale instead of recording (and charging stock for) another one.
+      if (input.idempotencyKey) {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`sale:${input.idempotencyKey}`}, 0))`,
+        );
+        const [existing] = await tx
+          .select({
+            id: sales.id,
+            number: sales.number,
+            totalUsdCents: sales.totalUsdCents,
+            cogsCents: sales.cogsCents,
+          })
+          .from(sales)
+          .where(eq(sales.idempotencyKey, input.idempotencyKey))
+          .limit(1);
+        if (existing) {
+          const [short] = await tx.execute<{ units: string }>(
+            sql`SELECT COALESCE(SUM(shortfall), 0)::text AS units FROM sale_items WHERE sale_id = ${existing.id}`,
+          );
+          return {
+            ...existing,
+            shortfallTotal: Number(short?.units ?? 0),
+            reused: true as const,
+          };
+        }
+      }
+
+      const { bundleMap, sellableIds } = await sellableIdsOf(tx, input.items);
       await assertSellableVariants(tx, sellableIds);
       await lockSaleVariants(tx, sellableIds);
+      await assertWalletFor(tx, input.walletId, input.currency);
       const rateMicros =
         input.currency === 'SRD'
           ? await rateOn(input.soldAt, tx)
@@ -430,89 +581,23 @@ export const createSale = writeAction
           soldAt: input.soldAt,
           notes: input.notes ?? null,
           createdById: ctx.member.id,
+          idempotencyKey: input.idempotencyKey ?? null,
+          // Issued with the sale, so a paid-in-full sale leaves with an invoice
+          // number the same way a confirmed draft does.
+          invoiceNumber: input.confirm ? await nextDocumentNumber(tx, 'INV-') : null,
         })
         .returning();
 
       if (!sale) throw new ActionError('Could not create the sale.');
 
-      let grossCents = 0;
-      let grossUsdCents = 0;
-      let cogsCents = 0;
-      let shortfallTotal = 0;
-
-      for (const [index, item] of input.items.entries()) {
-        const line = await createSaleLine(tx, {
-          saleId: sale.id,
-          number,
-          soldAt: input.soldAt,
-          currency: input.currency,
-          rateMicros,
-          memberId: ctx.member.id,
-          item,
-          bundle: item.bundleId ? bundleMap.get(item.bundleId) : undefined,
-          confirm: input.confirm,
-          position: index + 1,
-        });
-        grossCents += line.totalCents;
-        grossUsdCents += line.totalUsdCents;
-        cogsCents += line.cogsCents;
-        shortfallTotal += line.shortfall;
-      }
-
-      // The discount is subtracted from the document, never from the lines:
-      // `sale_items` keeps what each product was charged at so price
-      // realisation stays measurable, while `total_*` is what is payable and
-      // what the receipt posts for.
-      const discountUsdCents = normaliseToUsd(input.discountCents, input.currency, rateMicros);
-      const totalCents = grossCents - input.discountCents;
-      const totalUsdCents = grossUsdCents - discountUsdCents;
-
-      await tx
-        .update(sales)
-        .set({
-          totalCents,
-          totalUsdCents,
-          discountCents: input.discountCents,
-          discountReason: input.discountReason ?? null,
-          cogsCents,
-          grossProfitCents: totalUsdCents - cogsCents,
-          workflowStatus: input.confirm ? 'completed' : 'draft',
-        })
-        .where(eq(sales.id, sale.id));
-
-      if (input.confirm) await createSaleCommissions(tx, sale.id, ctx.member.id);
-
-      // A draft has not happened yet, so it moves no cash. A confirmed sale
-      // whose money has not arrived posts nothing either (F-4): the balance
-      // stays receivable until each payment banks its own receipt. Every
-      // amount that did arrive, including a paid-in-full sale, goes through
-      // insertPayment so the payment row and its ledger receipt cannot drift.
-      if (input.confirm) {
-        const paidNow = input.paidInFull ? totalCents : (input.paidNowCents ?? 0);
-        if (paidNow >= totalCents && totalCents > 0) {
-          await insertPayment(tx, {
-            saleId: sale.id,
-            number: `${number}${input.customerId ? '' : ' (walk-in)'}`,
-            amountCents: totalCents,
-            currency: input.currency,
-            rateMicros,
-            method: input.paymentMethod,
-            receivedAt: input.soldAt,
-            memberId: ctx.member.id,
-          });
-        } else if (paidNow > 0 && totalCents > 0) {
-          await insertPayment(tx, {
-            saleId: sale.id,
-            number,
-            amountCents: paidNow,
-            currency: input.currency,
-            rateMicros,
-            method: input.paymentMethod,
-            receivedAt: input.soldAt,
-            memberId: ctx.member.id,
-          });
-        }
-      }
+      const totals = await writeSaleBody(tx, {
+        saleId: sale.id,
+        number,
+        sale: input,
+        memberId: ctx.member.id,
+        rateMicros,
+        bundleMap,
+      });
 
       await logActivity(tx, {
         memberId: ctx.member.id,
@@ -522,7 +607,14 @@ export const createSale = writeAction
         entityLabel: number,
       });
 
-      return { id: sale.id, number, totalUsdCents, cogsCents, shortfallTotal };
+      return {
+        id: sale.id,
+        number,
+        totalUsdCents: totals.totalUsdCents,
+        cogsCents: totals.cogsCents,
+        shortfallTotal: totals.shortfallTotal,
+        reused: false as const,
+      };
     });
 
     return result;
@@ -550,10 +642,15 @@ export const updateSale = writeAction
       const sale = await lockSale(tx, input.id);
       if (!sale) throw new ActionError('That sale no longer exists.');
       if (sale.status !== 'draft') {
+        // A double click on "Save and confirm" lands here for the second
+        // request, once the first has committed.
         throw new ActionError(
-          'A confirmed sale cannot be edited. Void it and record the correction — the same reason a reversing entry exists for the ledger.',
+          sale.status === 'confirmed'
+            ? 'This sale is already confirmed. A confirmed sale cannot be edited — void it and record the correction.'
+            : 'A void sale cannot be edited.',
         );
       }
+      await assertNotFulfillmentOrder(tx, sale.id);
 
       const rateMicros =
         input.currency === 'SRD'
@@ -570,45 +667,12 @@ export const updateSale = writeAction
           'Money has already been recorded against this sale. Void it and record the correction instead.',
         );
       }
-      const bundleMap = await resolveSaleBundles(tx, input.items);
-      const sellableIds = input.items.flatMap((item) => {
-        const bundle = item.bundleId ? bundleMap.get(item.bundleId) : undefined;
-        return bundle
-          ? bundle.components.map((component) => component.variantId)
-          : [item.variantId];
-      });
+      const { bundleMap, sellableIds } = await sellableIdsOf(tx, input.items);
       await assertSellableVariants(tx, sellableIds);
       await lockSaleVariants(tx, sellableIds);
+      await assertWalletFor(tx, input.walletId, input.currency);
       await clearDocumentPostings(tx, 'sale', input.id);
       await tx.delete(saleItems).where(eq(saleItems.saleId, input.id));
-
-      let grossCents = 0;
-      let grossUsdCents = 0;
-      let cogsCents = 0;
-      let shortfallTotal = 0;
-
-      for (const [index, item] of input.items.entries()) {
-        const line = await createSaleLine(tx, {
-          saleId: input.id,
-          number: sale.number,
-          soldAt: input.soldAt,
-          currency: input.currency,
-          rateMicros,
-          memberId: ctx.member.id,
-          item,
-          bundle: item.bundleId ? bundleMap.get(item.bundleId) : undefined,
-          confirm: input.confirm,
-          position: index + 1,
-        });
-        grossCents += line.totalCents;
-        grossUsdCents += line.totalUsdCents;
-        cogsCents += line.cogsCents;
-        shortfallTotal += line.shortfall;
-      }
-
-      const discountUsdCents = normaliseToUsd(input.discountCents, input.currency, rateMicros);
-      const totalCents = grossCents - input.discountCents;
-      const totalUsdCents = grossUsdCents - discountUsdCents;
 
       await tx
         .update(sales)
@@ -618,47 +682,24 @@ export const updateSale = writeAction
           status: input.confirm ? 'confirmed' : 'draft',
           currency: input.currency,
           fxRateMicros: rateMicros,
-          totalCents,
-          totalUsdCents,
-          discountCents: input.discountCents,
-          discountReason: input.discountReason ?? null,
-          cogsCents,
-          grossProfitCents: totalUsdCents - cogsCents,
-          workflowStatus: input.confirm ? 'completed' : 'draft',
           paymentMethod: input.paymentMethod,
           soldAt: input.soldAt,
           notes: input.notes ?? null,
+          invoiceNumber: input.confirm
+            ? (sale.invoiceNumber ?? (await nextDocumentNumber(tx, 'INV-')))
+            : sale.invoiceNumber,
+          updatedAt: new Date(),
         })
         .where(eq(sales.id, input.id));
 
-      if (input.confirm) await createSaleCommissions(tx, input.id, ctx.member.id);
-
-      if (input.confirm) {
-        const paidNow = input.paidInFull ? totalCents : (input.paidNowCents ?? 0);
-        if (paidNow >= totalCents && totalCents > 0) {
-          await insertPayment(tx, {
-            saleId: input.id,
-            number: `${sale.number}${input.customerId ? '' : ' (walk-in)'}`,
-            amountCents: totalCents,
-            currency: input.currency,
-            rateMicros,
-            method: input.paymentMethod,
-            receivedAt: input.soldAt,
-            memberId: ctx.member.id,
-          });
-        } else if (paidNow > 0 && totalCents > 0) {
-          await insertPayment(tx, {
-            saleId: input.id,
-            number: sale.number,
-            amountCents: paidNow,
-            currency: input.currency,
-            rateMicros,
-            method: input.paymentMethod,
-            receivedAt: input.soldAt,
-            memberId: ctx.member.id,
-          });
-        }
-      }
+      const totals = await writeSaleBody(tx, {
+        saleId: input.id,
+        number: sale.number,
+        sale: input,
+        memberId: ctx.member.id,
+        rateMicros,
+        bundleMap,
+      });
 
       await logActivity(tx, {
         memberId: ctx.member.id,
@@ -668,7 +709,13 @@ export const updateSale = writeAction
         entityLabel: sale.number,
       });
 
-      return { id: input.id, number: sale.number, totalUsdCents, cogsCents, shortfallTotal };
+      return {
+        id: input.id,
+        number: sale.number,
+        totalUsdCents: totals.totalUsdCents,
+        cogsCents: totals.cogsCents,
+        shortfallTotal: totals.shortfallTotal,
+      };
     });
 
     return result;
@@ -691,13 +738,23 @@ export const confirmSale = writeAction
       /** Only meaningful with `paidInFull: false`; clamped below the total by
        *  the code below, because the total lives in the database, not here. */
       paidNowCents: moneyInput.default(0),
+      /** Where the money lands; empty means the wallet matching the method. */
+      walletId: optionalUuid.optional(),
     }),
   )
   .action(async ({ parsedInput: input, ctx }) => {
     const number = await db.transaction(async (tx) => {
       const sale = await lockSale(tx, input.id);
       if (!sale) throw new ActionError('That sale no longer exists.');
-      if (sale.status !== 'draft') throw new ActionError('Only a draft can be confirmed.');
+      if (sale.status !== 'draft') {
+        throw new ActionError(
+          sale.status === 'confirmed'
+            ? `${sale.number} is already confirmed.`
+            : `${sale.number} is void and cannot be confirmed.`,
+        );
+      }
+      await assertNotFulfillmentOrder(tx, sale.id);
+      await assertWalletFor(tx, input.walletId, sale.currency);
 
       const items = await tx.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
       if (items.length === 0) {
@@ -813,6 +870,7 @@ export const confirmSale = writeAction
           method: sale.paymentMethod,
           receivedAt: sale.soldAt,
           memberId: ctx.member.id,
+          walletId: input.walletId ?? null,
         });
       } else if (paidNow > alreadyPaid) {
         await insertPayment(tx, {
@@ -824,6 +882,7 @@ export const confirmSale = writeAction
           method: sale.paymentMethod,
           receivedAt: sale.soldAt,
           memberId: ctx.member.id,
+          walletId: input.walletId ?? null,
         });
       }
 
@@ -941,6 +1000,17 @@ export const voidSalePayment = writeAction
   .inputSchema(z.object({ id: uuid, reason: z.string().trim().min(3).max(500) }))
   .action(async ({ parsedInput: input, ctx }) => {
     return db.transaction(async (tx) => {
+      const [located] = await tx
+        .select({ saleId: salePayments.saleId })
+        .from(salePayments)
+        .where(eq(salePayments.id, input.id))
+        .limit(1);
+      if (!located) throw new ActionError('That payment no longer exists.');
+      // Same lock every other money action on this sale takes, so two people
+      // voiding the same payment (or a payment and a refund) serialise instead
+      // of both reading the pre-void state and reversing the receipt twice.
+      const sale = await lockSale(tx, located.saleId);
+      if (!sale) throw new ActionError('That sale no longer exists.');
       const [payment] = await tx
         .select()
         .from(salePayments)
@@ -948,6 +1018,13 @@ export const voidSalePayment = writeAction
         .limit(1);
       if (!payment) throw new ActionError('That payment no longer exists.');
       if (payment.status === 'voided') throw new ActionError('That payment is already void.');
+
+      const held = await heldOnSale(tx, sale.id);
+      if (held - payment.amountCents < 0) {
+        throw new ActionError(
+          'Part of this payment was already refunded to the customer. Voiding it would leave more refunded than received.',
+        );
+      }
 
       const entries = await tx
         .select()
@@ -1016,15 +1093,18 @@ export const voidSale = writeAction
   .metadata({ action: 'voided', entity: 'sale' })
   .inputSchema(z.object({ id: uuid, reason: z.string().trim().max(500).optional() }))
   .action(async ({ parsedInput: input, ctx }) => {
-    const number = await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const sale = await lockSale(tx, input.id);
       if (!sale) throw new ActionError('That sale no longer exists.');
       if (sale.status === 'void') throw new ActionError('That sale is already void.');
 
-      const paid = await paidOnSale(tx, sale.id);
-      if (paid > 0) {
+      // Money received and not paid back blocks a void: voiding would leave
+      // cash in the till that no document explains. Refunded-in-full and
+      // payment-voided sales are fine.
+      const held = await heldOnSale(tx, sale.id);
+      if (held > 0) {
         throw new ActionError(
-          'This sale has payments. Refund them through the refund workflow before voiding it.',
+          `${formatMoney(held, sale.currency)} received on this sale has not been paid back. Refund it first, or void the payment if it was entered by mistake.`,
         );
       }
       const [returned] = await tx.execute<{ units: string }>(
@@ -1035,6 +1115,25 @@ export const voidSale = writeAction
       }
 
       await clearDocumentPostings(tx, 'sale', sale.id);
+
+      // A void sale earns nobody a commission. Unpaid commissions are cancelled
+      // so they cannot be paid out later; any already paid are reported.
+      const commission = await cancelOpenCommissionsForSale(tx, sale.id);
+
+      // A voided order must not keep holding stock back from everyone else.
+      await tx
+        .update(inventoryReservations)
+        .set({ status: 'released', releasedAt: new Date() })
+        .where(
+          and(
+            eq(inventoryReservations.orderId, sale.id),
+            eq(inventoryReservations.status, 'active'),
+          ),
+        );
+      await tx
+        .update(orderFulfillments)
+        .set({ status: 'cancelled' })
+        .where(eq(orderFulfillments.orderId, sale.id));
 
       await tx
         .update(sales)
@@ -1072,12 +1171,13 @@ export const voidSale = writeAction
         entityType: 'sale',
         entityId: sale.id,
         entityLabel: sale.number,
+        diff: input.reason ? { reason: { from: null, to: input.reason } } : null,
       });
 
-      return sale.number;
+      return { number: sale.number, paidCommissionCents: commission.paidCents };
     });
 
-    return { number };
+    return result;
   });
 
 /**
@@ -1118,6 +1218,14 @@ export const returnSaleItems = writeAction
           sale.status === 'draft'
             ? 'A draft has moved nothing — edit or void it instead of returning against it.'
             : 'A void sale has already had its postings removed; there is nothing to reverse.',
+        );
+      }
+
+      // An order that is confirmed or ready has reserved stock but not shipped
+      // it. Putting units "back" would add stock that never left.
+      if (sale.workflowStatus === 'confirmed' || sale.workflowStatus === 'ready') {
+        throw new ActionError(
+          'This order has not been completed, so nothing has left stock. Cancel the order instead of returning items.',
         );
       }
 
@@ -1240,12 +1348,16 @@ export const returnSaleItems = writeAction
         units += line.quantity;
       }
 
+      // Commission is earned on goods the customer kept.
+      const commission = await netOpenCommissionsForReturns(tx, sale.id);
+
       await logActivity(tx, {
         memberId: ctx.member.id,
         action: 'recorded return on sale',
         entityType: 'sale',
         entityId: sale.id,
         entityLabel: sale.number,
+        diff: { reason: { from: null, to: input.reason } },
       });
 
       return {
@@ -1255,6 +1367,8 @@ export const returnSaleItems = writeAction
         creditUsdCents: normaliseToUsd(creditCents, sale.currency, sale.fxRateMicros),
         restockedCents,
         units,
+        commissionReducedCents: commission.reducedCents,
+        commissionOverpaidCents: commission.overpaidCents,
       };
     });
 

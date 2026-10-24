@@ -1,11 +1,14 @@
 'use client';
 
-import { Copy, ExternalLink, Printer, Send } from 'lucide-react';
+import { Copy, ExternalLink, Link2Off, Printer, Send } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { createPublicInvoiceLink } from '@/server/actions/invoices';
+import { formatDate } from '@/lib/format';
+import { createPublicInvoiceLink, revokePublicInvoiceLink } from '@/server/actions/invoices';
 
 /**
  * The screen-only controls above a printable invoice. Hidden by `@media print`
@@ -15,31 +18,49 @@ import { createPublicInvoiceLink } from '@/server/actions/invoices';
  * dependency, respects the customer's own printer, and the print stylesheet is
  * the same one the on-screen document already uses.
  *
- * A link is created server-side with a revocable, unguessable token. The
- * customer never receives the authenticated invoice route or an invoice id.
+ * A link is created server-side with an unguessable token that expires and can
+ * be revoked. Only its hash is stored, so a link cannot be shown twice:
+ * creating another one replaces it, and the sender is asked before that
+ * happens because whatever was already sent would stop working.
  */
 export function InvoiceActions({
   saleId,
   number,
   whatsapp,
   totalText,
+  canShare,
+  linkActive,
+  linkExpiresAt,
 }: {
   saleId: string;
   number: string;
   whatsapp: string | null;
   totalText: string;
+  canShare: boolean;
+  linkActive: boolean;
+  linkExpiresAt: string | null;
 }) {
+  const router = useRouter();
   const digits = whatsapp?.replace(/\D/g, '') ?? '';
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
   const share = useAction(createPublicInvoiceLink, {
     onSuccess: async ({ data }) => {
       if (!data) return;
       setPublicUrl(data.url);
+      setReplacing(false);
+      router.refresh();
       try {
         await navigator.clipboard.writeText(data.url);
-        toast.success('Secure invoice link copied');
+        toast.success('Secure invoice link copied', {
+          description: `Valid until ${formatDate(data.expiresAt)}.`,
+        });
       } catch {
-        toast.success('Secure invoice link created');
+        toast.success('Secure invoice link created', {
+          description: `Valid until ${formatDate(data.expiresAt)}.`,
+        });
       }
       if (digits) {
         const message = `https://wa.me/${digits}?text=${encodeURIComponent(
@@ -51,21 +72,50 @@ export function InvoiceActions({
     onError: ({ error }) => toast.error(error.serverError ?? 'Could not create invoice link'),
   });
 
+  const revoke = useAction(revokePublicInvoiceLink, {
+    onSuccess() {
+      setPublicUrl(null);
+      setRevoking(false);
+      toast.success('Invoice link switched off');
+      router.refresh();
+    },
+    onError: ({ error }) => toast.error(error.serverError ?? 'Could not revoke the link'),
+  });
+
   return (
-    <div className="no-print mb-4 flex items-center gap-2">
+    <div className="no-print mb-4 flex flex-wrap items-center gap-2">
       <Button type="button" variant="secondary" size="sm" onClick={() => window.print()}>
         <Printer />
         Print
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => share.execute({ saleId })}
-        disabled={share.status === 'executing'}
-      >
-        <Copy /> {share.status === 'executing' ? 'Creating link…' : 'Create share link'}
-      </Button>
+      {canShare ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            linkActive || publicUrl ? setReplacing(true) : share.execute({ saleId })
+          }
+          disabled={share.isPending}
+        >
+          <Copy />{' '}
+          {share.isPending
+            ? 'Creating link…'
+            : linkActive || publicUrl
+              ? 'Replace share link'
+              : 'Create share link'}
+        </Button>
+      ) : null}
+      {canShare && (linkActive || publicUrl) ? (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setRevoking(true)}>
+          <Link2Off /> Switch link off
+        </Button>
+      ) : null}
+      {canShare && linkActive && linkExpiresAt && !publicUrl ? (
+        <span className="text-[12px] text-ink-4">
+          Link live until {formatDate(linkExpiresAt)}
+        </span>
+      ) : null}
       {publicUrl ? (
         <>
           <Button asChild variant="ghost" size="sm">
@@ -78,6 +128,25 @@ export function InvoiceActions({
           ) : null}
         </>
       ) : null}
+
+      <ConfirmDialog
+        open={replacing}
+        onOpenChange={setReplacing}
+        title="Replace the share link?"
+        description="The link already sent to the customer stops working as soon as the new one is created. Only do this if you want to send a fresh link."
+        confirmLabel="Replace link"
+        pending={share.isPending}
+        onConfirm={() => share.execute({ saleId })}
+      />
+      <ConfirmDialog
+        open={revoking}
+        onOpenChange={setRevoking}
+        title="Switch the share link off?"
+        description="Anyone holding the link will see 'not found' immediately. You can create a new link later."
+        confirmLabel="Switch off"
+        pending={revoke.isPending}
+        onConfirm={() => revoke.execute({ saleId })}
+      />
     </div>
   );
 }

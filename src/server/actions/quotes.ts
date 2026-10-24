@@ -51,6 +51,26 @@ export const createQuoteFromRequest = writeAction
       if (request.status === 'converted')
         throw new ActionError('That request already became a sale.');
 
+      // The customer link is shown once and only its hash is stored, so a
+      // double click would leave a second, different quote behind. Refuse the
+      // second instead of numbering it.
+      const [justCreated] = await tx
+        .select({ number: quotes.number })
+        .from(quotes)
+        .where(
+          and(
+            eq(quotes.requestId, request.id),
+            eq(quotes.createdById, ctx.member.id),
+            sql`${quotes.createdAt} > now() - interval '45 seconds'`,
+          ),
+        )
+        .limit(1);
+      if (justCreated) {
+        throw new ActionError(
+          `Quote ${justCreated.number} was just created for this request. Open it from the Quotes list.`,
+        );
+      }
+
       const [variant] = await tx
         .select({
           id: productVariants.id,
@@ -290,7 +310,12 @@ export const convertQuoteRequestToSale = writeAction
       }
 
       const [variant] = await tx
-        .select({ id: productVariants.id })
+        .select({
+          id: productVariants.id,
+          productName: products.name,
+          variantName: productVariants.name,
+          sku: productVariants.sku,
+        })
         .from(productVariants)
         .innerJoin(products, eq(products.id, productVariants.productId))
         .where(
@@ -310,16 +335,33 @@ export const convertQuoteRequestToSale = writeAction
 
       // The requester becomes a customer so the sale has someone to bill and
       // the phone-or-email string lands in a field that is read by a person.
-      const [customer] = await tx
-        .insert(customers)
-        .values({
-          code: await nextCustomerCode(tx),
-          name: request.name,
-          phone: request.contact.includes('@') ? null : request.contact,
-          email: request.contact.includes('@') ? request.contact : null,
-          notes: `From quote request ${request.id}`,
-        })
-        .returning();
+      // A returning customer is matched on phone or email first: a second
+      // enquiry from the same WhatsApp number must not create a second record.
+      const isEmail = request.contact.includes('@');
+      const phoneDigits = request.contact.replace(/\D/g, '');
+      const [known] = await tx.execute<{ id: string }>(
+        isEmail
+          ? sql`SELECT id FROM customers WHERE lower(email) = lower(${request.contact.trim()}) ORDER BY created_at LIMIT 1`
+          : phoneDigits.length >= 7
+            ? sql`SELECT id FROM customers WHERE regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g') = ${phoneDigits} ORDER BY created_at LIMIT 1`
+            : sql`SELECT id FROM customers WHERE false`,
+      );
+      const [existingCustomer] = known
+        ? await tx.select().from(customers).where(eq(customers.id, known.id)).limit(1)
+        : [];
+      const [created] = existingCustomer
+        ? []
+        : await tx
+            .insert(customers)
+            .values({
+              code: await nextCustomerCode(tx),
+              name: request.name,
+              phone: isEmail ? null : request.contact,
+              email: isEmail ? request.contact : null,
+              notes: `From quote request ${request.id}`,
+            })
+            .returning();
+      const customer = existingCustomer ?? created;
       if (!customer) throw new ActionError('Could not create the customer.');
 
       const lineTotalCents = input.unitPriceCents * request.quantity;
@@ -345,6 +387,9 @@ export const convertQuoteRequestToSale = writeAction
       await tx.insert(saleItems).values({
         saleId: sale.id,
         variantId: variant.id,
+        productNameSnapshot: variant.productName,
+        variantNameSnapshot: variant.variantName,
+        skuSnapshot: variant.sku,
         quantity: request.quantity,
         unitPriceCents: input.unitPriceCents,
         lineTotalCents,
