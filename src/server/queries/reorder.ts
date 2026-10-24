@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import { calculateReorderRecommendations, type ReorderRecommendation } from '@/lib/reorder';
 import { db } from '../db/client';
+import { variantImageSql } from './image-sql';
 import { getAdminSettings } from './reference';
 import { num, text } from './row';
 
@@ -115,6 +116,7 @@ export async function getReorderRecommendations(): Promise<ReorderRecommendation
       s.name AS supplier_name, s.kind::text AS supplier_kind,
       CONCAT(p.name, ' · ', v.name, ' (', v.sku, ')') AS name,
       p.source_url,
+      ${variantImageSql('v.id', 'p.id')} AS image_url,
       COALESCE(stats.units_sold, 0)::text AS units_sold,
       COALESCE(stats.profit_cents, 0)::text AS profit_cents,
       COALESCE(stats.revenue_cents, 0)::text AS revenue_cents,
@@ -157,6 +159,7 @@ export async function getReorderRecommendations(): Promise<ReorderRecommendation
       supportingFor: row.supporting_for ?? null,
       supportingScore: num(row.supporting_score),
       weightGrams: num(row.weight_grams),
+      imageUrl: row.image_url ?? null,
     })),
     policy,
   );

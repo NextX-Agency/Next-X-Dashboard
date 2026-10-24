@@ -6,6 +6,7 @@ import { useAction } from 'next-safe-action/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useMember } from '@/components/providers/member-provider';
+import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
@@ -28,6 +29,7 @@ import type {
   WalletChoice,
 } from '@/server/queries/pickers';
 import { LineProduct } from './line-product';
+import { QuantityStepper } from './quantity-stepper';
 import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 /**
@@ -141,6 +143,9 @@ export function SaleForm({
   const idempotencyKey = useRef(crypto.randomUUID());
   const [issues, setIssues] = useState<string[]>([]);
   const [leaving, setLeaving] = useState<Set<string>>(() => new Set());
+  /** Lines whose serial-number box was opened by hand. A phone keeps it folded until it is needed. */
+  const [serialsOpen, setSerialsOpen] = useState<Set<string>>(() => new Set());
+  const issuesRef = useRef<HTMLDivElement | null>(null);
   const [soldAt, setSoldAt] = useState(initial?.soldAt ?? today());
   const [currency, setCurrency] = useState<'USD' | 'SRD'>(initial?.currency ?? 'USD');
   const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod ?? 'cash');
@@ -606,8 +611,12 @@ export function SaleForm({
     if (!check.success) {
       const messages = describeIssues(check.error.issues);
       setIssues(messages);
-      toast.error('Fix the problems listed above the Record button', {
+      toast.error('Fix the problems listed on the page', {
         description: messages[0],
+      });
+      // On a phone the list is at the top of the form; bring it into view.
+      requestAnimationFrame(() => {
+        issuesRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       });
       return;
     }
@@ -647,10 +656,25 @@ export function SaleForm({
         );
         fields[fields.indexOf(event.target) + 1]?.focus();
       }}
-      className="grid grid-cols-1 gap-4 pb-24 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:pb-0"
+      className="grid grid-cols-1 gap-3 pb-28 md:gap-4 md:pb-24 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start xl:pb-0"
     >
+      {issues.length > 0 ? (
+        <div
+          ref={issuesRef}
+          role="alert"
+          className="rounded-control border border-negative/40 bg-negative-muted p-3 text-[13px] text-negative md:hidden"
+        >
+          <p className="font-medium">Fix these first</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {issues.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* On a phone the products come first: the sale details are usually left as they are. */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 md:gap-4">
         <Surface className="max-xl:order-2">
           <SurfaceHeader title="Sale" />
           <div className="space-y-3 p-4">
@@ -738,7 +762,7 @@ export function SaleForm({
             hint="Prices default to the list price and can be overridden"
           />
           {lines.length === 0 ? (
-            <div className="grid place-items-center gap-1 px-4 py-10 text-center">
+            <div className="grid place-items-center gap-1 px-4 py-6 text-center sm:py-10">
               <Package aria-hidden="true" className="size-7 text-ink-4" />
               <p className="font-medium text-[14px] text-ink">No products in this sale yet</p>
               <p className="max-w-[44ch] text-[12px] text-ink-3">
@@ -765,12 +789,13 @@ export function SaleForm({
                 unitPrice = 0;
               }
               const lineTotal = unitPrice * quantity;
+              const showSerials = serialsOpen.has(line.key) || line.serials.trim() !== '';
 
               return (
                 <div
                   key={line.key}
                   className={cn(
-                    'grid grid-cols-2 gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]',
+                    'grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 p-3 sm:grid-cols-[24px_1fr_72px_100px_100px_32px] sm:gap-2 sm:p-4',
                     'motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:animate-in motion-safe:duration-200',
                     leaving.has(line.key) &&
                       'motion-safe:fade-out-0 motion-safe:animate-out motion-safe:duration-150 motion-safe:fill-mode-forwards',
@@ -782,7 +807,7 @@ export function SaleForm({
 
                   <div className="col-span-2 min-w-0 sm:col-span-1">
                     {index === 0 ? (
-                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2 max-sm:hidden">
                         Product
                       </span>
                     ) : null}
@@ -794,18 +819,20 @@ export function SaleForm({
                     />
                   </div>
 
-                  <Field label="Qty" hideLabel={index > 0} htmlFor={`qty-${index}`}>
-                    <Input
+                  <Field
+                    label="Qty"
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                    htmlFor={`qty-${index}`}
+                  >
+                    <QuantityStepper
                       id={`qty-${index}`}
-                      numeric
-                      inputMode="numeric"
                       value={line.quantity}
-                      aria-invalid={oversold}
-                      onChange={(event) =>
+                      invalid={oversold}
+                      onChange={(next) =>
                         setLines((current) =>
                           current.map((candidate) =>
                             candidate.key === line.key
-                              ? { ...candidate, quantity: event.target.value }
+                              ? { ...candidate, quantity: next }
                               : candidate,
                           ),
                         )
@@ -815,13 +842,15 @@ export function SaleForm({
 
                   <Field
                     label={`Unit (${currency})`}
-                    hideLabel={index > 0}
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
                     htmlFor={`price-${index}`}
                   >
                     <Input
                       id={`price-${index}`}
                       numeric
                       inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
                       placeholder="0.00"
                       value={line.unitPrice}
                       onChange={(event) =>
@@ -838,10 +867,23 @@ export function SaleForm({
 
                   <div
                     className={cn(
-                      'col-span-2 flex items-center justify-between sm:col-span-1 sm:contents',
+                      'col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:contents',
                     )}
                   >
-                    <div className={index === 0 ? 'sm:pt-0.5' : ''}>
+                    {line.variantId && !showSerials ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSerialsOpen((current) => new Set(current).add(line.key))
+                        }
+                        className="-ml-1 inline-flex h-11 items-center gap-1 rounded-control px-2 text-[13px] text-ink-3 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring sm:hidden"
+                      >
+                        <Plus aria-hidden="true" className="size-3.5" /> Serial numbers
+                      </button>
+                    ) : (
+                      <span className="sm:hidden" />
+                    )}
+                    <div className={cn('ml-auto sm:ml-0', index === 0 ? 'sm:pt-0.5' : '')}>
                       <span className="tabular text-right text-[13px] text-ink-2 sm:block">
                         <span className="text-ink-4 sm:hidden">Line total </span>
                         {line.variantId && lineTotal > 0
@@ -851,7 +893,10 @@ export function SaleForm({
                     </div>
 
                     <div
-                      className={cn('flex', index === 0 ? 'items-end pb-0.5' : 'items-center')}
+                      className={cn(
+                        'flex',
+                        index === 0 ? 'sm:items-end sm:pb-0.5' : 'items-center',
+                      )}
                     >
                       <Button
                         type="button"
@@ -870,7 +915,10 @@ export function SaleForm({
                       label="Serial numbers"
                       htmlFor={`serials-${index}`}
                       hint={`Optional — one per line, up to ${quantity || 1} for this line`}
-                      className="col-span-2 sm:col-span-6"
+                      className={cn(
+                        'col-span-2 sm:col-span-6',
+                        !showSerials && 'max-sm:hidden',
+                      )}
                     >
                       <Textarea
                         id={`serials-${index}`}
@@ -903,12 +951,12 @@ export function SaleForm({
               );
             })}
           </div>
-          <div className="flex items-center justify-between border-line-subtle border-t px-4 py-2.5">
+          <div className="flex items-center justify-between border-line-subtle border-t px-3 py-2.5 sm:px-4">
             <button
               type="button"
               onClick={() => openPicker({ mode: 'add' })}
               className={cn(
-                'flex w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                'flex min-h-12 w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:min-h-0 sm:text-[13px]',
                 lines.length === 0
                   ? 'bg-accent font-medium text-accent-ink hover:opacity-90'
                   : 'border border-dashed border-line text-ink-3 hover:border-line-strong hover:text-ink-2',
@@ -932,6 +980,8 @@ export function SaleForm({
                 id="discount"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
                 placeholder="0.00"
                 value={discount}
                 onChange={(event) => setDiscount(event.target.value)}
@@ -965,7 +1015,7 @@ export function SaleForm({
         </Surface>
       </div>
 
-      <Surface className="xl:sticky xl:top-20">
+      <Surface id="sale-summary" className="scroll-mt-16 xl:sticky xl:top-20">
         <SurfaceHeader title="Margin" hint="Recomputed as you type" />
         <dl className="space-y-2 p-4">
           {currency === 'SRD' ? (
@@ -1172,6 +1222,8 @@ export function SaleForm({
                     id="deposit-now"
                     numeric
                     inputMode="decimal"
+                    enterKeyHint="done"
+                    autoComplete="off"
                     placeholder="0.00"
                     value={deposit}
                     onChange={(event) => setDeposit(event.target.value)}
@@ -1186,7 +1238,7 @@ export function SaleForm({
           {issues.length > 0 ? (
             <div
               role="alert"
-              className="rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative"
+              className="rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative max-md:hidden"
             >
               <p className="font-medium">Fix these first</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
@@ -1196,7 +1248,7 @@ export function SaleForm({
               </ul>
             </div>
           ) : null}
-          <SubmitButton pending={isPending} size="lg" className="w-full">
+          <SubmitButton pending={isPending} size="lg" className="w-full max-md:hidden">
             {isEdit ? 'Save and confirm' : 'Record sale'}
           </SubmitButton>
           <Button
@@ -1204,6 +1256,7 @@ export function SaleForm({
             variant="secondary"
             disabled={isPending}
             onClick={() => submit(false)}
+            className="max-sm:h-12"
           >
             Save as draft
           </Button>
@@ -1214,6 +1267,61 @@ export function SaleForm({
           </p>
         </div>
       </Surface>
+      <ActionBar>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Choose products"
+            onClick={() => openPicker({ mode: 'add' })}
+            className="size-12 shrink-0 p-0 max-sm:size-12"
+          >
+            <Plus className="size-5" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => scrollToId('sale-summary')}
+            aria-label="Show sale summary"
+            className="min-h-11 min-w-[6.5rem] flex-1 rounded-control py-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <span className="block truncate text-[11px] text-ink-3 leading-tight">
+              {totals.units} {totals.units === 1 ? 'unit' : 'units'} · customer pays
+            </span>
+            <span className="tabular block truncate font-semibold text-[18px] text-ink leading-tight">
+              {formatMoney(nativeTotal, currency)}
+            </span>
+            <span
+              className={cn(
+                'tabular block truncate text-[11px] leading-tight',
+                totals.belowCost
+                  ? 'font-medium text-negative'
+                  : totals.revenue > 0 &&
+                      totals.cogs > 0 &&
+                      totals.profit / totals.revenue < 0.1
+                    ? 'font-medium text-warning'
+                    : 'text-ink-3',
+              )}
+            >
+              {totals.units === 0
+                ? 'No items yet'
+                : totals.belowCost
+                  ? `Below cost · lose ${formatMoney(Math.abs(totals.profit))}`
+                  : totals.revenue > 0 && totals.cogs > 0
+                    ? `Margin ${((totals.profit / totals.revenue) * 100).toFixed(1)}%${
+                        totals.profit / totals.revenue < 0.1 ? ' · low' : ''
+                      }`
+                    : 'Margin not known yet'}
+            </span>
+          </button>
+          <SubmitButton
+            pending={isPending}
+            size="lg"
+            className="h-12 shrink-0 px-5 text-[15px]"
+          >
+            {isEdit ? 'Save and confirm' : 'Record sale'}
+          </SubmitButton>
+        </div>
+      </ActionBar>
       <SaleProductPicker
         open={picker !== null}
         onOpenChange={(next) => {

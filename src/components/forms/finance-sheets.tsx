@@ -522,6 +522,7 @@ export function SettingsSheet({ initial }: { initial: SettingsInitial }) {
               <Field label="Phone" htmlFor="phone">
                 <Input
                   id="phone"
+                  type="tel"
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                 />
@@ -529,6 +530,7 @@ export function SettingsSheet({ initial }: { initial: SettingsInitial }) {
               <Field label="WhatsApp" htmlFor="whatsapp" hint="Click-to-chat number">
                 <Input
                   id="whatsapp"
+                  type="tel"
                   value={whatsapp}
                   onChange={(event) => setWhatsapp(event.target.value)}
                 />
@@ -537,6 +539,7 @@ export function SettingsSheet({ initial }: { initial: SettingsInitial }) {
             <Field label="Email" htmlFor="email">
               <Input
                 id="email"
+                type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />

@@ -59,11 +59,11 @@ export default async function FaqPage() {
   const contact = whatsappLink(settings?.whatsapp, assortmentMessage(businessName));
 
   return (
-    <article className="mx-auto w-full max-w-[1320px] px-4 pt-10 pb-20 lg:px-8 lg:pt-14 lg:pb-28">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
+    <article className="mx-auto w-full max-w-[1320px] px-4 pt-4 pb-8 sm:pt-10 sm:pb-20 lg:px-8 lg:pt-14 lg:pb-28">
+      <div className="grid gap-6 sm:gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
         <header>
           <p className="nx-label text-ink-3">Ordering</p>
-          <h1 className="nx-display mt-3 text-[clamp(36px,5vw,64px)] text-ink">
+          <h1 className="nx-display mt-3 text-[clamp(30px,5vw,64px)] text-ink">
             How an order works
           </h1>
           <p className="mt-5 max-w-[40ch] text-[16px] text-ink-2 leading-relaxed">
@@ -75,7 +75,10 @@ export default async function FaqPage() {
         <div>
           <ol className="divide-y divide-line border-line border-y">
             {ANSWERS.map(({ question, answer }, index) => (
-              <li key={question} className="grid grid-cols-[3rem_minmax(0,1fr)] gap-x-2 py-6">
+              <li
+                key={question}
+                className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-x-2 py-4 sm:grid-cols-[3rem_minmax(0,1fr)] sm:py-6"
+              >
                 <span aria-hidden="true" className="tabular pt-0.5 font-semibold text-ink-3">
                   {String(index + 1).padStart(2, '0')}
                 </span>
@@ -89,7 +92,7 @@ export default async function FaqPage() {
             ))}
           </ol>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
             <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary">
               Go to the shop
             </Link>

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -48,10 +49,8 @@ export default function CategoriesPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by name or slug" />
-        </ListToolbar>
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Search by name or slug" />}></ListToolbar>
         <Suspense fallback={<Skeleton className="m-4 h-24" />}>
           <CategoriesTable searchParams={searchParams} />
         </Suspense>
@@ -171,7 +170,7 @@ async function CategoriesTable({ searchParams }: { searchParams: Promise<RawSear
                 <MobileRowMetaItem label="Products">{row.productCount}</MobileRowMetaItem>
               </MobileRowMeta>
             </MobileRowHeader>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               <CategoryActions
                 id={row.id}
                 name={row.name}
@@ -184,7 +183,7 @@ async function CategoriesTable({ searchParams }: { searchParams: Promise<RawSear
                 featured={row.featured}
                 productCount={row.productCount}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

@@ -2,6 +2,7 @@ import { type SQL, sql } from 'drizzle-orm';
 import { type CatalogReadiness, catalogReadiness } from '@/lib/catalog-readiness';
 import { isDatabaseConfigured } from '@/lib/env';
 import { isManuallyReversible } from '@/lib/finance-rules';
+import { likeContains } from '@/lib/like';
 import type {
   CustomerQuery,
   ExpenseQuery,
@@ -19,8 +20,9 @@ import {
   paymentBadgeOf,
 } from '@/lib/payment-status';
 import { db } from '../db/client';
-import { variantImageSql } from './image-sql';
+import { productImageSql, variantImageSql } from './image-sql';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
+import { PRODUCT_ECON_CTE } from './product-econ';
 import { bool, maybe, num, text } from './row';
 
 /**
@@ -38,12 +40,40 @@ import { bool, maybe, num, text } from './row';
  * easier to make fast when it is written as the one query it actually is.
  */
 
+/** One variant as the product list needs it for inline price edits and the bulk bar. */
+export type ProductVariantLite = {
+  id: string;
+  name: string;
+  sku: string;
+  isActive: boolean;
+  /** Selling list price in USD cents. */
+  priceCents: Cents;
+  /** What a unit costs: landed average while stock is on hand, else the supplier list cost. */
+  unitCostCents: number | null;
+  onHand: number;
+  /** Stock per location, only where something is held (legacy movements count at the main one). */
+  locations: { id: string; name: string; onHand: number }[];
+};
+
 export type ProductRow = {
   /** The product's representative photograph (thumbnail when one exists), or null. */
   imageUrl: string | null;
   id: string;
   code: string;
+  slug: string;
+  categoryId: string | null;
   name: string;
+  /** Lowest and highest active list price (USD cents). */
+  priceMinCents: Cents;
+  priceMaxCents: Cents;
+  /** Lowest margin over active variants with a price and a cost, in basis points. */
+  lowestMarginBp: number | null;
+  activeVariantCount: number;
+  variantsWithoutCost: number;
+  variantsWithoutPrice: number;
+  /** On hand across active variants. */
+  onHandActive: number;
+  variants: ProductVariantLite[];
   needsReview: boolean;
   reviewReason: string | null;
   brandName: string | null;
@@ -73,19 +103,19 @@ const PRODUCT_SORT: Record<ProductQuery['sort'], SQL> = {
   stockValue: sql`COALESCE((SELECT SUM(sl.value_cents) FROM v_stock_levels sl
                               WHERE sl.product_id = p.id), 0)`,
   updated: sql`p.updated_at`,
+  price: sql`COALESCE(pe.min_price, 0)`,
+  // Products with no margin figure (no price or no cost) sort last whichever way you look.
+  margin: sql`COALESCE(pe.min_margin_bp, -1000000)`,
 };
 
-export async function listProducts(
-  query: ProductQuery = {} as ProductQuery,
-): Promise<Page<ProductRow>> {
-  if (!isDatabaseConfigured()) return toPage([], 0, 1, 50);
-
-  const page = clampPage(query.page);
-  const perPage = clampPerPage(query.perPage);
-
+/**
+ * The WHERE conditions of the product list, shared with the view counts so a chip's number is exactly
+ * what the list shows when it is chosen. Expects `products p` and `product_econ pe` in scope.
+ */
+export function productConditions(query: Partial<ProductQuery>): SQL[] {
   const conditions: SQL[] = [];
   if (query.q) {
-    const term = `%${query.q}%`;
+    const term = likeContains(query.q);
     conditions.push(sql`(
       p.name ILIKE ${term} OR p.code ILIKE ${term} OR p.model_number ILIKE ${term}
       OR EXISTS (SELECT 1 FROM brands qb WHERE qb.id = p.brand_id AND qb.name ILIKE ${term})
@@ -105,8 +135,8 @@ export async function listProducts(
   if (query.options) {
     conditions.push(
       query.options === 'multiple'
-        ? sql`(SELECT COUNT(*) FROM product_variants xv WHERE xv.product_id = p.id AND xv.is_active) > 1`
-        : sql`(SELECT COUNT(*) FROM product_variants xv WHERE xv.product_id = p.id AND xv.is_active) <= 1`,
+        ? sql`COALESCE(pe.active_count, 0) > 1`
+        : sql`COALESCE(pe.active_count, 0) <= 1`,
     );
   }
   // The price range matches a product when any active variant is priced inside it.
@@ -146,17 +176,32 @@ export async function listProducts(
       AND COALESCE((SELECT SUM(sl.on_hand) FROM v_stock_levels sl WHERE sl.product_id = p.id), 0)
           <= COALESCE((SELECT low_stock_threshold FROM settings LIMIT 1), 0)`);
   }
+  if (query.cost === 'missing') conditions.push(sql`COALESCE(pe.no_cost_count, 0) > 0`);
+  if (query.cost === 'negative') conditions.push(sql`COALESCE(pe.min_margin_bp, 0) < 0`);
   if (query.featured) conditions.push(sql`p.featured = ${query.featured === 'yes'}`);
   if (query.brand) conditions.push(sql`p.brand_id = ${query.brand}`);
   if (query.category) conditions.push(sql`p.category_id = ${query.category}`);
+  return conditions;
+}
+
+export async function listProducts(
+  query: ProductQuery = {} as ProductQuery,
+): Promise<Page<ProductRow>> {
+  if (!isDatabaseConfigured()) return toPage([], 0, 1, 50);
+
+  const page = clampPage(query.page);
+  const perPage = clampPerPage(query.perPage);
+
+  const conditions = productConditions(query);
   const where = conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
 
   const orderBy = PRODUCT_SORT[query.sort] ?? PRODUCT_SORT.name;
   const direction = sql.raw(query.dir === 'asc' ? 'ASC' : 'DESC');
 
   const rows = await db.execute<Record<string, string | null>>(sql`
+    ${PRODUCT_ECON_CTE}
     SELECT
-      p.id, p.code, p.name, p.slug, p.summary, p.brand_id, p.compatibility::text,
+      p.id, p.code, p.name, p.slug, p.summary, p.brand_id, p.category_id, p.compatibility::text,
       p.key_features::text, p.buyer_requirements::text, p.box_contents::text, p.nextly_take,
       p.seo_description, p.status::text AS status, p.featured::text AS featured, p.updated_at::text AS updated_at,
       p.catalog_published::text AS catalog_published, p.needs_review::text AS needs_review,
@@ -165,8 +210,7 @@ export async function listProducts(
       b.name AS brand_name,
       s.name AS supplier_name,
       (SELECT COUNT(*) FROM product_variants v WHERE v.product_id = p.id)::text AS variant_count,
-      (SELECT COALESCE(i.thumb_url, i.url) FROM product_images i WHERE i.product_id = p.id
-        ORDER BY i.is_primary DESC, (i.variant_id IS NULL) DESC, i.position LIMIT 1) AS image_url,
+      ${productImageSql('p.id')} AS image_url,
       (SELECT COUNT(*) FROM product_images i WHERE i.product_id = p.id)::text AS image_count,
       COALESCE((SELECT SUM(sl.on_hand) FROM v_stock_levels sl
                  WHERE sl.product_id = p.id), 0)::text AS on_hand,
@@ -177,12 +221,18 @@ export async function listProducts(
                  WHERE iv.product_id = p.id AND po.status IN ('ordered', 'shipped')), 0)::text AS incoming,
       COALESCE((SELECT SUM(sl.value_cents) FROM v_stock_levels sl
                  WHERE sl.product_id = p.id), 0)::text AS stock_value_cents,
-      COALESCE((SELECT MIN(v.list_price_cents) FROM product_variants v
-                 WHERE v.product_id = p.id AND v.is_active), 0)::text AS list_price_cents,
+      COALESCE(pe.min_price, 0)::text AS list_price_cents,
+      COALESCE(pe.max_price, 0)::text AS max_price_cents,
+      pe.min_margin_bp::text AS min_margin_bp,
+      COALESCE(pe.active_count, 0)::text AS active_count,
+      COALESCE(pe.no_cost_count, 0)::text AS no_cost_count,
+      COALESCE(pe.no_price_count, 0)::text AS no_price_count,
+      COALESCE(pe.on_hand_active, 0)::text AS on_hand_active,
       COALESCE((SELECT json_agg(json_build_object('isActive', v.is_active, 'listPriceCents', v.list_price_cents))::text FROM product_variants v WHERE v.product_id = p.id), '[]') AS readiness_variants,
       COALESCE((SELECT json_agg(json_build_object('alt', i.alt))::text FROM product_images i WHERE i.product_id = p.id), '[]') AS readiness_images,
       COUNT(*) OVER()::text AS total_count
     FROM products p
+    LEFT JOIN product_econ pe ON pe.product_id = p.id
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN brands b ON b.id = p.brand_id
     LEFT JOIN suppliers  s ON s.id = p.supplier_id
@@ -191,6 +241,8 @@ export async function listProducts(
     LIMIT ${perPage} OFFSET ${(page - 1) * perPage}
   `);
 
+  const variantsByProduct = await listVariantLites(rows.map((row) => text(row.id)));
+
   const total = num(rows[0]?.total_count);
 
   return toPage(
@@ -198,7 +250,20 @@ export async function listProducts(
       id: text(row.id),
       imageUrl: maybe(row.image_url),
       code: text(row.code),
+      slug: text(row.slug),
+      categoryId: maybe(row.category_id),
       name: text(row.name),
+      priceMinCents: num(row.list_price_cents),
+      priceMaxCents: num(row.max_price_cents),
+      lowestMarginBp:
+        row.min_margin_bp === null || row.min_margin_bp === undefined
+          ? null
+          : num(row.min_margin_bp),
+      activeVariantCount: num(row.active_count),
+      variantsWithoutCost: num(row.no_cost_count),
+      variantsWithoutPrice: num(row.no_price_count),
+      onHandActive: num(row.on_hand_active),
+      variants: variantsByProduct.get(text(row.id)) ?? [],
       needsReview: bool(row.needs_review),
       reviewReason: maybe(row.review_reason),
       brandName: maybe(row.brand_name),
@@ -233,6 +298,91 @@ export async function listProducts(
     page,
     perPage,
   );
+}
+
+/** Stock per location for a set of variants, in one query. Where nothing is held there is no entry. */
+export async function listLocationStock(
+  variantIds: readonly string[],
+): Promise<Map<string, { id: string; name: string; onHand: number }[]>> {
+  const result = new Map<string, { id: string; name: string; onHand: number }[]>();
+  if (variantIds.length === 0) return result;
+  const ids = sql.join(
+    variantIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT m.variant_id, l.id AS location_id, l.name, SUM(m.quantity)::text AS on_hand
+      FROM inventory_movements m
+      JOIN locations l
+        ON l.id = COALESCE(m.location_id, (SELECT id FROM locations WHERE slug = 'main' LIMIT 1))
+     WHERE m.variant_id IN (${ids})
+     GROUP BY m.variant_id, l.id, l.name
+    HAVING SUM(m.quantity) <> 0
+     ORDER BY l.name
+  `);
+  for (const row of rows) {
+    const key = text(row.variant_id);
+    const entry = { id: text(row.location_id), name: text(row.name), onHand: num(row.on_hand) };
+    const list = result.get(key);
+    if (list) list.push(entry);
+    else result.set(key, [entry]);
+  }
+  return result;
+}
+
+/**
+ * The variants of a page of products, with price, cost and stock, in ONE query (no lookup per row).
+ * Stock is summed from the movement ledger for exactly those variants.
+ */
+export async function listVariantLites(
+  productIds: readonly string[],
+): Promise<Map<string, ProductVariantLite[]>> {
+  const result = new Map<string, ProductVariantLite[]>();
+  if (productIds.length === 0) return result;
+  const ids = sql.join(
+    productIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT v.id, v.product_id, v.name, v.sku, v.is_active::text AS is_active,
+           v.list_price_cents::text, v.reference_cost_cents::text,
+           COALESCE(s.quantity, 0)::text AS on_hand, COALESCE(s.value_cents, 0)::text AS value_cents
+      FROM product_variants v
+      LEFT JOIN (
+        SELECT m.variant_id, SUM(m.quantity) AS quantity, SUM(m.value_cents) AS value_cents
+          FROM inventory_movements m
+         WHERE m.variant_id IN (SELECT id FROM product_variants WHERE product_id IN (${ids}))
+         GROUP BY m.variant_id
+      ) s ON s.variant_id = v.id
+     WHERE v.product_id IN (${ids})
+     ORDER BY v.position, v.name
+  `);
+  const locationStock = await listLocationStock(rows.map((row) => text(row.id)));
+  for (const row of rows) {
+    const onHand = num(row.on_hand);
+    const valueCents = num(row.value_cents);
+    const referenceCost = num(row.reference_cost_cents);
+    const lite: ProductVariantLite = {
+      locations: locationStock.get(text(row.id)) ?? [],
+      id: text(row.id),
+      name: text(row.name),
+      sku: text(row.sku),
+      isActive: bool(row.is_active),
+      priceCents: num(row.list_price_cents),
+      unitCostCents:
+        onHand > 0 && valueCents > 0
+          ? valueCents / onHand
+          : referenceCost > 0
+            ? referenceCost
+            : null,
+      onHand,
+    };
+    const key = text(row.product_id);
+    const list = result.get(key);
+    if (list) list.push(lite);
+    else result.set(key, [lite]);
+  }
+  return result;
 }
 
 function parseReadinessStrings(value: string | null | undefined): string[] {
@@ -317,7 +467,11 @@ function parseReadinessImages(value: string | null | undefined): { alt?: string 
 
 export type StockLevelRow = {
   variantId: string;
+  productId: string;
   imageUrl: string | null;
+  /** Selling list price in USD cents. */
+  priceCents: Cents;
+  locations: { id: string; name: string; onHand: number }[];
   /** Units held at the selected location, when the list is filtered by location. */
   atLocation: number | null;
   sku: string;
@@ -340,6 +494,9 @@ const STOCK_SORT: Record<StockQuery['sort'], SQL> = {
   name: sql`s.product_name, s.variant_name`,
   onHand: sql`s.on_hand`,
   value: sql`s.value_cents`,
+  price: sql`v.list_price_cents`,
+  // Newest movement first; variants that never moved sort last.
+  updated: sql`COALESCE(s.last_movement_at, 'epoch'::timestamptz)`,
 };
 
 export async function listStock(
@@ -385,7 +542,8 @@ export async function listStock(
 
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT
-      s.variant_id, s.sku, s.product_name, s.variant_name,
+      s.variant_id, s.product_id, s.sku, s.product_name, s.variant_name,
+      v.list_price_cents::text AS price_cents,
       ${variantImageSql('s.variant_id', 's.product_id')} AS image_url,
       ${atLocation ?? sql`NULL::bigint`}::text AS at_location,
       s.on_hand::text, s.total_received::text, s.total_sold::text,
@@ -406,6 +564,7 @@ export async function listStock(
       ), 0)::text AS reserved,
       COUNT(*) OVER()::text AS total_count
     FROM v_stock_levels s
+    JOIN product_variants v ON v.id = s.variant_id
     JOIN products pr ON pr.id = s.product_id
     LEFT JOIN categories c ON c.id = pr.category_id
     ${where}
@@ -414,6 +573,7 @@ export async function listStock(
   `);
 
   const total = num(rows[0]?.total_count);
+  const locationStock = await listLocationStock(rows.map((row) => text(row.variant_id)));
 
   return toPage(
     rows.map((row) => {
@@ -422,7 +582,10 @@ export async function listStock(
       const valueCents = num(row.value_cents);
       return {
         variantId: text(row.variant_id),
+        productId: text(row.product_id),
         imageUrl: maybe(row.image_url),
+        priceCents: num(row.price_cents),
+        locations: locationStock.get(text(row.variant_id)) ?? [],
         atLocation: row.at_location === null ? null : num(row.at_location),
         sku: text(row.sku),
         productName: text(row.product_name),

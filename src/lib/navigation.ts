@@ -68,6 +68,12 @@ export const NAVIGATION: NavGroup[] = [
     Icon: Plus,
     items: [
       {
+        href: '/pos' as Route,
+        label: 'Quick sale',
+        Icon: ShoppingCart,
+        keywords: ['pos', 'counter', 'till', 'checkout', 'walk-in', 'scan', 'barcode', 'sell'],
+      },
+      {
         href: '/sales' as Route,
         label: 'Sales',
         Icon: Receipt,

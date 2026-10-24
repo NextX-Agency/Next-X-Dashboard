@@ -54,7 +54,7 @@ export default async function PriceListDetailPage({
             />
           </SurfaceBody>
         </Surface>
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Variant prices"
             hint="Prices are stored in minor units and never inferred from another currency."

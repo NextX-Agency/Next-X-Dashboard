@@ -9,10 +9,10 @@ export const metadata: Metadata = { title: 'Reset your password' };
  *  verifier in this browser, so the email must be requested from the browser that will use it. */
 export default function ForgotPasswordPage() {
   return (
-    <div className="grid min-h-dvh place-items-center px-6 py-12">
-      <div className="w-full max-w-[340px]">
+    <div className="grid min-h-dvh place-items-center px-4 py-6 sm:px-6 sm:py-12">
+      <div className="w-full max-w-[340px] max-sm:max-w-[400px] max-sm:rounded-card max-sm:border max-sm:border-line-subtle max-sm:bg-raised max-sm:p-5 max-sm:shadow-[var(--nx-shadow-raised)]">
         <Wordmark />
-        <h1 className="mt-8 font-medium text-[18px] text-ink tracking-[-0.02em]">
+        <h1 className="mt-6 font-medium text-[18px] text-ink tracking-[-0.02em]">
           Reset your password
         </h1>
         <p className="mt-1 mb-6 text-[13px] text-ink-3 leading-relaxed">

@@ -7,6 +7,14 @@ import {
 } from '@/components/forms/finance-obligations';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { PageHeader } from '@/components/patterns/page-header';
+import {
+  MobileList,
+  MobileRow,
+  MobileRowActions,
+  MobileRowHeader,
+  MobileRowMeta,
+  MobileRowMetaItem,
+} from '@/components/ui/mobile-list';
 import { Money } from '@/components/ui/money';
 import { Surface, SurfaceBody } from '@/components/ui/surface';
 import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/table';
@@ -50,7 +58,42 @@ export default async function ObligationsPage() {
             </div>
           </div>
           <SurfaceBody className="p-0">
-            <TableWrap>
+            <MobileList>
+              {obligations.map((row) => (
+                <MobileRow key={`m-${row.id}`} interactive={false}>
+                  <MobileRowHeader>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] text-ink">
+                        {row.counterpartyName}
+                      </span>
+                      <span className="block text-[12px] text-ink-3">
+                        {humanise(row.direction)} · issued {row.issuedAt.slice(0, 10)}
+                      </span>
+                    </span>
+                    <ObligationStatus status={row.status} />
+                  </MobileRowHeader>
+                  <MobileRowMeta>
+                    <MobileRowMetaItem label="Due">{row.dueDate ?? '—'}</MobileRowMetaItem>
+                    <MobileRowMetaItem label="Original">
+                      <Money
+                        cents={row.originalAmountCents}
+                        currency={row.currency}
+                        size="sm"
+                      />
+                    </MobileRowMetaItem>
+                    <MobileRowMetaItem label="Outstanding">
+                      <Money cents={row.outstandingCents} currency={row.currency} size="sm" />
+                    </MobileRowMetaItem>
+                  </MobileRowMeta>
+                  {row.outstandingCents > 0 && row.status !== 'cancelled' ? (
+                    <MobileRowActions wide>
+                      <FinanceObligationPaymentSheet obligation={row} wallets={wallets} />
+                    </MobileRowActions>
+                  ) : null}
+                </MobileRow>
+              ))}
+            </MobileList>
+            <TableWrap className="max-lg:hidden">
               <Table>
                 <THead>
                   <tr>

@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { businessDateInput } from '@/lib/business-date';
+import { cn } from '@/lib/cn';
 import { describeIssues } from '@/lib/form-issues';
 import type { RateMicros } from '@/lib/fx';
 import { defaultUnitPrice } from '@/lib/line-price';
@@ -20,6 +22,7 @@ import { orderSchema } from '@/lib/schemas';
 import { createOrder } from '@/server/actions/orders';
 import type { LocationOption, Option, SaleVariantOption } from '@/server/queries/pickers';
 import { LineProduct } from './line-product';
+import { QuantityStepper } from './quantity-stepper';
 import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 type Line = { key: string; variantId: string; quantity: string; unitPrice: string };
@@ -61,6 +64,7 @@ export function OrderForm({
   /** One key per form instance: a double click cannot create two orders. */
   const idempotencyKey = useRef(crypto.randomUUID());
   const [issues, setIssues] = useState<string[]>([]);
+  const issuesRef = useRef<HTMLDivElement | null>(null);
   const [picker, setPicker] = useState<
     { mode: 'add' } | { mode: 'replace'; key: string } | null
   >(null);
@@ -199,7 +203,10 @@ export function OrderForm({
     if (!check.success) {
       const messages = describeIssues(check.error.issues);
       setIssues(messages);
-      toast.error('Fix the problems listed beside the button', { description: messages[0] });
+      toast.error('Fix the problems listed on the page', { description: messages[0] });
+      requestAnimationFrame(() => {
+        issuesRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
       return;
     }
     setIssues([]);
@@ -209,10 +216,25 @@ export function OrderForm({
   return (
     <form
       onSubmit={submit}
-      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start"
+      className="grid grid-cols-1 gap-3 pb-28 md:gap-4 md:pb-0 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start"
     >
-      <div className="space-y-4">
-        <Surface>
+      {issues.length > 0 ? (
+        <div
+          ref={issuesRef}
+          role="alert"
+          className="rounded-control border border-negative/40 bg-negative-muted p-3 text-[13px] text-negative md:hidden"
+        >
+          <p className="font-medium">Fix these first</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {issues.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="flex flex-col gap-3 md:gap-4">
+        <Surface className="max-md:order-1">
           <SurfaceHeader title="Order details" />
           <div className="space-y-3 p-4">
             <Field label="Customer" htmlFor="order-customer" hint="Leave empty for a walk-in">
@@ -278,22 +300,27 @@ export function OrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:-order-1">
           <SurfaceHeader
             title="Items"
             hint="Prices are snapshotted when the order is created"
           />
+          {lines.length === 0 ? (
+            <p className="px-4 py-6 text-center text-[13px] text-ink-3 md:hidden">
+              No products yet. Pick them by photo.
+            </p>
+          ) : null}
           <div className="divide-y divide-line-subtle">
             {lines.map((line, index) => {
               const variant = variantsById.get(line.variantId);
               return (
                 <div
                   key={line.key}
-                  className="grid gap-2 p-4 sm:grid-cols-[1fr_84px_120px_34px]"
+                  className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 p-3 sm:grid-cols-[1fr_84px_120px_34px] sm:gap-2 sm:p-4"
                 >
-                  <div className="min-w-0">
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
                     {index === 0 ? (
-                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2 max-sm:hidden">
                         Product
                       </span>
                     ) : null}
@@ -304,17 +331,19 @@ export function OrderForm({
                       onChange={() => openPicker({ mode: 'replace', key: line.key })}
                     />
                   </div>
-                  <Field label="Qty" hideLabel={index > 0} htmlFor={`order-qty-${index}`}>
-                    <Input
+                  <Field
+                    label="Qty"
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                    htmlFor={`order-qty-${index}`}
+                  >
+                    <QuantityStepper
                       id={`order-qty-${index}`}
-                      numeric
-                      inputMode="numeric"
                       value={line.quantity}
-                      onChange={(event) =>
+                      onChange={(next) =>
                         setLines((current) =>
                           current.map((candidate) =>
                             candidate.key === line.key
-                              ? { ...candidate, quantity: event.target.value }
+                              ? { ...candidate, quantity: next }
                               : candidate,
                           ),
                         )
@@ -323,13 +352,15 @@ export function OrderForm({
                   </Field>
                   <Field
                     label={`Unit (${currency})`}
-                    hideLabel={index > 0}
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
                     htmlFor={`order-price-${index}`}
                   >
                     <Input
                       id={`order-price-${index}`}
                       numeric
                       inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
                       value={line.unitPrice}
                       placeholder={
                         variant
@@ -347,7 +378,7 @@ export function OrderForm({
                       }
                     />
                   </Field>
-                  <div className="flex items-end pb-0.5">
+                  <div className="col-span-2 flex justify-end sm:col-span-1 sm:items-end sm:pb-0.5">
                     <Button
                       type="button"
                       variant="ghost"
@@ -366,11 +397,16 @@ export function OrderForm({
               );
             })}
           </div>
-          <div className="border-line-subtle border-t p-4">
+          <div className="border-line-subtle border-t p-3 sm:p-4">
             <button
               type="button"
               onClick={() => openPicker({ mode: 'add' })}
-              className="flex w-full items-center justify-center gap-1.5 rounded-control border border-dashed border-line py-2 text-[12px] text-ink-3 hover:border-line-strong hover:text-ink-2"
+              className={cn(
+                'flex min-h-12 w-full items-center justify-center gap-1.5 rounded-control py-2 text-[15px] sm:min-h-0 sm:text-[12px]',
+                lines.length === 0
+                  ? 'bg-accent font-medium text-accent-ink sm:border sm:border-dashed sm:border-line sm:bg-transparent sm:font-normal sm:text-ink-3 sm:hover:border-line-strong sm:hover:text-ink-2'
+                  : 'border border-dashed border-line text-ink-3 hover:border-line-strong hover:text-ink-2',
+              )}
             >
               <Plus className="size-3.5" />{' '}
               {lines.length === 0 ? 'Add product' : 'Add another product'}
@@ -378,7 +414,7 @@ export function OrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:order-2">
           <SurfaceHeader title="Fulfillment" />
           <div className="space-y-3 p-4">
             <FieldRow>
@@ -443,7 +479,7 @@ export function OrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:order-3">
           <SurfaceHeader title="Notes" />
           <div className="p-4">
             <Textarea
@@ -456,7 +492,7 @@ export function OrderForm({
         </Surface>
       </div>
 
-      <Surface className="xl:sticky xl:top-20">
+      <Surface id="order-summary" className="scroll-mt-16 xl:sticky xl:top-20">
         <SurfaceHeader title="Order total" />
         <div className="p-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -473,7 +509,7 @@ export function OrderForm({
           {issues.length > 0 ? (
             <div
               role="alert"
-              className="mb-3 rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative"
+              className="mb-3 rounded-control border border-negative/40 bg-negative-muted p-2.5 text-[12px] text-negative max-md:hidden"
             >
               <p className="font-medium">Fix these first</p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
@@ -483,11 +519,47 @@ export function OrderForm({
               </ul>
             </div>
           ) : null}
-          <SubmitButton pending={action.isPending} size="lg" className="w-full">
+          <SubmitButton pending={action.isPending} size="lg" className="w-full max-md:hidden">
             Create draft order
           </SubmitButton>
+          <p className="text-[12px] text-ink-3 md:hidden">
+            Saving creates a draft. Confirming later checks and reserves stock.
+          </p>
         </div>
       </Surface>
+      <ActionBar>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Choose products"
+            onClick={() => openPicker({ mode: 'add' })}
+            className="size-12 shrink-0 p-0 max-sm:size-12"
+          >
+            <Plus className="size-5" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => scrollToId('order-summary')}
+            aria-label="Show order summary"
+            className="min-h-11 min-w-[6.5rem] flex-1 rounded-control py-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <span className="block truncate text-[11px] text-ink-3 leading-tight">
+              {lines.length} {lines.length === 1 ? 'line' : 'lines'} · order total
+            </span>
+            <span className="tabular block truncate font-semibold text-[18px] text-ink leading-tight">
+              {formatMoney(total, currency)}
+            </span>
+          </button>
+          <SubmitButton
+            pending={action.isPending}
+            size="lg"
+            className="h-12 shrink-0 px-5 text-[15px]"
+          >
+            Create draft
+          </SubmitButton>
+        </div>
+      </ActionBar>
       <SaleProductPicker
         open={picker !== null}
         onOpenChange={(next) => {

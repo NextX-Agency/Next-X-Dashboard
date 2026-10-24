@@ -129,7 +129,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
         </Surface>
       ) : null}
 
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <SurfaceHeader title="Order history" />
         {customer.sales.length === 0 ? (
           <p className="px-4 py-8 text-center text-[13px] text-ink-4">No sales yet.</p>
@@ -254,7 +254,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
       </Surface>
 
       {warrantyItems.length > 0 ? (
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Warranty"
             hint="Items bought with a serial · expiry counts from the day of sale"

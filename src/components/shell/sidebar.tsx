@@ -18,8 +18,11 @@ import { Wordmark } from './wordmark';
 export function Sidebar({
   className,
   onNavigate,
+  showBrand = true,
 }: {
   className?: string;
+  /** The desktop rail carries the wordmark; the drawer draws its own header with a close button. */
+  showBrand?: boolean;
   /** Called after a link is chosen. The mobile drawer uses it to close
    *  itself, which keeps that behaviour on the interactive element rather
    *  than on a click handler bolted to a wrapping div. */
@@ -33,17 +36,22 @@ export function Sidebar({
 
   return (
     <nav
-      className={cn('flex h-full flex-col gap-4 overflow-y-auto px-3 py-4', className)}
+      className={cn(
+        'flex h-full flex-col gap-4 overflow-y-auto overscroll-contain px-3 py-3 lg:py-4',
+        className,
+      )}
       aria-label="Primary"
     >
-      <div className="px-2">
-        <Link
-          href="/dashboard"
-          className="inline-flex min-h-11 items-center rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:min-h-0"
-        >
-          <Wordmark />
-        </Link>
-      </div>
+      {showBrand ? (
+        <div className="px-2">
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-11 items-center rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:min-h-0"
+          >
+            <Wordmark />
+          </Link>
+        </div>
+      ) : null}
 
       <ul className="flex flex-col gap-0.5">
         {NAVIGATION.map((group) => {
@@ -62,9 +70,11 @@ export function Sidebar({
                   onClick={onNavigate}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex h-11 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] lg:h-9',
+                    'relative flex h-11 items-center gap-2.5 rounded-control px-2.5 font-semibold text-[13.5px] lg:h-9',
                     'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-                    active ? 'bg-accent-muted text-accent' : 'text-ink hover:bg-hover',
+                    active
+                      ? 'bg-accent-muted text-accent before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-accent lg:before:hidden'
+                      : 'text-ink hover:bg-hover',
                   )}
                 >
                   <GroupIcon aria-hidden="true" className="size-4 shrink-0" />
@@ -110,10 +120,10 @@ export function Sidebar({
                           onClick={onNavigate}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'flex h-11 items-center rounded-control px-2.5 text-[13px] lg:h-8',
+                            'relative flex h-11 items-center rounded-control px-2.5 text-[14px] lg:h-8 lg:text-[13px]',
                             'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                             active
-                              ? 'bg-accent-muted font-semibold text-accent'
+                              ? 'bg-accent-muted font-semibold text-accent before:absolute before:inset-y-2 before:-left-[9px] before:w-[3px] before:rounded-full before:bg-accent lg:before:hidden'
                               : 'text-ink-2 hover:bg-hover hover:text-ink',
                           )}
                         >

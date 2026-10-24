@@ -527,6 +527,155 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   STORE ON PHONES: space, touch and chrome
+   ══════════════════════════════════════════════════════════════════════════
+   The shop is read on a phone first. Rules of this section:
+
+   - The permanent fixed chrome is ONE 56 px header row on top and ONE bottom bar (the 52 px tab bar,
+     or the product page's buy bar, or the cart's order bar), never two. `StoreChrome` flips one
+     attribute on <html> (`data-nx-chrome="hidden"`) while the visitor scrolls down; everything below
+     answers with `transform` only, so nothing changes size and there is no layout shift.
+   - The header and the tab bar are px (tokens.css), with px text: a larger root font size cannot clip
+     them, and they never grow into the page.
+   - "Compact" is a phone, or a phone on its side (short and narrow). Desktop is untouched.
+   - Reduced motion: the shared base-layer rule collapses every transition here to ~0 ms. */
+
+/* No grey flash when a link or button is tapped; the pressed state is ours (.nx-press). */
+.nx-store {
+  -webkit-tap-highlight-color: transparent;
+  /* The page keeps clear of a notch when the phone is on its side (viewport-fit=cover). */
+  padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
+}
+/* No double-tap zoom delay on anything tappable. */
+.nx-store :is(a, button, summary, select, label, [role="button"], [role="switch"]) {
+  touch-action: manipulation;
+}
+/* A phone zooms the page when a field under 16 px is focused. Never let one be that small. */
+@media (max-width: 1023px) {
+  .nx-store
+    :is(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea) {
+    font-size: 16px;
+  }
+}
+/* Sheets and dialogs scroll inside themselves and never hand the scroll on to the page behind. */
+.nx-store[role="dialog"],
+.nx-store [role="dialog"],
+.nx-store[role="dialog"] .overflow-y-auto,
+.nx-store [role="dialog"] .overflow-y-auto {
+  overscroll-behavior: contain;
+}
+/* On a phone, anchors and focused fields land below the sticky header, not under it. */
+@media (max-width: 639px) {
+  html:has(.nx-store) {
+    scroll-padding-top: calc(var(--nx-header-h) + 0.5rem);
+  }
+}
+
+/* Pages with their own bottom bar reserve room for it (the footer's padding reads --nx-bar-h). */
+.nx-store:has(.nx-buybar, .nx-checkout-bar) {
+  --nx-bar-h: 64px;
+}
+.nx-checkout-bar {
+  transition: transform var(--nx-dur-base) var(--nx-ease);
+}
+/* The keyboard is up in the order form: the bar steps aside instead of riding over the field. */
+.nx-store:has(.nx-cart-form :is(input, textarea, select):focus) .nx-checkout-bar {
+  transform: translateY(100%);
+}
+
+/* A row that swipes sideways on a phone and snaps to its items (home categories). It bleeds to the screen
+   edges and keeps the 16 px gutter at its start, so the next item peeks in and shows there is more. */
+@media (max-width: 639px) {
+  .nx-snap-row {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 1rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .nx-snap-row::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Below the fold and heavy to lay out: skip the work until the section is near the screen. */
+.nx-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}
+
+@media (max-width: 639px), (max-width: 1023px) and (max-height: 500px) {
+  .nx-header {
+    height: var(--nx-header-h);
+    /* The hairline is already a border; the scroll-driven shadow would repaint on every frame. */
+    animation: none;
+    transition: transform var(--nx-dur-base) var(--nx-ease);
+    will-change: transform;
+  }
+  .nx-header-wrap,
+  .nx-header-row {
+    height: 100%;
+  }
+  .nx-tabbar {
+    transition: transform var(--nx-dur-base) var(--nx-ease);
+    will-change: transform;
+  }
+  html[data-nx-chrome="hidden"] .nx-header {
+    transform: translateY(-100%);
+  }
+  html[data-nx-chrome="hidden"] .nx-tabbar {
+    transform: translateY(100%);
+  }
+}
+
+@media (max-width: 639px) {
+  /* The shop toolbar (sort and filters) is the page's own sticky bar. It sits right under the header
+     and, once the header has slid away, at the very top. Only `top` changes: nothing around it moves.
+     Solid, edge to edge, one 56 px row. */
+  .nx-subbar {
+    position: sticky;
+    top: var(--nx-header-h);
+    z-index: 20;
+    margin-inline: -1rem;
+    padding: 0.375rem 1rem;
+    background-color: var(--nx-bg-base);
+    box-shadow: 0 1px 0 var(--nx-border-subtle);
+    transition: top var(--nx-dur-base) var(--nx-ease);
+  }
+  html[data-nx-chrome="hidden"] .nx-subbar {
+    top: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* A row of links that scrolls sideways fades out where more is hidden. The fades are as wide as the
+     row's own 16 px padding, so at either end of the scroll they sit over empty space. */
+  .nx-fade-x {
+    position: relative;
+  }
+  .nx-fade-x::before,
+  .nx-fade-x::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 1px;
+    z-index: 1;
+    width: 1rem;
+    pointer-events: none;
+  }
+  .nx-fade-x::before {
+    left: 0;
+    background: linear-gradient(to right, var(--nx-bg-base), transparent);
+  }
+  .nx-fade-x::after {
+    right: 0;
+    background: linear-gradient(to left, var(--nx-bg-base), transparent);
+  }
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Print. The invoice route is the only thing meant to reach paper, so on print
    we force a light document regardless of the on-screen theme (nobody wants a

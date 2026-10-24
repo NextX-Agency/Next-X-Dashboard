@@ -1,3 +1,4 @@
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { formatDate, humanise } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
 import { formatMoney } from '@/lib/money';
@@ -10,6 +11,8 @@ export type InvoicePaperItem = {
   sku: string;
   quantity: number;
   unitPriceCents: number;
+  /** On screen only (staff view); the printed invoice and the customer's link carry no photographs. */
+  imageUrl?: string | null;
 };
 
 export type InvoicePaperSale = {
@@ -142,9 +145,23 @@ export function InvoicePaper({
                 className="border-b border-line-subtle align-top"
               >
                 <td className="py-2.5 pr-3">
-                  <span className="text-ink">{item.productName}</span>
-                  <span className="text-ink-4"> · {item.variantName}</span>
-                  <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
+                  <div className="flex items-start gap-2.5">
+                    {item.imageUrl !== undefined ? (
+                      <ProductThumb
+                        src={item.imageUrl}
+                        name={item.productName}
+                        detail={item.variantName}
+                        size="xs"
+                        decorative
+                        className="print:hidden"
+                      />
+                    ) : null}
+                    <div className="min-w-0">
+                      <span className="text-ink">{item.productName}</span>
+                      <span className="text-ink-4"> · {item.variantName}</span>
+                      <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
+                    </div>
+                  </div>
                 </td>
                 <td className="tabular px-3 py-2.5 text-right text-ink-2">{item.quantity}</td>
                 <td className="tabular px-3 py-2.5 text-right text-ink-2">

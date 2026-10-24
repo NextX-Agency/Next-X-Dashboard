@@ -3,7 +3,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   ArrowLeft,
-  Boxes,
   Check,
   LayoutGrid,
   List,
@@ -13,7 +12,6 @@ import {
   Search,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -24,6 +22,8 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ProductThumb } from '@/components/catalog/product-thumb';
+import { ViewportVars } from '@/components/ui/viewport';
 import { cn } from '@/lib/cn';
 import { fromBase, type RateMicros } from '@/lib/fx';
 import { formatMoney } from '@/lib/money';
@@ -274,16 +274,24 @@ export function SaleProductPicker({
           }}
           onOpenAutoFocus={(event) => {
             event.preventDefault();
+            // A phone shows the grid first; the keyboard comes when the search field is tapped.
+            if (window.matchMedia('(pointer: coarse)').matches) return;
             searchRef.current?.focus();
           }}
-          className="fixed inset-2 z-50 flex flex-col overflow-hidden rounded-card border border-line-subtle bg-base shadow-overlay sm:inset-6 lg:inset-x-[6%] lg:inset-y-8"
+          className={cn(
+            'fixed z-50 flex flex-col overflow-hidden border border-line-subtle bg-base shadow-overlay',
+            // Phone: a sheet that fills what is visible above the keyboard.
+            'inset-x-0 bottom-[var(--vv-bottom,0px)] h-[min(96dvh,var(--vv-h,100dvh))] rounded-t-[18px]',
+            'sm:inset-6 sm:h-auto sm:rounded-card lg:inset-x-[6%] lg:inset-y-8',
+          )}
         >
-          <header className="flex shrink-0 items-center justify-between gap-3 border-line-subtle border-b px-4 py-3">
+          <ViewportVars />
+          <header className="flex shrink-0 items-center justify-between gap-3 border-line-subtle border-b py-2 pr-2 pl-4 sm:px-4 sm:py-3">
             <div className="min-w-0">
-              <Dialog.Title className="font-medium text-[15px] text-ink tracking-[-0.01em]">
+              <Dialog.Title className="font-medium text-[16px] text-ink tracking-[-0.01em] sm:text-[15px]">
                 {mode === 'replace' ? text.replaceTitle : text.addTitle}
               </Dialog.Title>
-              <p className="text-[12px] text-ink-3">
+              <p className="text-[12px] text-ink-3 max-sm:hidden">
                 Search by name, model, brand or SKU.{' '}
                 {text.hint || `Prices shown in ${currency}.`}
               </p>
@@ -296,8 +304,8 @@ export function SaleProductPicker({
             </Dialog.Close>
           </header>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-line-subtle border-b px-4 py-3">
-            <label className="relative min-w-[200px] flex-1">
+          <div className="flex shrink-0 items-center gap-2 overflow-x-auto overscroll-x-contain border-line-subtle border-b px-4 py-2.5 max-sm:[&::-webkit-scrollbar]:hidden max-sm:[scrollbar-width:none] sm:flex-wrap sm:py-3">
+            <label className="relative min-w-[200px] flex-1 max-sm:min-w-[72%]">
               <span className="sr-only">Search products</span>
               <Search
                 aria-hidden="true"
@@ -329,7 +337,8 @@ export function SaleProductPicker({
                   }
                 }}
                 aria-controls={resultsId}
-                className="h-10 w-full rounded-control border border-line bg-inset pr-3 pl-9 text-[14px] text-ink placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring"
+                enterKeyHint="search"
+                className="h-11 w-full rounded-control border border-line bg-inset pr-3 pl-9 text-[16px] text-ink placeholder:text-ink-4 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring sm:h-10 sm:text-[14px]"
               />
             </label>
 
@@ -342,7 +351,7 @@ export function SaleProductPicker({
                     setCategory(event.target.value || null);
                     setLimit(PAGE_SIZE);
                   }}
-                  className="h-10 rounded-control border border-line bg-inset px-3 text-[13px] text-ink focus-visible:outline-2 focus-visible:outline-ring"
+                  className="h-11 rounded-control border border-line bg-inset px-3 text-[16px] text-ink focus-visible:outline-2 focus-visible:outline-ring sm:h-10 sm:text-[13px]"
                 >
                   <option value="">All categories</option>
                   {categories.map((name) => (
@@ -354,7 +363,7 @@ export function SaleProductPicker({
               </label>
             ) : null}
 
-            <fieldset className="flex overflow-hidden rounded-control border border-line">
+            <fieldset className="flex shrink-0 overflow-hidden rounded-control border border-line">
               <legend className="sr-only">Stock</legend>
               {(
                 [
@@ -372,7 +381,7 @@ export function SaleProductPicker({
                     setLimit(PAGE_SIZE);
                   }}
                   className={cn(
-                    'h-10 px-3 text-[13px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                    'h-11 px-3 text-[14px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:h-10 sm:text-[13px]',
                     stock === value
                       ? 'bg-accent-muted font-medium text-accent'
                       : 'text-ink-2 hover:bg-hover',
@@ -383,7 +392,7 @@ export function SaleProductPicker({
               ))}
             </fieldset>
 
-            <fieldset className="flex overflow-hidden rounded-control border border-line">
+            <fieldset className="flex shrink-0 overflow-hidden rounded-control border border-line">
               <legend className="sr-only">View</legend>
               {(
                 [
@@ -399,7 +408,7 @@ export function SaleProductPicker({
                   title={label}
                   onClick={() => setView(value)}
                   className={cn(
-                    'grid size-10 place-items-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                    'grid size-11 place-items-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:size-10',
                     view === value
                       ? 'bg-accent-muted text-accent'
                       : 'text-ink-3 hover:bg-hover',
@@ -416,7 +425,7 @@ export function SaleProductPicker({
               ref={listRef}
               id={resultsId}
               className={cn(
-                'min-h-0 min-w-0 flex-1 overflow-y-auto p-4',
+                'min-h-0 min-w-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-3 sm:p-4',
                 detailOpen && 'max-md:hidden',
               )}
             >
@@ -427,7 +436,7 @@ export function SaleProductPicker({
                     {' · '}
                     <button
                       type="button"
-                      className="text-accent underline-offset-2 hover:underline"
+                      className="inline-flex min-h-11 items-center text-accent underline-offset-2 hover:underline sm:min-h-0"
                       onClick={() => {
                         setQuery('');
                         setCategory(null);
@@ -497,7 +506,11 @@ export function SaleProductPicker({
                         view={view}
                         selected={selected === `bundle:${entry.id}`}
                         name={entry.name}
-                        image={null}
+                        image={
+                          entry.storefrontImageUrl
+                            ? { url: entry.storefrontImageUrl, alt: null }
+                            : null
+                        }
                         bundle
                         meta={['Bundle']}
                         model={null}
@@ -520,7 +533,7 @@ export function SaleProductPicker({
                   <button
                     type="button"
                     onClick={() => setLimit((current) => current + PAGE_SIZE)}
-                    className="h-9 rounded-control border border-line px-4 text-[13px] text-ink-2 hover:bg-hover"
+                    className="h-11 rounded-control border border-line px-4 text-[14px] text-ink-2 hover:bg-hover sm:h-9 sm:text-[13px]"
                   >
                     Show {Math.min(PAGE_SIZE, filtered.length - shown.length)} more of{' '}
                     {filtered.length - shown.length}
@@ -534,7 +547,7 @@ export function SaleProductPicker({
                 aria-label="Selected product"
                 className="flex min-h-0 w-full shrink-0 flex-col border-line-subtle bg-inset md:w-[380px] md:border-l"
               >
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
                   <button
                     type="button"
                     onClick={() => setSelected(null)}
@@ -561,7 +574,7 @@ export function SaleProductPicker({
                   ) : null}
                 </div>
 
-                <div className="shrink-0 space-y-2 border-line-subtle border-t bg-base p-4">
+                <div className="shrink-0 space-y-2 border-line-subtle border-t bg-base p-3 sm:p-4">
                   {warnOverstock && showQuantity ? (
                     <QuantityOverstockNote
                       quantity={parsedQuantity}
@@ -570,13 +583,13 @@ export function SaleProductPicker({
                   ) : null}
                   <div className="flex items-center gap-2">
                     {showQuantity ? (
-                      <div className="flex h-11 shrink-0 items-stretch rounded-control border border-line">
+                      <div className="flex h-12 shrink-0 items-stretch rounded-control border border-line sm:h-11">
                         <button
                           type="button"
                           aria-label="Decrease quantity"
                           disabled={parsedQuantity <= 1}
                           onClick={() => setQuantity(String(Math.max(1, parsedQuantity - 1)))}
-                          className="grid w-11 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35"
+                          className="grid w-12 place-items-center rounded-l-control hover:bg-hover disabled:opacity-35 sm:w-11"
                         >
                           <Minus className="size-3.5" />
                         </button>
@@ -597,13 +610,13 @@ export function SaleProductPicker({
                               commit();
                             }
                           }}
-                          className="tabular w-12 border-0 bg-transparent text-center text-[14px] text-ink focus:outline-none"
+                          className="tabular w-12 border-0 bg-transparent text-center text-[16px] text-ink focus:outline-none sm:text-[14px]"
                         />
                         <button
                           type="button"
                           aria-label="Increase quantity"
                           onClick={() => setQuantity(String(parsedQuantity + 1))}
-                          className="grid w-11 place-items-center rounded-r-control hover:bg-hover"
+                          className="grid w-12 place-items-center rounded-r-control hover:bg-hover sm:w-11"
                         >
                           <Plus className="size-3.5" />
                         </button>
@@ -613,7 +626,7 @@ export function SaleProductPicker({
                       type="button"
                       onClick={commit}
                       disabled={Boolean(variant && !variant.isActive)}
-                      className="h-11 flex-1 rounded-control bg-accent px-4 font-medium text-[13px] text-accent-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50"
+                      className="h-12 flex-1 rounded-control bg-accent px-4 font-medium text-[15px] text-accent-ink hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50 sm:h-11 sm:text-[13px]"
                     >
                       {mode === 'replace' ? 'Use this product' : text.addButton}
                     </button>
@@ -623,7 +636,7 @@ export function SaleProductPicker({
             ) : null}
           </div>
 
-          <footer className="flex shrink-0 items-center justify-between gap-3 border-line-subtle border-t bg-inset px-4 py-3">
+          <footer className="flex shrink-0 items-center justify-between gap-3 border-line-subtle border-t bg-inset px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3">
             <p
               aria-live="polite"
               className="flex min-w-0 items-center gap-1.5 text-[12px] text-ink-3"
@@ -653,31 +666,21 @@ function Thumb({
   image,
   name,
   size,
-  bundle,
 }: {
   image: SaleVariantOption['image'];
   name: string;
   size: number;
   bundle?: boolean;
 }) {
-  const Icon = bundle ? Boxes : Package;
   return (
-    <div className="relative size-full overflow-hidden rounded-control bg-white">
-      {image ? (
-        <Image
-          src={image.url}
-          alt={image.alt ?? name}
-          fill
-          sizes={`${size}px`}
-          className="object-contain p-1"
-        />
-      ) : (
-        <div className="grid size-full place-items-center">
-          <Icon aria-hidden="true" className="size-1/3 text-ink-4" />
-          <span className="sr-only">No photo</span>
-        </div>
-      )}
-    </div>
+    <ProductThumb
+      src={image?.url}
+      name={name}
+      size="fill"
+      decorative
+      sizes={`${size}px`}
+      className="rounded-control"
+    />
   );
 }
 
@@ -947,7 +950,14 @@ function BundleDetail({
   return (
     <div className="space-y-4">
       <div className="mx-auto aspect-square w-full max-w-[200px]">
-        <Thumb image={null} name={bundle.name} size={200} bundle />
+        <Thumb
+          image={
+            bundle.storefrontImageUrl ? { url: bundle.storefrontImageUrl, alt: null } : null
+          }
+          name={bundle.name}
+          size={200}
+          bundle
+        />
       </div>
       <div>
         <h3 className="font-medium text-[15px] text-ink">{bundle.name}</h3>

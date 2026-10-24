@@ -36,7 +36,7 @@ function switchTheme(setTheme: (value: string) => void, value: ThemeValue) {
  * for three 44px targets in the top bar, so it is one 44px button that shows the current choice
  * and steps to the next on tap; the label names both the current theme and what a tap does.
  */
-export function ThemeToggle() {
+export function ThemeToggle({ layout = 'bar' }: { layout?: 'bar' | 'drawer' }) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -47,6 +47,35 @@ export function ThemeToggle() {
   const currentIndex = OPTIONS.findIndex((option) => option.value === current);
   const next = OPTIONS[(currentIndex + 1) % OPTIONS.length] ?? OPTIONS[0];
   const CurrentIcon = OPTIONS[currentIndex]?.Icon ?? Monitor;
+
+  if (layout === 'drawer') {
+    return (
+      <fieldset className="grid grid-cols-3 gap-1 rounded-control border border-line bg-inset p-1">
+        <legend className="sr-only">Colour theme</legend>
+        {OPTIONS.map(({ value, label, Icon }) => {
+          const active = mounted && theme === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => switchTheme(setTheme, value)}
+              aria-pressed={active}
+              className={cn(
+                'flex h-11 items-center justify-center gap-1.5 rounded-[6px] text-[13px] transition-colors duration-150',
+                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+                active
+                  ? 'border border-line-strong bg-active font-semibold text-accent'
+                  : 'text-ink-3 hover:text-ink',
+              )}
+            >
+              <Icon aria-hidden="true" className="size-4" />
+              {label}
+            </button>
+          );
+        })}
+      </fieldset>
+    );
+  }
 
   return (
     <>

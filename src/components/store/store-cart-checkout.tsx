@@ -61,7 +61,9 @@ function paramariboDate(offsetDays = 0) {
 }
 
 function fieldClassName() {
-  return 'mt-1.5 h-11 w-full rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  // 16 px on a phone (set in globals.css) so focusing a field never zooms the page; the margins keep a
+  // focused field clear of the sticky header and the order bar.
+  return 'mt-1.5 h-11 w-full scroll-mt-20 scroll-mb-32 rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 }
 
 /** How long a removed line fades out before it leaves the list (matches `.nx-leave`). */
@@ -304,6 +306,21 @@ export function StoreCartCheckout({
     ? whatsappLink(whatsappNumber, enquiryMessage(businessName))
     : null;
 
+  // Why the order cannot be sent yet, in the words of the disabled button (here and in the phone bar).
+  const orderBlockedLabel = !whatsappNumber
+    ? 'Ordering is unavailable right now'
+    : quoteError
+      ? 'Price and stock not checked'
+      : !quoteReady
+        ? 'Checking price and stock…'
+        : stockIssue
+          ? 'Adjust unavailable items'
+          : currencyMismatch
+            ? 'Empty the cart and start again'
+            : 'Choose a pickup date';
+  const barTotal =
+    quoteReady && !stockIssue && !currencyMismatch && totals.length === 1 ? totals[0] : null;
+
   // After something leaves the page, keyboard and screen reader users start again from the heading.
   const settleFocus = useCallback(() => headingRef.current?.focus(), []);
 
@@ -346,7 +363,9 @@ export function StoreCartCheckout({
 
   if (!ready) {
     return (
-      <div className="mx-auto min-h-[70svh] w-full max-w-[1320px] px-4 py-16 lg:px-8">
+      // The saved cart is read on the device, so the server cannot know how tall the page will be. On a phone
+      // this placeholder fills the screen, so the footer is not pushed down in front of the visitor.
+      <div className="mx-auto min-h-[100svh] w-full max-w-[1320px] px-4 py-8 sm:min-h-[70svh] sm:py-16 lg:px-8">
         <p role="status" className="nx-label text-ink-3">
           Loading your cart…
         </p>
@@ -355,7 +374,7 @@ export function StoreCartCheckout({
   }
 
   return (
-    <div className="mx-auto grid min-h-[70svh] w-full max-w-[1320px] content-start gap-10 px-4 pt-10 pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
+    <div className="nx-cart mx-auto grid min-h-[70svh] w-full max-w-[1320px] content-start gap-6 px-4 pt-4 pb-8 sm:gap-10 sm:pt-10 sm:pb-20 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-14 lg:px-8 lg:pt-14 lg:pb-28">
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
@@ -369,7 +388,7 @@ export function StoreCartCheckout({
               id="cart-heading"
               ref={headingRef}
               tabIndex={-1}
-              className="nx-display mt-2 text-[clamp(36px,5vw,64px)] text-ink focus:outline-none"
+              className="nx-display mt-1 text-[clamp(30px,5vw,64px)] text-ink focus:outline-none sm:mt-2"
             >
               Cart
             </h1>
@@ -378,7 +397,7 @@ export function StoreCartCheckout({
             <button
               type="button"
               onClick={emptyCart}
-              className={`nx-btn nx-btn-line nx-btn-sm ${focusRing}`}
+              className={`nx-btn nx-btn-line nx-btn-sm h-11 ${focusRing}`}
             >
               <Trash2 aria-hidden="true" />
               Empty cart
@@ -414,7 +433,7 @@ export function StoreCartCheckout({
             <p className="mt-4 max-w-[60ch] text-[14px] text-ink-2 leading-relaxed">
               An order is final only once NextX confirms price and stock on WhatsApp.
             </p>
-            <div className="mt-6 divide-y divide-line border-line border-y">
+            <div className="mt-4 divide-y divide-line border-line border-y sm:mt-6">
               {displayLines.map((line, lineIndex) => {
                 const label = variantLabel(line.variantName);
                 const fullName = `${line.productName}${label ? `, ${label}` : ''}`;
@@ -426,13 +445,13 @@ export function StoreCartCheckout({
                 return (
                   <article
                     key={line.variantId}
-                    className={`nx-enter grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 py-5${
+                    className={`nx-enter grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 py-3 sm:gap-y-3 sm:py-5${
                       leaving === line.variantId ? ' nx-leave' : ''
                     }`}
                     style={{ '--i': Math.min(lineIndex, 4) } as CSSProperties}
                   >
-                    <div className="col-span-3 flex min-w-0 items-start gap-4">
-                      <div className="relative size-[72px] shrink-0 overflow-hidden rounded-[12px] bg-sunken">
+                    <div className="col-span-3 flex min-w-0 items-start gap-3 sm:gap-4">
+                      <div className="relative size-16 shrink-0 sm:size-[72px] overflow-hidden rounded-[12px] bg-sunken">
                         {line.imageUrl ? (
                           <Image
                             src={line.imageUrl}
@@ -452,7 +471,7 @@ export function StoreCartCheckout({
                           href={
                             storefrontProductPath(storefrontSlug, line.productSlug) as never
                           }
-                          className={`text-[16px] font-semibold text-ink hover:text-accent ${focusRing}`}
+                          className={`text-[15px] font-semibold text-ink hover:text-accent sm:text-[16px] ${focusRing}`}
                         >
                           {line.productName}
                         </Link>
@@ -539,13 +558,18 @@ export function StoreCartCheckout({
       {lines.length ? (
         <aside
           aria-labelledby="cart-summary-heading"
-          className="h-fit border-ink border-t-2 bg-raised p-5 sm:p-6 lg:sticky lg:top-24"
+          className="h-fit border-ink border-t-2 bg-raised py-5 sm:p-6 lg:sticky lg:top-24"
         >
-          <h2 id="cart-summary-heading" className="nx-display text-[24px] text-ink">
+          <h2
+            id="cart-summary-heading"
+            className="nx-display text-[22px] text-ink sm:text-[24px]"
+          >
             Send the order
           </h2>
 
-          <div className="mt-5 space-y-2 border-line border-y py-4">
+          {/* Fixed minimum height: the total replaces a sentence of a different length when the quote
+              arrives, and the form below must not jump. */}
+          <div className="mt-4 min-h-[4.25rem] space-y-2 border-line border-y py-4 sm:mt-5">
             {quoteReady && !stockIssue ? (
               totals.map(({ currency, amount }) => (
                 <div key={currency} className="flex items-baseline justify-between gap-4">
@@ -566,34 +590,36 @@ export function StoreCartCheckout({
             )}
           </div>
 
-          {quoteWaiting && !quoteError ? (
-            <p className="mt-3 text-[13px] text-ink-2" role="status">
-              Checking prices again in a moment.
-              {quoteReady ? ' The figures below are from the last check.' : ''}
-            </p>
-          ) : quoteReady ? (
-            <p className="mt-3 text-[13px] text-ink-2" role="status">
-              Price and stock just checked. Nothing is reserved until NextX confirms your order.
-            </p>
-          ) : quoteError ? (
-            <div
-              className="mt-3 bg-[#fbe9e6] px-3 py-3 text-[13px] text-[#b42d22]"
-              role="alert"
-            >
-              <p>Price and stock could not be checked. Try again before you send the order.</p>
-              <button
-                type="button"
-                onClick={() => setQuoteTick((tick) => tick + 1)}
-                className={`mt-2 min-h-11 font-semibold underline underline-offset-2 ${focusRing}`}
-              >
-                Check again
-              </button>
-            </div>
-          ) : (
-            <p className="mt-3 text-[13px] text-ink-2" role="status">
-              Checking price and stock…
-            </p>
-          )}
+          <div className="mt-3 min-h-10">
+            {quoteWaiting && !quoteError ? (
+              <p className="text-[13px] text-ink-2" role="status">
+                Checking prices again in a moment.
+                {quoteReady ? ' The figures below are from the last check.' : ''}
+              </p>
+            ) : quoteReady ? (
+              <p className="text-[13px] text-ink-2" role="status">
+                Price and stock just checked. Nothing is reserved until NextX confirms your
+                order.
+              </p>
+            ) : quoteError ? (
+              <div className="bg-[#fbe9e6] px-3 py-3 text-[13px] text-[#b42d22]" role="alert">
+                <p>
+                  Price and stock could not be checked. Try again before you send the order.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setQuoteTick((tick) => tick + 1)}
+                  className={`mt-2 min-h-11 font-semibold underline underline-offset-2 ${focusRing}`}
+                >
+                  Check again
+                </button>
+              </div>
+            ) : (
+              <p className="text-[13px] text-ink-2" role="status">
+                Checking price and stock…
+              </p>
+            )}
+          </div>
 
           {stockIssue ? (
             <div
@@ -616,7 +642,7 @@ export function StoreCartCheckout({
             </p>
           ) : null}
 
-          <div className="mt-4 space-y-3">
+          <div className="nx-cart-form mt-2 space-y-3">
             <div>
               <label htmlFor="cart-customer-name" className="text-[13px] font-medium text-ink">
                 Name
@@ -624,6 +650,8 @@ export function StoreCartCheckout({
               <input
                 id="cart-customer-name"
                 autoComplete="name"
+                autoCapitalize="words"
+                enterKeyHint="next"
                 maxLength={120}
                 value={customerName}
                 onChange={(event) => setCustomerName(event.target.value)}
@@ -638,7 +666,9 @@ export function StoreCartCheckout({
               <input
                 id="cart-customer-phone"
                 type="tel"
+                inputMode="tel"
                 autoComplete="tel"
+                enterKeyHint="next"
                 maxLength={40}
                 value={customerPhone}
                 onChange={(event) => setCustomerPhone(event.target.value)}
@@ -679,7 +709,7 @@ export function StoreCartCheckout({
               <legend className="text-[13px] font-medium text-ink">
                 Preferred pickup date
               </legend>
-              <div className="mt-2 grid grid-cols-3 gap-1 bg-sunken p-1 text-[13px]">
+              <div className="mt-2 flex gap-2 overflow-x-auto overscroll-x-contain pb-0.5 text-[14px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {(['today', 'tomorrow', 'custom'] as const).map((value) => (
                   <button
                     key={value}
@@ -692,7 +722,7 @@ export function StoreCartCheckout({
                         : undefined
                     }
                     onClick={() => setPickupDate(value)}
-                    className={`min-h-11 px-2 font-medium transition-colors ${focusRing} disabled:cursor-not-allowed disabled:opacity-40 ${effectivePickup === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
+                    className={`min-h-11 shrink-0 rounded-[10px] border px-4 font-semibold transition-colors ${focusRing} disabled:cursor-not-allowed disabled:opacity-40 ${effectivePickup === value ? 'border-cta bg-cta text-cta-fg' : 'border-line-strong text-ink-2 hover:border-ink hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'
@@ -722,21 +752,24 @@ export function StoreCartCheckout({
                 id="cart-customer-notes"
                 maxLength={500}
                 rows={3}
+                autoCapitalize="sentences"
+                enterKeyHint="done"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="mt-1.5 w-full scroll-mb-32 resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 placeholder="Optional"
               />
             </div>
           </div>
 
           <div className="mt-5">
+            {/* On a phone the order bar fixed to the bottom carries this button. */}
             {orderUrl ? (
               <a
                 href={orderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
+                className="nx-btn nx-btn-primary h-12 w-full text-[15px] max-sm:hidden"
               >
                 <MessageCircle aria-hidden="true" />
                 Send order via WhatsApp
@@ -745,19 +778,9 @@ export function StoreCartCheckout({
               <button
                 type="button"
                 disabled
-                className="nx-btn nx-btn-primary h-12 w-full text-[15px]"
+                className="nx-btn nx-btn-primary h-12 w-full text-[15px] max-sm:hidden"
               >
-                {!whatsappNumber
-                  ? 'Ordering is unavailable right now'
-                  : quoteError
-                    ? 'Price and stock not checked'
-                    : !quoteReady
-                      ? 'Checking price and stock…'
-                      : stockIssue
-                        ? 'Adjust unavailable items'
-                        : currencyMismatch
-                          ? 'Empty the cart and start again'
-                          : 'Choose a pickup date'}
+                {orderBlockedLabel}
               </button>
             )}
 
@@ -786,6 +809,40 @@ export function StoreCartCheckout({
             </p>
           </div>
         </aside>
+      ) : null}
+
+      {/* Phone: the ONE bar at the bottom. Total and Send order stay in reach however long the cart is;
+          the tab bar steps aside on this page (store-tab-bar.tsx) and this bar steps aside while a field
+          has the keyboard (globals.css). Its height is the footer's reserve (`--nx-bar-h`). */}
+      {lines.length ? (
+        <div className="nx-checkout-bar fixed inset-x-0 bottom-0 z-40 flex items-center gap-[12px] border-line border-t bg-base pt-[8px] pr-[max(16px,env(safe-area-inset-right))] pb-[max(8px,env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] sm:hidden">
+          <div className="min-w-0 shrink-0">
+            <p className="text-[12px] text-ink-3 leading-none">Estimated total</p>
+            <p className="tabular mt-1 min-w-[6.5rem] font-extrabold text-[19px] text-ink leading-none">
+              {barTotal ? customerMoney(barTotal.amount, barTotal.currency, srdRate) : '—'}
+            </p>
+          </div>
+          {orderUrl ? (
+            <a
+              href={orderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nx-btn nx-btn-primary h-[48px] min-w-0 flex-1 px-[12px] text-[15px]"
+            >
+              <MessageCircle aria-hidden="true" />
+              Send order
+              <span className="sr-only"> via WhatsApp (opens WhatsApp)</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="nx-btn nx-btn-primary h-[48px] min-w-0 flex-1 whitespace-normal px-[12px] text-[13px] leading-tight"
+            >
+              {orderBlockedLabel}
+            </button>
+          )}
+        </div>
       ) : null}
     </div>
   );

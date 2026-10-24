@@ -35,7 +35,7 @@ export default async function OwnersPage() {
         action={<OwnerActions principals={principals} />}
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Capital account" hint="Contributions less draws" />
           <Suspense fallback={<Skeleton className="m-4 h-24" />}>
             <EquityTable />

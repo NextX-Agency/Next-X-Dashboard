@@ -45,7 +45,7 @@ export default async function ReorderPage() {
         }
       />
       <ReorderReview rows={rows} suppliers={suppliers} latestSnapshot={latestSnapshot} />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <SurfaceHeader
           title="Snapshot history"
           hint="One local-Monday record per scheduled review"

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
 import { db } from '../db/client';
+import { variantImageSql } from './image-sql';
 import { maybe, num, text } from './row';
 
 /** Dashboard-only operational totals. This is intentionally separate from the
@@ -38,7 +39,8 @@ export async function listRestockRequests() {
   if (!isDatabaseConfigured()) return [];
   const rows = await db.execute<Record<string, string | null>>(sql`
     SELECT r.id, r.contact, r.channel, r.status, r.created_at::text,
-           p.name AS product_name, v.name AS variant_name
+           p.name AS product_name, v.name AS variant_name,
+           ${variantImageSql('r.variant_id', 'p.id')} AS image_url
       FROM restock_requests r JOIN products p ON p.id = r.product_id
       LEFT JOIN product_variants v ON v.id = r.variant_id
      ORDER BY r.created_at DESC
@@ -51,6 +53,7 @@ export async function listRestockRequests() {
     createdAt: text(row.created_at),
     productName: text(row.product_name),
     variantName: maybe(row.variant_name),
+    imageUrl: maybe(row.image_url),
   }));
 }
 

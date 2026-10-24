@@ -9,13 +9,14 @@ import { StoreCartLink } from './store-cart-link';
 import { StoreHeaderSearch } from './store-header-search';
 
 /**
- * One sticky unit on one grid. Both rows live inside the same 1320 px container with the same gutters,
- * so the logo, the nav's first link and the footer's left edge line up exactly.
+ * One sticky unit on one grid. Everything lives inside the same 1320 px container with the same
+ * gutters, so the logo, the nav's first link and the footer's left edge line up exactly.
  *
  * Row 1: logo, search, WhatsApp, cart. From `lg` row 2 lists the places to go (all products, each
- * category) with "How ordering works" pushed to the right edge. On phones the search takes its own row
- * under the logo and the tab bar carries the main places. Every row has a fixed height, so the sticky
- * header never changes size while the page scrolls or hydrates. Nothing for staff lives here.
+ * category). On a phone the whole header is ONE 56 px row (logo, a search field that opens over the
+ * row when it is tapped, the cart) and it slides away while the visitor reads on (`StoreChrome`); the
+ * tab bar carries the main places. Every row has a fixed height, so the header never changes size
+ * while the page scrolls or hydrates. Nothing for staff lives here.
  */
 export function StoreHeader({
   storeName,
@@ -30,29 +31,30 @@ export function StoreHeader({
   const navLink =
     'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 border-transparent font-semibold text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
   return (
-    <header className="nx-header sticky top-0 z-30 border-line border-b bg-base/95 backdrop-blur">
-      <div className="mx-auto w-full max-w-[1320px] px-4 lg:px-8">
-        <div className="flex h-16 items-center gap-3 sm:gap-6">
+    // Solid on a phone: a blurred backdrop on a sticky bar is expensive on a low-end GPU.
+    <header className="nx-header sticky top-0 z-30 border-line border-b bg-base sm:bg-base/95 sm:backdrop-blur">
+      <div className="nx-header-wrap mx-auto w-full max-w-[1320px] px-4 lg:px-8">
+        <div className="nx-header-row relative flex h-16 items-center gap-3 sm:gap-6">
           <Link
             href="/"
             aria-label={`${storeName}, go to the homepage`}
-            className="inline-flex shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="inline-flex h-[44px] shrink-0 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             <Image
               src="/nextx-logo-light.png"
               alt=""
               width={950}
               height={380}
-              className="h-10 w-auto sm:h-11"
+              className="h-[36px] w-auto sm:h-11"
+              // Shown at most 110 px wide: do not preload the 1080 px rendition.
+              sizes="120px"
               priority
             />
           </Link>
-          <Suspense
-            fallback={<div className="hidden h-11 flex-1 rounded-[12px] bg-sunken sm:block" />}
-          >
-            <StoreHeaderSearch className="hidden flex-1 sm:block" />
+          <Suspense fallback={<div className="h-11 min-w-0 flex-1 rounded-[12px] bg-sunken" />}>
+            <StoreHeaderSearch />
           </Suspense>
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
+          <div className="flex shrink-0 items-center gap-1">
             {ask ? (
               <a
                 href={ask}
@@ -82,11 +84,6 @@ export function StoreHeader({
             </Link>
           ))}
         </nav>
-        <div className="pb-3 sm:hidden">
-          <Suspense fallback={<div className="h-11 rounded-[12px] bg-sunken" />}>
-            <StoreHeaderSearch />
-          </Suspense>
-        </div>
       </div>
     </header>
   );

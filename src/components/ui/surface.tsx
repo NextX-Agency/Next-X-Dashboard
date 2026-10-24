@@ -42,7 +42,9 @@ export function SurfaceHeader({ title, hint, action, className }: SurfaceHeaderP
         <h2 className="truncate font-medium text-[13px] text-ink tracking-tight">{title}</h2>
         {hint ? <p className="mt-0.5 truncate text-[12px] text-ink-3">{hint}</p> : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-1.5">{action}</div> : null}
+      {action ? (
+        <div className="flex shrink-0 items-center gap-1.5 max-sm:-my-2">{action}</div>
+      ) : null}
     </div>
   );
 }

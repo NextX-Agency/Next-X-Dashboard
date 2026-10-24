@@ -98,7 +98,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Products sourced here" />
           {supplier.products.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">
@@ -120,7 +120,7 @@ async function Loader({ params }: { params: Promise<{ id: string }> }) {
           )}
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Purchase orders" />
           {supplier.purchaseOrders.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">

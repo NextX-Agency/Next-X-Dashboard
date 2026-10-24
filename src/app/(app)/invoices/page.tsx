@@ -4,6 +4,13 @@ import Link from 'next/link';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
+import {
+  MobileList,
+  MobileRow,
+  MobileRowHeader,
+  MobileRowMeta,
+  MobileRowMetaItem,
+} from '@/components/ui/mobile-list';
 import { Money } from '@/components/ui/money';
 import { Surface } from '@/components/ui/surface';
 import { formatDate } from '@/lib/format';
@@ -25,7 +32,7 @@ export default async function InvoicesPage() {
         title="Invoices"
         description="Every invoice is the stable, printable view of a canonical confirmed Order/Sale. Payment state is derived from valid payments."
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         {invoices.length === 0 ? (
           <EmptyState
             Icon={FileText}
@@ -33,53 +40,101 @@ export default async function InvoicesPage() {
             description="Confirm an order to create its invoice number and snapshot-backed invoice view."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
-              <thead>
-                <tr className="border-b border-line-subtle bg-inset text-[11px] text-ink-4 uppercase tracking-[0.08em]">
-                  <th className="px-4 py-3">Invoice</th>
-                  <th className="px-4 py-3">Customer</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3 text-right">Outstanding</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-b border-line-subtle last:border-0">
-                    <td className="px-4 py-3">
-                      <Link
-                        className="font-medium text-accent underline-offset-2 hover:underline"
-                        href={`/invoice/${invoice.id}` as Route}
-                      >
-                        {invoice.invoiceNumber ?? invoice.number}
-                      </Link>
-                      <span className="ml-2 text-[11px] text-ink-4">{invoice.number}</span>
-                    </td>
-                    <td className="px-4 py-3 text-ink-2">
-                      {invoice.customerName ?? 'Walk-in customer'}
-                    </td>
-                    <td className="px-4 py-3 text-ink-3">{formatDate(invoice.soldAt)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Money cents={invoice.totalCents} currency={invoice.currency} size="sm" />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Money
-                        cents={invoice.outstandingCents}
-                        currency={invoice.currency}
-                        size="sm"
-                        tone={invoice.outstandingCents > 0 ? 'flow' : 'muted'}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone={TONE[invoice.status]}>{invoice.status}</Badge>
-                    </td>
+          <>
+            <div className="overflow-x-auto max-lg:hidden">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-line-subtle bg-inset text-[11px] text-ink-4 uppercase tracking-[0.08em]">
+                    <th className="px-4 py-3">Invoice</th>
+                    <th className="px-4 py-3">Customer</th>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-right">Outstanding</th>
+                    <th className="px-4 py-3">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="border-b border-line-subtle last:border-0">
+                      <td className="px-4 py-3">
+                        <Link
+                          className="font-medium text-accent underline-offset-2 hover:underline"
+                          href={`/invoice/${invoice.id}` as Route}
+                        >
+                          {invoice.invoiceNumber ?? invoice.number}
+                        </Link>
+                        <span className="ml-2 text-[11px] text-ink-4">{invoice.number}</span>
+                      </td>
+                      <td className="px-4 py-3 text-ink-2">
+                        {invoice.customerName ?? 'Walk-in customer'}
+                      </td>
+                      <td className="px-4 py-3 text-ink-3">{formatDate(invoice.soldAt)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Money
+                          cents={invoice.totalCents}
+                          currency={invoice.currency}
+                          size="sm"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Money
+                          cents={invoice.outstandingCents}
+                          currency={invoice.currency}
+                          size="sm"
+                          tone={invoice.outstandingCents > 0 ? 'flow' : 'muted'}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge tone={TONE[invoice.status]}>{invoice.status}</Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <MobileList>
+              {invoices.map((invoice) => (
+                <MobileRow key={invoice.id}>
+                  <Link
+                    href={`/invoice/${invoice.id}` as Route}
+                    className="flex flex-col gap-2 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    <MobileRowHeader>
+                      <span className="min-w-0">
+                        <span className="tabular block text-[13px] text-ink">
+                          {invoice.invoiceNumber ?? invoice.number}
+                        </span>
+                        <span className="block truncate text-[12px] text-ink-3">
+                          {invoice.customerName ?? 'Walk-in customer'} ·{' '}
+                          {formatDate(invoice.soldAt)}
+                        </span>
+                      </span>
+                      <Badge tone={TONE[invoice.status]} className="shrink-0">
+                        {invoice.status}
+                      </Badge>
+                    </MobileRowHeader>
+                    <MobileRowMeta>
+                      <MobileRowMetaItem label="Total">
+                        <Money
+                          cents={invoice.totalCents}
+                          currency={invoice.currency}
+                          size="sm"
+                        />
+                      </MobileRowMetaItem>
+                      <MobileRowMetaItem label="Outstanding">
+                        <Money
+                          cents={invoice.outstandingCents}
+                          currency={invoice.currency}
+                          size="sm"
+                          tone={invoice.outstandingCents > 0 ? 'flow' : 'muted'}
+                        />
+                      </MobileRowMetaItem>
+                    </MobileRowMeta>
+                  </Link>
+                </MobileRow>
+              ))}
+            </MobileList>
+          </>
         )}
       </Surface>
     </>

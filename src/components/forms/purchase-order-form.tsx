@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Textarea } from '@/components/ui/field';
@@ -18,6 +19,7 @@ import { createPurchaseOrder, updatePurchaseOrder } from '@/server/actions/purch
 import { createSupplier } from '@/server/actions/reference';
 import type { Option, SaleVariantOption } from '@/server/queries/pickers';
 import { LineProduct } from './line-product';
+import { QuantityStepper } from './quantity-stepper';
 import { type PickerSelection, SaleProductPicker } from './sale-product-picker';
 
 /**
@@ -78,9 +80,12 @@ export function PurchaseOrderForm({
   variants,
   suppliers,
   initial,
+  prefillVariantIds,
 }: {
   variants: SaleVariantOption[];
   suppliers: Option[];
+  /** Variants to start the order with, one unit each (from "Add to purchase order" on a product). */
+  prefillVariantIds?: string[];
   /** Omit for a blank form. Editing is only offered for draft/ordered/shipped
    *  orders — see updatePurchaseOrder, which refuses anything else. */
   initial?: PurchaseOrderFormValues;
@@ -101,7 +106,15 @@ export function PurchaseOrderForm({
         variantId: item.variantId,
         quantity: item.quantity,
         subtotal: item.subtotal,
-      })) ?? [],
+      })) ??
+      (prefillVariantIds ?? [])
+        .filter((id) => variants.some((variant) => variant.id === id))
+        .map((variantId) => ({
+          key: crypto.randomUUID(),
+          variantId,
+          quantity: '1',
+          subtotal: '',
+        })),
   );
   const pickerOpener = useRef<HTMLElement | null>(null);
   /** The product browser: adding to the order, or swapping the product on one line. */
@@ -303,10 +316,10 @@ export function PurchaseOrderForm({
         event.preventDefault();
         submit();
       }}
-      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start"
+      className="grid grid-cols-1 gap-3 pb-28 md:gap-4 md:pb-0 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start"
     >
-      <div className="space-y-4">
-        <Surface>
+      <div className="flex flex-col gap-3 md:gap-4">
+        <Surface className="max-md:order-1">
           <SurfaceHeader title="Order" />
           <div className="space-y-3 p-4">
             <Field label="Supplier" htmlFor="supplier">
@@ -357,13 +370,13 @@ export function PurchaseOrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:-order-1">
           <SurfaceHeader
             title="Items"
             hint="Enter the line total for the goods, before shipping"
           />
           {lines.length === 0 ? (
-            <div className="grid place-items-center gap-1 px-4 py-10 text-center">
+            <div className="grid place-items-center gap-1 px-4 py-6 text-center sm:py-10">
               <Package aria-hidden="true" className="size-7 text-ink-4" />
               <p className="font-medium text-[14px] text-ink">No products on this order yet</p>
               <p className="max-w-[44ch] text-[12px] text-ink-3">
@@ -384,14 +397,14 @@ export function PurchaseOrderForm({
               return (
                 <div
                   key={line.key}
-                  className="grid gap-2 p-4 sm:grid-cols-[24px_1fr_72px_100px_100px_32px]"
+                  className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 p-3 sm:grid-cols-[24px_1fr_72px_100px_100px_32px] sm:gap-2 sm:p-4"
                 >
                   <span className="hidden self-center tabular text-[12px] text-ink-4 sm:block">
                     {index + 1}
                   </span>
-                  <div className="min-w-0">
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
                     {index === 0 ? (
-                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2">
+                      <span className="mb-1.5 block font-medium text-[12px] text-ink-2 max-sm:hidden">
                         Product
                       </span>
                     ) : null}
@@ -403,17 +416,19 @@ export function PurchaseOrderForm({
                     />
                   </div>
 
-                  <Field label="Qty" hideLabel={index > 0} htmlFor={`qty-${index}`}>
-                    <Input
+                  <Field
+                    label="Qty"
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                    htmlFor={`qty-${index}`}
+                  >
+                    <QuantityStepper
                       id={`qty-${index}`}
-                      numeric
-                      inputMode="numeric"
                       value={line.quantity}
-                      onChange={(event) =>
+                      onChange={(next) =>
                         setLines((current) =>
                           current.map((candidate) =>
                             candidate.key === line.key
-                              ? { ...candidate, quantity: event.target.value }
+                              ? { ...candidate, quantity: next }
                               : candidate,
                           ),
                         )
@@ -421,11 +436,17 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <Field label="Goods (USD)" hideLabel={index > 0} htmlFor={`sub-${index}`}>
+                  <Field
+                    label="Goods (USD)"
+                    labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                    htmlFor={`sub-${index}`}
+                  >
                     <Input
                       id={`sub-${index}`}
                       numeric
                       inputMode="decimal"
+                      enterKeyHint="next"
+                      autoComplete="off"
                       placeholder="0.00"
                       value={line.subtotal}
                       onChange={(event) =>
@@ -440,39 +461,45 @@ export function PurchaseOrderForm({
                     />
                   </Field>
 
-                  <div className={index === 0 ? 'pt-0.5' : ''}>
-                    <span className="hidden self-center tabular text-right text-[13px] text-ink-2 sm:block">
-                      {line.variantId && lineTotal > 0 ? formatMoney(lineTotal) : '—'}
-                    </span>
-                  </div>
+                  <div className="col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:contents">
+                    <div className={cn('ml-auto sm:ml-0', index === 0 ? 'sm:pt-0.5' : '')}>
+                      <span className="tabular text-[13px] text-ink-2 sm:block sm:text-right">
+                        <span className="text-ink-4 sm:hidden">Line total </span>
+                        {line.variantId && lineTotal > 0 ? formatMoney(lineTotal) : '—'}
+                      </span>
+                    </div>
 
-                  <div
-                    className={cn('flex', index === 0 ? 'items-end pb-0.5' : 'items-center')}
-                  >
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove line"
-                      onClick={() =>
-                        setLines((current) =>
-                          current.filter((candidate) => candidate.key !== line.key),
-                        )
-                      }
+                    <div
+                      className={cn(
+                        'flex',
+                        index === 0 ? 'sm:items-end sm:pb-0.5' : 'items-center',
+                      )}
                     >
-                      <Trash2 className="size-3.5" />
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Remove line"
+                        onClick={() =>
+                          setLines((current) =>
+                            current.filter((candidate) => candidate.key !== line.key),
+                          )
+                        }
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="flex items-center justify-between border-line-subtle border-t px-4 py-2.5">
+          <div className="flex items-center justify-between border-line-subtle border-t px-3 py-2.5 sm:px-4">
             <button
               type="button"
               onClick={() => openPicker({ mode: 'add' })}
               className={cn(
-                'flex w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                'flex min-h-12 w-full items-center justify-center gap-1.5 rounded-control py-2.5 text-[15px] transition-colors sm:min-h-0 sm:text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 lines.length === 0
                   ? 'bg-accent font-medium text-accent-ink hover:opacity-90'
                   : 'border border-dashed border-line text-ink-3 hover:border-line-strong hover:text-ink-2',
@@ -487,7 +514,7 @@ export function PurchaseOrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:order-2">
           <SurfaceHeader
             title="Freight, tax and fees"
             hint="These are costs of the goods, not general expenses. They are allocated across the lines on receipt."
@@ -498,6 +525,8 @@ export function PurchaseOrderForm({
                 id="shipping"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
                 placeholder="0.00"
                 value={shipping}
                 onChange={(event) => setShipping(event.target.value)}
@@ -508,6 +537,8 @@ export function PurchaseOrderForm({
                 id="shippingTax"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
                 placeholder="0.00"
                 value={shippingTax}
                 onChange={(event) => setShippingTax(event.target.value)}
@@ -518,6 +549,8 @@ export function PurchaseOrderForm({
                 id="tax"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
                 placeholder="0.00"
                 value={tax}
                 onChange={(event) => setTax(event.target.value)}
@@ -528,6 +561,8 @@ export function PurchaseOrderForm({
                 id="cardFee"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="next"
+                autoComplete="off"
                 placeholder="0.00"
                 value={cardFee}
                 onChange={(event) => setCardFee(event.target.value)}
@@ -538,6 +573,8 @@ export function PurchaseOrderForm({
                 id="delivery"
                 numeric
                 inputMode="decimal"
+                enterKeyHint="done"
+                autoComplete="off"
                 placeholder="0.00"
                 value={delivery}
                 onChange={(event) => setDelivery(event.target.value)}
@@ -546,7 +583,7 @@ export function PurchaseOrderForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface className="max-md:order-3">
           <SurfaceHeader title="Notes" />
           <div className="p-4">
             <Textarea
@@ -559,7 +596,7 @@ export function PurchaseOrderForm({
         </Surface>
       </div>
 
-      <Surface className="xl:sticky xl:top-20">
+      <Surface id="po-summary" className="scroll-mt-16 xl:sticky xl:top-20">
         <SurfaceHeader
           title="Landed cost"
           hint="Freight uses weight when complete; other costs use value"
@@ -607,7 +644,7 @@ export function PurchaseOrderForm({
         )}
 
         <div className="flex flex-col gap-2 border-line-subtle border-t p-4">
-          <SubmitButton pending={isPending} size="lg" className="w-full">
+          <SubmitButton pending={isPending} size="lg" className="w-full max-md:hidden">
             {isEdit ? 'Save changes' : 'Raise order'}
           </SubmitButton>
           <p className="text-[11px] text-ink-4 leading-relaxed">
@@ -617,6 +654,39 @@ export function PurchaseOrderForm({
           </p>
         </div>
       </Surface>
+      <ActionBar>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Choose products"
+            onClick={() => openPicker({ mode: 'add' })}
+            className="size-12 shrink-0 p-0 max-sm:size-12"
+          >
+            <Plus className="size-5" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => scrollToId('po-summary')}
+            aria-label="Show landed cost"
+            className="min-h-11 min-w-[6.5rem] flex-1 rounded-control py-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <span className="block truncate text-[11px] text-ink-3 leading-tight">
+              {lines.length} {lines.length === 1 ? 'line' : 'lines'} · order total
+            </span>
+            <span className="tabular block truncate font-semibold text-[18px] text-ink leading-tight">
+              {formatMoney(preview.total)}
+            </span>
+          </button>
+          <SubmitButton
+            pending={isPending}
+            size="lg"
+            className="h-12 shrink-0 px-5 text-[15px]"
+          >
+            {isEdit ? 'Save changes' : 'Raise order'}
+          </SubmitButton>
+        </div>
+      </ActionBar>
       <SaleProductPicker
         open={picker !== null}
         onOpenChange={(next) => {

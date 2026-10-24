@@ -6,6 +6,7 @@ import type { Cents } from '@/lib/money';
 import { OVERDUE_AFTER_DAYS } from '@/lib/payment-status';
 import { db } from '../db/client';
 import { CACHE_TAGS, REFERENCE_CACHE_LIFE } from './cache-tags';
+import { variantImageSql } from './image-sql';
 import { pnlTotals } from './reports';
 import { bool, maybe, text } from './row';
 
@@ -156,6 +157,7 @@ export type StockRow = {
   inbound: number;
   totalSold: number;
   valueCents: Cents;
+  imageUrl: string | null;
 };
 
 export async function getInventoryHealth(limit = 8): Promise<StockRow[]> {
@@ -170,9 +172,11 @@ export async function getInventoryHealth(limit = 8): Promise<StockRow[]> {
     inbound: string;
     total_sold: string;
     value_cents: string;
+    image_url: string | null;
   }>(sql`
     SELECT
       s.variant_id, s.sku, s.product_name, s.variant_name,
+      ${variantImageSql('s.variant_id', 's.product_id')} AS image_url,
       s.on_hand::text, s.total_sold::text, s.value_cents::text,
       COALESCE((
         SELECT SUM(i.quantity - i.quantity_received)
@@ -195,6 +199,7 @@ export async function getInventoryHealth(limit = 8): Promise<StockRow[]> {
     inbound: Number(row.inbound),
     totalSold: Number(row.total_sold),
     valueCents: Number(row.value_cents),
+    imageUrl: row.image_url ?? null,
   }));
 }
 

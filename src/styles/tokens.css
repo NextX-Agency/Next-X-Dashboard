@@ -204,3 +204,36 @@
   --nx-rise: 12px; /* how far a reveal travels */
   --nx-stagger: 50ms; /* step between the first few items */
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Storefront chrome sizes. The shop header and the phone bars are a fixed
+   height so nothing can shift while they hide and reappear on scroll; the
+   sticky parts of a page (shop toolbar, anchors) read these instead of
+   guessing. In px on purpose: their text is px too, so a larger root font size
+   cannot clip it, and a header that grew with it would leave no room for the page.
+   `--nx-header-h` is the whole sticky header, border included: 56 px on a
+   phone, one 64 px row plus its border from `sm`, plus the 44 px nav row from
+   `lg`, 52 px on a landscape phone.
+   `--nx-bar-h` is the phone's bottom bar WITHOUT the safe-area inset: the
+   52 px tab bar, or 64 px where a page brings its own bar (product, cart;
+   raised with `:has()` in globals.css).
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --nx-header-h: 56px;
+  --nx-bar-h: 52px;
+}
+@media (min-width: 640px) {
+  :root {
+    --nx-header-h: 65px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --nx-header-h: 109px;
+  }
+}
+@media (min-width: 640px) and (max-width: 1023px) and (max-height: 500px) {
+  :root {
+    --nx-header-h: 52px;
+  }
+}

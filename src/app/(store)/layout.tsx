@@ -1,7 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { AnnouncementBar } from '@/components/store/announcement-bar';
 import { StoreCartProvider } from '@/components/store/store-cart-provider';
+import { StoreChrome } from '@/components/store/store-chrome';
 import { StoreFooter } from '@/components/store/store-footer';
 import { StoreHeader } from '@/components/store/store-header';
 import { StoreTabBar } from '@/components/store/store-tab-bar';
@@ -60,6 +61,16 @@ export async function generateMetadata(): Promise<Metadata> {
     robots: { index: !staging, follow: !staging },
   };
 }
+/**
+ * `viewport-fit=cover` lets the shop's fixed bars reach the screen edges on a notched phone and read the
+ * safe-area insets (`env(safe-area-inset-*)`); `.nx-store` pads the page itself by the side insets. The
+ * theme colour is the shop's white, so the browser bar does not turn dashboard-grey above it.
+ */
+export const viewport: Viewport = {
+  viewportFit: 'cover',
+  themeColor: '#ffffff',
+};
+
 // Settings are live database data used by the storefront footer. With a
 // production database configured, leaving this segment as an instant route
 // makes Next.js reject the uncached read during prerendering. The catalog grid
@@ -87,6 +98,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
       <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-manrope)] text-ink">
+        <StoreChrome />
         <AnnouncementBar announcement={settings?.announcement} />
         <StoreHeader
           storeName={storeName}

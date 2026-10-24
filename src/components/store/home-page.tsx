@@ -38,8 +38,9 @@ type Settings = NonNullable<Awaited<ReturnType<typeof getSettings>>>;
 type Currency = 'USD' | 'SRD';
 
 const SECTION = 'mx-auto w-full max-w-[1320px] px-4 lg:px-8';
-const SECTION_GAP = 'mt-16 lg:mt-24';
-const SECTION_TITLE = 'nx-display text-[clamp(26px,3.4vw,38px)]';
+/** Tighter on a phone: 40 px between sections, 64 from `sm`, 96 from `lg`. */
+const SECTION_GAP = 'mt-10 sm:mt-16 lg:mt-24';
+const SECTION_TITLE = 'nx-display text-[clamp(24px,3.4vw,38px)]';
 const FOCUS =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
@@ -90,7 +91,7 @@ async function HomeContent() {
   const help = whatsappLink(settings?.whatsapp, assortmentMessage(businessName));
 
   return (
-    <div className="pb-16 lg:pb-24">
+    <div className="pb-6 sm:pb-16 lg:pb-24">
       <Hero
         settings={settings}
         showcase={showcase}
@@ -180,23 +181,23 @@ function Hero({
   ].filter((fact): fact is string => Boolean(fact));
 
   return (
-    <section aria-labelledby="home-title" className={cn(SECTION, 'pt-6 lg:pt-10')}>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
-        <div className="flex flex-col justify-center lg:py-8">
+    <section aria-labelledby="home-title" className={cn(SECTION, 'pt-3 sm:pt-6 lg:pt-10')}>
+      <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
+        <div className="flex min-w-0 flex-col justify-center lg:py-8">
           <p className="nx-label nx-enter text-accent">{eyebrow}</p>
           <h1
             id="home-title"
-            className="nx-display mt-4 text-balance text-[clamp(36px,5.2vw,68px)] leading-[0.98] text-ink"
+            className="nx-display mt-2 text-balance text-[clamp(32px,5.2vw,68px)] leading-[0.98] text-ink sm:mt-4"
           >
             {title}
           </h1>
           <p
-            className="nx-enter mt-5 max-w-[44ch] text-[17px] text-ink-2 leading-relaxed"
+            className="nx-enter mt-3 max-w-[44ch] text-[15px] text-ink-2 leading-[1.5] sm:mt-5 sm:text-[17px] sm:leading-relaxed"
             style={stagger(1)}
           >
             {body}
           </p>
-          <div className="nx-enter mt-6 flex gap-3 sm:mt-7" style={stagger(2)}>
+          <div className="nx-enter mt-4 flex flex-wrap gap-3 sm:mt-7" style={stagger(2)}>
             <Link
               href={SHOP_PATH as never}
               className="nx-btn nx-btn-primary flex-1 px-5 sm:flex-none sm:px-7"
@@ -216,7 +217,7 @@ function Hero({
             ) : null}
           </div>
           <p
-            className="nx-enter mt-8 border-line border-t pt-4 text-[14px] text-ink-3"
+            className="nx-enter mt-4 border-line border-t pt-3 text-[13px] text-ink-3 sm:mt-8 sm:pt-4 sm:text-[14px]"
             style={stagger(3)}
           >
             {facts.join(' / ')}
@@ -272,7 +273,7 @@ function Showcase({
             <span
               className={cn(
                 'relative block min-h-0 flex-1',
-                large ? 'aspect-[4/3] md:aspect-auto' : 'aspect-square md:aspect-auto',
+                large ? 'aspect-[3/2] md:aspect-auto' : 'aspect-square md:aspect-auto',
               )}
             >
               {product.image ? (
@@ -343,7 +344,9 @@ function CategoryTiles({
       </h2>
       <ul
         className={cn(
-          'nx-stagger mt-6 grid gap-3 sm:gap-4',
+          // A phone swipes through the categories in one short row instead of stacking them
+          // (the next tile peeks in, so it reads as a row); from `sm` they are a grid again.
+          'nx-stagger nx-snap-row mt-4 flex gap-3 sm:mt-6 sm:grid sm:gap-4',
           three
             ? 'md:grid-cols-6 md:grid-rows-2'
             : tiles.length === 2
@@ -355,7 +358,7 @@ function CategoryTiles({
           <li
             key={tile.slug}
             className={cn(
-              'nx-reveal min-w-0',
+              'nx-reveal w-[72%] max-w-[300px] shrink-0 snap-start sm:w-auto sm:max-w-none sm:shrink',
               three && index === 0 && 'md:col-span-4 md:row-span-2',
               three && index > 0 && 'md:col-span-2',
             )}
@@ -393,8 +396,8 @@ function CategoryTileCard({
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
       className={cn(
-        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[24px] bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
-        large ? 'min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
+        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[20px] bg-sunken p-4 transition-colors hover:bg-hover sm:rounded-[24px] sm:p-7',
+        large ? 'min-h-[200px] sm:min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
         FOCUS,
       )}
     >
@@ -433,7 +436,7 @@ function CategoryTileCard({
           className={cn(
             'absolute mix-blend-multiply',
             large
-              ? 'right-[-2%] bottom-[-4%] w-[62%] max-w-[460px]'
+              ? 'right-[-2%] bottom-[-4%] w-[52%] max-w-[460px] sm:w-[62%]'
               : 'right-[-6%] bottom-[-8%] w-[52%] max-w-[240px]',
           )}
         />
@@ -458,7 +461,7 @@ function Shelf({
   action: { href: string; label: string };
 }) {
   return (
-    <section aria-labelledby={`home-${id}`} className={cn(SECTION, SECTION_GAP)}>
+    <section aria-labelledby={`home-${id}`} className={cn(SECTION, SECTION_GAP, 'nx-cv')}>
       <div className="nx-reveal flex items-end justify-between gap-4">
         <h2 id={`home-${id}`} className={SECTION_TITLE}>
           {title}
@@ -466,14 +469,14 @@ function Shelf({
         <Link
           href={action.href as never}
           className={cn(
-            'inline-flex min-h-10 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline',
+            'inline-flex min-h-11 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline',
             FOCUS,
           )}
         >
           {action.label} <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </div>
-      <ul className="nx-stagger mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <ul className="nx-stagger mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-4">
         {products.map((product) => (
           <li key={product.id} className="nx-reveal">
             <ProductCard product={product} srdRate={srdRate} />
@@ -501,17 +504,17 @@ async function Sets({
     <section
       id="sets"
       aria-labelledby="home-bundles"
-      className={cn(SECTION, SECTION_GAP, 'scroll-mt-24')}
+      className={cn(SECTION, SECTION_GAP, 'nx-cv scroll-mt-0 sm:scroll-mt-24')}
     >
       <h2 id="home-bundles" className={cn(SECTION_TITLE, 'nx-reveal')}>
         Bundles
       </h2>
-      <ul className="nx-reveal mt-6 border-line border-b">
+      <ul className="nx-reveal mt-4 border-line border-b sm:mt-6">
         {bundles.map((bundle, index) => (
           <li key={bundle.id} className="border-line border-t">
             <Link
               href={`/setups/${bundle.slug}` as never}
-              className={cn('group flex items-start gap-4 py-5 sm:gap-8', FOCUS)}
+              className={cn('group flex items-start gap-4 py-4 sm:gap-8 sm:py-5', FOCUS)}
             >
               <span
                 aria-hidden="true"
@@ -574,13 +577,13 @@ function Pickup({
     <section
       id="pickup"
       aria-labelledby="home-pickup"
-      className={cn(SECTION, 'mt-10 scroll-mt-24 lg:mt-12')}
+      className={cn(SECTION, 'nx-cv mt-8 scroll-mt-0 sm:mt-10 sm:scroll-mt-24 lg:mt-12')}
     >
-      <div className="nx-reveal rounded-[24px] bg-night p-6 text-night-ink sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
-        <h2 id="home-pickup" className="nx-display text-[clamp(26px,3.4vw,38px)]">
+      <div className="nx-reveal rounded-[20px] bg-night p-5 text-night-ink sm:rounded-[24px] sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
+        <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
           Pickup and contact
         </h2>
-        <dl className="mt-8 grid gap-x-10 gap-y-6 text-[15px] sm:grid-cols-2 lg:mt-1">
+        <dl className="mt-5 grid gap-x-10 gap-y-4 text-[15px] sm:mt-8 sm:grid-cols-2 sm:gap-y-6 lg:mt-1">
           {hasPickupPlace ? (
             <Fact label="Pickup">
               {pickupLocations.length ? (

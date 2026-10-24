@@ -103,6 +103,9 @@ test.describe('names, labels and landmarks', () => {
             el.getAttribute('aria-label') ||
             el.getAttribute('aria-labelledby') ||
             (el as HTMLElement).innerText ||
+            // Sections below the fold use `content-visibility: auto`: while one is not rendered its
+            // `innerText` is empty, but its text is still in the accessibility tree.
+            el.textContent ||
             el.getAttribute('title') ||
             el.getAttribute('alt') ||
             ''

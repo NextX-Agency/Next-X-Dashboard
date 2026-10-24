@@ -1,6 +1,7 @@
 import { Trophy } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Button } from '@/components/ui/button';
 import { Money, Percent } from '@/components/ui/money';
@@ -41,15 +42,20 @@ export async function MarginLeaders({ limit = 5 }: { limit?: number }) {
             href={`/items/${row.productId}` as Route}
             className="block px-4 py-2.5 transition-colors hover:bg-hover"
           >
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-[13px] text-ink">{row.name}</p>
-              <Money cents={row.grossCents} size="sm" tone="flow" />
-            </div>
-            <div className="tabular mt-0.5 flex items-center justify-between gap-3 text-[11px] text-ink-4">
-              <span>
-                {row.unitsSold} sold · {formatMoney(row.revenueCents)} revenue
-              </span>
-              <Percent value={row.marginRate} />
+            <div className="flex items-center gap-3">
+              <ProductThumb src={row.imageUrl} name={row.name} size="sm" decorative />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 truncate text-[13px] text-ink">{row.name}</p>
+                  <Money cents={row.grossCents} size="sm" tone="flow" />
+                </div>
+                <div className="tabular mt-0.5 flex items-center justify-between gap-3 text-[11px] text-ink-4">
+                  <span>
+                    {row.unitsSold} sold · {formatMoney(row.revenueCents)} revenue
+                  </span>
+                  <Percent value={row.marginRate} />
+                </div>
+              </div>
             </div>
           </Link>
         </li>

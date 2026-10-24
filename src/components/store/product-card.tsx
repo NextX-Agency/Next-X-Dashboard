@@ -83,7 +83,7 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-1 p-3.5 sm:p-4">
+        <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
           {eyebrow ? (
             <p className="font-semibold text-[11px] text-ink-3 uppercase tracking-[0.08em]">
               {eyebrow}
@@ -92,7 +92,7 @@ export function ProductCard({
           {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
           <Link
             href={href as never}
-            className="line-clamp-2 font-semibold text-[15px] leading-[1.3] text-ink after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+            className="line-clamp-2 font-semibold text-[14px] leading-[1.3] text-ink after:absolute sm:text-[15px] after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
           >
             {product.name}
           </Link>
@@ -115,7 +115,7 @@ export function ProductCard({
           />
           {canQuickAdd && only ? (
             <QuickAdd
-              className="mt-3"
+              className="mt-2 sm:mt-3"
               line={{
                 productId: product.id,
                 productSlug: product.slug,

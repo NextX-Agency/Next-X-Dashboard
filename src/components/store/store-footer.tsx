@@ -65,7 +65,7 @@ export function StoreFooter({
   const phoneDigits = settings?.phone?.replace(/\D/g, '') ?? '';
   const payments = settings?.paymentMethods ?? [];
   const link =
-    'inline-flex min-h-10 items-center text-ink-2 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
+    'inline-flex min-h-11 min-w-11 items-center text-ink-2 sm:min-h-10 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
 
   const pickupLines = [
     ...pickupLocations.map((location) => publicText(location.name)),
@@ -174,10 +174,10 @@ export function StoreFooter({
     'Tell NextX what you listen to and what you want to spend. We answer on WhatsApp.';
 
   return (
-    <footer className="mt-16 overflow-hidden border-line border-t bg-sunken pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-0">
+    <footer className="nx-cv mt-10 overflow-hidden border-line border-t bg-sunken pb-[calc(var(--nx-bar-h)+env(safe-area-inset-bottom))] sm:mt-16 sm:pb-0">
       {ask ? (
-        <div className="mx-auto w-full max-w-[1320px] px-4 pt-10 lg:px-8 lg:pt-14">
-          <div className="nx-reveal flex flex-col gap-6 rounded-[28px] bg-store-bright p-6 text-[#141414] sm:p-10 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:p-12">
+        <div className="mx-auto w-full max-w-[1320px] px-4 pt-8 lg:px-8 lg:pt-14">
+          <div className="nx-reveal flex flex-col gap-5 rounded-[24px] bg-store-bright p-5 sm:rounded-[28px] sm:gap-6 text-[#141414] sm:p-10 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:p-12">
             <div className="max-w-[26ch]">
               <p className="font-semibold text-[13px] opacity-80">Before you order</p>
               <h2 className="nx-display mt-3 text-[clamp(30px,4.6vw,58px)] leading-[1]">
@@ -202,7 +202,7 @@ export function StoreFooter({
         </div>
       ) : null}
 
-      <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16 lg:px-8 lg:py-14">
+      <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 py-8 sm:gap-10 sm:py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16 lg:px-8 lg:py-14">
         <div>
           <Image
             src="/nextx-logo-light.png"
@@ -228,14 +228,14 @@ export function StoreFooter({
               href={instagramUrl(settings.instagram)}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 inline-flex min-h-10 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+              className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
             >
               Follow on Instagram <ArrowUpRight aria-hidden="true" className="size-4" />
             </a>
           ) : null}
         </div>
 
-        <div className="nx-stagger grid gap-x-8 gap-y-8 text-[14px] sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+        <div className="nx-stagger grid gap-x-8 gap-y-6 text-[14px] sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
           {sections.map((section, index) => (
             <section key={section.title} className="nx-reveal border-ink border-t-2 pt-4">
               <h2 className="flex items-baseline gap-2 font-bold text-[13px] text-ink">
@@ -273,7 +273,7 @@ export function StoreFooter({
             href="https://www.nextxagency.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex min-h-8 items-center gap-1 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
+            className="inline-flex min-h-11 items-center gap-1 transition-colors sm:min-h-8 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
           >
             Built by NextX Agency <ArrowUpRight aria-hidden="true" className="size-3.5" />
           </a>

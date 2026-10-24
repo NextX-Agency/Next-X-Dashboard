@@ -43,7 +43,7 @@ The same rule is applied in four places that must agree, and a change must touch
 | Shop product cards | `LATERAL` image join in `catalogFrom` (`ORDER BY is_primary DESC, (variant_id IS NULL) DESC, position`), then the matched option's own photograph when a colour/option filter is active |
 | Dashboard lists (products, inventory, sale lines) | `variantImageSql` in `src/server/queries/image-sql.ts` (SQL mirror) |
 
-Cards and selectors use the `thumb_url` derivative when one exists. Public URLs are the public bucket's;
+Cards and selectors use the `thumb_url` derivative when one exists. In the dashboard every photograph is drawn by `ProductThumb` (`src/components/catalog/product-thumb.tsx`); list queries add the picture with `productImageSql` / `variantImageSql` (`server/queries/image-sql.ts`) in the same statement, never one lookup per row. Public URLs are the public bucket's;
 private staging objects are never referenced (the media audit flags any that are).
 
 ## 3. Product page (`src/components/store/product-selection.tsx`)

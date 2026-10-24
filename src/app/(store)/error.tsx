@@ -33,9 +33,9 @@ export default function StoreError({
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 pt-14 pb-24 lg:px-8 lg:pt-20">
+    <div className="mx-auto w-full max-w-[1320px] px-4 pt-8 pb-10 sm:pt-14 sm:pb-24 lg:px-8 lg:pt-20">
       <p className="nx-label text-ink-3">Error</p>
-      <h1 className="nx-display mt-3 max-w-[16ch] text-[clamp(36px,6vw,72px)] text-ink">
+      <h1 className="nx-display mt-3 max-w-[16ch] text-[clamp(30px,6vw,72px)] text-ink">
         This page did not load.
       </h1>
       <p className="mt-5 max-w-[46ch] text-[16px] text-ink-2 leading-relaxed">

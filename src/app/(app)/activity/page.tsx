@@ -80,7 +80,7 @@ export default async function ActivityPage({
         title="Activity log"
         description="Every change made in the app, newest first: who did it, to which record, and what changed. The log is append-only; nothing here can be edited."
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <Suspense fallback={<Skeleton className="m-4 h-24" />}>
           <Toolbar />
         </Suspense>
@@ -95,8 +95,7 @@ export default async function ActivityPage({
 async function Toolbar() {
   const types = await listActivityEntityTypes();
   return (
-    <ListToolbar>
-      <ListSearch placeholder="Person, action or record" />
+    <ListToolbar search={<ListSearch placeholder="Person, action or record" />}>
       <ListFilter
         param="entity"
         label="All records"

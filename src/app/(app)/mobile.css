@@ -1,0 +1,260 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Staff dashboard: phone shell.
+
+   Imported by the (app) layout only (globals.css belongs to the shop). Plain CSS because the rules
+   key off state that lives outside any one component: `data-chrome` on <html> (set by
+   shell/scroll-chrome.tsx), and the presence of a page's own sticky footer.
+
+   The idea: permanent chrome is as small as it can be, and what is left gets out of the way.
+     - The top bar is 48px (56px from `lg`) and slides away while you read down, back on scroll up.
+     - The bottom bar (below `md` only) carries the four things staff do all day, and slides away
+       with it. A page that has its own fixed action footer marks itself with
+       `data-hides-tabbar` and the bottom bar steps aside, so there is never more than one fixed
+       bar at the foot of the screen.
+     - Only transform animates, so nothing reflows. Reduced motion: the bars still hide, instantly.
+
+   Sticky children (a table header, a filter strip) position themselves with
+   `top: var(--shell-top)`: the height of the top bar *right now* (0 while it is hidden).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.app-shell {
+  --shell-top: 3.5rem; /* desktop: 56px top bar */
+  --tabbar-h: 0px;
+}
+
+@media (max-width: 1023.98px) {
+  .app-shell {
+    --shell-top: calc(3rem + env(safe-area-inset-top, 0px));
+  }
+  html[data-chrome="hidden"] .app-shell {
+    --shell-top: 0px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .app-shell {
+    --tabbar-h: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  }
+  html:has([data-hides-tabbar]) .app-shell {
+    --tabbar-h: 0px;
+  }
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.app-topbar {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (max-width: 1023.98px) {
+  html[data-chrome="hidden"] .app-topbar {
+    transform: translateY(-100%);
+  }
+}
+
+/* The menu button lives in the bottom bar on phones. It comes back in the top bar on the pages whose
+   own footer replaces the bottom bar, so there is always a way to the menu. */
+@media (max-width: 767.98px) {
+  .app-menu-btn {
+    display: none;
+  }
+  html:has([data-hides-tabbar]) .app-menu-btn {
+    display: grid;
+  }
+}
+
+/* ── Bottom bar ──────────────────────────────────────────────────────────── */
+.app-tabbar {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .app-tabbar {
+    display: block;
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html[data-chrome="hidden"] .app-tabbar,
+  .app-shell:has(
+      :is(
+          input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"]),
+          textarea,
+          select
+        ):focus
+    )
+    .app-tabbar {
+    transform: translateY(100%);
+  }
+  html:has([data-hides-tabbar]) .app-tabbar {
+    display: none;
+  }
+  /* Toasts sit above the bar, not behind it. */
+  html:not(:has([data-hides-tabbar])) [data-sonner-toaster] {
+    --mobile-offset-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-topbar,
+  .app-tabbar {
+    transition: none;
+  }
+}
+
+/* ── Touch ergonomics ────────────────────────────────────────────────────── */
+.app-shell {
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--nx-accent) 14%, transparent);
+}
+.app-shell a,
+.app-shell button,
+.app-shell summary,
+.app-shell select,
+.app-shell label,
+.app-shell input,
+.app-shell [role="button"],
+.app-shell [role="tab"] {
+  touch-action: manipulation;
+}
+/* Radix portals (sheets, menus, the drawer) render outside .app-shell. */
+[role="dialog"] a,
+[role="dialog"] button,
+[role="dialog"] summary,
+[role="dialog"] select,
+[role="dialog"] label,
+[role="dialog"] input,
+[role="menu"] [role="menuitem"] {
+  touch-action: manipulation;
+}
+[role="dialog"] {
+  overscroll-behavior: contain;
+}
+
+/* Wide tables that must stay tabular on a phone: scroll sideways with a soft edge fade while there
+   is more to reach, and keep the first column (what the row *is*) pinned. See `TableWrap` and the
+   `sticky` prop of `TH` / `TD` in components/ui/table.tsx. Below `lg` only; desktop is untouched. */
+@media (max-width: 1023.98px) {
+  .nx-scrollx {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(to right, var(--nx-bg-raised) 30%, transparent) left center / 24px 100%
+      no-repeat local,
+      linear-gradient(to left, var(--nx-bg-raised) 30%, transparent) right center / 24px 100%
+      no-repeat local,
+      linear-gradient(
+        to right,
+        color-mix(in srgb, var(--nx-text) 16%, transparent),
+        transparent
+      )
+      left center / 12px 100% no-repeat scroll,
+      linear-gradient(to left, color-mix(in srgb, var(--nx-text) 16%, transparent), transparent)
+      right center / 12px 100% no-repeat scroll;
+  }
+  .nx-scrollx .nx-sticky-first {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--nx-bg-raised);
+    box-shadow: 1px 0 0 var(--nx-border-subtle);
+  }
+  /* A second pinned column, beside a 44px first one (a row's checkbox, then its name). */
+  .nx-scrollx .nx-sticky-second {
+    position: sticky;
+    left: 2.75rem;
+    z-index: 1;
+    background-color: var(--nx-bg-raised);
+    box-shadow: 1px 0 0 var(--nx-border-subtle);
+  }
+  .nx-scrollx thead .nx-sticky-first,
+  .nx-scrollx thead .nx-sticky-second {
+    background-color: var(--nx-bg-inset);
+  }
+}
+
+/* ── Touch controls ──────────────────────────────────────────────────────── */
+/* A bare checkbox or radio is 13px; on a touch screen it is drawn at 20px (its label row carries
+   the 44px target). */
+@media (pointer: coarse) {
+  .app-shell input[type="checkbox"],
+  .app-shell input[type="radio"],
+  [role="dialog"] input[type="checkbox"],
+  [role="dialog"] input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: var(--nx-accent);
+  }
+  /* A focused field keeps clear of the bars when the browser scrolls it into view. */
+  .app-shell input,
+  .app-shell textarea,
+  .app-shell select {
+    scroll-margin-block: 7rem;
+  }
+}
+
+/* ── Selects ─────────────────────────────────────────────────────────────── */
+/* The chevron the shared <Select> asks for as an inline Tailwind data-URI never reaches the page
+   (the arbitrary-value class is dropped at build), so a native select looked like a plain field.
+   Drawn here for phones, tablets and touch screens; a desktop select is left exactly as it was. */
+@media (max-width: 1023.98px), (pointer: coarse) {
+  .app-shell select,
+  [role="dialog"] select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a847a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 1rem;
+    padding-right: 2.25rem;
+  }
+}
+
+/* ── Touch floor ─────────────────────────────────────────────────────────── */
+/* The components size themselves for a phone below `sm`, and for a mouse from there up. A phone held
+   sideways (812px wide) or a tablet is still a finger, so on any touch screen a control is at least
+   44px tall, whatever the width. Desktop (a fine pointer) never matches. */
+@media (pointer: coarse) {
+  .app-shell :is(button, select, summary, [role="button"], [role="tab"], [role="radio"]),
+  .app-shell
+    input:not(
+      [type="checkbox"],
+      [type="radio"],
+      [type="hidden"],
+      [type="range"],
+      [type="file"]
+    ),
+  [role="dialog"] :is(button, select, summary, [role="button"], [role="tab"], [role="radio"]),
+  [role="dialog"]
+    input:not(
+      [type="checkbox"],
+      [type="radio"],
+      [type="hidden"],
+      [type="range"],
+      [type="file"]
+    ),
+  [role="menu"] [role="menuitem"] {
+    min-height: 2.75rem;
+  }
+  /* Button-styled links get the same floor. */
+  .app-shell a[class*="inline-flex"][class*="rounded-control"],
+  [role="dialog"] a[class*="inline-flex"][class*="rounded-control"] {
+    min-height: 2.75rem;
+  }
+  /* Icon-only buttons (a name, one icon) are squares. */
+  .app-shell button[aria-label]:has(> svg:only-child),
+  [role="dialog"] button[aria-label]:has(> svg:only-child) {
+    min-width: 2.75rem;
+  }
+  /* Typing never zooms the page: 16px minimum in every field. */
+  .app-shell
+  :is(input, select, textarea):not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="file"]
+  ),
+  [role="dialog"]
+    :is(input, select, textarea):not(
+      [type="checkbox"],
+      [type="radio"],
+      [type="range"],
+      [type="file"]
+    ) {
+    font-size: max(16px, 1em);
+  }
+}

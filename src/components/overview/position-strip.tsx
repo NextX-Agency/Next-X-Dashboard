@@ -25,7 +25,7 @@ export async function PositionStrip() {
   const srdRate = rate?.rateMicros;
 
   return (
-    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-line-subtle bg-line-subtle sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line-subtle bg-line-subtle xl:grid-cols-4">
       <Tile
         Icon={Banknote}
         label="Cash on hand"
@@ -81,13 +81,15 @@ function Tile({
   emphasis?: boolean;
 }) {
   return (
-    <div className="flex flex-col justify-between gap-3 bg-raised p-4">
+    <div className="flex min-w-0 flex-col justify-between gap-2 bg-raised p-3 sm:gap-3 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] text-ink-3 uppercase tracking-[0.08em]">{label}</p>
-          <p className="mt-0.5 truncate text-[11px] text-ink-4">{hint}</p>
+          <p className="truncate text-[11px] text-ink-3 uppercase tracking-[0.06em] sm:tracking-[0.08em]">
+            {label}
+          </p>
+          <p className="mt-0.5 truncate text-[11px] text-ink-4 max-sm:hidden">{hint}</p>
         </div>
-        <Icon className="size-4 shrink-0 text-ink-4" />
+        <Icon className="size-4 shrink-0 text-ink-4 max-sm:hidden" />
       </div>
 
       <div className="flex items-end justify-between gap-3">
@@ -95,10 +97,10 @@ function Tile({
           cents={cents}
           size={emphasis ? 'xl' : 'lg'}
           srdRate={srdRate}
-          className="items-start"
+          className="min-w-0 items-start"
         />
         {spark ? (
-          <div className="w-[110px] shrink-0">
+          <div className="w-[110px] shrink-0 max-sm:hidden">
             <Sparkline values={spark} tone={tone} />
           </div>
         ) : null}
@@ -110,9 +112,12 @@ function Tile({
 /** Matches the real tile geometry exactly, so streaming causes no shift. */
 export function PositionStripSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-px overflow-hidden rounded-card border border-line-subtle bg-line-subtle sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line-subtle bg-line-subtle xl:grid-cols-4">
       {[0, 1, 2, 3].map((index) => (
-        <div key={index} className="flex flex-col justify-between gap-3 bg-raised p-4">
+        <div
+          key={index}
+          className="flex flex-col justify-between gap-2 bg-raised p-3 sm:gap-3 sm:p-4"
+        >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5">
               <Skeleton className="h-[11px] w-24" />

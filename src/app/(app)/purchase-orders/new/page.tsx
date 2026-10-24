@@ -13,7 +13,11 @@ export const instant = false;
 
 export const metadata: Metadata = { title: 'Raise a purchase order' };
 
-export default function NewPurchaseOrderPage() {
+export default function NewPurchaseOrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ add?: string | string[] }>;
+}) {
   return (
     <>
       <PageHeader
@@ -26,18 +30,34 @@ export default function NewPurchaseOrderPage() {
         }
       />
       <Suspense fallback={<FormSkeleton />}>
-        <Loader />
+        <Loader searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function Loader() {
-  const [variants, suppliers] = await Promise.all([
+async function Loader({
+  searchParams,
+}: {
+  searchParams: Promise<{ add?: string | string[] }>;
+}) {
+  const [variants, suppliers, params] = await Promise.all([
     listSaleVariantOptions(),
     listSupplierOptions(),
+    searchParams,
   ]);
-  return <PurchaseOrderForm variants={variants} suppliers={suppliers} />;
+  const add = Array.isArray(params.add) ? params.add[0] : params.add;
+  const prefillVariantIds = (add ?? '')
+    .split(',')
+    .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+    .slice(0, 20);
+  return (
+    <PurchaseOrderForm
+      variants={variants}
+      suppliers={suppliers}
+      prefillVariantIds={prefillVariantIds}
+    />
+  );
 }
 
 function FormSkeleton() {

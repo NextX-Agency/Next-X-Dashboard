@@ -18,6 +18,8 @@ export type ReorderCandidate = {
   weightGrams?: number;
   supplierName?: string | null;
   supplierKind?: string | null;
+  /** The variant's photograph (thumbnail address), for the review screens. */
+  imageUrl?: string | null;
 };
 
 export type ReorderRecommendation = ReorderCandidate & {

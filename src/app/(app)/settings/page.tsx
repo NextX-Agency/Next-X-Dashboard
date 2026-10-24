@@ -39,7 +39,7 @@ export default async function SettingsPage() {
         description="The exchange rate, the team, and the thresholds the dashboard reads from."
       />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Exchange rate"
             hint="Versioned. A new rate is a new row, never an edit."
@@ -54,7 +54,7 @@ export default async function SettingsPage() {
           </Suspense>
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Team"
             hint="Invite people and control what they can change."
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
           </Suspense>
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Business"
             hint="Currency and thresholds"
@@ -84,7 +84,7 @@ export default async function SettingsPage() {
           </Suspense>
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="What customers read"
             hint="The saved announcement and hero text on the shop"

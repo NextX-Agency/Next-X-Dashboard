@@ -19,7 +19,7 @@ const SECURITY_HEADERS = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    value: 'camera=(self), microphone=(), geolocation=(), payment=(), usb=()',
   },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
   {

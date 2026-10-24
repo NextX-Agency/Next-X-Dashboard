@@ -352,14 +352,14 @@ export async function listCustomerOptions(): Promise<Option[]> {
   }));
 }
 
-export type LocationOption = { id: string; name: string };
+export type LocationOption = { id: string; name: string; slug?: string };
 
 export async function listLocationOptions(): Promise<LocationOption[]> {
   if (!isDatabaseConfigured()) return [];
   const rows = await db.execute<Record<string, string | null>>(
-    sql`SELECT id, name FROM locations WHERE active ORDER BY name`,
+    sql`SELECT id, name, slug FROM locations WHERE active ORDER BY name`,
   );
-  return rows.map((row) => ({ id: text(row.id), name: text(row.name) }));
+  return rows.map((row) => ({ id: text(row.id), name: text(row.name), slug: text(row.slug) }));
 }
 
 export async function listSellerOptions(): Promise<(Option & { active: boolean })[]> {

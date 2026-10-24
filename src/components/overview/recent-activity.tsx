@@ -72,7 +72,7 @@ function entryHref(entry: ActivityEntry): string | undefined {
 
 function ConditionalLink({ href, children }: { href?: string; children: React.ReactNode }) {
   const className =
-    'group flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left';
+    'group flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left';
   if (!href) return <div className={className}>{children}</div>;
   return (
     <Link href={href as Route} className={cn(className, 'transition-colors hover:bg-hover')}>

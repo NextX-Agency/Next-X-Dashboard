@@ -25,7 +25,7 @@ export default async function StorefrontsPage() {
           </Button>
         }
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[13px]">
             <thead className="border-b border-line-subtle bg-inset text-[11px] text-ink-4 uppercase">

@@ -75,7 +75,7 @@ export function SetupChecklist({ state }: { state: SetupState }) {
             setDismissed(true);
             void fetch('/api/setup-banner', { method: 'POST' });
           }}
-          className="text-[12px] text-ink-4 shrink-0 hover:text-ink-2"
+          className="-mt-2 -mr-2 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control text-[12px] text-ink-3 hover:text-ink-2 focus-visible:outline-2 focus-visible:outline-ring"
         >
           Hide
         </button>
@@ -86,14 +86,14 @@ export function SetupChecklist({ state }: { state: SetupState }) {
           return (
             <li key={step.code}>
               {done ? (
-                <span className="text-ink-4 inline-flex items-start gap-2 rounded-control px-2 py-1.5 text-[12px]">
+                <span className="text-ink-4 inline-flex items-start gap-2 rounded-control px-2 py-1.5 text-[12px] max-sm:min-h-9">
                   <CheckCircle2 className="text-positive mt-0.5 size-4 shrink-0" />
                   <span className="line-through">{step.label}</span>
                 </span>
               ) : (
                 <Link
                   href={step.href as Route}
-                  className="hover:bg-hover focus-visible:outline-ring text-ink inline-flex items-start gap-2 rounded-control px-2 py-1.5 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="hover:bg-hover focus-visible:outline-ring text-ink flex items-start gap-2 rounded-control px-2 py-1.5 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 max-sm:min-h-11 sm:inline-flex sm:text-[12px]"
                 >
                   <Circle className="text-ink-4 mt-0.5 size-4 shrink-0" />
                   <span>

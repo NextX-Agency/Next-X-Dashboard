@@ -2,6 +2,7 @@ import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { ReceiveOrderSheet } from '@/components/forms/finance-sheets';
 import { PurchaseOrderForm } from '@/components/forms/purchase-order-form';
 import { PurchaseOrderRefundSheet } from '@/components/forms/purchase-order-refund-sheet';
@@ -263,7 +264,7 @@ async function Loader({
           </p>
         ) : null}
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Items" />
           <div className="hidden lg:block">
             <TableWrap>
@@ -285,8 +286,19 @@ async function Loader({
                   {order.items.map((item) => (
                     <TR key={item.id}>
                       <TD className="whitespace-nowrap text-ink">
-                        {item.productName}
-                        <span className="text-ink-4"> · {item.variantName}</span>
+                        <span className="inline-flex items-center gap-2.5">
+                          <ProductThumb
+                            src={item.imageUrl}
+                            name={item.productName}
+                            detail={item.variantName}
+                            size="sm"
+                            decorative
+                          />
+                          <span>
+                            {item.productName}
+                            <span className="text-ink-4"> · {item.variantName}</span>
+                          </span>
+                        </span>
                       </TD>
                       <TD className="tabular whitespace-nowrap text-[12px] text-ink-3">
                         {item.sku}
@@ -345,12 +357,21 @@ async function Loader({
             {order.items.map((item) => (
               <MobileRow key={item.id} interactive={false}>
                 <MobileRowHeader>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] text-ink">
-                      {item.productName}
-                      <span className="text-ink-4"> · {item.variantName}</span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <ProductThumb
+                      src={item.imageUrl}
+                      name={item.productName}
+                      detail={item.variantName}
+                      size="sm"
+                      decorative
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] text-ink">
+                        {item.productName}
+                        <span className="text-ink-4"> · {item.variantName}</span>
+                      </span>
+                      <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
                     </span>
-                    <span className="tabular block text-[11px] text-ink-4">{item.sku}</span>
                   </span>
                   <Money cents={item.landedCostCents} size="sm" className="shrink-0" />
                 </MobileRowHeader>
@@ -386,7 +407,7 @@ async function Loader({
       </div>
 
       {order.payments.length > 0 ? (
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Payments"
             hint="Each payment posted its own expense to the cash ledger when it was recorded"
@@ -416,7 +437,7 @@ async function Loader({
       ) : null}
 
       {order.refunds.length > 0 ? (
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Refunds"
             hint="Supplier refunds are recorded separately from payments"
@@ -446,7 +467,7 @@ async function Loader({
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Posted" hint="What receiving this order caused" />
           {order.ledgerEntries.length === 0 && order.movements.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">
@@ -490,7 +511,7 @@ async function Loader({
           )}
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Activity" />
           {activity.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">

@@ -1,6 +1,7 @@
 import { Package } from 'lucide-react';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Money } from '@/components/ui/money';
@@ -78,7 +79,8 @@ export async function InventoryDecisions() {
               key={row.variantId}
               className="flex items-center justify-between gap-3 px-4 py-3"
             >
-              <div className="min-w-0">
+              <ProductThumb src={row.imageUrl} name={row.name} size="sm" decorative />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] text-ink">{row.name}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-4">
                   <span>{row.supplierName ?? 'No supplier'}</span>
@@ -119,7 +121,7 @@ export async function InventoryDecisions() {
         </span>
         <Link
           href="/reorder"
-          className="font-medium text-accent underline-offset-4 hover:underline"
+          className="inline-flex min-h-11 items-center font-medium text-accent underline-offset-4 hover:underline lg:min-h-0"
         >
           Review purchasing queue →
         </Link>

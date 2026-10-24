@@ -1,11 +1,15 @@
+import type { Viewport } from 'next';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { MemberProvider } from '@/components/providers/member-provider';
+import { MobileNavProvider, TabBar } from '@/components/shell/mobile-nav';
+import { ScrollChrome } from '@/components/shell/scroll-chrome';
 import { SetupBanner } from '@/components/shell/setup-banner';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { REQUEST_ID_HEADER } from '@/lib/observability';
 import { requireMember } from '@/server/auth';
+import './mobile.css';
 import {
   getUnreadNotificationCount,
   listNotificationsForMember,
@@ -36,6 +40,11 @@ import {
  * prerendering, because those are the ones a cold visitor actually waits on.
  */
 export const instant = false;
+
+/** `cover` lets the shell reach the screen edges on a notched phone; every fixed bar pads itself
+ *  with `env(safe-area-inset-*)`, and `mobile.css` explains the rest of the phone shell. */
+export const viewport: Viewport = { viewportFit: 'cover' };
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const requestId = (await headers()).get(REQUEST_ID_HEADER) ?? 'app-layout';
   const member = await requireMember(requestId);
@@ -54,21 +63,40 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <MemberProvider member={currentMember}>
-      <div lang="en" className="min-h-dvh lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="sticky top-0 hidden h-dvh border-line border-r bg-raised lg:block">
-          <Sidebar />
-        </aside>
+      <MobileNavProvider>
+        <ScrollChrome />
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:rounded-control focus:bg-raised focus:px-3 focus:py-2 focus:text-[13px] focus:text-ink focus:shadow-overlay"
+        >
+          Skip to content
+        </a>
+        <div
+          lang="en"
+          className="app-shell min-h-dvh lg:grid lg:grid-cols-[232px_minmax(0,1fr)]"
+        >
+          <aside className="sticky top-0 hidden h-dvh border-line border-r bg-raised lg:block">
+            <Sidebar />
+          </aside>
 
-        <div className="flex min-w-0 flex-col">
-          <Topbar
-            member={currentMember}
-            notifications={notificationItems}
-            unreadCount={unreadNotificationCount}
-          />
-          <SetupBanner />
-          <main className="flex-1 px-4 py-6 lg:px-6">{children}</main>
+          <div className="flex min-w-0 flex-col">
+            <Topbar
+              member={currentMember}
+              notifications={notificationItems}
+              unreadCount={unreadNotificationCount}
+            />
+            <SetupBanner />
+            <main
+              id="main"
+              tabIndex={-1}
+              className="flex-1 pt-4 pr-[max(1rem,env(safe-area-inset-right))] pb-[calc(var(--tabbar-h)+1.5rem)] pl-[max(1rem,env(safe-area-inset-left))] lg:px-6 lg:py-6"
+            >
+              {children}
+            </main>
+          </div>
+          <TabBar />
         </div>
-      </div>
+      </MobileNavProvider>
     </MemberProvider>
   );
 }

@@ -21,3 +21,16 @@ export function variantImageSql(variantRef: string, productRef: string): SQL {
     END
   )`;
 }
+
+/**
+ * The photograph that represents a whole product in a list: the owner-flagged primary, else a shared
+ * one, else the first. The SQL twin of `representativeImage` in src/lib/product-images.ts. One
+ * correlated subquery per row, resolved by the `product_images` product index, so a list page is a
+ * single query (no per-row lookups).
+ */
+export function productImageSql(productRef: string): SQL {
+  const p = sql.raw(productRef);
+  return sql`(SELECT COALESCE(i.thumb_url, i.url) FROM product_images i
+    WHERE i.product_id = ${p}
+    ORDER BY i.is_primary DESC, (i.variant_id IS NULL) DESC, i.position LIMIT 1)`;
+}

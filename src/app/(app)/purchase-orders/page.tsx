@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -79,9 +80,8 @@ export default function PurchaseOrdersPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by number or supplier" />
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Search by number or supplier" />}>
           <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-16', 'w-32', 'w-20']} />}>
@@ -284,7 +284,7 @@ async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchPa
                 </MobileRowMetaItem>
               </MobileRowMeta>
             </Link>
-            <div className="flex items-center justify-end gap-1 pt-0.5">
+            <MobileRowActions wide={row.status === 'ordered' || row.status === 'shipped'}>
               {row.status === 'ordered' || row.status === 'shipped' ? (
                 <ReceiveOrderSheet
                   orderId={row.id}
@@ -300,7 +300,7 @@ async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchPa
                 status={row.status}
                 balanceCents={Math.max(row.landedCents - row.paidCents, 0)}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

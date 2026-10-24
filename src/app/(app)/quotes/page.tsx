@@ -2,6 +2,7 @@ import { MessageSquareText } from 'lucide-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { QuoteRequestActions } from '@/components/forms/quote-request-actions';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
@@ -12,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -72,9 +74,8 @@ export default function QuotesPage({
         description="Messages the storefront received from visitors asking what something costs. Nothing here touches the books — a request becomes real only when you convert it into a draft sale."
         action={<ExportCsvLink entity="quote-requests" searchParams={searchParams} />}
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by name, contact or item" />
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Search by name, contact or item" />}>
           <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-36', 'w-20', 'w-24']} />}>
@@ -148,16 +149,24 @@ async function QuotesTable({ searchParams }: { searchParams: Promise<RawSearchPa
                   </TD>
                   <TD className="text-ink-2">
                     {row.productName ? (
-                      row.productSlug ? (
-                        <Link
-                          href={`/products/${row.productSlug}` as Route}
-                          className="hover:text-accent hover:underline"
-                        >
-                          {row.productName}
-                        </Link>
-                      ) : (
-                        row.productName
-                      )
+                      <span className="inline-flex items-center gap-2.5">
+                        <ProductThumb
+                          src={row.imageUrl}
+                          name={row.productName}
+                          size="xs"
+                          decorative
+                        />
+                        {row.productSlug ? (
+                          <Link
+                            href={`/products/${row.productSlug}` as Route}
+                            className="hover:text-accent hover:underline"
+                          >
+                            {row.productName}
+                          </Link>
+                        ) : (
+                          row.productName
+                        )}
+                      </span>
                     ) : (
                       <span className="text-ink-4">Not specified</span>
                     )}
@@ -217,14 +226,24 @@ async function QuotesTable({ searchParams }: { searchParams: Promise<RawSearchPa
             ) : null}
             <MobileRowMeta>
               <MobileRowMetaItem label="Item">
-                {row.productName ?? 'Not specified'}
+                <span className="inline-flex max-w-full items-center gap-2">
+                  {row.productName ? (
+                    <ProductThumb
+                      src={row.imageUrl}
+                      name={row.productName}
+                      size="xs"
+                      decorative
+                    />
+                  ) : null}
+                  <span className="truncate">{row.productName ?? 'Not specified'}</span>
+                </span>
               </MobileRowMetaItem>
               <MobileRowMetaItem label="Qty">{row.quantity}</MobileRowMetaItem>
               <MobileRowMetaItem label="Handled by">
                 {row.handledByName ?? '—'}
               </MobileRowMetaItem>
             </MobileRowMeta>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               <span className="inline-flex items-center gap-2">
                 {row.saleId ? (
                   <Button asChild size="sm" variant="outline">
@@ -243,7 +262,7 @@ async function QuotesTable({ searchParams }: { searchParams: Promise<RawSearchPa
                   products={products}
                 />
               </span>
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

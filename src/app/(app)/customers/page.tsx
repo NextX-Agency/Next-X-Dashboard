@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -59,9 +60,8 @@ export default function CustomersPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Name, code, phone or email" />
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Name, code, phone or email" />}>
           <ListDateRange label="Last order" />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-16', 'w-40', 'w-16']} />}>
@@ -222,7 +222,7 @@ async function CustomersTable({ searchParams }: { searchParams: Promise<RawSearc
                 </MobileRowMetaItem>
               </MobileRowMeta>
             </Link>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               <CustomerActions
                 id={row.id}
                 name={row.name}
@@ -232,7 +232,7 @@ async function CustomersTable({ searchParams }: { searchParams: Promise<RawSearc
                 city={row.city ?? ''}
                 notes={row.notes ?? ''}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

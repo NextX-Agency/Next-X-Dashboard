@@ -4,6 +4,7 @@ import { isDatabaseConfigured } from '@/lib/env';
 import { publicQuoteState } from '@/lib/quote-validity';
 import type { QuoteRequestStatus } from '@/lib/schemas';
 import { db } from '../db/client';
+import { productImageSql } from './image-sql';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
 import { listSaleVariantOptions, type SaleVariantOption } from './pickers';
 import { maybe, num, text } from './row';
@@ -67,6 +68,7 @@ export type QuoteRequestRow = {
   status: QuoteRequestStatus;
   productName: string | null;
   productSlug: string | null;
+  imageUrl: string | null;
   /** Set once converted — the draft sale this became. */
   saleId: string | null;
   handledByName: string | null;
@@ -119,6 +121,7 @@ export async function listQuoteRequests(
            r.created_at::text,
            p.name AS product_name,
            p.slug AS product_slug,
+           ${productImageSql('p.id')} AS image_url,
            r.sale_id::text AS sale_id,
            m.full_name AS handled_by_name,
            COUNT(*) OVER()::text AS total_count
@@ -143,6 +146,7 @@ export async function listQuoteRequests(
       status: isQuoteRequestStatus(row.status) ? row.status : 'new',
       productName: maybe(row.product_name),
       productSlug: maybe(row.product_slug),
+      imageUrl: maybe(row.image_url),
       saleId: maybe(row.sale_id),
       handledByName: maybe(row.handled_by_name),
       createdAt: text(row.created_at),

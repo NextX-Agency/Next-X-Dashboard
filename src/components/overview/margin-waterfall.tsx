@@ -100,7 +100,7 @@ export async function MarginWaterfall({ preset = 'all' }: { preset?: PeriodPrese
               <p className="tabular mt-2 truncate text-center text-[11px] text-ink-2">
                 {formatCompact(step.delta === null ? step.value : step.delta)}
               </p>
-              <p className="mt-0.5 truncate text-center text-[10px] text-ink-4 leading-tight">
+              <p className="mt-0.5 truncate text-center text-[10px] text-ink-4 leading-tight max-md:line-clamp-2 max-md:min-h-[2.2em] max-md:whitespace-normal max-md:text-[11px]">
                 {step.label}
               </p>
             </div>

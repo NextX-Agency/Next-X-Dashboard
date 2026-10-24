@@ -19,7 +19,7 @@ export default async function StorefrontCollectionsPage() {
         description="Customer-intention groupings separate from product categories."
         action={<CreateStorefrontCollection />}
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <ul className="divide-y divide-line-subtle">
           {collections.map((collection) => (
             <li

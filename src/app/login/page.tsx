@@ -45,12 +45,12 @@ export default function LoginPage() {
         </div>
       </aside>
 
-      <main className="flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[320px]">
+      <main className="flex items-center justify-center px-4 py-6 sm:px-6 sm:py-12">
+        <div className="w-full max-w-[320px] max-sm:max-w-[400px] max-sm:rounded-card max-sm:border max-sm:border-line-subtle max-sm:bg-raised max-sm:p-5 max-sm:shadow-[var(--nx-shadow-raised)]">
           <div className="lg:hidden">
             <Wordmark />
           </div>
-          <h1 className="mt-8 font-medium text-[18px] text-ink tracking-[-0.02em] lg:mt-0">
+          <h1 className="mt-6 font-medium text-[18px] text-ink tracking-[-0.02em] sm:mt-8 lg:mt-0">
             Sign in
           </h1>
           <p className="mt-1 mb-6 text-[13px] text-ink-3">

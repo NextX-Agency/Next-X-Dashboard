@@ -1,0 +1,96 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Counter screen (/pos).
+
+   Only what Tailwind utilities cannot say: the phone cart sheet (visibility has to wait for the slide
+   to finish, so it cannot be a utility), the "added" pop, and where toasts sit above the sticky bar.
+   Every animation is gated behind no-preference; with reduced motion things simply appear.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* The cart is a column from `lg`; below it, a bottom sheet that slides up. */
+@media (max-width: 1023.98px) {
+  .pos-cart {
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 220ms;
+  }
+  .pos-cart[data-open="true"] {
+    transform: none;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .pos-backdrop {
+    animation: pos-fade 160ms ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-cart {
+    transition: none;
+  }
+  .pos-backdrop {
+    animation: none;
+  }
+}
+
+/* Toasts ride above the sticky total bar on phones. */
+@media (max-width: 1023.98px) {
+  html:has([data-pos-bar]) [data-sonner-toaster] {
+    --mobile-offset-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+    --offset-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@keyframes pos-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* A badge that pops when its number changes (it is re-created with a new key). */
+@keyframes pos-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* A line that was just added settles into the list. */
+@keyframes pos-settle {
+  from {
+    background-color: var(--nx-accent-muted);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pos-pop {
+    animation: pos-pop 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .pos-settle {
+    animation: pos-settle 900ms ease-out;
+  }
+  .pos-tile:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Chip rows scroll sideways without a visible scrollbar; the fade hints there is more. */
+.pos-chips {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.pos-chips::-webkit-scrollbar {
+  display: none;
+}

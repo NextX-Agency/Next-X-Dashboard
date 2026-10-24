@@ -406,7 +406,7 @@ export function BundleManager({
                     }
                   />
                 </Field>
-                <label className="flex items-end gap-2 pb-2 text-[13px] text-ink">
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink sm:min-h-0 sm:items-end sm:pb-2">
                   <input
                     type="checkbox"
                     checked={draft.featured}
@@ -417,7 +417,7 @@ export function BundleManager({
                   Featured
                 </label>
               </div>
-              <label className="flex items-center gap-2 text-[13px] text-ink">
+              <label className="flex min-h-11 items-center gap-2 text-[13px] text-ink sm:min-h-0">
                 <input
                   type="checkbox"
                   checked={draft.catalogPublished}

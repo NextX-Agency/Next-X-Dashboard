@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import {
   describePasswordUpdateError,
   MIN_PASSWORD_LENGTH,
@@ -116,11 +117,11 @@ export function SetPasswordForm() {
         >
           New password
         </label>
-        <input
+        <PasswordInput
           id="new-password"
           name="new-password"
-          type="password"
           autoComplete="new-password"
+          enterKeyHint="next"
           required
           minLength={MIN_PASSWORD_LENGTH}
           value={password}
@@ -140,11 +141,11 @@ export function SetPasswordForm() {
         >
           Repeat the password
         </label>
-        <input
+        <PasswordInput
           id="confirm-password"
           name="confirm-password"
-          type="password"
           autoComplete="new-password"
+          enterKeyHint="go"
           required
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
@@ -163,7 +164,7 @@ export function SetPasswordForm() {
         variant="primary"
         size="lg"
         disabled={phase === 'saving'}
-        className="mt-1 w-full"
+        className="mt-1 w-full max-sm:h-12 max-sm:text-[15px]"
       >
         {phase === 'saving' ? (
           <>

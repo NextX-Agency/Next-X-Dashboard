@@ -84,6 +84,8 @@ export const productQuerySchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).optional().catch(undefined),
   catalog: z.enum(['published', 'unpublished', 'missing']).optional().catch(undefined),
   stock: z.enum(['out-of-stock', 'low-stock']).optional().catch(undefined),
+  /** missing: an active variant has no known cost; negative: an active variant sells below cost. */
+  cost: z.enum(['missing', 'negative']).optional().catch(undefined),
   featured: z.enum(['yes', 'no']).optional().catch(undefined),
   images: z.enum(['missing', 'has']).optional().catch(undefined),
   options: z.enum(['multiple', 'single']).optional().catch(undefined),
@@ -92,8 +94,8 @@ export const productQuerySchema = z.object({
   maxPrice: amount,
   brand: z.string().uuid().optional().catch(undefined),
   category: z.string().uuid().optional().catch(undefined),
-  sort: z.enum(['name', 'onHand', 'stockValue', 'updated']).catch('name'),
-  dir,
+  sort: z.enum(['name', 'onHand', 'stockValue', 'updated', 'price', 'margin']).catch('name'),
+  dir: dir.catch('asc'),
 });
 export type ProductQuery = z.infer<typeof productQuerySchema>;
 
@@ -103,8 +105,8 @@ export const stockQuerySchema = z.object({
   location: z.string().uuid().optional().catch(undefined),
   /** in: more than zero on hand, low: at or under the alert level, out: none left, over: oversold. */
   state: z.enum(['in', 'low', 'out', 'over']).optional().catch(undefined),
-  sort: z.enum(['name', 'onHand', 'value']).catch('name'),
-  dir,
+  sort: z.enum(['name', 'onHand', 'value', 'price', 'updated']).catch('name'),
+  dir: dir.catch('asc'),
 });
 export type StockQuery = z.infer<typeof stockQuerySchema>;
 

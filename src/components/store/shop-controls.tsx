@@ -94,24 +94,10 @@ export function ShopToolbar({
   const searching = Boolean(state.q);
   const sortValue = state.sort ?? (searching ? 'relevance' : 'newest');
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={onlyInStock}
-        onClick={() => setState({ availability: onlyInStock ? null : 'in-stock', page: null })}
-        className="inline-flex h-11 items-center gap-3 font-semibold text-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
-        <span
-          aria-hidden="true"
-          className={`nx-press relative h-6 w-10 rounded-full ${onlyInStock ? 'bg-cta' : 'bg-line-strong'}`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform duration-200 ease-out-instrument ${onlyInStock ? 'translate-x-4' : ''}`}
-          />
-        </span>
-        In-stock items only
-      </button>
+    // On a phone this is the sticky bar of the page (`nx-subbar`, globals.css): sort and filters, side by
+    // side, one 44 px row. The in-stock switch moves into the filters sheet there.
+    <div className="nx-subbar flex items-center justify-between gap-x-4 gap-y-3 sm:flex-wrap">
+      <StockSwitch on={onlyInStock} className="max-sm:hidden" />
       {total !== undefined ? (
         <p
           className="tabular hidden text-[14px] text-ink-3 lg:block lg:flex-1"
@@ -120,15 +106,15 @@ export function ShopToolbar({
           {total} {total === 1 ? 'product' : 'products'}
         </p>
       ) : null}
-      <div className="flex items-center gap-2">
-        <SelectShell>
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+        <SelectShell className="min-w-0 flex-1 sm:flex-none">
           <select
             aria-label="Sort by"
             value={sortValue}
             onChange={(event) =>
               setState({ sort: event.target.value as (typeof SORTS)[number], page: null })
             }
-            className={selectClass}
+            className={cn(selectClass, 'w-full sm:w-auto')}
           >
             {SORTS.filter((value) => value !== 'relevance' || searching).map((value) => (
               <option key={value} value={value}>
@@ -137,17 +123,46 @@ export function ShopToolbar({
             ))}
           </select>
         </SelectShell>
-        <div className="lg:hidden">
-          <FiltersDrawer count={activeCount(state)}>{filters}</FiltersDrawer>
+        <div className="min-w-0 flex-1 lg:hidden">
+          <FiltersDrawer count={activeCount(state)} onlyInStock={onlyInStock}>
+            {filters}
+          </FiltersDrawer>
         </div>
       </div>
     </div>
   );
 }
 
-function SelectShell({ children }: { children: ReactNode }) {
+/** "In-stock items only": a switch beside the sort on a wide screen, a row inside the sheet on a phone. */
+function StockSwitch({ on, className }: { on: boolean; className?: string }) {
+  const [, setState] = useQueryStates(queryState, options);
   return (
-    <div className="relative">
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => setState({ availability: on ? null : 'in-stock', page: null })}
+      className={cn(
+        'inline-flex h-11 items-center gap-3 text-left font-semibold text-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={`nx-press relative h-6 w-10 shrink-0 rounded-full ${on ? 'bg-cta' : 'bg-line-strong'}`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition-transform duration-200 ease-out-instrument ${on ? 'translate-x-4' : ''}`}
+        />
+      </span>
+      In-stock items only
+    </button>
+  );
+}
+
+function SelectShell({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('relative', className)}>
       {children}
       <svg
         aria-hidden="true"
@@ -161,14 +176,22 @@ function SelectShell({ children }: { children: ReactNode }) {
 }
 
 /** The filter groups open in a side sheet. Choices apply as you tap them; "Show results" just closes it. */
-function FiltersDrawer({ children, count }: { children: ReactNode; count: number }) {
+function FiltersDrawer({
+  children,
+  count,
+  onlyInStock,
+}: {
+  children: ReactNode;
+  count: number;
+  onlyInStock: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [, setState] = useQueryStates(queryState, options);
   return (
     // Opening mounts every filter group; a transition lets the tap paint first instead of waiting for it.
     <Dialog.Root open={open} onOpenChange={(next) => startTransition(() => setOpen(next))}>
       <Dialog.Trigger asChild>
-        <button type="button" className="nx-btn nx-btn-line nx-btn-sm h-11">
+        <button type="button" className="nx-btn nx-btn-line nx-btn-sm h-11 w-full sm:w-auto">
           <SlidersHorizontal aria-hidden="true" /> Filters
           {count > 0 ? (
             <span className="tabular font-semibold">
@@ -180,8 +203,14 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-night/60 duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="nx-store fixed inset-y-0 right-0 z-50 flex w-[min(92vw,400px)] flex-col bg-base text-ink shadow-overlay duration-250 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
-          <div className="flex h-16 shrink-0 items-center justify-between border-line border-b px-5">
+        {/* A bottom sheet on a phone (sized to its content, at most 85% of the screen, clear of the
+            home indicator); the side sheet it always was from `md`. */}
+        <Dialog.Content className="nx-store fixed z-50 flex flex-col bg-base text-ink shadow-overlay duration-250 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[85svh] max-md:rounded-t-[20px] max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom md:inset-y-0 md:right-0 md:w-[min(92vw,400px)] md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right">
+          <span
+            aria-hidden="true"
+            className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line-strong md:hidden"
+          />
+          <div className="flex h-14 shrink-0 items-center justify-between border-line border-b px-5 md:h-16">
             <Dialog.Title className="nx-label text-ink-2">Filters</Dialog.Title>
             <Dialog.Description className="sr-only">
               Narrow down the products in the shop. Choices apply immediately.
@@ -193,8 +222,11 @@ function FiltersDrawer({ children, count }: { children: ReactNode; count: number
               <X aria-hidden="true" className="size-5" />
             </Dialog.Close>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
-          <div className="flex shrink-0 items-center gap-3 border-line border-t p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 md:py-5">
+            <StockSwitch on={onlyInStock} className="mb-4 w-full sm:hidden" />
+            {children}
+          </div>
+          <div className="flex shrink-0 items-center gap-3 border-line border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {count > 0 ? (
               <button
                 type="button"
@@ -462,7 +494,7 @@ function PriceGroup({
             className={field}
           />
         </label>
-        <button type="submit" className="nx-btn nx-btn-line nx-btn-sm col-span-3 h-10">
+        <button type="submit" className="nx-btn nx-btn-line nx-btn-sm col-span-3 h-11">
           Apply price
         </button>
       </form>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { Button } from '@/components/ui/button';
 import { Input, Select } from '@/components/ui/field';
 import { Money } from '@/components/ui/money';
@@ -193,12 +194,15 @@ export function ReorderReview({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="nx-scrollx overflow-x-auto">
         <table className="w-full min-w-[1180px] text-left text-[13px]">
           <thead className="border-line-subtle border-b bg-inset text-[11px] text-ink-4 uppercase tracking-[.07em]">
             <tr>
-              <th className="w-10 px-4 py-3" aria-label="Include" />
-              <th className="px-3 py-3 font-medium">Product</th>
+              <th
+                className="nx-sticky-first w-11 min-w-11 px-0 py-3 sm:w-10 sm:px-4"
+                aria-label="Include"
+              />
+              <th className="nx-sticky-second px-3 py-3 font-medium">Product</th>
               <th className="px-3 py-3 font-medium">Supplier</th>
               <th className="px-3 py-3 text-right font-medium">Score</th>
               <th className="px-3 py-3 text-right font-medium">90d profit</th>
@@ -222,7 +226,7 @@ export function ReorderReview({
                   key={row.variantId}
                   className="border-line-subtle border-b align-top last:border-0"
                 >
-                  <td className="px-4 py-3">
+                  <td className="nx-sticky-first w-11 min-w-11 px-0 py-3 text-center sm:px-4 sm:text-left">
                     <button
                       type="button"
                       aria-label={`${selected[row.variantId] ? 'Remove' : 'Include'} ${row.name}`}
@@ -233,23 +237,32 @@ export function ReorderReview({
                           [row.variantId]: !current[row.variantId],
                         }))
                       }
-                      className={`grid size-5 place-items-center rounded border transition-colors ${
-                        selected[row.variantId]
-                          ? 'border-accent bg-accent text-white'
-                          : 'border-line-strong text-transparent hover:border-accent'
-                      }`}
+                      className="mx-auto grid size-11 place-items-center sm:size-5"
                     >
-                      <Check className="size-3.5" />
+                      <span
+                        className={`grid size-5 place-items-center rounded border transition-colors ${
+                          selected[row.variantId]
+                            ? 'border-accent bg-accent text-white'
+                            : 'border-line-strong text-transparent hover:border-accent'
+                        }`}
+                      >
+                        <Check className="size-3.5" />
+                      </span>
                     </button>
                   </td>
-                  <td className="max-w-[240px] px-3 py-3">
-                    <p className="font-medium text-ink">{row.name}</p>
-                    <p className="mt-1 text-[11px] text-ink-4">
-                      {row.weightGrams && row.weightGrams > 0
-                        ? `${row.weightGrams.toLocaleString()} g / unit`
-                        : 'Weight missing'}
-                      {row.strategicStock ? ' · strategic' : ''}
-                    </p>
+                  <td className="nx-sticky-second max-w-[240px] px-3 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <ProductThumb src={row.imageUrl} name={row.name} size="sm" decorative />
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink">{row.name}</p>
+                        <p className="mt-1 text-[11px] text-ink-4">
+                          {row.weightGrams && row.weightGrams > 0
+                            ? `${row.weightGrams.toLocaleString()} g / unit`
+                            : 'Weight missing'}
+                          {row.strategicStock ? ' · strategic' : ''}
+                        </p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-3">
                     <Select
@@ -261,7 +274,7 @@ export function ReorderReview({
                           [row.variantId]: event.target.value,
                         }))
                       }
-                      className="h-8 min-w-[150px] text-[12px]"
+                      className="min-w-[170px] sm:h-8 sm:min-w-[150px] sm:text-[12px]"
                     >
                       <option value="">Choose supplier</option>
                       {suppliers.map((supplier) => (
@@ -317,7 +330,7 @@ export function ReorderReview({
                       min={0}
                       value={quantity}
                       onChange={(event) => updateQuantity(row.variantId, event.target.value)}
-                      className="h-8 w-16 text-right text-[12px]"
+                      className="w-20 text-right sm:h-8 sm:w-16 sm:text-[12px]"
                     />
                   </td>
                   <td className="px-3 py-3 text-right">
@@ -343,7 +356,7 @@ export function ReorderReview({
       ) : null}
 
       <div className="flex flex-col gap-3 border-line-subtle border-t bg-inset px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="flex items-start gap-2 text-[12px] text-ink-3">
+        <label className="flex min-h-11 items-center gap-2 text-[12px] text-ink-3 sm:min-h-0 sm:items-start">
           <input
             type="checkbox"
             checked={allowDuplicates}

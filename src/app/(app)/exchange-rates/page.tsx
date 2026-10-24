@@ -37,7 +37,7 @@ export default async function ExchangeRatesPage() {
           )
         }
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <table className="w-full text-left text-[13px]">
           <thead>
             <tr className="border-b border-line-subtle bg-inset text-[11px] text-ink-4 uppercase tracking-[0.08em]">

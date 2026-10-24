@@ -16,6 +16,7 @@ export function Field({
   error,
   required,
   hideLabel,
+  labelClassName,
   className,
   children,
 }: {
@@ -26,6 +27,8 @@ export function Field({
   required?: boolean;
   /** Keep the label for assistive technology but do not draw it (repeated rows show it once). */
   hideLabel?: boolean;
+  /** Extra classes for the label, e.g. `sm:sr-only`: hidden in a desktop grid, shown in a phone card. */
+  labelClassName?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -37,31 +40,39 @@ export function Field({
         <label
           htmlFor={htmlFor}
           className={cn(
-            'text-[11px] text-ink-3 uppercase tracking-[0.08em]',
+            'text-[11px] text-ink-3 uppercase tracking-[0.08em] max-sm:text-[12px]',
             hideLabel && 'sr-only',
+            labelClassName,
           )}
         >
           {label}
           {required ? <span className="ml-0.5 text-negative">*</span> : null}
         </label>
         {error ? (
-          <span id={describedBy} className="text-[11px] text-negative" role="alert">
+          <span className="text-[11px] text-negative max-sm:hidden" aria-hidden="true">
             {error}
           </span>
         ) : hint ? (
-          <span id={describedBy} className="text-[11px] text-ink-4">
+          <span id={describedBy} className="text-[11px] text-ink-4 max-sm:text-[12px]">
             {hint}
           </span>
         ) : null}
       </div>
       {children}
+      {/* On a phone the message sits under the control it is about, where the thumb and the eye
+          already are; from `sm` it stays in the label row, as it always was (and is read out from here). */}
+      {error ? (
+        <p id={describedBy} className="text-[13px] text-negative sm:sr-only" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
 const control = [
   // 44 px and 16 px text on a phone: a comfortable tap target, and iOS does not zoom into the field.
-  'h-9 w-full rounded-control border bg-raised px-2.5 text-[13px] text-ink max-sm:h-11 max-sm:text-[16px]',
+  'h-9 w-full min-w-0 rounded-control border bg-raised px-2.5 text-[13px] text-ink max-sm:h-11 max-sm:text-[16px]',
   'transition-colors duration-150 outline-none',
   'placeholder:text-ink-4',
   'focus-visible:border-accent-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
@@ -69,14 +80,38 @@ const control = [
   'aria-[invalid=true]:border-negative',
 ];
 
+/** The right on-screen keyboard and autofill hint for a typed field, unless the caller chose its own. */
+function keyboardFor(type: string | undefined, step: ComponentProps<'input'>['step']) {
+  switch (type) {
+    case 'email':
+      return {
+        inputMode: 'email',
+        autoComplete: 'email',
+        autoCapitalize: 'none',
+        spellCheck: false,
+      } as const;
+    case 'tel':
+      return { inputMode: 'tel', autoComplete: 'tel' } as const;
+    case 'url':
+      return { inputMode: 'url', autoCapitalize: 'none', spellCheck: false } as const;
+    case 'number':
+      return { inputMode: String(step) === '1' ? 'numeric' : 'decimal' } as const;
+    default:
+      return {};
+  }
+}
+
 export function Input({
   className,
   numeric,
+  type,
   ...props
 }: ComponentProps<'input'> & { numeric?: boolean }) {
   return (
     <input
+      type={type}
       className={cn(control, 'border-line', numeric && 'tabular text-right', className)}
+      {...keyboardFor(type, props.step)}
       {...props}
     />
   );

@@ -10,6 +10,7 @@ import {
   ProductSelectionProvider,
   type SelectableVariant,
 } from '@/components/store/product-selection';
+import { ReadMore } from '@/components/store/read-more';
 import { publicParagraphs, publicSpecs, publicText } from '@/lib/english-content';
 import { isStagingEnvironment, publicAppUrl } from '@/lib/env';
 import { cardSummary } from '@/lib/public-copy';
@@ -175,7 +176,7 @@ export default async function ProductPage({
     Boolean(product.nextlyTake);
 
   return (
-    <article className="mx-auto w-full max-w-[1320px] px-4 pt-4 pb-28 sm:pb-20 lg:px-8 lg:pt-8 lg:pb-24">
+    <article className="mx-auto w-full max-w-[1320px] px-4 pt-1 pb-8 sm:pt-4 sm:pb-20 lg:px-8 lg:pt-8 lg:pb-24">
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD must be emitted as a script element; the serialised value escapes '<' above.
@@ -184,9 +185,12 @@ export default async function ProductPage({
 
       <nav
         aria-label="Breadcrumb"
-        className="mb-4 flex flex-wrap items-center gap-2 text-[13px] text-ink-3"
+        className="mb-1 flex flex-wrap items-center gap-2 text-[13px] text-ink-3 sm:mb-4"
       >
-        <Link href={SHOP_PATH as never} className="-my-3 py-3 hover:text-ink hover:underline">
+        <Link
+          href={SHOP_PATH as never}
+          className="-my-3 inline-flex min-w-11 items-center py-3 hover:text-ink hover:underline"
+        >
           Shop
         </Link>
         {product.categoryName ? (
@@ -195,7 +199,7 @@ export default async function ProductPage({
             {product.categorySlug ? (
               <Link
                 href={`${SHOP_PATH}?category=${product.categorySlug}` as never}
-                className="-my-3 py-3 hover:text-ink hover:underline"
+                className="-my-3 inline-flex min-w-11 items-center py-3 hover:text-ink hover:underline"
               >
                 {product.categoryName}
               </Link>
@@ -211,19 +215,21 @@ export default async function ProductPage({
         images={product.images}
         initialVariantId={startVariant?.id ?? ''}
       >
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
+        <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
           <ProductGallery name={product.name} />
 
           <div className="min-w-0 lg:sticky lg:top-24 lg:self-start">
             {context ? <p className="font-semibold text-[14px] text-ink-3">{context}</p> : null}
-            <h1 className="nx-display mt-1 text-[clamp(28px,3.6vw,42px)]">{product.name}</h1>
+            <h1 className="nx-display mt-1 text-balance text-[clamp(24px,3.6vw,42px)] [overflow-wrap:anywhere]">
+              {product.name}
+            </h1>
             {blurb ? (
-              <p className="mt-3 max-w-[52ch] text-[15px] text-ink-2 leading-relaxed">
+              <p className="mt-2 max-w-[52ch] text-[15px] text-ink-2 leading-relaxed sm:mt-3">
                 {blurb}
               </p>
             ) : null}
 
-            <div className="mt-6">
+            <div className="mt-4 sm:mt-6">
               <ProductOrderPanel
                 productId={product.id}
                 productSlug={product.slug}
@@ -263,21 +269,25 @@ export default async function ProductPage({
       </ProductSelectionProvider>
 
       {hasDetails || specs.length > 0 ? (
-        <div className="mt-12 grid gap-10 border-line border-t pt-10 lg:mt-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
+        <div className="mt-8 grid gap-8 border-line border-t pt-6 sm:mt-12 sm:gap-10 sm:pt-10 lg:mt-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-14">
           {hasDetails ? (
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               {paragraphs.length > 0 ? (
                 <section>
                   <Heading>Description</Heading>
-                  <div className="mt-4 max-w-[62ch] space-y-4">
-                    {paragraphs.map((paragraph) => (
-                      <p
-                        key={paragraph.slice(0, 48)}
-                        className="text-[16px] text-ink-2 leading-[1.7]"
-                      >
-                        {paragraph}
-                      </p>
-                    ))}
+                  <div className="mt-3 max-w-[62ch] sm:mt-4">
+                    <ReadMore lines={6}>
+                      <div className="space-y-4">
+                        {paragraphs.map((paragraph) => (
+                          <p
+                            key={paragraph.slice(0, 48)}
+                            className="text-[16px] text-ink-2 leading-[1.7]"
+                          >
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
+                    </ReadMore>
                   </div>
                 </section>
               ) : null}
@@ -322,7 +332,7 @@ export default async function ProductPage({
       ) : null}
 
       {product.faqItems.length ? (
-        <section className="mt-12 max-w-3xl">
+        <section className="mt-8 max-w-3xl sm:mt-12">
           <Heading>Frequently asked questions</Heading>
           <div className="mt-4 divide-y divide-line border-line border-y">
             {product.faqItems.map((item) => (
@@ -529,9 +539,9 @@ function RelatedProducts({ items }: { items: CatalogProduct['related'] }) {
   }, {});
 
   return (
-    <section className="mt-12 border-line border-t pt-10">
+    <section className="mt-8 border-line border-t pt-6 sm:mt-12 sm:pt-10">
       <Heading>Related products</Heading>
-      <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-4 grid gap-6 sm:mt-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
         {Object.entries(groups).map(([type, group]) => (
           <div key={type}>
             <h3 className="font-semibold text-[13px] text-ink-3">

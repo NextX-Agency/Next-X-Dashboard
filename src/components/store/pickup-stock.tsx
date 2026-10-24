@@ -12,7 +12,7 @@ export function PickupStock() {
   if (variant.locations.length === 0) return null;
   const label = variants.length > 1 ? optionName(variant) : null;
   return (
-    <section className="mt-6 border-line border-t pt-5">
+    <section className="mt-4 border-line border-t pt-4 sm:mt-6 sm:pt-5">
       <h2 className="font-bold text-[14px]">
         Pickup: stock by location
         {label ? <span className="font-normal text-ink-3"> · {label}</span> : null}
@@ -21,7 +21,7 @@ export function PickupStock() {
         {variant.locations.map((location) => (
           <li
             key={location.name}
-            className="flex min-h-11 items-center justify-between gap-4 text-[14px]"
+            className="flex min-h-10 items-center justify-between gap-4 text-[14px] sm:min-h-11"
           >
             <span className="font-semibold">{location.name}</span>
             <span

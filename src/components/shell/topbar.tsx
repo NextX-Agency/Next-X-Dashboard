@@ -1,18 +1,15 @@
 'use client';
 
-import * as Dialog from '@radix-ui/react-dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { ChevronDown, LogOut, Menu as MenuIcon, Settings, Store } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, Store } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Item, Label, Menu, Separator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/cn';
 import { createClient } from '@/lib/supabase/client';
 import { CommandPalette } from './command-palette';
+import { MenuButton } from './mobile-nav';
 import { NotificationBell, type NotificationBellItem } from './notification-bell';
-import { Sidebar } from './sidebar';
 import { ThemeToggle } from './theme-toggle';
 
 export type TopbarMember = {
@@ -36,29 +33,18 @@ export function Topbar({
   notifications: NotificationBellItem[];
   unreadCount: number;
 }) {
-  const [navOpen, setNavOpen] = useState(false);
   const router = useRouter();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-line-subtle border-b bg-base/85 px-4 backdrop-blur-md lg:px-6">
-      {/* Mobile navigation */}
-      <Dialog.Root open={navOpen} onOpenChange={setNavOpen}>
-        <Dialog.Trigger
-          className="-ml-2 grid size-11 shrink-0 place-items-center rounded-control text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring lg:hidden"
-          aria-label="Open navigation"
-        >
-          <MenuIcon aria-hidden="true" className="size-4" />
-        </Dialog.Trigger>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=open]:fade-in-0 lg:hidden" />
-          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-[248px] border-line border-r bg-raised motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:slide-out-to-left motion-safe:data-[state=open]:slide-in-from-left motion-safe:duration-200 lg:hidden">
-            <VisuallyHidden>
-              <Dialog.Title>Navigation</Dialog.Title>
-            </VisuallyHidden>
-            <Sidebar className="h-full" onNavigate={() => setNavOpen(false)} />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+    <header
+      className={cn(
+        'app-topbar sticky top-0 z-30 flex items-center gap-1.5 border-line-subtle border-b bg-base',
+        // Phone: 48px (plus the notch in landscape). From `lg` the familiar 56px bar.
+        'h-[calc(3rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]',
+        'lg:h-14 lg:gap-3 lg:bg-base/85 lg:px-6 lg:pt-0 lg:backdrop-blur-md',
+      )}
+    >
+      <MenuButton />
 
       <div className="min-w-0 flex-1">
         <CommandPalette />
@@ -70,7 +56,10 @@ export function Topbar({
         </Link>
       </Button>
 
-      <ThemeToggle />
+      {/* On phones the theme lives in the navigation drawer. */}
+      <div className="max-md:hidden">
+        <ThemeToggle />
+      </div>
 
       <NotificationBell notifications={notifications} unreadCount={unreadCount} />
 
@@ -79,15 +68,16 @@ export function Topbar({
         trigger={
           <button
             type="button"
+            aria-label="Account"
             className={cn(
-              'flex h-11 items-center gap-2 rounded-control pr-1.5 pl-1 text-[13px] text-ink-2 sm:h-8',
+              'flex h-11 min-w-11 items-center justify-center gap-2 rounded-control text-[13px] text-ink-2 sm:h-8 sm:justify-start sm:pr-1.5 sm:pl-1',
               'transition-colors hover:bg-hover hover:text-ink',
               'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
             )}
           >
             <Avatar name={member.fullName} />
             <span className="hidden sm:inline">{member.fullName}</span>
-            <ChevronDown className="size-3.5 text-ink-4" />
+            <ChevronDown className="hidden size-3.5 text-ink-4 sm:block" />
           </button>
         }
       >
@@ -131,7 +121,7 @@ function Avatar({ name }: { name: string }) {
     .join('');
 
   return (
-    <span className="tabular grid size-6 shrink-0 place-items-center rounded-full border border-line bg-inset text-[10px] text-ink-2">
+    <span className="tabular grid size-7 shrink-0 place-items-center rounded-full border border-line bg-inset text-[11px] text-ink-2 sm:size-6 sm:text-[10px]">
       {initials}
     </span>
   );

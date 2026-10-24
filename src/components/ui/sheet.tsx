@@ -4,6 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
+import { ViewportVars } from './viewport';
 
 /**
  * Side sheet, used for every create and edit form.
@@ -45,17 +46,34 @@ export function Sheet({
           )}
         />
         <Dialog.Content
+          // On a touch screen nothing should look focused (or raise the keyboard) the moment a sheet
+          // opens; the sheet itself takes focus and the trap still holds.
+          onOpenAutoFocus={(event) => {
+            if (!window.matchMedia('(pointer: coarse)').matches) return;
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus({ preventScroll: true });
+          }}
           className={cn(
-            'fixed inset-y-0 right-0 z-50 flex w-full flex-col border-line-subtle border-l bg-base shadow-overlay',
+            'fixed z-50 flex flex-col overscroll-contain bg-base shadow-overlay outline-none',
+            // Phone: a bottom sheet, 92dvh tall, riding above the on-screen keyboard (ViewportVars).
+            'inset-x-0 bottom-[var(--vv-bottom,0px)] h-[min(92dvh,var(--vv-h,100dvh))] rounded-t-[18px] border-line-subtle border-t',
+            // From `sm`: the side sheet it always was.
+            'sm:inset-y-0 sm:right-0 sm:left-auto sm:h-auto sm:w-full sm:rounded-none sm:border-t-0 sm:border-l',
             size === 'lg' ? 'sm:max-w-[720px]' : 'sm:max-w-[560px]',
             'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=closed]:animate-out',
-            'motion-safe:data-[state=closed]:slide-out-to-right motion-safe:data-[state=open]:slide-in-from-right',
+            'motion-safe:data-[state=closed]:slide-out-to-bottom motion-safe:data-[state=open]:slide-in-from-bottom',
+            'sm:motion-safe:data-[state=closed]:slide-out-to-right sm:motion-safe:data-[state=open]:slide-in-from-right',
             'motion-safe:duration-200 ease-out-instrument',
           )}
         >
-          <header className="flex shrink-0 items-start justify-between gap-4 border-line-subtle border-b px-5 py-4">
-            <div className="min-w-0">
-              <Dialog.Title className="font-medium text-[15px] text-ink tracking-[-0.01em]">
+          <ViewportVars />
+          <header className="relative flex shrink-0 items-start justify-between gap-3 border-line-subtle border-b px-4 pt-3 pb-1 sm:gap-4 sm:px-5 sm:py-4">
+            <span
+              aria-hidden="true"
+              className="absolute top-1.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong/60 sm:hidden"
+            />
+            <div className="min-w-0 self-center py-1.5 sm:py-0">
+              <Dialog.Title className="font-medium text-[16px] text-ink tracking-[-0.01em] sm:text-[15px]">
                 {title}
               </Dialog.Title>
               {description ? (
@@ -67,17 +85,26 @@ export function Sheet({
               )}
             </div>
             <Dialog.Close
-              className="grid size-11 shrink-0 place-items-center rounded-control text-ink-4 sm:size-7 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+              className="-mr-2 grid size-11 shrink-0 place-items-center rounded-control text-ink-3 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring sm:mr-0 sm:size-7 sm:text-ink-4"
               aria-label="Close"
             >
-              <X className="size-4" />
+              <X className="size-5 sm:size-4" />
             </Dialog.Close>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+          <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain scroll-pb-24 px-4 py-4 sm:px-5 sm:py-5">
+            {children}
+          </div>
 
           {footer ? (
-            <footer className="flex shrink-0 items-center justify-end gap-2 border-line-subtle border-t bg-inset px-5 py-3">
+            <footer
+              className={cn(
+                'flex shrink-0 items-center justify-end gap-2 border-line-subtle border-t bg-inset px-4 py-3 sm:px-5',
+                'pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3',
+                // Phone: the primary action takes the width and is 48px tall.
+                'max-sm:[&>button]:h-12 max-sm:[&>button]:text-[15px] max-sm:[&>button[type=submit]]:flex-1',
+              )}
+            >
               {footer}
             </footer>
           ) : null}

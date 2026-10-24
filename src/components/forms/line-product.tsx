@@ -1,5 +1,5 @@
-import { Package, Repeat2 } from 'lucide-react';
-import Image from 'next/image';
+import { Repeat2 } from 'lucide-react';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { optionLabel, stockLabel } from '@/lib/sale-picker';
 import type { BundleOption, SaleVariantOption } from '@/server/queries/pickers';
 
@@ -25,22 +25,13 @@ export function LineProduct({
       : null;
   return (
     <div className="flex items-center gap-3 rounded-control border border-line bg-inset p-1.5">
-      <div className="relative size-12 shrink-0 overflow-hidden rounded-control bg-white">
-        {variant?.image ? (
-          <Image
-            src={variant.image.url}
-            alt={`${name}${option ? ` – ${option}` : ''}`}
-            fill
-            sizes="48px"
-            className="object-contain p-0.5"
-          />
-        ) : (
-          <div className="grid size-full place-items-center">
-            <Package aria-hidden="true" className="size-5 text-ink-4" />
-            <span className="sr-only">No photo</span>
-          </div>
-        )}
-      </div>
+      <ProductThumb
+        src={variant?.image?.url ?? bundle?.storefrontImageUrl ?? null}
+        name={name ?? 'Product'}
+        detail={option}
+        size="sm"
+        decorative
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] text-ink">
           {missing ? 'Product no longer available' : name}
@@ -55,7 +46,7 @@ export function LineProduct({
         type="button"
         onClick={onChange}
         aria-label={`Change product${name ? ` (${name})` : ''}`}
-        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-control px-2 text-[12px] text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
+        className="inline-flex h-11 shrink-0 items-center gap-1 rounded-control px-2.5 text-[13px] text-ink-3 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-ring sm:h-8 sm:px-2 sm:text-[12px]"
       >
         <Repeat2 aria-hidden="true" className="size-3.5" /> Change
       </button>

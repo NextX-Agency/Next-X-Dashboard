@@ -28,8 +28,35 @@ export function MobileRow({
   return (
     <li
       className={cn(
-        'flex flex-col gap-2 px-4 py-3.5 text-[13px]',
+        // `relative` + a stretched first link: the whole row is the tap target, "..." sits above it.
+        'relative flex flex-col gap-2 px-4 py-3 text-[13px]',
+        '[&>a:first-child]:after:absolute [&>a:first-child]:after:inset-0',
+        // Leave room in the header for the actions button when the row has one.
+        '[&:has([data-row-actions])_[data-row-header]]:pr-10',
         interactive && 'transition-colors active:bg-hover',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** The row's "..." menu or its one quick action, pinned to the top-right corner (a 44px target)
+ *  instead of costing a line of its own. Place it as a direct child of `MobileRow`, after the link.
+ *  `wide` is for actions with a text label (an "Adjust" or "Attach receipt" button): they would
+ *  cover the header, so they keep a line of their own at the foot of the row. */
+export function MobileRowActions({
+  className,
+  wide,
+  ...props
+}: ComponentProps<'div'> & { wide?: boolean }) {
+  return (
+    <div
+      {...(wide ? {} : { 'data-row-actions': '' })}
+      className={cn(
+        wide
+          ? 'relative z-[1] flex items-center justify-end gap-1'
+          : 'absolute top-1 right-1 z-[1] flex min-h-11 items-center justify-end',
         className,
       )}
       {...props}
@@ -41,7 +68,13 @@ export function MobileRow({
  *  paired with whatever belongs at the right edge: a status badge, a price,
  *  an actions menu. */
 export function MobileRowHeader({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('flex items-start justify-between gap-3', className)} {...props} />;
+  return (
+    <div
+      data-row-header=""
+      className={cn('flex items-start justify-between gap-3', className)}
+      {...props}
+    />
+  );
 }
 
 /** The row's supporting facts as label/value pairs, two per line — a SKU
@@ -49,10 +82,7 @@ export function MobileRowHeader({ className, ...props }: ComponentProps<'div'>) 
  *  sentence the way cramming them into one line of text would. */
 export function MobileRowMeta({ className, ...props }: ComponentProps<'dl'>) {
   return (
-    <dl
-      className={cn('grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]', className)}
-      {...props}
-    />
+    <dl className={cn('grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]', className)} {...props} />
   );
 }
 

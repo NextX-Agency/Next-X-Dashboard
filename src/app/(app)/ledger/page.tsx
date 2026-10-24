@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -87,7 +88,7 @@ export default function LedgerPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <LedgerToolbar />
         </Suspense>
@@ -111,8 +112,7 @@ const CURRENCY_OPTIONS = [
 async function LedgerToolbar() {
   const wallets = await listWalletOptions({ includeInactive: true });
   return (
-    <ListToolbar>
-      <ListSearch placeholder="Search by description or owner" />
+    <ListToolbar search={<ListSearch placeholder="Search by description or owner" />}>
       <ListFilter param="category" label="Category" options={CATEGORY_OPTIONS} />
       <ListFilter param="type" label="Type" options={TYPE_OPTIONS} />
       <ListFilter param="currency" label="Currency" options={CURRENCY_OPTIONS} />
@@ -257,11 +257,11 @@ async function LedgerTable({ searchParams }: { searchParams: Promise<RawSearchPa
                 <Money cents={row.balanceCents} size="sm" tone="muted" />
               </MobileRowMetaItem>
             </MobileRowMeta>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               {row.reversible ? (
                 <LedgerActions id={row.id} description={row.description} />
               ) : null}
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

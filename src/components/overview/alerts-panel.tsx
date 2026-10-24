@@ -2,7 +2,8 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Info } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
-import { getAlerts } from '@/server/queries/alerts';
+import { type Alert, getAlerts } from '@/server/queries/alerts';
+import { CollapsibleSurface } from './collapsible-surface';
 
 const SEVERITY = {
   critical: { Icon: AlertTriangle, className: 'text-negative' },
@@ -18,8 +19,39 @@ const SEVERITY = {
  * disappearing and leaving the reader unsure whether the check even ran.
  */
 export async function AlertsPanel() {
-  const alerts = await getAlerts();
+  return <AlertsList alerts={await getAlerts()} />;
+}
 
+/**
+ * The Overview's lead panel. On a phone it folds away behind its header (open when there is
+ * something to read, shut when everything reconciles); from `md` it is a normal panel.
+ */
+export async function AlertsSection() {
+  const alerts = await getAlerts();
+  const critical = alerts.some((alert) => alert.severity === 'critical');
+  return (
+    <CollapsibleSurface
+      title="Needs attention"
+      hint={
+        alerts.length === 0
+          ? 'Everything reconciles'
+          : 'Inconsistencies the books can detect on their own'
+      }
+      summary={
+        alerts[0]
+          ? `${alerts[0].title}${alerts.length > 1 ? ` · ${alerts.length - 1} more` : ''}`
+          : undefined
+      }
+      count={alerts.length}
+      tone={critical ? 'negative' : 'warning'}
+      defaultOpen={alerts.length > 0 && alerts.length <= 3}
+    >
+      <AlertsList alerts={alerts} />
+    </CollapsibleSurface>
+  );
+}
+
+function AlertsList({ alerts }: { alerts: Alert[] }) {
   if (alerts.length === 0) {
     return (
       <div className="flex items-center gap-3 px-4 py-6">

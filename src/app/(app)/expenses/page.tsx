@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -74,9 +75,8 @@ export default function ExpensesPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by description or category" />
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Search by description or category" />}>
           <ListDateRange label="Spent" />
         </ListToolbar>
         <Suspense fallback={<TableSkeleton rows={3} widths={['w-20', 'w-44', 'w-16']} />}>
@@ -285,7 +285,7 @@ async function ExpensesTable({ searchParams }: { searchParams: Promise<RawSearch
                 {row.walletName ?? humanise(row.paymentMethod)}
               </MobileRowMetaItem>
             </MobileRowMeta>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions wide>
               <ExpenseActions
                 id={row.id}
                 description={row.description}
@@ -305,7 +305,7 @@ async function ExpensesTable({ searchParams }: { searchParams: Promise<RawSearch
                 voidedAt={row.voidedAt}
                 categories={categories}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

@@ -72,7 +72,12 @@ export function ForgotPasswordForm() {
           id="reset-email"
           name="email"
           type="email"
-          autoComplete="email"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="send"
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -92,7 +97,7 @@ export function ForgotPasswordForm() {
         variant="primary"
         size="lg"
         disabled={state.status === 'sending'}
-        className="w-full"
+        className="w-full max-sm:h-12 max-sm:text-[15px]"
       >
         {state.status === 'sending' ? (
           <>

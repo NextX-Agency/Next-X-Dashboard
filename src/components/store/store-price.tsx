@@ -10,10 +10,10 @@ import { formatSrd } from '@/lib/store-money';
  */
 const sizes = {
   sm: { primary: 'text-[15px]', secondary: 'text-[11px]' },
-  card: { primary: 'text-[22px]', secondary: 'text-[12px]' },
+  card: { primary: 'text-[20px] sm:text-[22px]', secondary: 'text-[12px]' },
   md: { primary: 'text-[18px]', secondary: 'text-[12px]' },
   lg: { primary: 'text-[26px]', secondary: 'text-[13px]' },
-  xl: { primary: 'text-[40px]', secondary: 'text-[14px]' },
+  xl: { primary: 'text-[32px] sm:text-[40px]', secondary: 'text-[14px]' },
 } as const;
 
 export { formatSrd };
@@ -48,11 +48,11 @@ export function StorePrice({
 
   return (
     <span className={cn('flex flex-col items-start leading-none', className)}>
-      <span className="flex items-baseline gap-1.5">
+      <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
         {prefix ? <span className="text-[12px] text-ink-3">{prefix}</span> : null}
         <span
           className={cn(
-            'tabular font-extrabold tracking-[-0.03em] text-ink',
+            'tabular whitespace-nowrap font-extrabold tracking-[-0.03em] text-ink',
             sizes[size].primary,
           )}
         >

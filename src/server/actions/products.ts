@@ -2,58 +2,25 @@
 
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { consumeStock } from '@/lib/costing';
-import { mulDivRound } from '@/lib/money';
 import { productSchema, uuid } from '@/lib/schemas';
-import { adjustmentProblem } from '@/lib/stock-rules';
 import { db } from '../db/client';
 import {
   inventoryMovements,
   priceListItems,
-  priceLists,
   products,
   productVariants,
   purchaseOrderItems,
   quoteRequests,
   saleItems,
 } from '../db/schema';
-import { lockValuation, logActivity, postStockMovement } from '../services/posting';
+import {
+  type ProductStatus,
+  publishabilityProblem,
+  syncLegacyUsdPrices,
+} from '../services/catalog-rules';
+import { logActivity } from '../services/posting';
+import { postManualAdjustment } from '../services/stock-adjust';
 import { ActionError, ownerAction, writeAction } from './client';
-
-type ProductStatus = 'draft' | 'active' | 'archived';
-
-/** Keep the legacy product editor's USD field as a compatibility mirror until
- * price-list editing fully replaces it. Public storefront reads never use
- * this column; they read price_list_items. */
-async function syncLegacyUsdPrices(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  variants: { id: string; amountCents: number }[],
-) {
-  if (!variants.length) return;
-  const [priceList] = await tx
-    .select({ id: priceLists.id })
-    .from(priceLists)
-    .where(and(eq(priceLists.currency, 'USD'), eq(priceLists.active, true)))
-    .orderBy(
-      sql`CASE WHEN ${priceLists.name} = 'Retail USD' THEN 0 ELSE 1 END`,
-      priceLists.createdAt,
-    )
-    .limit(1);
-  if (!priceList) return;
-  await tx
-    .insert(priceListItems)
-    .values(
-      variants.map((variant) => ({
-        priceListId: priceList.id,
-        variantId: variant.id,
-        amountCents: variant.amountCents,
-      })),
-    )
-    .onConflictDoUpdate({
-      target: [priceListItems.priceListId, priceListItems.variantId],
-      set: { amountCents: sql`excluded.amount_cents`, updatedAt: new Date() },
-    });
-}
 
 /**
  * A SKU identifies one variant everywhere (sale lines, stock, the shop). Say exactly which one is
@@ -113,43 +80,15 @@ async function variantsHaveReferences(
   return row?.used === 'true';
 }
 
-/** Publishing is a public promise, so enforce the minimum page quality at the
- * server boundary instead of trusting the checkbox in the admin form. */
+/** Publishing is a public promise, so enforce the minimum page quality at the server boundary
+ * instead of trusting the checkbox in the admin form. */
 async function assertCatalogPublishable(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   productId: string,
   status: ProductStatus,
 ): Promise<void> {
-  if (status !== 'active') {
-    throw new ActionError('Only active products can be published to the catalog.');
-  }
-
-  const [row] = await tx.execute<{
-    summary: string | null;
-    has_image: string;
-    has_variant: string;
-  }>(sql`
-    SELECT p.summary,
-           EXISTS (SELECT 1 FROM product_images i WHERE i.product_id = p.id)::text AS has_image,
-           EXISTS (
-             SELECT 1 FROM product_variants v
-              WHERE v.product_id = p.id AND v.is_active AND v.list_price_cents > 0
-           )::text AS has_variant
-      FROM products p
-     WHERE p.id = ${productId}
-     LIMIT 1
-  `);
-
-  if (!row) throw new ActionError('That product no longer exists.');
-  if (!row.summary?.trim()) {
-    throw new ActionError('Add a summary before publishing this product.');
-  }
-  if (row.has_image !== 'true') {
-    throw new ActionError('Add a product image before publishing it.');
-  }
-  if (row.has_variant !== 'true') {
-    throw new ActionError('Add an active variant with a price before publishing it.');
-  }
+  const problem = await publishabilityProblem(tx, productId, status);
+  if (problem) throw new ActionError(problem);
 }
 
 export const createProduct = writeAction
@@ -505,61 +444,16 @@ export const adjustStock = writeAction
   )
   .action(async ({ parsedInput: input, ctx }) => {
     const result = await db.transaction(async (tx) => {
-      const [variant] = await tx
-        .select()
-        .from(productVariants)
-        .where(eq(productVariants.id, input.variantId))
-        .limit(1);
-
-      if (!variant) throw new ActionError('That variant no longer exists.');
-
-      // `lockValuation`, not a bare SUM: an adjustment read without FOR UPDATE
-      // races a concurrent sale reading the same average, and both write a cost
-      // based on stock only one of them can have.
-      const valuation = await lockValuation(tx, input.variantId);
-
-      // Judged against the locked figure, not whatever the browser last showed.
-      const problem = adjustmentProblem({
-        kind: input.kind,
-        quantity: input.quantity,
-        onHand: valuation.quantity,
-      });
-      if (problem) throw new ActionError(problem);
-
-      // Value the adjustment at the current weighted average, so a correction
-      // does not silently change what the remaining stock is worth per unit.
-      // Removals go through `consumeStock` — the same arithmetic a sale uses —
-      // rather than multiplying a rounded unit cost, which drifts a cent per
-      // adjustment and can drive the valuation negative when the write-off
-      // exceeds what is on hand.
-      const valueCents =
-        input.quantity > 0
-          ? valuation.quantity > 0
-            ? mulDivRound(valuation.valueCents, input.quantity, valuation.quantity)
-            : 0
-          : -consumeStock(valuation, -input.quantity).cogsCents;
-
-      await postStockMovement(tx, {
+      // The rules live in `postManualAdjustment` (locked on-hand figure, never negative, valued at
+      // the weighted average), shared with the stock count so the two cannot drift apart.
+      const posted = await postManualAdjustment(tx, {
         variantId: input.variantId,
-        kind: input.kind,
         quantity: input.quantity,
-        valueCents,
-        sourceKind: 'manual',
-        sourceId: null,
-        occurredAt: new Date(),
-        note: input.reason,
+        kind: input.kind,
+        reason: input.reason,
         memberId: ctx.member.id,
       });
-
-      await logActivity(tx, {
-        memberId: ctx.member.id,
-        action: `adjusted stock by ${input.quantity}`,
-        entityType: 'variant',
-        entityId: variant.id,
-        entityLabel: variant.sku,
-      });
-
-      return { sku: variant.sku, onHand: valuation.quantity + input.quantity };
+      return { sku: posted.sku, onHand: posted.onHandAfter };
     });
     return result;
   });

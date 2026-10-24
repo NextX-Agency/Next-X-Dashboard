@@ -64,7 +64,7 @@ function optionPairs(value: string | string[] | undefined): { key: string; value
  */
 export function ShopPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
   return (
-    <div className="mx-auto w-full max-w-[1320px] px-4 pt-5 pb-16 lg:px-8 lg:pt-8 lg:pb-24">
+    <div className="mx-auto w-full max-w-[1320px] px-4 pt-3 pb-8 sm:pt-5 sm:pb-16 lg:px-8 lg:pt-8 lg:pb-24">
       <Suspense fallback={<ShopSkeleton />}>
         <ShopContent searchParams={searchParams} />
       </Suspense>
@@ -154,7 +154,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
   return (
     <>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1">
-        <h1 className="nx-display text-[clamp(28px,4vw,40px)]">
+        <h1 className="nx-display text-[clamp(26px,4vw,40px)]">
           {activeCategory?.name ?? (q ? `Results for “${q}”` : 'All products')}
         </h1>
         <p className="tabular pb-1 text-[14px] text-ink-3 lg:hidden">
@@ -162,14 +162,14 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         </p>
       </header>
 
-      <div className="mt-5">
+      <div className="mt-3 sm:mt-5">
         <CategoryChips
           categories={categories}
           active={activeCategory ? activeCategory.slug : null}
         />
       </div>
 
-      <div className="mt-5 lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-10">
+      <div className="mt-3 sm:mt-5 lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-10">
         <aside aria-label="Filters" className="hidden lg:block">
           <div className="sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pr-2 pb-6">
             {filterPanel}
@@ -177,8 +177,9 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
         </aside>
 
         <div className="min-w-0">
-          <div className="space-y-3">
-            <ShopToolbar filters={filterPanel} total={all.length} />
+          {/* The toolbar is a direct child so it can stay stuck for the whole length of the list. */}
+          <ShopToolbar filters={filterPanel} total={all.length} />
+          <div className="mt-3 empty:hidden">
             <ActiveFilters
               labels={{
                 category: activeCategory?.name,
@@ -192,7 +193,7 @@ async function ShopContent({ searchParams }: { searchParams: Promise<RawSearchPa
             />
           </div>
 
-          <section aria-label="Products" className="mt-5">
+          <section aria-label="Products" className="mt-3 sm:mt-5">
             {all.length === 0 ? (
               <EmptyResults
                 filtered={filtered}

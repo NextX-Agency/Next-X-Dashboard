@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useMediaQuery } from '@/components/ui/viewport';
 import { formatCompact, formatMoney } from '@/lib/money';
 
 /**
@@ -29,6 +30,9 @@ export type CashFlowPoint = {
 };
 
 export function CashFlowChart({ data }: { data: CashFlowPoint[] }) {
+  // A finger has no hover: on a touch screen the tooltip opens on tap and stays until the next one.
+  const touch = useMediaQuery('(pointer: coarse)');
+  const phone = useMediaQuery('(max-width: 767.98px)');
   const points = data.map((point) => ({
     ...point,
     label: new Date(`${point.date}T00:00:00Z`).toLocaleDateString('en-US', {
@@ -42,54 +46,79 @@ export function CashFlowChart({ data }: { data: CashFlowPoint[] }) {
   }));
 
   return (
-    <div className="h-[220px] w-full px-1 pt-1 motion-safe:fade-in-0 motion-safe:animate-in motion-safe:duration-300">
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
-          <CartesianGrid vertical={false} stroke="var(--nx-chart-grid)" strokeDasharray="2 4" />
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={false}
-            interval="preserveStartEnd"
-            minTickGap={24}
-            tick={{ fill: 'var(--nx-chart-axis)', fontSize: 10 }}
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            width={56}
-            tickFormatter={(value: number) => formatCompact(value)}
-            tick={{
-              fill: 'var(--nx-chart-axis)',
-              fontSize: 10,
-              fontFamily: 'var(--font-jetbrains-mono)',
-            }}
-          />
-          <Tooltip cursor={{ fill: 'var(--nx-bg-hover)' }} content={<ChartTooltip />} />
-          <Bar
-            dataKey="inCents"
-            fill="var(--nx-chart-4)"
-            radius={[2, 2, 0, 0]}
-            maxBarSize={22}
-          />
-          <Bar
-            dataKey="outNegative"
-            fill="var(--nx-negative)"
-            fillOpacity={0.65}
-            radius={[0, 0, 2, 2]}
-            maxBarSize={22}
-          />
-          <Line
-            type="monotone"
-            dataKey="balanceCents"
-            stroke="var(--nx-chart-3)"
-            strokeWidth={1.75}
-            dot={false}
-            activeDot={{ r: 3, strokeWidth: 0, fill: 'var(--nx-chart-3)' }}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
+    <>
+      <div className="h-[200px] w-full px-1 pt-1 motion-safe:fade-in-0 motion-safe:animate-in motion-safe:duration-300 md:h-[220px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: -18 }}>
+            <CartesianGrid
+              vertical={false}
+              stroke="var(--nx-chart-grid)"
+              strokeDasharray="2 4"
+            />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+              minTickGap={24}
+              tick={{ fill: 'var(--nx-chart-axis)', fontSize: phone ? 11 : 10 }}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              width={56}
+              tickFormatter={(value: number) => formatCompact(value)}
+              tick={{
+                fill: 'var(--nx-chart-axis)',
+                fontSize: phone ? 11 : 10,
+                fontFamily: 'var(--font-jetbrains-mono)',
+              }}
+            />
+            <Tooltip
+              trigger={touch ? 'click' : 'hover'}
+              cursor={{ fill: 'var(--nx-bg-hover)' }}
+              content={<ChartTooltip />}
+            />
+            <Bar
+              dataKey="inCents"
+              fill="var(--nx-chart-4)"
+              radius={[2, 2, 0, 0]}
+              maxBarSize={22}
+            />
+            <Bar
+              dataKey="outNegative"
+              fill="var(--nx-negative)"
+              fillOpacity={0.65}
+              radius={[0, 0, 2, 2]}
+              maxBarSize={22}
+            />
+            <Line
+              type="monotone"
+              dataKey="balanceCents"
+              stroke="var(--nx-chart-3)"
+              strokeWidth={1.75}
+              dot={false}
+              activeDot={{ r: 3, strokeWidth: 0, fill: 'var(--nx-chart-3)' }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-1 pb-3 text-[12px] text-ink-3 md:hidden">
+        <LegendItem swatch="bg-chart-4">Money in</LegendItem>
+        <LegendItem swatch="bg-negative/65">Money out</LegendItem>
+        <LegendItem swatch="bg-chart-3">Balance</LegendItem>
+        <li className="basis-full text-[11px] text-ink-4">Tap a week for the figures.</li>
+      </ul>
+    </>
+  );
+}
+
+function LegendItem({ swatch, children }: { swatch: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-1.5">
+      <span aria-hidden="true" className={`size-2 rounded-full ${swatch}`} />
+      {children}
+    </li>
   );
 }
 
@@ -100,7 +129,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
   if (!active || !point) return null;
 
   return (
-    <div className="rounded-control border border-line bg-overlay px-2.5 py-2 shadow-overlay">
+    <div className="rounded-control border border-line bg-overlay px-3 py-2.5 shadow-overlay">
       <p className="mb-1.5 text-[11px] text-ink-3">Week of {point.label}</p>
       <dl className="space-y-0.5">
         <TooltipRow label="In" value={formatMoney(point.inCents)} tone="text-positive" />

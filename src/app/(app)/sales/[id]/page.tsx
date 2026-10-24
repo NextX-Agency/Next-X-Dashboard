@@ -1,8 +1,8 @@
 import type { Metadata, Route } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { RefundSheet } from '@/components/forms/refund-sheet';
 import { ReturnSheet } from '@/components/forms/return-sheet';
 import { SaleActions, SalePaymentActions } from '@/components/forms/row-actions';
@@ -299,7 +299,7 @@ async function Loader({
         </div>
       </Surface>
 
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <SurfaceHeader title="Items" />
         <div className="hidden lg:block">
           <TableWrap>
@@ -325,7 +325,12 @@ async function Loader({
                     <TR key={item.id}>
                       <TD className="whitespace-nowrap text-ink">
                         <span className="inline-flex items-center gap-2 align-middle">
-                          <LineThumb url={item.imageUrl} name={item.productName} />
+                          <ProductThumb
+                            src={item.imageUrl}
+                            name={item.productName}
+                            size="sm"
+                            decorative
+                          />
                           <span>
                             {item.productName}
                             {variantLabel(item.variantName) ? (
@@ -446,7 +451,12 @@ async function Loader({
               <MobileRow key={item.id} interactive={false}>
                 <MobileRowHeader>
                   <span className="flex min-w-0 items-center gap-2">
-                    <LineThumb url={item.imageUrl} name={item.productName} />
+                    <ProductThumb
+                      src={item.imageUrl}
+                      name={item.productName}
+                      size="sm"
+                      decorative
+                    />
                     <span className="min-w-0">
                       <span className="block truncate text-[13px] text-ink">
                         {item.productName}
@@ -523,7 +533,7 @@ async function Loader({
       </Surface>
 
       {sale.status === 'confirmed' && sale.payments.length > 0 ? (
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Payments"
             hint="Each payment posted its own receipt to the cash ledger when it was recorded"
@@ -556,7 +566,7 @@ async function Loader({
       ) : null}
 
       {sale.status === 'confirmed' && sale.refunds.length > 0 ? (
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader
             title="Refunds"
             hint="Refunds are separate cash-out decisions from returns"
@@ -586,7 +596,7 @@ async function Loader({
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Posted" hint="What this sale caused, traceable back to it" />
           {sale.ledgerEntries.length === 0 && sale.movements.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">
@@ -630,7 +640,7 @@ async function Loader({
           )}
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Activity" />
           {activity.length === 0 ? (
             <p className="px-4 py-8 text-center text-[13px] text-ink-4">
@@ -669,14 +679,3 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 /** The option's current catalog photograph. Names, SKU and prices on the line stay the sale's own snapshot. */
-function LineThumb({ url, name }: { url: string | null; name: string }) {
-  return (
-    <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-control bg-white">
-      {url ? (
-        <Image src={url} alt="" fill sizes="36px" className="object-contain p-0.5" />
-      ) : (
-        <span className="sr-only">No photo of {name}</span>
-      )}
-    </span>
-  );
-}

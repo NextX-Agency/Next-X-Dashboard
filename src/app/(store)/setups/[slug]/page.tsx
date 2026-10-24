@@ -35,12 +35,15 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
   const inStock = bundle.availability > 0;
 
   return (
-    <article className="mx-auto w-full max-w-[1320px] px-4 pt-6 pb-20 lg:px-8 lg:pt-8 lg:pb-28">
+    <article className="mx-auto w-full max-w-[1320px] px-4 pt-2 pb-8 sm:pt-6 sm:pb-20 lg:px-8 lg:pt-8 lg:pb-28">
       <nav
         aria-label="Breadcrumb"
-        className="mb-6 flex items-center gap-2 text-[13px] text-ink-3"
+        className="mb-2 flex items-center gap-2 text-[13px] text-ink-3 sm:mb-6"
       >
-        <Link href={SHOP_PATH as never} className="hover:text-ink hover:underline">
+        <Link
+          href={SHOP_PATH as never}
+          className="-my-3 inline-flex min-w-11 items-center py-3 hover:text-ink hover:underline"
+        >
           Shop
         </Link>
         <span aria-hidden="true">/</span>
@@ -49,7 +52,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
         </span>
       </nav>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
+      <div className="grid gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
         {bundle.storefrontImageUrl ? (
           <div className="relative aspect-[4/3] overflow-hidden rounded-tile bg-sunken lg:sticky lg:top-24 lg:self-start">
             <Image
@@ -69,7 +72,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
           }
         >
           <p className="nx-label text-ink-3">Bundle</p>
-          <h1 className="nx-display mt-3 text-[clamp(34px,4.6vw,60px)] text-ink">
+          <h1 className="nx-display mt-3 text-[clamp(28px,4.6vw,60px)] text-ink">
             {bundle.name}
           </h1>
           {bundle.summary ? (
@@ -77,7 +80,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
               {bundle.summary}
             </p>
           ) : null}
-          <div className="mt-8 border-line border-t pt-8">
+          <div className="mt-5 border-line border-t pt-5 sm:mt-8 sm:pt-8">
             <StorePrice usdCents={bundle.priceCents} srdRate={rate?.rateMicros} size="xl" />
             <p className="mt-5 flex items-center gap-2 text-[14px] text-ink-2">
               <span
@@ -103,7 +106,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
             </div>
           </div>
 
-          <section className="mt-10">
+          <section className="mt-8 sm:mt-10">
             <h2 className="nx-display text-[24px]">Included</h2>
             <ul className="mt-4 divide-y divide-line border-line border-y">
               {bundle.items.map((item, index) => (
@@ -131,7 +134,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
           </section>
 
           {bundle.bestFor.length ? (
-            <section className="mt-10">
+            <section className="mt-8 sm:mt-10">
               <h2 className="nx-display text-[24px]">Best for</h2>
               <ul className="mt-4 flex flex-wrap gap-2">
                 {bundle.bestFor.map((item) => (
@@ -147,7 +150,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
           ) : null}
 
           {bundle.description ? (
-            <section className="mt-10">
+            <section className="mt-8 sm:mt-10">
               <h2 className="nx-display text-[24px]">About this bundle</h2>
               <p className="mt-4 max-w-[62ch] whitespace-pre-line text-[16px] text-ink-2 leading-relaxed">
                 {bundle.description}

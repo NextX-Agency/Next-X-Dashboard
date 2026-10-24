@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -82,7 +83,7 @@ export default function SalesPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <SalesToolbar />
         </Suspense>
@@ -108,8 +109,7 @@ const CURRENCY_OPTIONS = [
 async function SalesToolbar() {
   const sellers = await listSellerOptions();
   return (
-    <ListToolbar>
-      <ListSearch placeholder="Search number, customer, product or SKU" />
+    <ListToolbar search={<ListSearch placeholder="Search number, customer, product or SKU" />}>
       <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
       <ListFilter param="payment" label="Payment" options={PAYMENT_OPTIONS} />
       <ListFilter param="currency" label="Currency" options={CURRENCY_OPTIONS} />
@@ -418,7 +418,7 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                 </MobileRowMetaItem>
               </MobileRowMeta>
             </Link>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               <SaleActions
                 id={row.id}
                 number={row.number}
@@ -427,7 +427,7 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                 paidCents={row.paidCents}
                 paymentStatus={row.paymentStatus}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

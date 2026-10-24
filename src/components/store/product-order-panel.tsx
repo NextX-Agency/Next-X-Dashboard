@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Minus, Plus } from 'lucide-react';
+import { Check, MessageCircle, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { RestockRequestForm } from '@/components/forms/restock-request-form';
@@ -13,6 +13,7 @@ import { resolveVariantImage } from '@/lib/product-images';
 import { colourName, optionLegend, optionName, swatchColour } from '@/lib/product-options';
 import { productOrderMessage, productRestockMessage } from '@/lib/store-messages';
 import { CART_PATH } from '@/lib/storefront-domain';
+import { whatsappLink } from '@/lib/whatsapp';
 import { type SelectableVariant, useProductSelection } from './product-selection';
 import { useStoreCart } from './store-cart-provider';
 import { formatSrd } from './store-price';
@@ -72,6 +73,11 @@ export function ProductOrderPanel({
     sku: variant.sku,
     price,
   };
+
+  const orderLink = whatsappLink(
+    whatsapp,
+    inStock ? productOrderMessage(messageInput) : productRestockMessage(messageInput),
+  );
 
   function setQty(next: number) {
     setWanted(Math.max(1, Math.min(Math.max(1, remaining), next)));
@@ -140,7 +146,7 @@ export function ProductOrderPanel({
         />
       ) : null}
 
-      <div className="mt-6 space-y-3">
+      <div className="mt-4 space-y-3 sm:mt-6">
         {inStock ? (
           <div className="flex gap-3">
             <div className="flex h-12 shrink-0 items-stretch rounded-[12px] border border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
@@ -167,7 +173,7 @@ export function ProductOrderPanel({
                   const next = Number.parseInt(event.target.value, 10);
                   setQty(Number.isFinite(next) ? next : 1);
                 }}
-                className="tabular w-10 border-0 bg-transparent text-center font-bold text-[15px] text-ink [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="tabular w-11 border-0 bg-transparent text-center font-bold text-[15px] text-ink [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="button"
@@ -230,25 +236,39 @@ export function ProductOrderPanel({
         </section>
       ) : null}
 
-      {/* Phone: the buy action stays on screen. */}
+      {/* Phone: ONE bar at the bottom edge (the tab bar steps aside on product pages): the price of
+          the chosen option, a WhatsApp shortcut and Add to cart, in thumb reach. */}
       {inStock ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-line border-t bg-base p-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden">
-          <div className="min-w-0">
+        <div className="nx-buybar fixed inset-x-0 bottom-0 z-40 flex items-center gap-[12px] border-line border-t bg-base pt-[8px] pr-[max(16px,env(safe-area-inset-right))] pb-[max(8px,env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] sm:hidden">
+          <div className="min-w-0 shrink-0">
             <p className="tabular font-extrabold text-[20px] leading-none">{price}</p>
             {/* The swatches sit below the fold on a phone: name the option being added. */}
             {showVariants ? (
-              <p className="mt-1 truncate font-semibold text-[12px] text-ink-2">
+              <p className="mt-1 max-w-[7.5rem] truncate font-semibold text-[12px] text-ink-2">
                 {optionName(variant) ?? variant.sku}
               </p>
             ) : null}
           </div>
+          {orderLink ? (
+            <a
+              href={orderLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Message on WhatsApp (opens WhatsApp)"
+              className="nx-press grid size-[48px] shrink-0 place-items-center rounded-[12px] border border-line-strong text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <MessageCircle aria-hidden="true" className="size-5" />
+            </a>
+          ) : null}
           <button
             type="button"
             disabled={!canAdd}
             onClick={addToCart}
-            className="nx-btn nx-btn-primary h-12 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="nx-btn nx-btn-primary h-[48px] min-w-0 flex-1 px-[12px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            Add to cart
+            {/* The confirmation line sits up in the panel, out of sight down here: say it on the button. */}
+            {added ? <Check aria-hidden="true" /> : null}
+            {added ? 'Added' : 'Add to cart'}
           </button>
         </div>
       ) : null}
@@ -273,7 +293,7 @@ function VariantSelector({
   const legend = optionLegend(variants);
   const selected = variants.find((item) => item.id === selectedId);
   return (
-    <fieldset className="mt-6">
+    <fieldset className="mt-4 sm:mt-6">
       <legend className="font-semibold text-[13px] text-ink-3">
         {legend}
         {selected ? (
@@ -294,7 +314,7 @@ function VariantSelector({
               aria-label={`${label}${soldOut ? ', sold out' : ''}`}
               onClick={() => onSelect(item.id)}
               className={cn(
-                'inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-3.5 font-semibold text-[14px] transition-colors',
+                'inline-flex min-h-12 items-center gap-2 rounded-[10px] border px-4 font-semibold text-[15px] transition-colors sm:min-h-11 sm:px-3.5 sm:text-[14px]',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 isSelected
                   ? 'border-ink bg-sunken text-ink'

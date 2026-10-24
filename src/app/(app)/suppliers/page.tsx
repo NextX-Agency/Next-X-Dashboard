@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -51,10 +52,8 @@ export default function SuppliersPage({
           </>
         }
       />
-      <Surface className="overflow-hidden">
-        <ListToolbar>
-          <ListSearch placeholder="Search by name" />
-        </ListToolbar>
+      <Surface className="overflow-clip">
+        <ListToolbar search={<ListSearch placeholder="Search by name" />}></ListToolbar>
         <Suspense fallback={<Skeleton className="m-4 h-24" />}>
           <SuppliersTable searchParams={searchParams} />
         </Suspense>
@@ -215,7 +214,7 @@ async function SuppliersTable({ searchParams }: { searchParams: Promise<RawSearc
                 </MobileRowMetaItem>
               </MobileRowMeta>
             </Link>
-            <div className="flex justify-end pt-0.5">
+            <MobileRowActions>
               <SupplierActions
                 id={row.id}
                 name={row.name}
@@ -226,7 +225,7 @@ async function SuppliersTable({ searchParams }: { searchParams: Promise<RawSearc
                 productCount={row.productCount}
                 orderCount={row.orderCount}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

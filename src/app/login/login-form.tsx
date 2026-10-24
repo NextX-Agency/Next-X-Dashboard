@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/ui/password-input';
 import { describeSignInError } from '@/lib/auth-errors';
 import { safeNextPath } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase/client';
@@ -31,8 +32,11 @@ export function LoginForm() {
   // exactly one field and exists only to receive it, so this orients everyone
   // rather than disorienting anyone -- but doing it here also means focus
   // returns to the field when someone backs out of the sent state.
+  // A phone keyboard that opens by itself covers half the card, so touch screens wait to be tapped.
   useEffect(() => {
-    if (state.status === 'idle') inputRef.current?.focus();
+    if (state.status === 'idle' && !window.matchMedia('(pointer: coarse)').matches) {
+      inputRef.current?.focus();
+    }
   }, [state.status]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -70,7 +74,12 @@ export function LoginForm() {
           id="email"
           name="email"
           type="email"
-          autoComplete="email"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
           required
           ref={inputRef}
           value={email}
@@ -87,11 +96,11 @@ export function LoginForm() {
         >
           Password
         </label>
-        <input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
+          enterKeyHint="go"
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -107,7 +116,7 @@ export function LoginForm() {
       ) : null}
 
       {state.error ? (
-        <p className="text-[12px] text-negative" role="alert">
+        <p className="text-[13px] text-negative sm:text-[12px]" role="alert">
           {state.error}
         </p>
       ) : null}
@@ -117,7 +126,7 @@ export function LoginForm() {
         variant="primary"
         size="lg"
         disabled={state.status === 'signingIn'}
-        className="mt-1 w-full"
+        className="mt-1 w-full max-sm:h-12 max-sm:text-[15px]"
       >
         {state.status === 'signingIn' ? (
           <>

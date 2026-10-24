@@ -451,6 +451,7 @@ export type PurchaseOrderDetail = {
     overheadCents: Cents;
     shippingOverheadCents: Cents;
     landedCostCents: Cents;
+    imageUrl: string | null;
   }[];
   ledgerEntries: {
     id: string;
@@ -544,7 +545,8 @@ export async function getPurchaseOrder(id: string): Promise<PurchaseOrderDetail 
         v.name AS variant_name, v.sku,
         i.quantity, i.quantity_received, i.weight_grams,
         i.subtotal_cents::text, i.overhead_cents::text, i.shipping_overhead_cents::text,
-        i.landed_cost_cents::text
+        i.landed_cost_cents::text,
+        ${variantImageSql('i.variant_id', 'v.product_id')} AS image_url
       FROM purchase_order_items i
       JOIN product_variants v ON v.id = i.variant_id
       JOIN products p ON p.id = v.product_id
@@ -613,6 +615,7 @@ export async function getPurchaseOrder(id: string): Promise<PurchaseOrderDetail 
       overheadCents: num(item.overhead_cents),
       shippingOverheadCents: num(item.shipping_overhead_cents),
       landedCostCents: num(item.landed_cost_cents),
+      imageUrl: maybe(item.image_url),
     })),
     paidCents: num(row.paid_cents),
     refundedCents:

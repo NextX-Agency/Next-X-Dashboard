@@ -27,7 +27,7 @@ export default async function ReconciliationPage() {
         description="Statement checkpoints compare external evidence with the derived wallet ledger. History is retained; it is never silently fixed."
         action={<ReconciliationSheet wallets={wallets} />}
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         {rows.length === 0 ? (
           <EmptyState
             Icon={Scale}

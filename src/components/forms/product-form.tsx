@@ -4,13 +4,15 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ActionBar } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
+import { duplicateProduct } from '@/server/actions/catalog-copy';
 import { createProduct, updateProduct } from '@/server/actions/products';
 import { createBrand, createCategory, createSupplier } from '@/server/actions/reference';
 import type { Option } from '@/server/queries/pickers';
@@ -230,6 +232,36 @@ export function ProductForm({
   const [brandList, setBrandList] = useState(brands);
   const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
 
+  // Unsaved-changes guard: what the form held when it opened, compared with what it holds now.
+  const baseline = useRef<string | null>(null);
+  if (baseline.current === null) baseline.current = JSON.stringify(values);
+  const [saved, setSaved] = useState(false);
+  const dirty = !saved && JSON.stringify(values) !== baseline.current;
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    // A link inside the app does not reload the page, so the browser's own warning never fires.
+    const onClick = (event: MouseEvent) => {
+      const link = (event.target as HTMLElement | null)?.closest('a[href]');
+      if (!link || link.getAttribute('target') === '_blank') return;
+      const href = link.getAttribute('href') ?? '';
+      if (!href || href.startsWith('#') || href.startsWith('mailto:')) return;
+      if (!window.confirm('You have unsaved changes. Leave this page without saving?')) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, [dirty]);
+
   const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
 
@@ -265,8 +297,21 @@ export function ProductForm({
 
   const action = isEdit ? updateProduct : createProduct;
 
+  const copy = useAction(duplicateProduct, {
+    onSuccess({ data }) {
+      if (!data) return;
+      setSaved(true);
+      toast.success(`${data.name} created as a draft`, {
+        description: 'Photos are not copied. Check the name, code and prices.',
+      });
+      router.push(`/items/${data.id}` as Route);
+    },
+    onError: ({ error }) => toast.error(error.serverError ?? 'Could not duplicate the product'),
+  });
+
   const { execute, isPending } = useAction(action, {
     onSuccess({ data }) {
+      setSaved(true);
       toast.success(
         isEdit ? `${data?.name} updated` : `${data?.name} created`,
         isEdit
@@ -388,9 +433,9 @@ export function ProductForm({
           })),
         } as Parameters<typeof execute>[0]);
       }}
-      className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
+      className="grid grid-cols-1 gap-3 pb-24 md:gap-4 md:pb-0 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start"
     >
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         <Surface>
           <SurfaceHeader title="Product" />
           <div className="space-y-3 p-4">
@@ -489,10 +534,10 @@ export function ProductForm({
           </div>
         </Surface>
 
-        <Surface>
+        <Surface id="variants" className="scroll-mt-32">
           <SurfaceHeader
             title="Variants"
-            hint="What is actually stocked and sold. One per colour, size or pack."
+            hint="What is stocked and sold. One per colour, size or pack."
             action={
               <Button
                 type="button"
@@ -509,13 +554,24 @@ export function ProductForm({
               </Button>
             }
           />
+          <p className="border-line-subtle border-b px-4 py-2.5 text-[12px] text-ink-3">
+            <span className="text-ink">Sell</span> is the price customers pay (US$).{' '}
+            <span className="text-ink">List cost</span> is the supplier&rsquo;s price, used for
+            margin until stock is received at a real landed cost. Fields marked{' '}
+            <span className="text-negative">*</span> are required.
+          </p>
           <div className="divide-y divide-line-subtle">
             {values.variants.map((variant, index) => (
               <div
                 key={variant.key}
                 className="grid gap-2 p-4 sm:grid-cols-[1fr_1fr_110px_110px_100px_120px_32px]"
               >
-                <Field label="Option" hideLabel={index > 0} htmlFor={`vname-${index}`}>
+                <Field
+                  label="Option"
+                  required
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vname-${index}`}
+                >
                   <Input
                     id={`vname-${index}`}
                     value={variant.name}
@@ -524,7 +580,12 @@ export function ProductForm({
                     onChange={(event) => setVariant(variant.key, { name: event.target.value })}
                   />
                 </Field>
-                <Field label="SKU" hideLabel={index > 0} htmlFor={`vsku-${index}`}>
+                <Field
+                  label="SKU"
+                  required
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vsku-${index}`}
+                >
                   <Input
                     id={`vsku-${index}`}
                     value={variant.sku}
@@ -536,7 +597,11 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label="Sell (USD)" hideLabel={index > 0} htmlFor={`vprice-${index}`}>
+                <Field
+                  label="Sell (USD)"
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vprice-${index}`}
+                >
                   <Input
                     id={`vprice-${index}`}
                     numeric
@@ -548,7 +613,11 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label="Barcode" hideLabel={index > 0} htmlFor={`vbarcode-${index}`}>
+                <Field
+                  label="Barcode"
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vbarcode-${index}`}
+                >
                   <Input
                     id={`vbarcode-${index}`}
                     value={variant.barcode}
@@ -558,7 +627,11 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label="List cost" hideLabel={index > 0} htmlFor={`vcost-${index}`}>
+                <Field
+                  label="List cost"
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vcost-${index}`}
+                >
                   <Input
                     id={`vcost-${index}`}
                     numeric
@@ -570,7 +643,11 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <Field label="Weight (g)" hideLabel={index > 0} htmlFor={`vweight-${index}`}>
+                <Field
+                  label="Weight (g)"
+                  labelClassName={index > 0 ? 'sm:sr-only' : undefined}
+                  htmlFor={`vweight-${index}`}
+                >
                   <Input
                     id={`vweight-${index}`}
                     numeric
@@ -582,7 +659,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <label className="flex items-end gap-2 pb-1 text-[11px] text-ink-3">
+                <label className="flex min-h-11 items-center gap-2 text-[12px] text-ink-3 sm:min-h-0 sm:items-end sm:pb-1 sm:text-[11px]">
                   <input
                     type="checkbox"
                     checked={variant.isStrategic}
@@ -593,7 +670,7 @@ export function ProductForm({
                   />
                   Strategic stock
                 </label>
-                <label className="flex items-end gap-2 pb-1 text-[11px] text-ink-3">
+                <label className="flex min-h-11 items-center gap-2 text-[12px] text-ink-3 sm:min-h-0 sm:items-end sm:pb-1 sm:text-[11px]">
                   <input
                     type="radio"
                     name="default-variant"
@@ -935,7 +1012,7 @@ export function ProductForm({
                 </span>
               </summary>
               <div className="flex flex-wrap gap-4 text-[12px] text-ink-2">
-                <label className="flex items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={values.hubRequired}
@@ -943,7 +1020,7 @@ export function ProductForm({
                   />{' '}
                   Hub required
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={values.appRequired}
@@ -951,7 +1028,7 @@ export function ProductForm({
                   />{' '}
                   App required
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={values.accountRequired}
@@ -959,7 +1036,7 @@ export function ProductForm({
                   />{' '}
                   Account required
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={values.wifiRequired}
@@ -967,7 +1044,7 @@ export function ProductForm({
                   />{' '}
                   Wi-Fi required
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                   <input
                     type="checkbox"
                     checked={values.neutralWireRequired}
@@ -1134,7 +1211,7 @@ export function ProductForm({
               ))}
             </div>
             <div className="flex flex-wrap gap-4 text-[12px] text-ink-2">
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                 <input
                   type="checkbox"
                   checked={values.featured}
@@ -1142,7 +1219,7 @@ export function ProductForm({
                 />{' '}
                 Featured product
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                 <input
                   type="checkbox"
                   checked={values.showWhenOutOfStock}
@@ -1150,7 +1227,7 @@ export function ProductForm({
                 />{' '}
                 Show when sold out
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex min-h-11 items-center gap-2 sm:min-h-0">
                 <input
                   type="checkbox"
                   checked={values.restockNotificationsEnabled}
@@ -1243,17 +1320,47 @@ export function ProductForm({
         </div>
 
         <div className="flex flex-col gap-2 border-line-subtle border-t p-4">
-          <SubmitButton pending={isPending} size="lg" className="w-full">
+          <SubmitButton pending={isPending} size="lg" className="w-full max-md:hidden">
             {isEdit ? 'Save changes' : 'Create product'}
           </SubmitButton>
-          {isEdit ? (
-            <p className="text-[11px] text-ink-4 leading-relaxed">
-              A variant you remove is deactivated rather than deleted if it has ever moved
-              stock, so past sales keep their history.
+          {dirty ? (
+            <p role="status" className="text-[12px] text-warning">
+              You have unsaved changes.
             </p>
+          ) : null}
+          {isEdit ? (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={copy.isPending || dirty}
+                title={dirty ? 'Save or discard your changes first' : undefined}
+                onClick={() => initial?.id && copy.execute({ id: initial.id })}
+              >
+                Duplicate as a draft
+              </Button>
+              <p className="text-[11px] text-ink-4 leading-relaxed">
+                A variant you remove is deactivated rather than deleted if it has ever moved
+                stock, so past sales keep their history.
+              </p>
+            </>
           ) : null}
         </div>
       </Surface>
+      <ActionBar>
+        <div className="flex items-center gap-3">
+          <p className="min-w-0 flex-1 truncate text-[13px] text-ink-3">
+            {values.name.trim() || (isEdit ? 'This product' : 'New product')}
+          </p>
+          <SubmitButton
+            pending={isPending}
+            size="lg"
+            className="h-12 shrink-0 px-6 text-[15px]"
+          >
+            {isEdit ? 'Save changes' : 'Create product'}
+          </SubmitButton>
+        </div>
+      </ActionBar>
     </form>
   );
 }
@@ -1280,7 +1387,7 @@ function CompatibilityQuickValues({
             type="button"
             disabled={selectedValues.has(value)}
             onClick={() => onSelect(value)}
-            className="rounded-control border border-line px-2 py-1 text-[11px] text-ink-3 transition-colors hover:border-accent hover:text-accent disabled:cursor-default disabled:border-accent disabled:bg-accent-soft disabled:text-accent"
+            className="min-h-11 rounded-control border border-line px-3 text-[13px] text-ink-3 transition-colors sm:min-h-0 sm:px-2 sm:py-1 sm:text-[11px] hover:border-accent hover:text-accent disabled:cursor-default disabled:border-accent disabled:bg-accent-soft disabled:text-accent"
           >
             {value}
           </button>

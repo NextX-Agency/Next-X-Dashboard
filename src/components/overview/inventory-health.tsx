@@ -1,5 +1,6 @@
 import { Package } from 'lucide-react';
 import Link from 'next/link';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,10 +46,19 @@ export async function InventoryHealth() {
 
         return (
           <li key={row.variantId} className="px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 truncate text-[13px] text-ink">
-                {row.productName}
-                <span className="text-ink-4"> · {row.variantName}</span>
+            <div className="flex items-center justify-between gap-3">
+              <p className="flex min-w-0 items-center gap-2.5 text-[13px] text-ink">
+                <ProductThumb
+                  src={row.imageUrl}
+                  name={row.productName}
+                  detail={row.variantName}
+                  size="xs"
+                  decorative
+                />
+                <span className="min-w-0 truncate">
+                  {row.productName}
+                  <span className="text-ink-4"> · {row.variantName}</span>
+                </span>
               </p>
               <div className="flex shrink-0 items-center gap-2">
                 {out ? (

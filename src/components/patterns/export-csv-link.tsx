@@ -33,10 +33,10 @@ export async function ExportCsvLink({
   if (first) query.set('q', first);
 
   return (
-    <Button asChild variant="outline" size="md">
+    <Button asChild variant="outline" size="md" className="max-sm:w-11 max-sm:px-0">
       <Link href={`/api/export?${query.toString()}` as Route}>
         <Download aria-hidden="true" />
-        Export CSV
+        <span className="max-sm:sr-only">Export CSV</span>
       </Link>
     </Button>
   );

@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import Link from 'next/link';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { Money, Percent } from '@/components/ui/money';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { Table, TableWrap, TBody, TD, TH, THead, THSort, TR } from '@/components/ui/table';
@@ -38,7 +39,7 @@ export async function MarginByProduct({
           <Table>
             <THead>
               <TR className="hover:bg-transparent">
-                <TH>Product</TH>
+                <TH sticky>Product</TH>
                 <THSort href={sortHref('units')} active={sort === 'units'} dir="desc" numeric>
                   Units
                 </THSort>
@@ -60,14 +61,17 @@ export async function MarginByProduct({
             <TBody>
               {rows.map((row) => (
                 <TR key={row.productId}>
-                  <TD className="whitespace-nowrap text-ink">
+                  <TD sticky className="whitespace-nowrap text-ink max-lg:max-w-[10.5rem]">
                     <Link
                       href={`/items/${row.productId}` as Route}
-                      className="hover:text-accent hover:underline"
+                      className="flex min-h-11 max-w-full items-center gap-2.5 hover:text-accent lg:min-h-0 lg:hover:underline"
                     >
-                      {row.name}
+                      <ProductThumb src={row.imageUrl} name={row.name} size="xs" decorative />
+                      <span className="min-w-0">
+                        <span className="block truncate">{row.name}</span>
+                        <span className="tabular block text-[11px] text-ink-4">{row.code}</span>
+                      </span>
                     </Link>
-                    <span className="tabular ml-2 text-[11px] text-ink-4">{row.code}</span>
                   </TD>
                   <TD numeric className="text-ink-3">
                     {row.unitsSold}

@@ -18,8 +18,11 @@ import { Skeleton } from './skeleton';
  * be able to see their whole stock position without scrolling.
  */
 
+/** Scrolls sideways when the table is wider than the screen. Below `lg` it shows a soft fade on the
+ *  edge that has more to reach (`.nx-scrollx`, app/(app)/mobile.css). A table that must stay a table
+ *  on a phone marks its first column `sticky` so the row stays identifiable while scrolling. */
 export function TableWrap({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn('w-full overflow-x-auto', className)} {...props} />;
+  return <div className={cn('nx-scrollx w-full overflow-x-auto', className)} {...props} />;
 }
 
 export function Table({ className, ...props }: ComponentProps<'table'>) {
@@ -43,19 +46,23 @@ export function TR({ className, ...props }: ComponentProps<'tr'>) {
 type CellProps = ComponentProps<'td'> & {
   /** Right-align and switch to tabular figures. Use for every number. */
   numeric?: boolean;
+  /** Pin this cell to the left edge while the table scrolls sideways on a phone (use on the first column). */
+  sticky?: boolean;
 };
 
 export function TH({
   className,
   numeric,
+  sticky,
   ...props
-}: ComponentProps<'th'> & { numeric?: boolean }) {
+}: ComponentProps<'th'> & { numeric?: boolean; sticky?: boolean }) {
   return (
     <th
       scope="col"
       className={cn(
         'h-8 whitespace-nowrap px-3 text-left font-medium text-[11px] text-ink-4 uppercase tracking-[0.06em]',
         numeric && 'text-right',
+        sticky && 'nx-sticky-first',
         className,
       )}
       {...props}
@@ -75,21 +82,24 @@ export function THSort({
   active,
   dir,
   numeric,
+  className,
   children,
 }: {
   href: Route;
   active: boolean;
   dir: 'asc' | 'desc';
   numeric?: boolean;
+  /** On the header cell, e.g. `hidden xl:table-cell` for a column that only wide screens show. */
+  className?: string;
   children: React.ReactNode;
 }) {
   const Icon = !active ? ChevronsUpDown : dir === 'asc' ? ChevronUp : ChevronDown;
   return (
-    <TH numeric={numeric} className="p-0">
+    <TH numeric={numeric} className={cn('p-0', className)}>
       <Link
         href={href}
         className={cn(
-          'flex h-8 items-center gap-1 px-3 transition-colors hover:text-ink',
+          'flex h-11 items-center gap-1 px-3 transition-colors hover:text-ink sm:h-8',
           'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
           numeric && 'flex-row-reverse',
         )}
@@ -101,10 +111,15 @@ export function THSort({
   );
 }
 
-export function TD({ className, numeric, ...props }: CellProps) {
+export function TD({ className, numeric, sticky, ...props }: CellProps) {
   return (
     <td
-      className={cn('h-8 px-3 text-ink-2', numeric && 'tabular text-right text-ink', className)}
+      className={cn(
+        'h-8 px-3 text-ink-2',
+        numeric && 'tabular text-right text-ink',
+        sticky && 'nx-sticky-first',
+        className,
+      )}
       {...props}
     />
   );

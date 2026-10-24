@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
-import { AlertsPanel } from '@/components/overview/alerts-panel';
+import { AlertsSection } from '@/components/overview/alerts-panel';
 import { CashFlowChart } from '@/components/overview/cash-flow-chart';
 import { ImportPipeline } from '@/components/overview/import-pipeline';
 import { InventoryDecisions } from '@/components/overview/inventory-decisions';
@@ -18,6 +18,7 @@ import { RecentActivity } from '@/components/overview/recent-activity';
 import { SetupChecklist } from '@/components/overview/setup-checklist';
 import { PageHeader } from '@/components/patterns/page-header';
 import { PeriodSelector } from '@/components/patterns/period-selector';
+import { PosTodayCard } from '@/components/pos/today-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
@@ -75,28 +76,45 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
         }
       />
 
-      <div className="space-y-4">
-        <QuickActions />
+      {/* On a phone the order is: what needs attention, the position, then the quick jobs. */}
+      <div className="flex flex-col gap-3 md:gap-4">
+        <div className="max-md:-order-1">
+          <QuickActions />
+        </div>
 
-        <Suspense fallback={null}>
-          <SetupSection />
-        </Suspense>
+        <div className="max-md:-order-2">
+          <PosTodayCard />
+        </div>
 
-        <Surface>
-          <SurfaceHeader
-            title="Needs attention"
-            hint="Inconsistencies the books can detect on their own"
-          />
-          <Suspense fallback={<PanelSkeleton rows={3} />}>
-            <AlertsPanel />
+        <div className="empty:hidden">
+          <Suspense fallback={null}>
+            <SetupSection />
           </Suspense>
-        </Surface>
+        </div>
 
-        <Suspense fallback={<PositionStripSkeleton />}>
-          <PositionStrip />
-        </Suspense>
+        <div className="max-md:-order-3">
+          <Suspense
+            fallback={
+              <Surface>
+                <SurfaceHeader
+                  title="Needs attention"
+                  hint="Inconsistencies the books can detect on their own"
+                />
+                <PanelSkeleton rows={3} />
+              </Surface>
+            }
+          >
+            <AlertsSection />
+          </Suspense>
+        </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="max-md:-order-2">
+          <Suspense fallback={<PositionStripSkeleton />}>
+            <PositionStrip />
+          </Suspense>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Surface>
             <SurfaceHeader
               title="Money owed"
@@ -128,7 +146,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
           </Surface>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <Surface>
             <SurfaceHeader
               title="Cash flow"
@@ -144,18 +162,25 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
               title="Revenue to net"
               hint="Where the money actually goes"
               action={
-                <Suspense fallback={null}>
-                  <WaterfallPeriodSelector />
-                </Suspense>
+                <div className="max-md:hidden">
+                  <Suspense fallback={null}>
+                    <WaterfallPeriodSelector />
+                  </Suspense>
+                </div>
               }
             />
+            <div className="border-line-subtle border-b px-4 py-2.5 md:hidden">
+              <Suspense fallback={null}>
+                <WaterfallPeriodSelector />
+              </Suspense>
+            </div>
             <Suspense fallback={<Skeleton className="m-4 h-[260px]" />}>
               <Waterfall searchParams={searchParams} />
             </Suspense>
           </Surface>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-2">
           <Surface>
             <SurfaceHeader
               title="Import pipeline"
@@ -187,7 +212,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
           </Surface>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-3">
           <Surface>
             <SurfaceHeader
               title="Owner equity"

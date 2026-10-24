@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import {
   MobileList,
   MobileRow,
+  MobileRowActions,
   MobileRowHeader,
   MobileRowMeta,
   MobileRowMetaItem,
@@ -71,7 +72,7 @@ export default function OrdersPage({
           </Button>
         }
       />
-      <Surface className="overflow-hidden">
+      <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <OrdersToolbar />
         </Suspense>
@@ -92,8 +93,7 @@ const PAYMENT_OPTIONS = [
 async function OrdersToolbar() {
   const customers = await listCustomerOptions();
   return (
-    <ListToolbar>
-      <ListSearch placeholder="Order number or customer" />
+    <ListToolbar search={<ListSearch placeholder="Order number or customer" />}>
       <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
       <ListFilter param="payment" label="Payment" options={PAYMENT_OPTIONS} />
       {customers.length > 0 ? (
@@ -244,7 +244,7 @@ async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchPa
                 <MobileRowMetaItem label="Units">{row.unitCount}</MobileRowMetaItem>
               </MobileRowMeta>
             </Link>
-            <div className="flex justify-end">
+            <MobileRowActions>
               <OrderActions
                 id={row.id}
                 number={row.number}
@@ -253,7 +253,7 @@ async function OrdersTable({ searchParams }: { searchParams: Promise<RawSearchPa
                 paidCents={row.paidCents}
                 currency={row.currency as 'USD' | 'SRD'}
               />
-            </div>
+            </MobileRowActions>
           </MobileRow>
         ))}
       </MobileList>

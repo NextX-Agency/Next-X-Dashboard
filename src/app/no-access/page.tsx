@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: 'No access' };
  */
 export default function NoAccessPage() {
   return (
-    <div className="grid min-h-dvh place-items-center px-6">
+    <div className="grid min-h-dvh place-items-center px-4 py-6 sm:px-6">
       <div className="w-full max-w-[380px]">
         <Wordmark />
         <div className="mt-8 flex size-9 items-center justify-center rounded-control bg-warning-muted text-warning">

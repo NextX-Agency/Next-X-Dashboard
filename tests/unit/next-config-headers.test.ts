@@ -37,7 +37,7 @@ describe('production response headers', () => {
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
     expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
     expect(headers['X-Frame-Options']).toBe('SAMEORIGIN');
-    expect(headers['Permissions-Policy']).toContain('camera=()');
+    expect(headers['Permissions-Policy']).toContain('camera=(self)');
     expect(headers['Strict-Transport-Security']).toMatch(/^max-age=\d{7,}$/);
     // Not includeSubDomains: the Supabase and Coolify hostnames are siblings of the shop.
     expect(headers['Strict-Transport-Security']).not.toContain('includeSubDomains');

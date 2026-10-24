@@ -1,6 +1,7 @@
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { ProductThumb } from '@/components/catalog/product-thumb';
 import { OrderActions } from '@/components/forms/order-actions';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -138,7 +139,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           )}
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Items" />
           <TableWrap>
             <Table>
@@ -155,8 +156,19 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 {order.items.map((item) => (
                   <TR key={item.id}>
                     <TD className="text-ink">
-                      {item.productName}
-                      <span className="text-ink-4"> · {item.variantName}</span>
+                      <span className="inline-flex items-center gap-2.5">
+                        <ProductThumb
+                          src={item.imageUrl}
+                          name={item.productName}
+                          detail={item.variantName}
+                          size="sm"
+                          decorative
+                        />
+                        <span>
+                          {item.productName}
+                          <span className="text-ink-4"> · {item.variantName}</span>
+                        </span>
+                      </span>
                     </TD>
                     <TD className="tabular text-[12px] text-ink-3">{item.sku}</TD>
                     <TD numeric className="text-ink-3">
@@ -179,7 +191,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </TableWrap>
         </Surface>
 
-        <Surface className="overflow-hidden">
+        <Surface className="overflow-clip">
           <SurfaceHeader title="Inventory reservations" />
           {order.reservations.length ? (
             <TableWrap>

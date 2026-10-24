@@ -5,6 +5,7 @@ import { toBase } from '@/lib/fx';
 import type { Cents } from '@/lib/money';
 import { type PeriodPreset, periodRange } from '@/lib/report-period';
 import { db } from '../db/client';
+import { productImageSql } from './image-sql';
 import { getLiveRate } from './overview';
 import { listRates } from './reference';
 import { num, text } from './row';
@@ -209,6 +210,8 @@ export type ProductMarginRow = {
   cogsCents: Cents;
   grossCents: Cents;
   marginRate: number;
+  /** The product's representative photograph (thumbnail), or null. */
+  imageUrl: string | null;
 };
 
 export type ProductMarginSort = 'gross' | 'revenue' | 'units';
@@ -292,7 +295,8 @@ export async function listProductMargins(
            units_sold::text,
            revenue_cents::text,
            cogs_cents::text,
-           (revenue_cents - cogs_cents)::text AS gross_cents
+           (revenue_cents - cogs_cents)::text AS gross_cents,
+           ${productImageSql('margins.product_id')} AS image_url
       FROM margins
      ORDER BY ${sql.raw(column)} DESC, name
   `);
@@ -309,6 +313,7 @@ export async function listProductMargins(
       cogsCents: num(row.cogs_cents),
       grossCents,
       marginRate: revenueCents === 0 ? 0 : grossCents / revenueCents,
+      imageUrl: row.image_url ?? null,
     };
   });
 }
