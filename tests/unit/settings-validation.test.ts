@@ -83,6 +83,8 @@ describe('normaliseClockTime and normaliseAssetUrl', () => {
 
   it('only allows https or root-relative image addresses', () => {
     expect(normaliseAssetUrl('/nextx-logo-light.png')).toBe('/nextx-logo-light.png');
+    expect(normaliseAssetUrl('/images/logo.png')).toBe('/images/logo.png');
+    expect(normaliseAssetUrl('/a b.png')).toBeNull();
     expect(normaliseAssetUrl('https://cdn.example/logo.png')).toBe(
       'https://cdn.example/logo.png',
     );

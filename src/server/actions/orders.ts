@@ -2,6 +2,7 @@
 
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { normaliseToUsd } from '@/lib/fx';
+import { alreadySubmittedMessage, isSameSubmission } from '@/lib/idempotent-replay';
 import { formatMoney } from '@/lib/money';
 import { assertOrderTransition, type OrderStatus } from '@/lib/order-state';
 import { orderIdSchema, orderSchema } from '@/lib/schemas';
@@ -92,11 +93,49 @@ export const createOrder = writeAction
           sql`SELECT pg_advisory_xact_lock(hashtextextended(${`order:${input.idempotencyKey}`}, 0))`,
         );
         const [existing] = await tx
-          .select({ id: orders.id, number: orders.number })
+          .select({
+            id: orders.id,
+            number: orders.number,
+            currency: orders.currency,
+            customerId: orders.customerId,
+          })
           .from(orders)
           .where(eq(orders.idempotencyKey, input.idempotencyKey))
           .limit(1);
-        if (existing) return { ...existing, reused: true as const };
+        if (existing) {
+          // A key restored by the browser (Back) must not swallow a different
+          // order: a hit is a replay only when the stored order matches.
+          const storedLines = await tx
+            .select({
+              variantId: orderItems.variantId,
+              quantity: orderItems.quantity,
+              unitPriceCents: orderItems.unitPriceCents,
+            })
+            .from(orderItems)
+            .where(eq(orderItems.saleId, existing.id));
+          const sameSubmission = isSameSubmission(
+            {
+              currency: existing.currency,
+              customerId: existing.customerId,
+              lines: storedLines.map((line) => ({
+                ref: line.variantId,
+                quantity: line.quantity,
+                unitPriceCents: line.unitPriceCents,
+              })),
+            },
+            {
+              currency: input.currency,
+              customerId: input.customerId ?? null,
+              lines: input.items.map((item) => ({
+                ref: item.variantId,
+                quantity: item.quantity,
+                unitPriceCents: item.unitPriceCents,
+              })),
+            },
+          );
+          if (!sameSubmission) throw new ActionError(alreadySubmittedMessage('order'));
+          return { id: existing.id, number: existing.number, reused: true as const };
+        }
       }
       await assertActiveLocation(tx, input.locationId);
       const variants = await loadOrderVariants(

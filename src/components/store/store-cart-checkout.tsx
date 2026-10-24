@@ -5,12 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RateMicros } from '@/lib/fx';
+import { firstPickupDay, sameDayPickupAllowed } from '@/lib/pickup-dates';
 import {
   applyStoreCartQuote,
   type StoreCartQuoteLine,
   storeCartCount,
   storeCartSubtotal,
 } from '@/lib/store-cart';
+import { quoteRetryDelayMs } from '@/lib/store-cart-quote-retry';
 import {
   cartOrderMessage,
   customerMoney,
@@ -75,6 +77,8 @@ export function StoreCartCheckout({
   fallbackLocation,
   srdRate,
   storefrontSlug,
+  sameDayPickupEnabled = false,
+  pickupCutoffTime = null,
 }: {
   businessName: string;
   whatsapp: string | null;
@@ -82,10 +86,17 @@ export function StoreCartCheckout({
   fallbackLocation: string | null;
   srdRate?: RateMicros;
   storefrontSlug: string | null;
+  /** The shop's same-day rule (Settings): today is offered only while it is open. */
+  sameDayPickupEnabled?: boolean;
+  pickupCutoffTime?: string | null;
 }) {
   const { lines, ready, setQuantity, removeLine, clear } = useStoreCart();
   const [cartQuote, setCartQuote] = useState<CartQuoteState | null>(null);
   const [quoteTick, setQuoteTick] = useState(0);
+  // True while the server has asked us to slow down (429). The last good answer stays on screen.
+  const [quoteWaiting, setQuoteWaiting] = useState(false);
+  const quoteWaitingRef = useRef(false);
+  const rateLimitStreak = useRef(0);
   const [announcement, setAnnouncement] = useState('');
   // The line that is fading out; it is removed from the cart when the fade ends.
   const [leaving, setLeaving] = useState<string | null>(null);
@@ -93,7 +104,9 @@ export function StoreCartCheckout({
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [pickupLocationId, setPickupLocationId] = useState(locations[0]?.id ?? '');
-  const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'custom'>('today');
+  const [pickupDate, setPickupDate] = useState<'today' | 'tomorrow' | 'custom'>(() =>
+    firstPickupDay({ sameDayPickupEnabled, pickupCutoffTime }),
+  );
   const [customDate, setCustomDate] = useState('');
   const headingRef = useRef<HTMLHeadingElement>(null);
   const linesRef = useRef(lines);
@@ -138,10 +151,13 @@ export function StoreCartCheckout({
   const itemCount = storeCartCount(lines);
   const whatsappNumber = whatsappDigits(whatsapp);
   const selectedLocation = locations.find((location) => location.id === pickupLocationId);
+  // Re-read each render: a cart left open past the cutoff must not send "today".
+  const todayAllowed = sameDayPickupAllowed({ sameDayPickupEnabled, pickupCutoffTime });
+  const effectivePickup = pickupDate === 'today' && !todayAllowed ? 'tomorrow' : pickupDate;
   const requestedPickupDate =
-    pickupDate === 'today'
+    effectivePickup === 'today'
       ? paramariboDate()
-      : pickupDate === 'tomorrow'
+      : effectivePickup === 'tomorrow'
         ? paramariboDate(1)
         : customDate;
   const formReady =
@@ -154,6 +170,11 @@ export function StoreCartCheckout({
     if (!ready || variantKey === '[]') return;
 
     const controller = new AbortController();
+    let retryTimer: number | undefined;
+    const setWaiting = (value: boolean) => {
+      quoteWaitingRef.current = value;
+      setQuoteWaiting(value);
+    };
     const timeout = window.setTimeout(() => {
       const items = linesRef.current.map(({ variantId, quantity }) => ({
         variantId,
@@ -167,11 +188,36 @@ export function StoreCartCheckout({
         signal: controller.signal,
       })
         .then(async (response) => {
+          if (controller.signal.aborted) return;
+          if (response.status === 429) {
+            // Slow down, not broken: keep whatever answer the cart already has, say so quietly, and
+            // ask again after the time the server named. After a few in a row, hand the choice back.
+            rateLimitStreak.current += 1;
+            const delay = quoteRetryDelayMs({
+              retryAfter: response.headers.get('Retry-After'),
+              attempt: rateLimitStreak.current,
+            });
+            if (delay === null) {
+              rateLimitStreak.current = 0;
+              setWaiting(false);
+              setCartQuote((previous) =>
+                quoteCovers(previous, JSON.parse(variantKey) as string[])
+                  ? previous
+                  : { variantKey, status: 'error' },
+              );
+              return;
+            }
+            setWaiting(true);
+            retryTimer = window.setTimeout(() => setQuoteTick((tick) => tick + 1), delay);
+            return;
+          }
           if (!response.ok) throw new Error('Cart quote could not be refreshed.');
           const payload = (await response.json()) as {
             items: StoreCartQuoteLine[];
             unavailableVariantIds: string[];
           };
+          rateLimitStreak.current = 0;
+          setWaiting(false);
           setCartQuote({
             status: 'ready',
             variantIds: JSON.parse(variantKey) as string[],
@@ -181,8 +227,10 @@ export function StoreCartCheckout({
         })
         .catch(() => {
           if (controller.signal.aborted) return;
-          // A failed background refresh keeps the last good answer for these products; only a cart with
-          // no answer at all shows the error.
+          rateLimitStreak.current = 0;
+          setWaiting(false);
+          // A failed background refresh keeps the last good answer for these products; only a cart
+          // with no answer at all shows the error.
           setCartQuote((previous) =>
             quoteCovers(previous, JSON.parse(variantKey) as string[])
               ? previous
@@ -193,6 +241,7 @@ export function StoreCartCheckout({
 
     return () => {
       window.clearTimeout(timeout);
+      window.clearTimeout(retryTimer);
       controller.abort();
     };
   }, [quoteTick, ready, variantKey]);
@@ -200,6 +249,8 @@ export function StoreCartCheckout({
   useEffect(() => {
     if (!ready) return;
     const refresh = () => {
+      // While the server has asked for a pause, the scheduled retry is the only thing that asks.
+      if (quoteWaitingRef.current) return;
       if (document.visibilityState === 'visible') setQuoteTick((tick) => tick + 1);
     };
     const interval = window.setInterval(refresh, QUOTE_REFRESH_MS);
@@ -515,7 +566,12 @@ export function StoreCartCheckout({
             )}
           </div>
 
-          {quoteReady ? (
+          {quoteWaiting && !quoteError ? (
+            <p className="mt-3 text-[13px] text-ink-2" role="status">
+              Checking prices again in a moment.
+              {quoteReady ? ' The figures below are from the last check.' : ''}
+            </p>
+          ) : quoteReady ? (
             <p className="mt-3 text-[13px] text-ink-2" role="status">
               Price and stock just checked. Nothing is reserved until NextX confirms your order.
             </p>
@@ -628,9 +684,15 @@ export function StoreCartCheckout({
                   <button
                     key={value}
                     type="button"
-                    aria-pressed={pickupDate === value}
+                    aria-pressed={effectivePickup === value}
+                    disabled={value === 'today' && !todayAllowed}
+                    title={
+                      value === 'today' && !todayAllowed
+                        ? 'Same-day pickup is not available right now'
+                        : undefined
+                    }
                     onClick={() => setPickupDate(value)}
-                    className={`min-h-11 px-2 font-medium transition-colors ${focusRing} ${pickupDate === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
+                    className={`min-h-11 px-2 font-medium transition-colors ${focusRing} disabled:cursor-not-allowed disabled:opacity-40 ${effectivePickup === value ? 'bg-cta text-cta-fg' : 'text-ink-2 hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'
@@ -640,11 +702,11 @@ export function StoreCartCheckout({
                   </button>
                 ))}
               </div>
-              {pickupDate === 'custom' ? (
+              {effectivePickup === 'custom' ? (
                 <input
                   aria-label="Other pickup date"
                   type="date"
-                  min={paramariboDate()}
+                  min={todayAllowed ? paramariboDate() : paramariboDate(1)}
                   value={customDate}
                   onChange={(event) => setCustomDate(event.target.value)}
                   className={fieldClassName()}

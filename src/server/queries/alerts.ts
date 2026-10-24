@@ -137,6 +137,7 @@ export async function getAlerts(): Promise<Alert[]> {
                             FROM sale_payments sp
                             JOIN ledger_entries le
                               ON le.source_kind = 'sale' AND le.source_id = sp.id
+                           WHERE sp.status = 'confirmed'
                            GROUP BY sp.sale_id
                           UNION ALL
                           SELECT le.source_id AS sale_id,
@@ -165,6 +166,7 @@ export async function getAlerts(): Promise<Alert[]> {
                              AND l.source_id = s.id
                              AND l.category = 'sales_receipt')
           AND NOT EXISTS (
+            -- trace-only: a voided payment's receipt still counts as a trace
             SELECT 1
               FROM sale_payments sp
               JOIN ledger_entries l
@@ -211,6 +213,7 @@ export async function getAlerts(): Promise<Alert[]> {
                                 ELSE -le.amount_usd_cents END) AS paid_usd_cents
                   FROM sale_payments sp
                   JOIN ledger_entries le ON le.source_kind = 'sale' AND le.source_id = sp.id
+                 WHERE sp.status = 'confirmed'
                  GROUP BY sp.sale_id
                 UNION ALL
                 SELECT le.source_id AS sale_id,
@@ -240,7 +243,7 @@ export async function getAlerts(): Promise<Alert[]> {
             + COALESCE((
               SELECT SUM(sp.amount_cents)
                 FROM sale_payments sp
-               WHERE sp.sale_id = s.id
+               WHERE sp.sale_id = s.id AND sp.status = 'confirmed'
             ), 0)
           )
           AND s.sold_at < now() - make_interval(days => ${OVERDUE_AFTER_DAYS})

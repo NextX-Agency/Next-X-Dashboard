@@ -125,7 +125,7 @@ export function ProductImages({
           contentType: file.type as (typeof ALLOWED_TYPES)[number],
         });
         if (!uploadTicket?.data?.path || !uploadTicket.data.token) {
-          throw new Error('Could not authorize the upload.');
+          throw new Error(uploadTicket?.serverError ?? 'Could not authorize the upload.');
         }
         const { error } = await createClient()
           .storage.from('nextly-product-staging')
@@ -139,7 +139,10 @@ export function ProductImages({
           pathname: uploadTicket.data.path,
         });
         if (!finalized?.data?.id) {
-          throw new Error('The upload finished, but the product image could not be saved.');
+          throw new Error(
+            finalized?.serverError ??
+              'The upload finished, but the product image could not be saved.',
+          );
         }
         if (uploadFor) {
           await detailsAction.executeAsync({

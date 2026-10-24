@@ -2,7 +2,11 @@
 
 import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { describeInviteError } from '@/lib/auth-errors';
+import {
+  describeInviteError,
+  isAccountExistsError,
+  pickRestorableAuthUser,
+} from '@/lib/auth-errors';
 import { publicAppUrl } from '@/lib/env';
 import {
   brandSchema,
@@ -493,6 +497,12 @@ export const inviteMember = ownerAction
     const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${publicAppUrl()}/auth/set-password`,
     });
+    if (isAccountExistsError(error)) {
+      // Removing a member deletes the books row but not the sign-in account, so
+      // re-inviting the same person lands here. Give them their access back
+      // instead of leaving an account that signs in to /no-access.
+      return restoreMemberAccess(admin, ctx.member.id, email, input);
+    }
     if (error || !data.user) {
       throw new ActionError(describeInviteError(error));
     }
@@ -523,7 +533,7 @@ export const inviteMember = ownerAction
         return member;
       });
 
-      return result;
+      return { ...result, restored: false as const };
     } catch (error) {
       // Avoid leaving an auth account without a corresponding books row when
       // a database constraint or connection failure happens after inviting.
@@ -531,6 +541,62 @@ export const inviteMember = ownerAction
       throw error;
     }
   });
+
+const RESTORE_LOOKUP_PAGE_SIZE = 200;
+const RESTORE_LOOKUP_MAX_PAGES = 25;
+
+/** Link an existing, confirmed sign-in account to a new team row, without sending an invitation. */
+async function restoreMemberAccess(
+  admin: ReturnType<typeof createAdminClient>,
+  actorId: string,
+  email: string,
+  input: { fullName: string; role: 'owner' | 'staff' | 'viewer'; isPrincipal: boolean },
+) {
+  let authUserId: string | null = null;
+  for (let page = 1; page <= RESTORE_LOOKUP_MAX_PAGES && !authUserId; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: RESTORE_LOOKUP_PAGE_SIZE,
+    });
+    if (error) throw new ActionError(describeInviteError(error));
+    authUserId = pickRestorableAuthUser(data.users, email)?.id ?? null;
+    if (data.users.length < RESTORE_LOOKUP_PAGE_SIZE) break;
+  }
+  if (!authUserId) {
+    // Unconfirmed (never accepted its invitation) or not found: do not guess.
+    throw new ActionError(describeInviteError({ code: 'email_exists' }));
+  }
+  const linkedId = authUserId;
+
+  const result = await db.transaction(async (tx) => {
+    const [taken] = await tx
+      .select({ id: members.id })
+      .from(members)
+      .where(eq(members.authUserId, linkedId))
+      .limit(1);
+    if (taken) throw new ActionError('That sign-in account already belongs to a team member.');
+    const [member] = await tx
+      .insert(members)
+      .values({
+        authUserId: linkedId,
+        email,
+        fullName: input.fullName,
+        role: input.role,
+        isPrincipal: input.isPrincipal,
+      })
+      .returning({ id: members.id, fullName: members.fullName });
+    if (!member) throw new ActionError('Could not restore that team member.');
+    await logActivity(tx, {
+      memberId: actorId,
+      action: 'restored team member access',
+      entityType: 'member',
+      entityId: member.id,
+      entityLabel: member.fullName,
+    });
+    return member;
+  });
+  return { ...result, restored: true as const };
+}
 
 export const removeMember = ownerAction
   .metadata({ action: 'removed', entity: 'member' })

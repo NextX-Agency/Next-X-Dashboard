@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PublicCopyPreview } from '@/components/settings/public-copy-preview';
 import { Button } from '@/components/ui/button';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
 import { Money } from '@/components/ui/money';
@@ -12,6 +13,7 @@ import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { businessDateInput } from '@/lib/business-date';
 import { formatMoney } from '@/lib/money';
+import { adjustmentProblem } from '@/lib/stock-rules';
 import { createFxRate, updateSettings } from '@/server/actions/finance';
 import { adjustStock } from '@/server/actions/products';
 import { receivePurchaseOrder } from '@/server/actions/purchase-orders';
@@ -720,6 +722,17 @@ export function SettingsSheet({ initial }: { initial: SettingsInitial }) {
                 onChange={(event) => setHeroBody(event.target.value)}
               />
             </Field>
+            <div className="overflow-hidden rounded-card border border-line-subtle">
+              <p className="border-line-subtle border-b bg-inset px-3 py-1.5 text-[11px] text-ink-3 uppercase tracking-[0.08em]">
+                Preview of what you have typed (not saved yet)
+              </p>
+              <PublicCopyPreview
+                announcement={announcement.trim() || null}
+                heroTitle={heroTitle.trim() || null}
+                heroBody={heroBody.trim() || null}
+                whatsapp={whatsapp.trim() || null}
+              />
+            </div>
             <FieldRow>
               <Field label="Support title" htmlFor="supportTitle">
                 <Input
@@ -948,6 +961,16 @@ export function StockAdjustSheet({
   const [quantity, setQuantity] = useState('');
   const [kind, setKind] = useState<'adjustment' | 'write_off' | 'return'>('adjustment');
   const [reason, setReason] = useState('');
+  const [serverMessage, setServerMessage] = useState<string | null>(null);
+
+  // The same rules the server applies, judged against the on-hand figure this screen was given.
+  // The server re-checks against the locked figure, so this only spares a round trip.
+  const trimmedQuantity = quantity.trim();
+  const problem =
+    trimmedQuantity === ''
+      ? null
+      : adjustmentProblem({ kind, quantity: Number(trimmedQuantity), onHand });
+  const shownProblem = problem ?? serverMessage;
 
   const { execute, isPending } = useAction(adjustStock, {
     onSuccess({ data }) {
@@ -957,10 +980,14 @@ export function StockAdjustSheet({
       setOpen(false);
       setQuantity('');
       setReason('');
+      setServerMessage(null);
       router.refresh();
     },
     onError({ error }) {
-      toast.error(error.serverError ?? 'Could not adjust stock');
+      const message =
+        error.serverError ?? 'Could not adjust stock. Check the form and try again.';
+      setServerMessage(message);
+      toast.error(message);
     },
   });
 
@@ -979,7 +1006,11 @@ export function StockAdjustSheet({
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <SubmitButton form="adjust-form" pending={isPending}>
+            <SubmitButton
+              form="adjust-form"
+              pending={isPending}
+              disabled={isPending || problem !== null}
+            >
               Record adjustment
             </SubmitButton>
           </>
@@ -989,6 +1020,8 @@ export function StockAdjustSheet({
           id="adjust-form"
           onSubmit={(event) => {
             event.preventDefault();
+            if (problem) return;
+            setServerMessage(null);
             execute({ variantId, quantity: Number(quantity), reason, kind });
           }}
         >
@@ -997,14 +1030,23 @@ export function StockAdjustSheet({
               <Select
                 id="kind"
                 value={kind}
-                onChange={(event) => setKind(event.target.value as typeof kind)}
+                onChange={(event) => {
+                  setKind(event.target.value as typeof kind);
+                  setServerMessage(null);
+                }}
               >
                 <option value="adjustment">Correction — a miscount</option>
                 <option value="write_off">Write-off — damaged or lost</option>
                 <option value="return">Return — came back from a customer</option>
               </Select>
             </Field>
-            <Field label="Change" htmlFor="quantity" hint="Negative to remove units" required>
+            <Field
+              label="Change"
+              htmlFor="quantity"
+              hint="Negative to remove units"
+              error={shownProblem ?? undefined}
+              required
+            >
               <Input
                 id="quantity"
                 numeric
@@ -1012,7 +1054,11 @@ export function StockAdjustSheet({
                 placeholder="-1"
                 value={quantity}
                 required
-                onChange={(event) => setQuantity(event.target.value)}
+                aria-invalid={shownProblem ? true : undefined}
+                onChange={(event) => {
+                  setQuantity(event.target.value);
+                  setServerMessage(null);
+                }}
               />
             </Field>
             <Field label="Reason" htmlFor="reason" required>

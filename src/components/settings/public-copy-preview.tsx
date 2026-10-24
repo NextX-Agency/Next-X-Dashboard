@@ -9,10 +9,10 @@ type Props = {
 };
 
 /**
- * What customers currently read at the top of the shop, drawn from the saved settings. It is a
- * preview of the stored text, not of unsaved edits: change it in "Edit business details" and the
- * saved result appears here immediately after saving. Empty fields say what the shop does instead,
- * so a blank is a decision rather than a mystery.
+ * What customers read at the top of the shop. On the settings page it shows the saved text; inside
+ * the settings sheet it is fed the unsaved form values, so it updates as the owner types. It is a
+ * pure render of its props (no state, nothing is stored). Empty fields say what the shop does
+ * instead, so a blank is a decision rather than a mystery.
  */
 export function PublicCopyPreview({ announcement, heroTitle, heroBody, whatsapp }: Props) {
   return (

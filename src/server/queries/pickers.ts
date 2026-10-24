@@ -41,6 +41,9 @@ export type VariantOption = {
   referenceCostCents: Cents;
   weightGrams: number;
   onHand: number;
+  /** Units promised to open orders (active, unexpired reservations, all locations). On hand less
+   *  this is what a direct sale may take without leaving an order unable to complete. */
+  reserved: number;
   /** Total cost of the units on hand. Carried so the form can compute the
    *  cost of goods with exactly the arithmetic the server will use, rather
    *  than showing a margin that shifts by a cent on submit. */
@@ -59,7 +62,14 @@ export async function listVariantOptions(): Promise<VariantOption[]> {
       v.list_price_cents::text, v.reference_cost_cents::text, v.weight_grams::text,
       p.name AS product_name,
       COALESCE(s.on_hand, 0)::text     AS on_hand,
-      COALESCE(s.value_cents, 0)::text AS value_cents
+      COALESCE(s.value_cents, 0)::text AS value_cents,
+      COALESCE((
+        SELECT SUM(r.quantity)
+          FROM inventory_reservations r
+         WHERE r.variant_id = v.id
+           AND r.status = 'active'
+           AND (r.expires_at IS NULL OR r.expires_at > now())
+      ), 0)::text                      AS reserved
     FROM product_variants v
     JOIN products p ON p.id = v.product_id
     LEFT JOIN v_stock_levels s ON s.variant_id = v.id
@@ -79,6 +89,7 @@ export async function listVariantOptions(): Promise<VariantOption[]> {
       referenceCostCents: num(row.reference_cost_cents),
       weightGrams: num(row.weight_grams),
       onHand,
+      reserved: num(row.reserved),
       valueCents,
       unitCostCents: onHand > 0 ? valueCents / onHand : null,
       isActive: bool(row.is_active),
@@ -485,5 +496,37 @@ export async function listWalletChoices(): Promise<WalletChoice[]> {
     name: text(row.name),
     currency: text(row.currency, 'USD') as WalletChoice['currency'],
     kind: text(row.kind, 'cash') as WalletChoice['kind'],
+  }));
+}
+
+export type WalletBalanceChoice = {
+  id: string;
+  name: string;
+  currency: 'USD' | 'SRD';
+  kind: string;
+  balanceCents: number;
+};
+
+/**
+ * Active wallets with their current balance, oldest first (the order the server tries them when a
+ * payment names a method but no wallet), so a form can warn before money leaves a wallet that does
+ * not hold it. The server repeats the check after posting; this is for the moment of choosing.
+ */
+export async function listWalletBalanceChoices(): Promise<WalletBalanceChoice[]> {
+  if (!isDatabaseConfigured()) return [];
+  const rows = await db.execute<Record<string, string | null>>(sql`
+    SELECT w.id, w.name, w.currency::text AS currency, w.kind::text AS kind,
+           COALESCE(b.balance_cents, 0)::text AS balance_cents
+      FROM wallets w
+      LEFT JOIN v_wallet_balances b ON b.wallet_id = w.id
+     WHERE w.active = true
+     ORDER BY w.created_at
+  `);
+  return rows.map((row) => ({
+    id: text(row.id),
+    name: text(row.name),
+    currency: text(row.currency, 'USD') as WalletBalanceChoice['currency'],
+    kind: text(row.kind, 'cash'),
+    balanceCents: num(row.balance_cents),
   }));
 }

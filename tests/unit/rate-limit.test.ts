@@ -41,12 +41,24 @@ describe('clientAddress', () => {
     get: (name: string) => values[name.toLowerCase()] ?? null,
   });
 
-  it('uses the first forwarded address, then x-real-ip', () => {
-    expect(clientAddress(headers({ 'x-forwarded-for': '203.0.113.9, 10.0.0.2' }))).toBe(
-      '203.0.113.9',
-    );
+  it('prefers x-real-ip, then the LAST forwarded address (the one the proxy appended)', () => {
     expect(clientAddress(headers({ 'x-real-ip': '198.51.100.4' }))).toBe('198.51.100.4');
+    expect(clientAddress(headers({ 'x-forwarded-for': '203.0.113.9, 10.0.0.2' }))).toBe(
+      '10.0.0.2',
+    );
     expect(clientAddress(headers({ 'x-forwarded-for': '2001:db8::1' }))).toBe('2001:db8::1');
+  });
+
+  it('ignores addresses the client put at the front of x-forwarded-for', () => {
+    expect(
+      clientAddress(headers({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8, 203.0.113.50' })),
+    ).toBe('203.0.113.50');
+    // x-real-ip wins over any forwarded list.
+    expect(
+      clientAddress(
+        headers({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8', 'x-real-ip': '203.0.113.50' }),
+      ),
+    ).toBe('203.0.113.50');
   });
 
   it('returns null rather than a shared bucket when there is no usable address', () => {

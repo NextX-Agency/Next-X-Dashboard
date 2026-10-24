@@ -31,6 +31,8 @@ export default async function StoreCartPage() {
       fallbackLocation={fallbackLocation || null}
       srdRate={rate?.rateMicros}
       storefrontSlug={storefront?.slug ?? null}
+      sameDayPickupEnabled={settings?.sameDayPickupEnabled ?? false}
+      pickupCutoffTime={settings?.pickupCutoffTime ?? null}
     />
   );
 }

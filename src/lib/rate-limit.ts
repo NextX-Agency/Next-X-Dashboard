@@ -74,13 +74,28 @@ export class RateLimiter {
 const IP_LIKE = /^[0-9a-fA-F:.]{3,45}$/;
 
 /**
- * The client address as reported by the reverse proxy: first entry of `x-forwarded-for`, else
- * `x-real-ip`. Returns null when neither is present or the value does not look like an address,
- * so callers fall back to their global ceiling instead of sharing one bucket called "unknown".
+ * The client address as reported by the reverse proxy.
+ *
+ * `x-forwarded-for` is a list the CLIENT can start: a proxy that appends the peer it saw puts the
+ * trustworthy address LAST, and everything before it is whatever the client claimed. Taking the
+ * first entry therefore lets one caller pick a fresh rate-limit bucket per request. So prefer
+ * `x-real-ip` (a single value the proxy sets itself) and otherwise take the last forwarded entry.
+ *
+ * Assumptions, not verified against the live Pangolin/Traefik chain: the proxy overwrites
+ * `x-real-ip` (or appends to `x-forwarded-for`) rather than passing client values through. If more
+ * than one proxy sits in front, the last entry is the inner proxy's address, so every visitor
+ * shares one bucket: the limiter then throttles in aggregate (safe, but coarse) until the proxy is
+ * set to write `x-real-ip`. Check with a request carrying a forged `x-forwarded-for` before relying
+ * on per-address limits.
+ *
+ * Returns null when no usable address is present or the value does not look like an address, so
+ * callers fall back to their global ceiling instead of sharing one bucket called "unknown".
  */
 export function clientAddress(headers: { get(name: string): string | null }): string | null {
-  const forwarded = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const candidate = forwarded || headers.get('x-real-ip')?.trim();
+  const realIp = headers.get('x-real-ip')?.trim();
+  const forwardedList = headers.get('x-forwarded-for')?.split(',');
+  const lastForwarded = forwardedList?.[forwardedList.length - 1]?.trim();
+  const candidate = realIp || lastForwarded;
   if (!candidate || !IP_LIKE.test(candidate)) return null;
   return candidate.toLowerCase();
 }

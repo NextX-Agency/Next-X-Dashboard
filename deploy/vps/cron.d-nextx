@@ -1,0 +1,15 @@
+# Installed to /etc/cron.d/nextx by deploy/vps/install-ops.sh ONLY when systemd is absent.
+# Times are UTC (CRON_TZ is honoured by Debian/Ubuntu cron; on other crons make sure the
+# system clock zone is UTC).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=UTC
+
+# Backup 03:30 UTC (00:30 Paramaribo). nextx-backup pings its own monitor; alert on failure here too.
+30 3 * * * root /usr/local/sbin/nextx-backup >/dev/null 2>&1 || /usr/local/lib/nextx/notify-nextx.sh "backup FAILED" "nextx-backup exited non-zero; see /var/log/nextx/backup.log"
+# Uptime check every 2 minutes.
+*/2 * * * * root /usr/local/sbin/nextx-check-health >/dev/null 2>&1
+# Recurring expenses 03:10 UTC (00:10 Paramaribo).
+10 3 * * * root /usr/local/sbin/nextx-cron recurring-expenses >/dev/null 2>&1
+# Weekly reorder, Monday 12:00 UTC.
+0 12 * * 1 root /usr/local/sbin/nextx-cron reorder >/dev/null 2>&1

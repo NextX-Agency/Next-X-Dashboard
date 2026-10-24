@@ -1,7 +1,10 @@
 import { and, eq } from 'drizzle-orm';
-import { buildCommissionDrafts, netCommissionBases } from '@/lib/commission-rules';
+import {
+  buildCommissionDrafts,
+  netCommissionBases,
+  planCommissionNetting,
+} from '@/lib/commission-rules';
 import { normaliseToUsd } from '@/lib/fx';
-import { mulDivRound } from '@/lib/money';
 import {
   commissions,
   locations,
@@ -129,16 +132,16 @@ export async function createSaleCommissions(
 export async function netOpenCommissionsForReturns(
   tx: Tx,
   saleId: string,
-): Promise<{ reducedCents: number; overpaidCents: number }> {
+): Promise<{ reducedCents: number; overpaidCents: number; unmatchedGroups: number }> {
   const rows = await tx.select().from(commissions).where(eq(commissions.saleId, saleId));
-  if (rows.length === 0) return { reducedCents: 0, overpaidCents: 0 };
+  if (rows.length === 0) return { reducedCents: 0, overpaidCents: 0, unmatchedGroups: 0 };
 
   const [sale] = await tx
     .select({ discountCents: sales.discountCents })
     .from(sales)
     .where(eq(sales.id, saleId))
     .limit(1);
-  if (!sale) return { reducedCents: 0, overpaidCents: 0 };
+  if (!sale) return { reducedCents: 0, overpaidCents: 0, unmatchedGroups: 0 };
 
   const lines = await tx
     .select({
@@ -169,32 +172,36 @@ export async function netOpenCommissionsForReturns(
 
   let reducedCents = 0;
   let overpaidCents = 0;
-  for (const row of rows) {
-    if (row.status === 'cancelled') continue;
-    const basisCents = bases.get(row.groupKey)?.basisCents ?? 0;
-    const amountCents = mulDivRound(basisCents, row.rateBps, 10_000);
-    if (amountCents >= row.amountCents) continue;
-    if (row.status === 'paid') {
-      overpaidCents += row.amountCents - amountCents;
-      continue;
+  let unmatchedGroups = 0;
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  for (const decision of planCommissionNetting(rows, bases)) {
+    if (decision.kind === 'unmatched') {
+      unmatchedGroups += 1;
+    } else if (decision.kind === 'overpaid') {
+      overpaidCents += decision.overpaidCents;
+    } else if (decision.kind === 'reduce') {
+      const row = rowsById.get(decision.id);
+      if (!row) continue;
+      reducedCents += decision.reducedCents;
+      await tx
+        .update(commissions)
+        .set(
+          decision.cancel
+            ? { status: 'cancelled' }
+            : {
+                basisCents: decision.basisCents,
+                amountCents: decision.amountCents,
+                amountUsdCents: normaliseToUsd(
+                  decision.amountCents,
+                  row.currency,
+                  row.fxRateMicros,
+                ),
+              },
+        )
+        .where(and(eq(commissions.id, row.id), eq(commissions.status, 'open')));
     }
-    reducedCents += row.amountCents - amountCents;
-    // The table forbids a zero amount, so a group whose goods all came back
-    // is cancelled with its original figures kept as the record of what it was.
-    await tx
-      .update(commissions)
-      .set(
-        amountCents === 0
-          ? { status: 'cancelled' }
-          : {
-              basisCents,
-              amountCents,
-              amountUsdCents: normaliseToUsd(amountCents, row.currency, row.fxRateMicros),
-            },
-      )
-      .where(and(eq(commissions.id, row.id), eq(commissions.status, 'open')));
   }
-  return { reducedCents, overpaidCents };
+  return { reducedCents, overpaidCents, unmatchedGroups };
 }
 
 /** A voided sale earns nothing. Unpaid commissions are cancelled; the amount

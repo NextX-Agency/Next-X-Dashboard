@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly NextX reorder run (Monday 12:00 UTC, as in docs/production-readiness.md)
+
+[Timer]
+OnCalendar=Mon *-*-* 12:00:00 UTC
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

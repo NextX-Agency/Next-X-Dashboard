@@ -633,6 +633,9 @@ export const saleSchema = z
      *  by the action; never trusted to be well-formed here because the total
      *  is computed from the items, not typed. */
     paidNowCents: boundedMoney.default(0),
+    /** Owner only, confirmed sales only: sell units that open orders have reserved. Without it the
+     *  action refuses a sale that would leave a confirmed order unable to complete. */
+    allowReservedStock: z.boolean().default(false),
     items: z
       .array(saleItemSchema)
       .min(1, 'Add at least one item')

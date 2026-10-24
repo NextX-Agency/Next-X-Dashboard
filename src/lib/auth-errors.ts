@@ -57,3 +57,24 @@ export function describeInviteError(error: AuthLikeError | null): string {
   }
   return 'The invitation email could not be sent. Check that email delivery (SMTP) is configured for sign-in, then try again.';
 }
+
+/** GoTrue refused an invitation because the email already has a sign-in account. */
+export function isAccountExistsError(error: AuthLikeError | null): boolean {
+  return error?.code === 'email_exists' || error?.code === 'user_already_exists';
+}
+
+/**
+ * Which existing sign-in account may be given team access again, from a page of
+ * auth users. Only a confirmed address qualifies: an unconfirmed account could
+ * have been registered by someone who does not own the mailbox, and linking it
+ * would hand them access. The email must match exactly (case-insensitively).
+ */
+export function pickRestorableAuthUser(
+  users: { id: string; email?: string | null; email_confirmed_at?: string | null }[],
+  email: string,
+): { id: string } | null {
+  const wanted = email.trim().toLowerCase();
+  const match = users.find((user) => user.email?.trim().toLowerCase() === wanted);
+  if (!match?.email_confirmed_at) return null;
+  return { id: match.id };
+}

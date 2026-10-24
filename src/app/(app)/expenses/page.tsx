@@ -38,7 +38,7 @@ import {
 import { formatDate, humanise } from '@/lib/format';
 import { expenseQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listExpenses } from '@/server/queries/lists';
-import { listExpenseCategoryOptions } from '@/server/queries/pickers';
+import { listExpenseCategoryOptions, listWalletBalanceChoices } from '@/server/queries/pickers';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -334,6 +334,9 @@ function buildHref(query: Record<string, string | number | undefined>): Route {
 
 /** The sheet reads the URL, so it renders behind its own boundary. */
 async function ExpenseTrigger() {
-  const categories = await listExpenseCategoryOptions();
-  return <ExpenseSheet categories={categories} />;
+  const [categories, wallets] = await Promise.all([
+    listExpenseCategoryOptions(),
+    listWalletBalanceChoices(),
+  ]);
+  return <ExpenseSheet categories={categories} wallets={wallets} />;
 }

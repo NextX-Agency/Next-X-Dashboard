@@ -3,7 +3,9 @@ import {
   describeInviteError,
   describePasswordUpdateError,
   describeSignInError,
+  isAccountExistsError,
   MIN_PASSWORD_LENGTH,
+  pickRestorableAuthUser,
   validateNewPassword,
 } from '@/lib/auth-errors';
 import { canClaimInvitation } from '@/lib/member-claim';
@@ -72,5 +74,28 @@ describe('claiming an invitation', () => {
       canClaimInvitation({ email: null, email_confirmed_at: '2026-10-01T00:00:00Z' }),
     ).toBe(false);
     expect(canClaimInvitation({ email: 'a@b.test' })).toBe(false);
+  });
+});
+
+describe('restoring access for a removed member', () => {
+  it('recognises both GoTrue codes for an existing account', () => {
+    expect(isAccountExistsError({ code: 'email_exists' })).toBe(true);
+    expect(isAccountExistsError({ code: 'user_already_exists' })).toBe(true);
+    expect(isAccountExistsError({ code: 'over_email_send_rate_limit' })).toBe(false);
+    expect(isAccountExistsError(null)).toBe(false);
+  });
+
+  const users = [
+    { id: 'a', email: 'Someone@Example.com', email_confirmed_at: '2026-01-01T00:00:00Z' },
+    { id: 'b', email: 'pending@example.com', email_confirmed_at: null },
+  ];
+
+  it('finds a confirmed account by email, ignoring case', () => {
+    expect(pickRestorableAuthUser(users, 'someone@example.com')).toEqual({ id: 'a' });
+  });
+
+  it('never links an unconfirmed or unknown account', () => {
+    expect(pickRestorableAuthUser(users, 'pending@example.com')).toBeNull();
+    expect(pickRestorableAuthUser(users, 'nobody@example.com')).toBeNull();
   });
 });

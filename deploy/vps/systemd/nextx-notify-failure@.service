@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert that systemd unit %i failed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/nextx/notify-nextx.sh "systemd unit %i failed" "Run: journalctl -u %i -n 60 --no-pager" high

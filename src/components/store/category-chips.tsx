@@ -18,7 +18,7 @@ export function CategoryChips({
   if (categories.length < 2) return null;
   const item = (selected: boolean) =>
     cn(
-      '-mb-px inline-flex h-11 shrink-0 items-center border-b-2 font-semibold text-[15px] transition-colors',
+      '-mb-px inline-flex h-11 min-w-8 shrink-0 items-center justify-center border-b-2 font-semibold text-[15px] transition-colors',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
       selected
         ? 'border-store-bright text-ink'

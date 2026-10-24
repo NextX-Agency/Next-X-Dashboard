@@ -156,3 +156,96 @@ export function netCommissionBases(input: {
     Math.min(discountCents, net),
   );
 }
+
+/**
+ * What the customer actually paid for each line once the document discount is
+ * spread over the lines (the same allocation commissions use, so a return's
+ * credit and the commission it reduces always agree). Keyed by line id; a line's
+ * value is its extended price minus its share of the discount.
+ */
+export function netLineTotals(
+  lines: { id: string; unitPriceCents: number; quantity: number }[],
+  discountCents: number,
+): Map<string, number> {
+  const commissionLines: CommissionLine[] = lines.map((line) => ({
+    id: line.id,
+    categoryId: null,
+    basisCents: line.unitPriceCents * line.quantity,
+    bundle: false,
+  }));
+  const shares = allocateCommissionDiscount(commissionLines, discountCents);
+  return new Map(
+    commissionLines.map((line, index) => [line.id, line.basisCents - (shares[index] ?? 0)]),
+  );
+}
+
+export type NettableCommission = {
+  id: string;
+  groupKey: string;
+  rateBps: number;
+  amountCents: number;
+  status: string;
+};
+
+export type NettingDecision =
+  | { kind: 'unchanged'; id: string }
+  /** The stored group no longer exists among the sale's current groups (a
+   *  product changed category since the sale was confirmed). Never zeroed: the
+   *  row is left alone and the owner is told to review it. */
+  | { kind: 'unmatched'; id: string; groupKey: string }
+  | { kind: 'overpaid'; id: string; overpaidCents: number }
+  | {
+      kind: 'reduce';
+      id: string;
+      basisCents: number;
+      amountCents: number;
+      reducedCents: number;
+      cancel: boolean;
+    };
+
+/**
+ * Decide, row by row, what returns do to a sale's frozen commissions.
+ *
+ * Groups are recomputed from the products' CURRENT categories, so a category
+ * edited after the sale can make a stored group key vanish. Treating a missing
+ * group as "all goods returned" would cancel an unrelated commission, so a
+ * missing key is reported as `unmatched` and left untouched.
+ */
+export function planCommissionNetting(
+  rows: NettableCommission[],
+  bases: Map<string, { basisCents: number }>,
+): NettingDecision[] {
+  const decisions: NettingDecision[] = [];
+  for (const row of rows) {
+    if (row.status === 'cancelled') continue;
+    const group = bases.get(row.groupKey);
+    if (!group) {
+      decisions.push({ kind: 'unmatched', id: row.id, groupKey: row.groupKey });
+      continue;
+    }
+    const amountCents = mulDivRound(group.basisCents, row.rateBps, 10_000);
+    if (amountCents >= row.amountCents) {
+      decisions.push({ kind: 'unchanged', id: row.id });
+      continue;
+    }
+    if (row.status === 'paid') {
+      decisions.push({
+        kind: 'overpaid',
+        id: row.id,
+        overpaidCents: row.amountCents - amountCents,
+      });
+      continue;
+    }
+    decisions.push({
+      kind: 'reduce',
+      id: row.id,
+      basisCents: group.basisCents,
+      amountCents,
+      reducedCents: row.amountCents - amountCents,
+      // The table forbids a zero amount, so a group whose goods all came back
+      // is cancelled with its original figures kept as the record of what it was.
+      cancel: amountCents === 0,
+    });
+  }
+  return decisions;
+}

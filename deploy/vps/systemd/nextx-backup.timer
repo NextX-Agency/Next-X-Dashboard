@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily NextX backup (00:30 Paramaribo / 03:30 UTC)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target

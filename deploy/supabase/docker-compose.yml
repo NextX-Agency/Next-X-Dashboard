@@ -8,6 +8,20 @@
 #   - Nested variable interpolation (${A:-${B}}) requires podman-compose >= 1.6.0
 #
 
+# Log rotation for every container. Without it Docker's json-file driver grows without limit and a
+# chatty container can fill the disk this VPS shares with other services. Each container keeps at
+# most 5 files of 10 MB (about 50 MB). The setting only applies to containers created AFTER it is
+# in place, so recreate them (docker compose up -d) to pick it up.
+# Global alternative for every container on the host, including other stacks: set
+#   {"log-driver":"json-file","log-opts":{"max-size":"10m","max-file":"5"}}
+# in /etc/docker/daemon.json and restart the Docker daemon (this restarts ALL containers on the
+# box, so do it in a quiet window; see docs/05-operations/runbook.md).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 name: ${COMPOSE_PROJECT_NAME:-nextx-staging}
 
 services:
@@ -15,6 +29,7 @@ services:
   studio:
     image: supabase/studio:2026.09.07-sha-7996410
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test:
         [
@@ -69,6 +84,7 @@ services:
   api-gw:
     image: envoyproxy/envoy:v1.39.1
     restart: unless-stopped
+    logging: *default-logging
     networks:
       default:
         # Expose `envoy` and `kong` as network aliases, so internal configs
@@ -107,6 +123,7 @@ services:
   auth:
     image: supabase/gotrue:v2.196.0
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test:
         [
@@ -244,6 +261,7 @@ services:
   rest:
     image: postgrest/postgrest:v14.17
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
@@ -280,6 +298,7 @@ services:
     container_name: ${REALTIME_CONTAINER_NAME:-nextx-staging.supabase-realtime}
     image: supabase/realtime:v2.134.10
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
@@ -325,6 +344,7 @@ services:
   storage:
     image: supabase/storage-api:v1.74.0
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
@@ -387,6 +407,7 @@ services:
   imgproxy:
     image: darthsim/imgproxy:v3.31.4
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - nextx-staging-storage-data:/var/lib/storage
     healthcheck:
@@ -409,6 +430,7 @@ services:
   meta:
     image: supabase/postgres-meta:v0.99.0
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
@@ -425,6 +447,7 @@ services:
   functions:
     image: supabase/edge-runtime:v1.76.2
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./volumes/functions:/home/deno/functions:z
       - deno-cache:/root/.cache/deno
@@ -466,6 +489,7 @@ services:
     # To upgrade an existing Postgres 15 database in place, see utils/upgrade-pg17.sh.
     image: supabase/postgres:17.6.1.136
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
@@ -519,6 +543,7 @@ services:
   supavisor:
     image: supabase/supavisor:2.9.12
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-15432}:5432"
       - "127.0.0.1:${POOLER_TRANSACTION_HOST_PORT:-16543}:6543"
@@ -578,6 +603,16 @@ services:
         NEXT_PUBLIC_APP_URL: ${NEXTX_STAGING_APP_URL}
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
     restart: unless-stopped
+    logging: *default-logging
+    # Memory guard for the Next.js app. The host has about 11 GiB RAM and NO swap (audit 16 Oct 2026:
+    # about 6 GiB available, shared with Traefik, Pangolin, Directus and Chatwoot) and the app idles at
+    # roughly 150 MiB. A leak or a burst of image optimisation (sharp) must not be able to push the
+    # whole box into the OOM killer, so the container is capped at 1 GiB: if it ever hits the cap only
+    # this container is restarted (restart: unless-stopped). The reservation is a soft floor.
+    # Raise mem_limit before the shop grows; watch it with: docker stats --no-stream nextx-web-1
+    mem_limit: 1g
+    mem_reservation: 384m
+    memswap_limit: 1g
     init: true
     depends_on:
       auth:

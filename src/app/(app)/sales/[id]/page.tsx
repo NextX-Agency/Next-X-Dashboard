@@ -34,6 +34,7 @@ import {
   listCustomerOptions,
   listSaleVariantOptions,
   listSellerOptions,
+  listWalletBalanceChoices,
   listWalletChoices,
 } from '@/server/queries/pickers';
 
@@ -86,9 +87,10 @@ async function Loader({
   searchParams: SearchParams;
 }) {
   const [{ id }, { editing }] = await Promise.all([params, searchParams]);
-  const [sale, activity] = await Promise.all([
+  const [sale, activity, walletBalances] = await Promise.all([
     getSale(id),
     listActivity({ entityType: 'sale', entityId: id }),
+    listWalletBalanceChoices(),
   ]);
 
   if (!sale) notFound();
@@ -242,6 +244,7 @@ async function Loader({
                   number={sale.number}
                   currency={sale.currency}
                   refundableCents={sale.refundableCents}
+                  wallets={walletBalances}
                 />
               ) : null}
               {sale.status === 'confirmed' ? (
@@ -249,6 +252,7 @@ async function Loader({
                   saleId={sale.id}
                   number={sale.number}
                   currency={sale.currency}
+                  discountCents={sale.discountCents}
                   items={sale.items.map((item) => ({
                     id: item.id,
                     label: `${item.productName} · ${item.variantName}`,

@@ -44,7 +44,7 @@ export function normaliseClockTime(raw: string): string | null {
 /** An https URL or a root-relative path; anything else (javascript:, data:, http:) is refused. */
 export function normaliseAssetUrl(raw: string): string | null {
   const value = raw.trim();
-  if (value.startsWith('/') && !value.startsWith('//') && !/[\\s]/.test(value)) return value;
+  if (value.startsWith('/') && !value.startsWith('//') && !/[\s\\]/.test(value)) return value;
   try {
     const url = new URL(value);
     return url.protocol === 'https:' && !/\s/.test(value) ? url.toString() : null;

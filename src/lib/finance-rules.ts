@@ -66,3 +66,20 @@ export function isManuallyReversible(entry: {
   }
   return { ok: true };
 }
+
+/**
+ * An expense that settled a commission payout cannot be voided on its own:
+ * voiding would hand the cash back while the commissions stay marked paid and
+ * the payout record stays, so the seller could never be paid the money again
+ * and the books would say it was settled.
+ */
+export function expenseVoidRefusal(input: { commissionPayoutCount: number }): string | null {
+  return input.commissionPayoutCount > 0
+    ? 'This expense paid out seller commissions, so it cannot be voided on its own: the commissions would stay marked as paid. Ask the owner to correct the payout instead.'
+    : null;
+}
+
+/** Shown when a save was recognised as a repeat of one made moments ago. Entry dates carry no
+ *  time, so two genuinely separate identical entries inside the window look like one. */
+export const DUPLICATE_ENTRY_MESSAGE =
+  'Looks like the same entry as one you just saved; not saved twice. Wait a minute to add another identical entry.';

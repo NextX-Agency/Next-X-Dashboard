@@ -344,6 +344,7 @@ export async function getMoneyOwed(limit = 6): Promise<MoneyOwed> {
                             ELSE -le.amount_usd_cents END) AS paid_usd_cents
               FROM sale_payments sp
               JOIN ledger_entries le ON le.source_kind = 'sale' AND le.source_id = sp.id
+             WHERE sp.status = 'confirmed'
              GROUP BY sp.sale_id
             UNION ALL
             SELECT le.source_id AS sale_id,

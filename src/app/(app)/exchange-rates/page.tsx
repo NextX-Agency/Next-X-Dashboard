@@ -1,11 +1,13 @@
 import { sql } from 'drizzle-orm';
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { FinanceRateSheet } from '@/components/forms/finance-rate-sheet';
 import { PageHeader } from '@/components/patterns/page-header';
 import { Surface } from '@/components/ui/surface';
 import { isDatabaseConfigured } from '@/lib/env';
 import { formatDate } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
+import { getCurrentMember } from '@/server/auth';
 import { db } from '@/server/db/client';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -15,6 +17,8 @@ export const instant = false;
 export const metadata: Metadata = { title: 'Exchange rates' };
 
 export default async function ExchangeRatesPage() {
+  await connection();
+  const member = await getCurrentMember();
   const rates = isDatabaseConfigured()
     ? await db.execute<Record<string, string | null>>(
         sql`SELECT rate_micros::text, effective_from::text, source, note FROM fx_rates ORDER BY effective_from DESC LIMIT 100`,
@@ -25,7 +29,13 @@ export default async function ExchangeRatesPage() {
       <PageHeader
         title="Exchange rates"
         description="USD → SRD rates are historical snapshots. No edit rewrites a past payment, expense or invoice."
-        action={<FinanceRateSheet />}
+        action={
+          member?.role === 'owner' ? (
+            <FinanceRateSheet />
+          ) : (
+            <span className="text-[12px] text-ink-4">Only an owner can add a rate</span>
+          )
+        }
       />
       <Surface className="overflow-hidden">
         <table className="w-full text-left text-[13px]">

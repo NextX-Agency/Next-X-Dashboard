@@ -2,7 +2,7 @@
 
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { isManuallyReversible } from '@/lib/finance-rules';
+import { expenseVoidRefusal, isManuallyReversible } from '@/lib/finance-rules';
 import { assessRateChange, normaliseToUsd } from '@/lib/fx';
 import {
   expenseSchema,
@@ -14,6 +14,7 @@ import {
 } from '@/lib/schemas';
 import { db } from '../db/client';
 import {
+  commissionPayouts,
   expenses,
   fxRates,
   ledgerEntries,
@@ -23,7 +24,12 @@ import {
   settings,
   wallets,
 } from '../db/schema';
-import { defaultWalletFor, logActivity, postLedgerEntry } from '../services/posting';
+import {
+  defaultWalletFor,
+  logActivity,
+  postLedgerEntry,
+  walletBelowZero,
+} from '../services/posting';
 import { rateForRecord, rateOn } from '../services/rates';
 import { ActionError, ownerAction, writeAction } from './client';
 
@@ -65,7 +71,14 @@ export const createExpense = writeAction
         )
         .orderBy(desc(expenses.createdAt))
         .limit(1);
-      if (recent) return { id: recent.id, description: input.description };
+      if (recent) {
+        return {
+          id: recent.id,
+          description: input.description,
+          walletWarning: null,
+          reused: true as const,
+        };
+      }
 
       const rateMicros =
         input.currency === 'SRD'
@@ -131,7 +144,13 @@ export const createExpense = writeAction
         entityLabel: input.description,
       });
 
-      return { id: expense.id, description: input.description };
+      return {
+        id: expense.id,
+        description: input.description,
+        // A warning, not a refusal: the money did leave. Null when the wallet still holds money.
+        walletWarning: input.postToLedger ? await walletBelowZero(tx, walletId) : null,
+        reused: false as const,
+      };
     });
     return result;
   });
@@ -438,6 +457,13 @@ export const voidExpense = ownerAction
       if (!expense) throw new ActionError('That expense no longer exists.');
       if (expense.voidedAt) throw new ActionError('That expense is already void.');
 
+      const [payoutCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(commissionPayouts)
+        .where(eq(commissionPayouts.expenseId, expense.id));
+      const refusal = expenseVoidRefusal({ commissionPayoutCount: payoutCount?.count ?? 0 });
+      if (refusal) throw new ActionError(refusal);
+
       const postings = await tx
         .select()
         .from(ledgerEntries)
@@ -497,7 +523,7 @@ export const createLedgerEntry = writeAction
   .metadata({ action: 'created', entity: 'ledger entry' })
   .inputSchema(ledgerEntrySchema)
   .action(async ({ parsedInput: input, ctx }) => {
-    await db.transaction(async (tx) => {
+    const reused = await db.transaction(async (tx) => {
       await tx.execute(
         sql`SELECT pg_advisory_xact_lock(hashtextextended(${`ledger:${ctx.member.id}:${input.description}:${input.amountCents}`}, 0))`,
       );
@@ -519,7 +545,7 @@ export const createLedgerEntry = writeAction
           ),
         )
         .limit(1);
-      if (recent) return;
+      if (recent) return true;
 
       if (input.category === 'owner_contribution' || input.category === 'owner_draw') {
         const [principal] = await tx
@@ -566,8 +592,9 @@ export const createLedgerEntry = writeAction
         entityType: 'ledger_entry',
         entityLabel: input.description,
       });
+      return false;
     });
-    return { description: input.description };
+    return { description: input.description, reused };
   });
 
 /**
@@ -665,7 +692,7 @@ export const resolveReconciliationException = ownerAction
  * recorded with, which is the whole reason this is a dated series rather than a
  * setting — see ADR-0001 and `docs/02-data/money-and-fx.md`.
  */
-export const createFxRate = writeAction
+export const createFxRate = ownerAction
   .metadata({ action: 'created', entity: 'exchange rate' })
   .inputSchema(fxRateSchema)
   .action(async ({ parsedInput: input, ctx }) => {

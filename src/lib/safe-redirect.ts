@@ -41,7 +41,12 @@ export function safeNextPath(
     const url = new URL(requested, base);
     if (url.origin !== base) return fallback;
     const path = `${url.pathname}${url.search}${url.hash}`;
-    if (NEVER.has(url.pathname)) return fallback;
+    // Dot-segments collapse during parsing: `/.//evil.example` normalises to `//evil.example`, which a
+    // browser then reads as another origin. Re-check the normalised result, not just the input.
+    if (path.startsWith('//') || path.startsWith('/' + '\\')) return fallback;
+    if (new URL(path, base).origin !== base) return fallback;
+    const normalised = url.pathname.replace(/\/+$/, '').toLowerCase();
+    if (NEVER.has(normalised)) return fallback;
     return path;
   } catch {
     return fallback;

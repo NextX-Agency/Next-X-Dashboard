@@ -21,7 +21,13 @@ export function InviteMemberSheet() {
 
   const invite = useAction(inviteMember, {
     onSuccess({ data }) {
-      toast.success(`${data?.fullName} invited`);
+      if (data?.restored) {
+        toast.success('That person already has an account; access restored.', {
+          description: `${data.fullName} can sign in with their existing password. No invitation email was sent.`,
+        });
+      } else {
+        toast.success(`${data?.fullName} invited`);
+      }
       setOpen(false);
       setFullName('');
       setEmail('');

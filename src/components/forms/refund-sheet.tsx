@@ -11,7 +11,9 @@ import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
 import type { Cents, CurrencyCode } from '@/lib/money';
 import { formatMoney, parseMoney, toDecimalString } from '@/lib/money';
+import { pickDefaultWallet, walletShortfall } from '@/lib/wallet-rules';
 import { refundSale } from '@/server/actions/sales';
+import type { WalletBalanceChoice } from '@/server/queries/pickers';
 
 /**
  * Pay out money after a return or other approved credit. This is separate from
@@ -22,11 +24,14 @@ export function RefundSheet({
   number,
   currency,
   refundableCents,
+  wallets = [],
 }: {
   saleId: string;
   number: string;
   currency: CurrencyCode;
   refundableCents: Cents;
+  /** Active wallets with balances, so a refund that would overdraw one can say so first. */
+  wallets?: WalletBalanceChoice[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -45,9 +50,26 @@ export function RefundSheet({
   }
   if (!Number.isFinite(parsed) || parsed < 0) parsed = 0;
 
+  // The wallet the server will pay from (same rule as `defaultWalletFor`), and whether this refund
+  // would take it below zero. A warning only: the money has to go back to the customer.
+  const shortfall = walletShortfall(
+    pickDefaultWallet(wallets, { currency, method }),
+    Math.min(parsed, refundableCents),
+  );
+
   const action = useAction(refundSale, {
     onSuccess({ data }) {
       if (!data) return;
+      if (data.walletWarning) {
+        toast.warning(
+          `${data.walletWarning.walletName} is now ${formatMoney(data.walletWarning.balanceCents, data.walletWarning.currency)}`,
+          {
+            description:
+              'The refund is recorded, but that wallet is below zero. Check that the money is in the right wallet and that no receipt is missing.',
+            duration: 12_000,
+          },
+        );
+      }
       toast.success(
         `${formatMoney(data.amountCents, data.currency)} refunded from ${data.number}`,
         {
@@ -128,6 +150,18 @@ export function RefundSheet({
           }}
         >
           <SheetSection title="Refund">
+            {shortfall ? (
+              <p
+                role="alert"
+                className="rounded-control border border-warning/40 bg-warning-muted p-2.5 text-[12px] text-warning"
+              >
+                {shortfall.walletName} holds{' '}
+                {formatMoney(shortfall.balanceCents, shortfall.currency)}. This refund would
+                take it to {formatMoney(shortfall.afterCents, shortfall.currency)}. You can
+                still record it, but check that the money is in the right wallet and that no
+                earlier receipt is missing.
+              </p>
+            ) : null}
             <Field label={`Amount (${currency})`} htmlFor={`${formId}-amount`} required>
               <Input
                 id={`${formId}-amount`}

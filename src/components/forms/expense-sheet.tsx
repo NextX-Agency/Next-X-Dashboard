@@ -16,9 +16,12 @@ import {
   EXPENSE_CLASSIFICATIONS,
   type ExpenseClassification,
 } from '@/lib/expense-classification';
+import { DUPLICATE_ENTRY_MESSAGE } from '@/lib/finance-rules';
+import { formatMoney, parseMoney } from '@/lib/money';
 import { useUrlSheet } from '@/lib/use-url-sheet';
+import { pickDefaultWallet, walletShortfall } from '@/lib/wallet-rules';
 import { createExpense, updateExpense } from '@/server/actions/finance';
-import type { Option } from '@/server/queries/pickers';
+import type { Option, WalletBalanceChoice } from '@/server/queries/pickers';
 
 const today = () => businessDateInput();
 
@@ -50,11 +53,14 @@ export type ExpenseValues = {
  */
 export function ExpenseSheet({
   categories,
+  wallets = [],
   initial,
   open: openProp,
   onOpenChange: onOpenChangeProp,
 }: {
   categories: Option[];
+  /** Active wallets with balances, so a new expense that would overdraw one can say so first. */
+  wallets?: WalletBalanceChoice[];
   initial?: ExpenseValues;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -86,6 +92,23 @@ export function ExpenseSheet({
   // matching comment in forms/reference-sheets.tsx for the full reasoning.
   const createHook = useAction(createExpense, {
     onSuccess({ data }) {
+      if (data?.reused) {
+        // Nothing new was saved: say so instead of showing a second "Logged".
+        toast.info(DUPLICATE_ENTRY_MESSAGE);
+        setOpen(false);
+        router.refresh();
+        return;
+      }
+      if (data?.walletWarning) {
+        toast.warning(
+          `${data.walletWarning.walletName} is now ${formatMoney(data.walletWarning.balanceCents, data.walletWarning.currency)}`,
+          {
+            description:
+              'The expense is recorded, but that wallet is below zero. Check that the money is in the right wallet and that no receipt is missing.',
+            duration: 12_000,
+          },
+        );
+      }
       toast.success(`Logged ${data?.description}`);
       setOpen(false);
       setDescription('');
@@ -111,6 +134,22 @@ export function ExpenseSheet({
     },
   });
   const { execute, isPending } = isEdit ? updateHook : createHook;
+
+  // A new expense that posts to the ledger takes money out of the wallet the server picks (same
+  // rule as `defaultWalletFor`). Warn, never block: the cash has already left.
+  let amountCents = 0;
+  try {
+    amountCents = parseMoney(amount || '0');
+  } catch {
+    amountCents = 0;
+  }
+  const shortfall =
+    !isEdit && postToLedger
+      ? walletShortfall(
+          pickDefaultWallet(wallets, { currency, method: paymentMethod }),
+          amountCents,
+        )
+      : null;
 
   return (
     <>
@@ -279,6 +318,18 @@ export function ExpenseSheet({
           </SheetSection>
 
           <SheetSection title="Recording">
+            {shortfall ? (
+              <p
+                role="alert"
+                className="rounded-control border border-warning/40 bg-warning-muted p-2.5 text-[12px] text-warning"
+              >
+                {shortfall.walletName} holds{' '}
+                {formatMoney(shortfall.balanceCents, shortfall.currency)}. Posting this would
+                take it to {formatMoney(shortfall.afterCents, shortfall.currency)}. You can
+                still log it, but check the payment method and that no earlier receipt is
+                missing.
+              </p>
+            ) : null}
             <label className="flex cursor-pointer items-start gap-2.5 rounded-control border border-line bg-inset p-3">
               <input
                 type="checkbox"

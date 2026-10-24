@@ -710,7 +710,7 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
   if (query.payment) {
     // Same rule as src/lib/payment-status.ts: only a confirmed sale is owed anything.
     const paid = sql`(
-      COALESCE((SELECT SUM(fp.amount_cents) FROM sale_payments fp WHERE fp.sale_id = s.id), 0)
+      COALESCE((SELECT SUM(fp.amount_cents) FROM sale_payments fp WHERE fp.sale_id = s.id AND fp.status = 'confirmed'), 0)
       + COALESCE((
           SELECT SUM(CASE WHEN fl.direction = 'in' THEN fl.amount_cents ELSE -fl.amount_cents END)
             FROM ledger_entries fl
@@ -749,7 +749,7 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
       COALESCE((SELECT SUM(i.shortfall) FROM sale_items i WHERE i.sale_id = s.id), 0)::text
         AS shortfall,
       (
-        COALESCE((SELECT SUM(p.amount_cents) FROM sale_payments p WHERE p.sale_id = s.id), 0)
+        COALESCE((SELECT SUM(p.amount_cents) FROM sale_payments p WHERE p.sale_id = s.id AND p.status = 'confirmed'), 0)
         + COALESCE((
             SELECT SUM(CASE WHEN l.direction = 'in' THEN l.amount_cents ELSE -l.amount_cents END)
               FROM ledger_entries l

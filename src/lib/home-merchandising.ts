@@ -32,10 +32,10 @@ export const DEFAULT_HERO_BODY =
  * old text. Anything else the owner writes is shown exactly as typed.
  */
 const PLACEHOLDER_HERO_COPY: readonly RegExp[] = [
-  /^welcome\b/i,
-  /^browse the range\b/i,
-  /^hear the difference\b/i,
-  /^in-ear monitors and accessories\. order via whatsapp/i,
+  /^welcome to nextx\.?$/i,
+  /^browse the range, with real photographs, prices and stock\.?$/i,
+  /^hear the difference\.?$/i,
+  /^in-ear monitors and accessories\. order via whatsapp; prices in srd\.?$/i,
 ];
 
 /** The owner's hero text, or null when it is empty or one of the known placeholders above. */

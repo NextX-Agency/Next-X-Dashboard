@@ -48,6 +48,27 @@ describe('safeNextPath', () => {
     }
   });
 
+  it('refuses dot-segment tricks that normalise into a protocol-relative URL', () => {
+    for (const value of [
+      '/a/..//evil.example',
+      '/.//evil.example',
+      '/%2e//evil.example',
+      '/..//evil.example',
+      '/x/..//evil.example/y',
+    ]) {
+      const result = safeNextPath(value);
+      expect(result, value).toBe('/dashboard');
+      expect(new URL(result, 'https://nextx.example').origin, value).toBe(
+        'https://nextx.example',
+      );
+    }
+  });
+
+  it('treats a trailing slash or capitals on the sign-in page as the sign-in page', () => {
+    expect(safeNextPath('/login/')).toBe('/dashboard');
+    expect(safeNextPath('/LOGIN')).toBe('/dashboard');
+  });
+
   it('never redirects back to the sign-in form and caps absurd lengths', () => {
     expect(safeNextPath('/login')).toBe('/dashboard');
     expect(safeNextPath('/login?next=/x')).toBe('/dashboard');

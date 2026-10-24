@@ -20,6 +20,7 @@ import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/ui/tabl
 import { formatDate, formatRelative, humanise } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
 import { formatMoney } from '@/lib/money';
+import { getCurrentMember } from '@/server/auth';
 import { getAdminSettings, listMembers, listRates } from '@/server/queries/reference';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -299,7 +300,11 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 async function RateAction() {
-  const rates = await listRates(1);
+  // A new rate changes how every later sale and payment is converted, so only an owner may set it.
+  const [member, rates] = await Promise.all([getCurrentMember(), listRates(1)]);
+  if (member?.role !== 'owner') {
+    return <span className="text-[12px] text-ink-4">Only an owner can set the rate</span>;
+  }
   return <RateSheet currentRate={rates[0]?.rateMicros ?? null} />;
 }
 

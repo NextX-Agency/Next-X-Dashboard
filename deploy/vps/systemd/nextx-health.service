@@ -1,0 +1,12 @@
+[Unit]
+Description=NextX uptime check (local + public /api/health, TLS, containers, disk, memory)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nextx-check-health
+# Exit 1 only means "a check failed and was reported"; do not mark the unit failed every 2 minutes.
+SuccessExitStatus=0 1
+Nice=10
+TimeoutStartSec=90

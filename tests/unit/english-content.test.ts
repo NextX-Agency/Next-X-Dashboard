@@ -50,6 +50,12 @@ describe('publicParagraphs', () => {
     expect(result[1]).toBe('This paragraph is already English.');
   });
 
+  it('splits paragraphs written with Windows line endings', () => {
+    const result = publicParagraphs(`${dutch}\r\n\r\nThis paragraph is already English.\r\n`);
+    expect(result).toHaveLength(2);
+    expect(dutchWords(result.join(' '))).toEqual([]);
+  });
+
   it('adds nothing the original did not say', () => {
     const [english] = publicParagraphs(dutch);
     // 0.75 mm 2-pin, silver-plated, detachable: the specifications survive translation.

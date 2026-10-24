@@ -19,8 +19,26 @@ export default async function PublicQuotePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const [quote, settings] = await Promise.all([getPublicQuote(token), getAdminSettings()]);
-  if (!quote) notFound();
+  const [result, settings] = await Promise.all([getPublicQuote(token), getAdminSettings()]);
+  if (!result) notFound();
+  if (result.state === 'expired') {
+    return (
+      <main className="mx-auto max-w-[820px] px-4 py-16 text-center text-ink">
+        <p className="text-[15px] font-semibold">{settings?.businessName ?? 'NextX'}</p>
+        <h1 className="mt-4 text-[18px] font-semibold">This quote has expired</h1>
+        <p className="tabular mt-1 text-[13px] text-ink-3">{result.number}</p>
+        <p className="mt-3 text-[13px] text-ink-3">
+          Prices change over time. Please contact us for an updated quote.
+        </p>
+        {settings?.phone || settings?.email ? (
+          <p className="mt-2 text-[13px] text-ink-3">
+            {[settings?.phone, settings?.email].filter(Boolean).join(' · ')}
+          </p>
+        ) : null}
+      </main>
+    );
+  }
+  const quote = result.quote;
   const address = [settings?.addressLine, settings?.city].filter(Boolean).join(', ');
   return (
     <main className="mx-auto max-w-[820px] px-4 py-8 text-ink">

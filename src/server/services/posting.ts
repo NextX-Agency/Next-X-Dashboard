@@ -1,8 +1,9 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { consumeStock, type Valuation } from '@/lib/costing';
 import type { RateMicros } from '@/lib/fx';
 import { normaliseToUsd } from '@/lib/fx';
 import type { Cents, CurrencyCode } from '@/lib/money';
+import { WARN_NEGATIVE_WALLET_KINDS } from '@/lib/wallet-rules';
 import type { db as database } from '../db/client';
 import {
   activityLogs,
@@ -261,6 +262,28 @@ export async function defaultWalletFor(
     .orderBy(wallets.createdAt)
     .limit(1);
   return fallback?.id ?? null;
+}
+
+/**
+ * After a payment went out: is this cash or bank wallet now below zero? Returned to the form as a
+ * warning, never thrown. The cash left either way, and refusing the entry would only make people
+ * skip recording it; a negative balance is a prompt to look for the missing money.
+ */
+export async function walletBelowZero(
+  tx: Tx,
+  walletId: string | null | undefined,
+): Promise<{ walletName: string; currency: CurrencyCode; balanceCents: Cents } | null> {
+  if (!walletId) return null;
+  const [wallet] = await tx
+    .select({ name: wallets.name, kind: wallets.kind, currency: wallets.currency })
+    .from(wallets)
+    .where(eq(wallets.id, walletId))
+    .limit(1);
+  if (!wallet || !WARN_NEGATIVE_WALLET_KINDS.includes(wallet.kind)) return null;
+  const balanceCents = await walletBalanceCents(tx, walletId);
+  return balanceCents < 0
+    ? { walletName: wallet.name, currency: wallet.currency, balanceCents }
+    : null;
 }
 
 /** Derived balance in one wallet. No counter is stored or incremented. */

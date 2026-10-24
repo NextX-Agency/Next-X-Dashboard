@@ -36,6 +36,15 @@ describe('public write limit', () => {
     await expect(enforcePublicWriteLimit(scope)).resolves.toBeUndefined();
   });
 
+  it('does not let a noisy visitor use up the site-wide allowance of everyone else', async () => {
+    const scope = `test-${Math.random()}`;
+    const perClient = { limit: 2, windowMs: 60_000 };
+    const global = { limit: 5, windowMs: 60_000 };
+    for (let i = 0; i < 50; i++) await checkPublicRateLimit(scope, perClient, global);
+    forwarded = '198.51.100.20';
+    await expect(checkPublicRateLimit(scope, perClient, global)).resolves.toEqual({ ok: true });
+  });
+
   it('still enforces the site-wide ceiling when the address is missing or forged', async () => {
     const scope = `test-${Math.random()}`;
     forwarded = null;

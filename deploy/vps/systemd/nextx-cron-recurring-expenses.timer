@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily NextX recurring expenses (00:10 Paramaribo = 03:10 UTC; Suriname has no daylight saving)
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 UTC
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

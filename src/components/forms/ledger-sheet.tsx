@@ -10,6 +10,7 @@ import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field'
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { businessDateInput } from '@/lib/business-date';
+import { DUPLICATE_ENTRY_MESSAGE } from '@/lib/finance-rules';
 import { useUrlSheet } from '@/lib/use-url-sheet';
 import { createLedgerEntry } from '@/server/actions/finance';
 import type { Option } from '@/server/queries/pickers';
@@ -69,6 +70,12 @@ export function LedgerSheet({
 
   const { execute, isPending } = useAction(createLedgerEntry, {
     onSuccess({ data }) {
+      if (data?.reused) {
+        toast.info(DUPLICATE_ENTRY_MESSAGE);
+        setOpen(false);
+        router.refresh();
+        return;
+      }
       toast.success(`Recorded ${data?.description}`);
       setOpen(false);
       setDescription('');

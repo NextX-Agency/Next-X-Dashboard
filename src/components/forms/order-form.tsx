@@ -147,6 +147,9 @@ export function OrderForm({
   const action = useAction(createOrder, {
     onSuccess({ data }) {
       if (!data) return;
+      // The route can be restored by Back with this state intact; the key must
+      // not outlive the submit it identified.
+      idempotencyKey.current = crypto.randomUUID();
       toast.success(
         data.reused
           ? `Order ${data.number} was already created`
@@ -156,6 +159,11 @@ export function OrderForm({
       router.refresh();
     },
     onError({ error }) {
+      // A refusal rolled everything back, so the next attempt is a new
+      // submission. A dropped connection may have committed: keep the key then.
+      if (error.serverError || error.validationErrors) {
+        idempotencyKey.current = crypto.randomUUID();
+      }
       toast.error(error.serverError ?? 'Could not create the order');
     },
   });

@@ -17,6 +17,7 @@ const variant = (patch: Partial<SaleVariantOption>): SaleVariantOption => ({
   referenceCostCents: 0,
   weightGrams: 0,
   onHand: 1,
+  reserved: 0,
   valueCents: 0,
   unitCostCents: null,
   isActive: true,

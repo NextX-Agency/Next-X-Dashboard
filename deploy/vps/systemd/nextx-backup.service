@@ -1,0 +1,17 @@
+[Unit]
+Description=NextX backup (database, Storage, deploy config; encrypted; optional offsite)
+Documentation=file:///usr/local/lib/nextx/backup-nextx.sh
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+OnFailure=nextx-notify-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nextx-backup
+# Keep the shop fast while the backup runs.
+Nice=19
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+CPUWeight=20
+TimeoutStartSec=3h

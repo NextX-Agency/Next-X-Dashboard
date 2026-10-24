@@ -27,11 +27,11 @@
   --nx-border: #d6d2ca;
   --nx-border-strong: #a8a298;
 
-  /* ── Text: every step clears WCAG AA on base and on raised surfaces ───── */
+  /* ── Text: every step clears WCAG AA (4.5:1) on base, raised and sunken (faint is 4.65:1 on sunken) ── */
   --nx-text: #151413;
   --nx-text-secondary: #46423d;
   --nx-text-tertiary: #645e57;
-  --nx-text-faint: #706a62;
+  --nx-text-faint: #6d675f;
 
   /* ── Accent (interactive) ─────────────────────────────────────────────── */
   /* Darker than the logo orange so text and white-on-orange buttons clear AA. */

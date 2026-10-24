@@ -5,6 +5,20 @@ import { hashPublicToken } from '@/lib/public-token';
 import { db } from '../db/client';
 import { maybe, num, text } from './row';
 
+/** Links made before expiry existed carry no stamp. They count as created when
+ *  the activity log says so and live this long from then; a legacy link with no
+ *  log entry at all cannot be dated and is left as it was. */
+const LEGACY_LINK_DAYS = 90;
+const legacyLinkCreatedAt = sql`(
+  SELECT MAX(al.created_at) FROM activity_logs al
+   WHERE al.entity_type = 'sale' AND al.entity_id = s.id
+     AND al.action IN ('created public invoice link', 'replaced public invoice link')
+)`;
+const linkExpiresAt = sql`COALESCE(
+  s.public_token_expires_at,
+  ${legacyLinkCreatedAt} + make_interval(days => ${LEGACY_LINK_DAYS})
+)`;
+
 /**
  * What a customer may see. Nothing here may carry cost, margin, commission,
  * seller, serials, internal notes or any database identifier beyond the
@@ -60,7 +74,7 @@ export async function getPublicInvoice(token: string): Promise<PublicInvoice | n
       LEFT JOIN customers c ON c.id = s.customer_id
      WHERE s.public_token_hash = ${hash}
        AND s.status = 'confirmed'
-       AND (s.public_token_expires_at IS NULL OR s.public_token_expires_at > now())
+       AND (${linkExpiresAt} IS NULL OR ${linkExpiresAt} > now())
      LIMIT 1
   `);
   if (!row) return null;
@@ -113,8 +127,8 @@ export type InvoiceLinkState = {
 /** Staff-side: is there a shared link on this sale, and is it still live? */
 export async function getInvoiceLinkState(saleId: string): Promise<InvoiceLinkState> {
   const [row] = await db.execute<{ has_link: boolean; expires_at: string | null }>(sql`
-    SELECT (public_token_hash IS NOT NULL) AS has_link, public_token_expires_at::text AS expires_at
-      FROM sales WHERE id = ${saleId}
+    SELECT (s.public_token_hash IS NOT NULL) AS has_link, (${linkExpiresAt})::text AS expires_at
+      FROM sales s WHERE s.id = ${saleId}
   `);
   if (!row?.has_link) return { active: false, expiresAt: null, expired: false };
   const expired = row.expires_at ? new Date(row.expires_at).getTime() <= Date.now() : false;

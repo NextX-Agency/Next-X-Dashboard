@@ -866,10 +866,11 @@ export async function getCustomer(id: string): Promise<CustomerDetail | null> {
         SELECT SUM(GREATEST(
           s.total_usd_cents
           - COALESCE((
-              SELECT SUM(le.amount_usd_cents)
+              SELECT SUM(CASE WHEN le.direction = 'in' THEN le.amount_usd_cents
+                              ELSE -le.amount_usd_cents END)
                 FROM sale_payments sp
                 JOIN ledger_entries le ON le.source_kind = 'sale' AND le.source_id = sp.id
-               WHERE sp.sale_id = s.id
+               WHERE sp.sale_id = s.id AND sp.status = 'confirmed'
             ), 0)
           - COALESCE((
               SELECT SUM(CASE WHEN le.direction = 'in' THEN le.amount_usd_cents
@@ -896,7 +897,7 @@ export async function getCustomer(id: string): Promise<CustomerDetail | null> {
            total_cents::text, total_usd_cents::text, gross_profit_cents::text,
            (
              COALESCE((SELECT SUM(amount_cents) FROM sale_payments p
-                        WHERE p.sale_id = sales.id), 0)
+                        WHERE p.sale_id = sales.id AND p.status = 'confirmed'), 0)
              + COALESCE((
                  SELECT SUM(CASE WHEN l.direction = 'in' THEN l.amount_cents
                                  ELSE -l.amount_cents END)

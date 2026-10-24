@@ -29,13 +29,15 @@ export async function checkPublicRateLimit(
   perClient: RateLimit,
   global: RateLimit,
 ): Promise<LimitOutcome> {
-  const globalResult = limiter.check(`${scope}:global`, global);
-  if (!globalResult.ok) return globalResult;
-
+  // Per client first: a request one visitor makes beyond their own limit must not also use up the
+  // site-wide allowance, or a single noisy client could lock every other visitor out.
   const address = clientAddress(await headers());
-  if (!address) return { ok: true };
-  const result = limiter.check(`${scope}:${address}`, perClient);
-  return result.ok ? { ok: true } : result;
+  if (address) {
+    const result = limiter.check(`${scope}:${address}`, perClient);
+    if (!result.ok) return result;
+  }
+  const globalResult = limiter.check(`${scope}:global`, global);
+  return globalResult.ok ? { ok: true } : globalResult;
 }
 
 /** For `publicAction`: throws a message a visitor can act on. */

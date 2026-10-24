@@ -1,0 +1,9 @@
+[Unit]
+Description=NextX daily recurring expenses (GET /api/cron/recurring-expenses)
+After=docker.service network-online.target
+OnFailure=nextx-notify-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nextx-cron recurring-expenses
+TimeoutStartSec=15min

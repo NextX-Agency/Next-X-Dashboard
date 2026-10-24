@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { Sheet, SheetSection } from '@/components/ui/sheet';
 import { SubmitButton } from '@/components/ui/submit-button';
+import { netLineTotals } from '@/lib/commission-rules';
+import { returnedPortion } from '@/lib/costing';
 import { type CurrencyCode, formatMoney } from '@/lib/money';
 import { returnSaleItems } from '@/server/actions/sales';
 
@@ -34,11 +36,14 @@ export function ReturnSheet({
   number,
   currency,
   items,
+  discountCents = 0,
 }: {
   saleId: string;
   number: string;
   currency: CurrencyCode;
   items: ReturnableItem[];
+  /** The sale's document discount: the credit is what the customer paid for the goods. */
+  discountCents?: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -49,6 +54,16 @@ export function ReturnSheet({
 
   const { execute, isPending } = useAction(returnSaleItems, {
     onSuccess({ data }) {
+      if (data?.reused) {
+        toast.info(`${data.number} return was already recorded`, {
+          description: 'That submit was a repeat, so the goods were not put back twice.',
+        });
+        setOpen(false);
+        setQuantities({});
+        setReason('');
+        router.refresh();
+        return;
+      }
       toast.success(`${data?.number} return recorded`, {
         description: data
           ? `${formatMoney(data.creditCents, data.currency)} credit created, ${data.units} unit${data.units === 1 ? '' : 's'} back in stock. Refund it separately when the cash leaves.${
@@ -58,6 +73,10 @@ export function ReturnSheet({
             }${
               data.commissionOverpaidCents > 0
                 ? ` ${formatMoney(data.commissionOverpaidCents, data.currency)} of commission was already paid out on these goods.`
+                : ''
+            }${
+              data.commissionUnmatchedGroups > 0
+                ? ' A product changed category since this sale, so some commission was left unchanged: review it.'
                 : ''
             }`
           : undefined,
@@ -81,9 +100,20 @@ export function ReturnSheet({
     }))
     .filter((line) => line.quantity > 0);
 
+  // Same split the server uses, so the preview equals the credit created.
+  const netTotals = netLineTotals(items, discountCents);
   const refundCents = chosen.reduce((total, line) => {
     const item = items.find((candidate) => candidate.id === line.saleItemId);
-    return total + (item ? item.unitPriceCents * line.quantity : 0);
+    if (!item) return total;
+    return (
+      total +
+      returnedPortion(
+        netTotals.get(item.id) ?? item.unitPriceCents * item.quantity,
+        item.quantity,
+        item.quantityReturned,
+        line.quantity,
+      )
+    );
   }, 0);
 
   const anyReturnable = items.some((item) => returnable(item) > 0);

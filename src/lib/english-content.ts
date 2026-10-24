@@ -79,10 +79,13 @@ export function publicName(name: string): string {
 /** Paragraphs of a long description, each translated when it is a known legacy paragraph. */
 export function publicParagraphs(description: string | null | undefined): string[] {
   if (!description) return [];
-  return description
-    .split(/\n{2,}/)
-    .map((paragraph) => publicText(paragraph.trim()))
-    .filter(Boolean);
+  return (
+    description
+      // CRLF as well as LF: text imported or pasted from Windows keeps its carriage returns.
+      .split(/(?:\r?\n){2,}/)
+      .map((paragraph) => publicText(paragraph.trim()))
+      .filter(Boolean)
+  );
 }
 
 /** A specification table with its labels and values in English (unknown text is kept as stored). */

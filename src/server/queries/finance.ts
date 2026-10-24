@@ -193,7 +193,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
                COALESCE((SELECT SUM(CASE WHEN l.direction = 'in' THEN l.amount_usd_cents ELSE -l.amount_usd_cents END)
                            FROM sale_payments sp JOIN ledger_entries l
                              ON l.source_kind = 'sale' AND l.source_id = sp.id
-                          WHERE sp.sale_id = s.id), 0),
+                          WHERE sp.sale_id = s.id AND sp.status = 'confirmed'), 0),
                COALESCE((SELECT SUM(CASE WHEN l.direction = 'in' THEN l.amount_usd_cents ELSE -l.amount_usd_cents END)
                            FROM ledger_entries l
                           WHERE l.source_kind = 'sale'

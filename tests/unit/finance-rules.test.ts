@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  expenseVoidRefusal,
   invoicePaymentState,
   ledgerNetCents,
   walletTransferAllowed,
@@ -28,5 +29,15 @@ describe('finance rules', () => {
     expect(ledgerNetCents('out', 250)).toBe(-250);
     expect(fromBase(100, 38_500_000)).toBe(3850);
     expect(toBase(3850, 38_500_000)).toBe(100);
+  });
+});
+
+describe('expenseVoidRefusal', () => {
+  it('refuses to void an expense that paid out commissions', () => {
+    expect(expenseVoidRefusal({ commissionPayoutCount: 1 })).toContain('commissions');
+  });
+
+  it('allows an ordinary expense', () => {
+    expect(expenseVoidRefusal({ commissionPayoutCount: 0 })).toBeNull();
   });
 });

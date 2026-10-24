@@ -65,7 +65,7 @@ async function exportRows(entity: ExportEntity, term: string | null): Promise<un
         SELECT s.number, s.sold_at, s.status::text AS status, c.name AS customer,
                s.currency::text AS currency, s.total_cents, s.total_usd_cents,
                s.cogs_cents, s.gross_profit_cents, s.payment_method::text AS payment_method,
-               COALESCE((SELECT SUM(p.amount_cents) FROM sale_payments p WHERE p.sale_id = s.id), 0)
+               COALESCE((SELECT SUM(p.amount_cents) FROM sale_payments p WHERE p.sale_id = s.id AND p.status = 'confirmed'), 0)
                + COALESCE((SELECT SUM(CASE WHEN l.direction = 'in' THEN l.amount_cents ELSE -l.amount_cents END)
                              FROM ledger_entries l WHERE l.source_kind = 'sale' AND l.source_id = s.id AND l.category = 'sales_receipt'), 0) AS paid_cents,
                (SELECT COUNT(*) FROM sale_items i WHERE i.sale_id = s.id) AS item_count,

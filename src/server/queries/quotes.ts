@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { and, type SQL, sql } from 'drizzle-orm';
 import { isDatabaseConfigured } from '@/lib/env';
+import { publicQuoteState } from '@/lib/quote-validity';
 import type { QuoteRequestStatus } from '@/lib/schemas';
 import { db } from '../db/client';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
@@ -174,7 +175,12 @@ export type PublicQuote = {
   }[];
 };
 
-export async function getPublicQuote(token: string): Promise<PublicQuote | null> {
+/** An expired quote reveals only its number: no prices, items or customer. */
+export type PublicQuoteResult =
+  | { state: 'open'; quote: PublicQuote }
+  | { state: 'expired'; number: string };
+
+export async function getPublicQuote(token: string): Promise<PublicQuoteResult | null> {
   if (!isDatabaseConfigured() || !token || token.length < 32) return null;
   const hash = createHash('sha256').update(token).digest('hex');
   const [row] = await db.execute<Record<string, string | null>>(sql`
@@ -185,13 +191,18 @@ export async function getPublicQuote(token: string): Promise<PublicQuote | null>
       LIMIT 1
   `);
   if (!row) return null;
-  if (row.status === 'void' || row.status === 'expired') return null;
+  const state = publicQuoteState({
+    status: text(row.status),
+    validUntil: row.valid_until ?? null,
+  });
+  if (state === 'hidden') return null;
+  if (state === 'expired') return { state: 'expired', number: text(row.number) };
   const items = await db.execute<Record<string, string | null>>(sql`
     SELECT product_name, variant_name, sku, quantity::text,
            unit_price_cents::text, line_total_cents::text
       FROM quote_items WHERE quote_id = ${row.id} ORDER BY position
   `);
-  return {
+  const quote: PublicQuote = {
     id: text(row.id),
     number: text(row.number),
     status: text(row.status),
@@ -212,4 +223,5 @@ export async function getPublicQuote(token: string): Promise<PublicQuote | null>
       lineTotalCents: num(item.line_total_cents),
     })),
   };
+  return { state: 'open', quote };
 }

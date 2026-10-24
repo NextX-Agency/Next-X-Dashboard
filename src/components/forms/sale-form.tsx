@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useMember } from '@/components/providers/member-provider';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Field, FieldRow, Input, Select, Textarea } from '@/components/ui/field';
@@ -16,6 +17,7 @@ import { cn } from '@/lib/cn';
 import { describeIssues } from '@/lib/form-issues';
 import { fromBase, type RateMicros, toBase } from '@/lib/fx';
 import { formatMoney, mulDivRound, parseMoney, toDecimalString } from '@/lib/money';
+import { describeReservedConflict, reservedStockConflicts } from '@/lib/reserved-stock';
 import { saleSchema } from '@/lib/schemas';
 import { createCustomer } from '@/server/actions/reference';
 import { createSale, updateSale } from '@/server/actions/sales';
@@ -107,6 +109,7 @@ export function SaleForm({
   initial?: SaleFormValues;
 }) {
   const router = useRouter();
+  const { role } = useMember();
   const isEdit = Boolean(initial);
 
   const [customerId, setCustomerId] = useState<string | null>(initial?.customerId ?? null);
@@ -132,6 +135,8 @@ export function SaleForm({
     }
   }, []);
   const [walletId, setWalletId] = useState('');
+  /** Owner only: knowingly sell units that open orders have reserved. */
+  const [allowReserved, setAllowReserved] = useState(false);
   /** One key per form instance: a double click or a retry cannot book twice. */
   const idempotencyKey = useRef(crypto.randomUUID());
   const [issues, setIssues] = useState<string[]>([]);
@@ -409,6 +414,43 @@ export function SaleForm({
     };
   }, [lines, byId, bundleById, currency, rateMicros, variants, discount]);
 
+  /**
+   * Lines that would take units reserved for open orders. Orders hold stock without moving it, so a
+   * sale that sees only physical stock could sell the units an order is waiting for. Same rule the
+   * server applies (src/lib/reserved-stock.ts); here it is a warning, and the server decides.
+   */
+  const reservedConflicts = useMemo(() => {
+    const taken: { variantId: string; label: string; quantity: number }[] = [];
+    for (const line of lines) {
+      const quantity = Number.parseInt(line.quantity, 10);
+      if (!line.variantId || !Number.isFinite(quantity) || quantity <= 0) continue;
+      const bundle = line.bundleId ? bundleById.get(line.bundleId) : undefined;
+      if (bundle) {
+        for (const component of bundle.components) {
+          taken.push({
+            variantId: component.variantId,
+            label: `${component.productName} · ${component.variantName}`,
+            quantity: quantity * component.quantity,
+          });
+        }
+        continue;
+      }
+      const variant = byId.get(line.variantId);
+      if (variant) {
+        taken.push({
+          variantId: variant.id,
+          label: `${variant.productName} · ${variant.variantName}`,
+          quantity,
+        });
+      }
+    }
+    return reservedStockConflicts(
+      taken,
+      new Map(variants.map((v) => [v.id, { onHand: v.onHand, reserved: v.reserved }])),
+    );
+  }, [lines, byId, bundleById, variants]);
+  const sellsReservedStock = reservedConflicts.length > 0;
+
   /** Native-currency total: sum of line totals less the discount, both in the
    *  sale's currency. `paidNowCents` is a payment on this number, not on the
    *  USD revenue below — the ledger receives the native amount and converts it
@@ -452,6 +494,9 @@ export function SaleForm({
   // matching comment in forms/reference-sheets.tsx for the full reasoning.
   const createHook = useAction(createSale, {
     onSuccess({ data, input }) {
+      // The route can be restored by Back with this component's state intact, so
+      // the key must not outlive the submit it identified.
+      idempotencyKey.current = crypto.randomUUID();
       // A draft has booked nothing: no cost of goods, no stock movement, no receipt.
       // Reporting its "gross profit" would show the whole price as profit.
       if (data?.reused) {
@@ -475,6 +520,12 @@ export function SaleForm({
       router.refresh();
     },
     onError({ error }) {
+      // A refusal rolled everything back, so the next attempt is a new
+      // submission. A dropped connection could still have committed: keep the
+      // key then, so a retry is recognised instead of booking twice.
+      if (error.serverError || error.validationErrors) {
+        idempotencyKey.current = crypto.randomUUID();
+      }
       toast.error(error.serverError ?? 'Could not record the sale', {
         description: error.validationErrors
           ? 'Check the problems listed on the page.'
@@ -545,6 +596,7 @@ export function SaleForm({
       // The deposit field holds a decimal string; send it as typed so the
       // schema parses it exactly once.
       paidNowCents: confirm && !paidInFull ? toDecimalString(depositCents) : '0',
+      allowReservedStock: confirm && sellsReservedStock && role === 'owner' && allowReserved,
       items,
     };
 
@@ -991,6 +1043,42 @@ export function SaleForm({
                 Those units have no cost yet, so the margin above is overstated until a purchase
                 order covers them.
               </p>
+            </div>
+          ) : null}
+          {sellsReservedStock ? (
+            <div
+              role="alert"
+              className="rounded-control border border-warning/40 bg-warning-muted p-2.5"
+            >
+              <p className="flex items-center gap-1.5 text-[11px] text-warning">
+                <AlertTriangle className="size-3 shrink-0" />
+                This uses stock reserved for open orders
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {reservedConflicts.map((conflict) => (
+                  <li key={conflict.variantId} className="text-[11px] text-ink-3">
+                    {describeReservedConflict(conflict)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px] text-ink-4">
+                Recording this sale could leave a confirmed order unable to complete.
+              </p>
+              {role === 'owner' ? (
+                <label className="mt-2 flex items-start gap-2 text-[12px] text-ink">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={allowReserved}
+                    onChange={(event) => setAllowReserved(event.target.checked)}
+                  />
+                  <span>Sell reserved stock anyway</span>
+                </label>
+              ) : (
+                <p className="mt-1.5 text-[11px] text-ink-3">
+                  Only the owner can sell reserved stock. Reduce the quantity or ask the owner.
+                </p>
+              )}
             </div>
           ) : null}
         </dl>

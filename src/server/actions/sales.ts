@@ -1,13 +1,26 @@
 'use server';
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
+import { netLineTotals } from '@/lib/commission-rules';
 import { returnedPortion } from '@/lib/costing';
 import type { RateMicros } from '@/lib/fx';
 import { normaliseToUsd } from '@/lib/fx';
+import { alreadySubmittedMessage, isSameSubmission } from '@/lib/idempotent-replay';
 import type { Cents, CurrencyCode } from '@/lib/money';
 import { formatMoney } from '@/lib/money';
 import { balanceCentsOf, paymentStatusOf } from '@/lib/payment-status';
+import {
+  type ReservedStockLine,
+  type ReservedStockPosition,
+  reservedStockConflicts,
+  reservedStockRefusal,
+} from '@/lib/reserved-stock';
+import {
+  isRepeatedReturn,
+  RETURN_DUPLICATE_WINDOW_SECONDS,
+  unitsByVariant,
+} from '@/lib/return-duplicate';
 import {
   moneyInput,
   optionalUuid,
@@ -51,6 +64,7 @@ import {
   postLedgerEntry,
   postStockMovement,
   type Tx,
+  walletBelowZero,
 } from '../services/posting';
 import { rateForRecord, rateOn } from '../services/rates';
 import { heldOnSale, lockSale, paidOnSale, refundedOnSale } from '../services/sale-money';
@@ -222,6 +236,30 @@ async function assertSellableVariants(tx: Tx, variantIds: string[]): Promise<voi
   if (rows.length !== uniqueIds.length) {
     throw new ActionError('Every sale item must be an active product variant.');
   }
+}
+
+/** Confirming a saved draft: the same sellable rule `createSale` applies, with a message that tells
+ *  the cashier what to do about a draft rather than about a new sale. */
+async function assertDraftStillSellable(
+  tx: Tx,
+  variantIds: string[],
+  bundleIds: string[],
+): Promise<void> {
+  const unsellable =
+    'A product or bundle on this draft has been archived or switched off since it was saved. Edit the draft to replace it, then confirm.';
+  try {
+    await assertSellableVariants(tx, variantIds);
+  } catch (error) {
+    if (error instanceof ActionError) throw new ActionError(unsellable);
+    throw error;
+  }
+  const uniqueBundles = [...new Set(bundleIds)];
+  if (uniqueBundles.length === 0) return;
+  const active = await tx
+    .select({ id: bundles.id })
+    .from(bundles)
+    .where(and(inArray(bundles.id, uniqueBundles), eq(bundles.isActive, true)));
+  if (active.length !== uniqueBundles.length) throw new ActionError(unsellable);
 }
 
 async function lockSaleVariants(tx: Tx, variantIds: string[]): Promise<void> {
@@ -413,6 +451,104 @@ const returnItemsSchema = z
 type SaleInput = z.infer<typeof saleSchema>;
 
 /**
+ * Refuse a confirmed sale that would sell units open orders are waiting for.
+ *
+ * Orders reserve stock without moving it, and completing an order needs those units on hand. A direct
+ * sale only sees physical stock, so without this it could take them and leave a confirmed order
+ * impossible to complete. Called with the variants already locked, so the figures cannot change under
+ * it (confirming an order takes the same locks). Selling past unreserved stock stays allowed: that is
+ * the existing shortfall flow. The owner may override on purpose; the override is written to the
+ * activity log.
+ */
+async function assertReservedStockRespected(
+  tx: Tx,
+  input: {
+    lines: { variantId: string; quantity: number }[];
+    override: boolean;
+    member: { id: string; role: string };
+    saleId: string;
+    saleNumber: string;
+  },
+): Promise<void> {
+  const quantities = new Map<string, number>();
+  for (const line of input.lines) {
+    quantities.set(line.variantId, (quantities.get(line.variantId) ?? 0) + line.quantity);
+  }
+  if (quantities.size === 0) return;
+  const ids = [...quantities.keys()];
+  const idList = sql.join(
+    ids.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+
+  const rows = await tx.execute<{
+    variant_id: string;
+    label: string;
+    on_hand: string;
+    reserved: string;
+  }>(sql`
+    SELECT v.id::text AS variant_id,
+           p.name || ' · ' || v.name AS label,
+           COALESCE((SELECT SUM(m.quantity) FROM inventory_movements m WHERE m.variant_id = v.id), 0)::text AS on_hand,
+           COALESCE((
+             SELECT SUM(r.quantity) FROM inventory_reservations r
+              WHERE r.variant_id = v.id AND r.status = 'active'
+                AND (r.expires_at IS NULL OR r.expires_at > now())
+           ), 0)::text AS reserved
+      FROM product_variants v
+      JOIN products p ON p.id = v.product_id
+     WHERE v.id IN (${idList})
+  `);
+
+  const positions = new Map<string, ReservedStockPosition>();
+  const lines: ReservedStockLine[] = [];
+  for (const row of rows) {
+    positions.set(row.variant_id, {
+      onHand: Number(row.on_hand),
+      reserved: Number(row.reserved),
+    });
+    lines.push({
+      variantId: row.variant_id,
+      label: row.label,
+      quantity: quantities.get(row.variant_id) ?? 0,
+    });
+  }
+
+  const conflicts = reservedStockConflicts(lines, positions);
+  const refusal = reservedStockRefusal(conflicts, {
+    override: input.override,
+    isOwner: input.member.role === 'owner',
+  });
+  if (refusal) throw new ActionError(refusal);
+  if (conflicts.length > 0) {
+    await logActivity(tx, {
+      memberId: input.member.id,
+      action: 'sold reserved stock (owner override)',
+      entityType: 'sale',
+      entityId: input.saleId,
+      entityLabel: input.saleNumber,
+    });
+  }
+}
+
+/** What a sale (bundles broken into their components) takes of each variant. */
+function unitsTakenBySale(
+  items: SaleInput['items'],
+  bundleMap: Map<string, ResolvedBundle>,
+): { variantId: string; quantity: number }[] {
+  return items.flatMap((item) => {
+    const bundle = item.bundleId ? bundleMap.get(item.bundleId) : undefined;
+    const quantity = Number(item.quantity);
+    return bundle
+      ? bundle.components.map((component) => ({
+          variantId: component.variantId,
+          quantity: quantity * component.quantity,
+        }))
+      : [{ variantId: item.variantId, quantity }];
+  });
+}
+
+/**
  * Everything the two write paths (a new sale, an edited draft) have in common:
  * lines, totals, commissions and the money that arrived with the sale.
  *
@@ -539,16 +675,59 @@ export const createSale = writeAction
             number: sales.number,
             totalUsdCents: sales.totalUsdCents,
             cogsCents: sales.cogsCents,
+            status: sales.status,
+            currency: sales.currency,
+            customerId: sales.customerId,
+            discountCents: sales.discountCents,
           })
           .from(sales)
           .where(eq(sales.idempotencyKey, input.idempotencyKey))
           .limit(1);
         if (existing) {
+          // The key outlives the page when the browser restores it (Back), so a
+          // hit is only a replay if the stored sale is what was asked for now.
+          const storedLines = await tx
+            .select({
+              variantId: saleItems.variantId,
+              bundleId: saleItems.bundleId,
+              quantity: saleItems.quantity,
+              unitPriceCents: saleItems.unitPriceCents,
+            })
+            .from(saleItems)
+            .where(eq(saleItems.saleId, existing.id));
+          const sameSubmission = isSameSubmission(
+            {
+              status: existing.status,
+              currency: existing.currency,
+              customerId: existing.customerId,
+              discountCents: existing.discountCents,
+              lines: storedLines.map((line) => ({
+                ref: line.bundleId ?? line.variantId,
+                quantity: line.quantity,
+                unitPriceCents: line.unitPriceCents,
+              })),
+            },
+            {
+              status: input.confirm ? 'confirmed' : 'draft',
+              currency: input.currency,
+              customerId: input.customerId ?? null,
+              discountCents: input.discountCents,
+              lines: input.items.map((item) => ({
+                ref: item.bundleId ?? item.variantId,
+                quantity: item.quantity,
+                unitPriceCents: item.unitPriceCents,
+              })),
+            },
+          );
+          if (!sameSubmission) throw new ActionError(alreadySubmittedMessage('sale'));
           const [short] = await tx.execute<{ units: string }>(
             sql`SELECT COALESCE(SUM(shortfall), 0)::text AS units FROM sale_items WHERE sale_id = ${existing.id}`,
           );
           return {
-            ...existing,
+            id: existing.id,
+            number: existing.number,
+            totalUsdCents: existing.totalUsdCents,
+            cogsCents: existing.cogsCents,
             shortfallTotal: Number(short?.units ?? 0),
             reused: true as const,
           };
@@ -589,6 +768,16 @@ export const createSale = writeAction
         .returning();
 
       if (!sale) throw new ActionError('Could not create the sale.');
+
+      if (input.confirm) {
+        await assertReservedStockRespected(tx, {
+          lines: unitsTakenBySale(input.items, bundleMap),
+          override: input.allowReservedStock,
+          member: ctx.member,
+          saleId: sale.id,
+          saleNumber: number,
+        });
+      }
 
       const totals = await writeSaleBody(tx, {
         saleId: sale.id,
@@ -671,6 +860,15 @@ export const updateSale = writeAction
       await assertSellableVariants(tx, sellableIds);
       await lockSaleVariants(tx, sellableIds);
       await assertWalletFor(tx, input.walletId, input.currency);
+      if (input.confirm) {
+        await assertReservedStockRespected(tx, {
+          lines: unitsTakenBySale(input.items, bundleMap),
+          override: input.allowReservedStock,
+          member: ctx.member,
+          saleId: input.id,
+          saleNumber: sale.number,
+        });
+      }
       await clearDocumentPostings(tx, 'sale', input.id);
       await tx.delete(saleItems).where(eq(saleItems.saleId, input.id));
 
@@ -775,15 +973,35 @@ export const confirmSale = writeAction
           ...(componentsByLine.get(component.saleItemId) ?? []),
           component,
         ]);
-      await lockSaleVariants(
-        tx,
-        items.flatMap(
-          (item) =>
-            componentsByLine.get(item.id)?.map((component) => component.variantId) ?? [
-              item.variantId,
-            ],
-        ),
+      const draftVariantIds = items.flatMap(
+        (item) =>
+          componentsByLine.get(item.id)?.map((component) => component.variantId) ?? [
+            item.variantId,
+          ],
       );
+      await lockSaleVariants(tx, draftVariantIds);
+      // A draft can sit for days. Whatever was archived or switched off since it
+      // was saved must not go through just because the draft already names it.
+      await assertDraftStillSellable(
+        tx,
+        draftVariantIds,
+        items.flatMap((item) => (item.bundleId ? [item.bundleId] : [])),
+      );
+
+      await assertReservedStockRespected(tx, {
+        lines: items.flatMap(
+          (item) =>
+            componentsByLine.get(item.id)?.map((component) => ({
+              variantId: component.variantId,
+              quantity: component.quantity,
+            })) ?? [{ variantId: item.variantId, quantity: item.quantity }],
+        ),
+        // No override here: the owner records a knowing exception from the sale form.
+        override: false,
+        member: ctx.member,
+        saleId: sale.id,
+        saleNumber: sale.number,
+      });
 
       let cogsCents = 0;
 
@@ -1034,6 +1252,7 @@ export const voidSalePayment = writeAction
             eq(ledgerEntries.sourceKind, 'sale'),
             eq(ledgerEntries.sourceId, payment.id),
             eq(ledgerEntries.category, 'sales_receipt'),
+            isNull(ledgerEntries.reversalOfId),
           ),
         );
       if (entries.length === 0)
@@ -1060,6 +1279,12 @@ export const voidSalePayment = writeAction
             locationId: entry.locationId,
             storefrontId: entry.storefrontId,
             reversalOfId: entry.id,
+            // Linked to the payment so every reader that follows
+            // sale_payments -> ledger_entries nets the reversal against the
+            // receipt instead of missing it. (Void payments are also excluded
+            // by status in those readers, for reversals posted before this.)
+            sourceKind: 'sale',
+            sourceId: payment.id,
             eventType: 'sale_payment_voided',
             notes: input.reason,
           });
@@ -1243,6 +1468,18 @@ export const returnSaleItems = writeAction
         );
 
       const byId = new Map(items.map((item) => [item.id, item]));
+      // The customer paid the lines less their share of the document discount, so
+      // that is what comes back for these goods (the same split commissions use).
+      const allLines = await tx
+        .select({
+          id: saleItems.id,
+          unitPriceCents: saleItems.unitPriceCents,
+          quantity: saleItems.quantity,
+        })
+        .from(saleItems)
+        .where(eq(saleItems.saleId, sale.id))
+        .orderBy(saleItems.position);
+      const netTotals = netLineTotals(allLines, sale.discountCents);
       const componentRows = await tx
         .select()
         .from(saleItemComponents)
@@ -1268,6 +1505,59 @@ export const returnSaleItems = writeAction
         ),
       );
 
+      // A double click or a retry arrives after the first request has committed (lockSale made it
+      // wait), with the same lines. Recognise it by the stock the first one posted and say so,
+      // rather than putting the goods back, and crediting them, twice.
+      const planned = unitsByVariant(
+        input.items.flatMap((line) => {
+          const item = byId.get(line.saleItemId);
+          if (!item) return [];
+          const components = componentsByLine.get(item.id);
+          return components?.length
+            ? components.map((component) => ({
+                variantId: component.variantId,
+                quantity: line.quantity * component.quantityPerBundle,
+              }))
+            : [{ variantId: item.variantId, quantity: line.quantity }];
+        }),
+      );
+      if (planned.size > 0) {
+        const recent = await tx.execute<{
+          batch: string;
+          variant_id: string;
+          quantity: string;
+        }>(sql`
+          SELECT created_at::text AS batch, variant_id::text AS variant_id, quantity::text AS quantity
+            FROM inventory_movements
+           WHERE source_kind = 'sale' AND source_id = ${sale.id} AND kind = 'return'
+             AND created_by_id = ${ctx.member.id}
+             AND created_at > now() - make_interval(secs => ${RETURN_DUPLICATE_WINDOW_SECONDS})
+        `);
+        if (
+          isRepeatedReturn(
+            planned,
+            recent.map((row) => ({
+              batch: row.batch,
+              variantId: row.variant_id,
+              quantity: Number(row.quantity),
+            })),
+          )
+        ) {
+          return {
+            number: sale.number,
+            currency: sale.currency,
+            creditCents: 0,
+            creditUsdCents: 0,
+            restockedCents: 0,
+            units: 0,
+            commissionReducedCents: 0,
+            commissionOverpaidCents: 0,
+            commissionUnmatchedGroups: 0,
+            reused: true as const,
+          };
+        }
+      }
+
       let creditCents = 0;
       let restockedCents = 0;
       let units = 0;
@@ -1287,7 +1577,7 @@ export const returnSaleItems = writeAction
         }
 
         const refund = returnedPortion(
-          item.unitPriceCents * item.quantity,
+          netTotals.get(item.id) ?? item.unitPriceCents * item.quantity,
           item.quantity,
           item.quantityReturned,
           line.quantity,
@@ -1357,7 +1647,17 @@ export const returnSaleItems = writeAction
         entityType: 'sale',
         entityId: sale.id,
         entityLabel: sale.number,
-        diff: { reason: { from: null, to: input.reason } },
+        diff: {
+          reason: { from: null, to: input.reason },
+          ...(commission.unmatchedGroups > 0
+            ? {
+                commission_review: {
+                  from: null,
+                  to: `${commission.unmatchedGroups} commission group(s) left unchanged: a product's category changed since the sale. Review them.`,
+                },
+              }
+            : {}),
+        },
       });
 
       return {
@@ -1369,6 +1669,8 @@ export const returnSaleItems = writeAction
         units,
         commissionReducedCents: commission.reducedCents,
         commissionOverpaidCents: commission.overpaidCents,
+        commissionUnmatchedGroups: commission.unmatchedGroups,
+        reused: false as const,
       };
     });
 
@@ -1411,6 +1713,7 @@ export const refundSale = writeAction
             amountCents: existing.amountCents,
             refundedCents,
             refundableCents: Math.max(0, (await paidOnSale(tx, sale.id)) - refundedCents),
+            walletWarning: null,
           };
         }
       }
@@ -1488,6 +1791,8 @@ export const refundSale = writeAction
         amountCents: input.amountCents,
         refundedCents: refundedCents + input.amountCents,
         refundableCents: refundableCents - input.amountCents,
+        // A warning, not a refusal: the money did leave. Null when the wallet still holds money.
+        walletWarning: await walletBelowZero(tx, walletId),
       };
     });
 

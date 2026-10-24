@@ -149,6 +149,12 @@ describe('ownerHeroCopy', () => {
     ).toBeNull();
   });
 
+  it('keeps owner copy that merely starts like a placeholder', () => {
+    expect(ownerHeroCopy('Welcome to our store in Paramaribo')).toBe(
+      'Welcome to our store in Paramaribo',
+    );
+  });
+
   it('keeps anything the owner actually wrote, exactly as typed', () => {
     expect(ownerHeroCopy('IEMs for stage and studio.')).toBe('IEMs for stage and studio.');
     expect(ownerHeroCopy(' Audio  uit Paramaribo ')).toBe('Audio uit Paramaribo');
