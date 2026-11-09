@@ -564,7 +564,7 @@ export function ProductForm({
             {values.variants.map((variant, index) => (
               <div
                 key={variant.key}
-                className="grid gap-2 p-4 sm:grid-cols-[1fr_1fr_110px_110px_100px_120px_32px]"
+                className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_110px_110px_100px_120px]"
               >
                 <Field
                   label="Option"
@@ -659,7 +659,7 @@ export function ProductForm({
                     }
                   />
                 </Field>
-                <label className="flex min-h-11 items-center gap-2 text-[12px] text-ink-3 sm:min-h-0 sm:items-end sm:pb-1 sm:text-[11px]">
+                <label className="flex min-h-11 items-center gap-2 whitespace-nowrap text-[12px] text-ink-3 sm:col-start-6 sm:row-start-2 sm:min-h-0 sm:items-end sm:pb-1 sm:text-[11px]">
                   <input
                     type="checkbox"
                     checked={variant.isStrategic}

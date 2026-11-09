@@ -110,6 +110,13 @@ test.describe('phone shell', () => {
     const sheet = page.getByRole('dialog', { name: 'Log an expense' });
     await expect(sheet).toBeVisible();
     const submit = sheet.getByRole('button', { name: 'Log expense' });
+    // The sheet slides in; measure only once it has stopped moving.
+    await expect
+      .poll(async () => {
+        const b = await submit.boundingBox();
+        return b ? Math.round(b.y + b.height) : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(PHONE.height);
     const box = await submit.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(47);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(PHONE.height);

@@ -91,6 +91,7 @@ export function MobileNavProvider({ children }: { children: ReactNode }) {
               <ThemeToggle layout="drawer" />
               <Link
                 href="/"
+                prefetch={false}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex h-11 items-center gap-2.5 rounded-control px-2.5 font-medium text-[13.5px] text-ink-2 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"

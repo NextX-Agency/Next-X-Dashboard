@@ -236,7 +236,7 @@ export async function prepareLegacyMedia(
   const secret = process.env.SUPABASE_SECRET_KEY;
   const stagingHost = process.env.NEXTX_STAGING_HOST?.trim().toLowerCase();
   if (!supabaseUrl || !secret) {
-    throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY for the isolated self-hosted Storage target.');
+    throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY for the isolated staging Storage target.');
   }
   const target = new URL(supabaseUrl);
   if (!stagingHost || target.hostname.toLowerCase() !== stagingHost) {
@@ -245,15 +245,17 @@ export async function prepareLegacyMedia(
   if (target.protocol !== 'https:') {
     throw new Error('The staging Storage endpoint must use HTTPS.');
   }
-  if (target.hostname.toLowerCase().endsWith('supabase.co')) {
-    throw new Error('Legacy media cannot be copied to Supabase Cloud; use the private self-hosted target.');
+  const hostingMode = process.env.NEXTLY_DATABASE_MODE === 'managed' ? 'managed' : 'self-hosted';
+  const isCloud = target.hostname.toLowerCase().endsWith('.supabase.co');
+  if ((hostingMode === 'managed') !== isCloud) {
+    throw new Error('Supabase Cloud Storage and NEXTLY_DATABASE_MODE must match the isolated staging target.');
   }
   if (!mediaPreparationReportPath) {
     throw new Error('Media writes require --media-preparation-report with staging prerequisites and a passing Storage smoke test.');
   }
   const { fingerprint } = await workingTreeFingerprint();
   const mediaPreparationReport = JSON.parse(await readFile(resolve(mediaPreparationReportPath), 'utf8')) as unknown;
-  assertMediaPreparationReport(mediaPreparationReport, fingerprint, stagingHost);
+  assertMediaPreparationReport(mediaPreparationReport, fingerprint, stagingHost, hostingMode);
   const urls = collectLegacyMediaUrls(raw);
   if (urls.length === 0) throw new Error('The source export contains no remote legacy media URLs.');
 
@@ -284,7 +286,7 @@ export async function prepareLegacyMedia(
   const absoluteOutputPath = resolve(outputPath);
   await mkdir(dirname(absoluteOutputPath), { recursive: true });
   await writeFile(absoluteOutputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  console.log(`Copied ${entries.length} legacy assets into self-hosted Storage.`);
+  console.log(`Copied ${entries.length} legacy assets into staging Storage.`);
   console.log(`Media map written: ${absoluteOutputPath}`);
   return entries.length;
 }

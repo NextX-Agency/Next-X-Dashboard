@@ -350,7 +350,7 @@ function SaleRow({
       <p className={cn('tabular font-bold text-[15px] text-ink', voided && 'line-through')}>
         {formatPos(sale.totalCents, sale.currency)}
       </p>
-      <div className="flex items-center">
+      <div className="flex flex-wrap items-center">
         <Button asChild variant="ghost" size="sm" className="h-11">
           <Link href={`/sales/${sale.id}` as never}>
             <ExternalLink aria-hidden="true" /> View

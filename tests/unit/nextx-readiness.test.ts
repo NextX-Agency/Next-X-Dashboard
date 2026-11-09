@@ -8,6 +8,8 @@ import {
 import {
   assertMediaPreparationReport,
   assertReadinessReport,
+  CLOUD_MEDIA_PREPARATION_REQUIRED_GATES,
+  CLOUD_READINESS_GATES,
   MEDIA_PREPARATION_REQUIRED_GATES,
   REQUIRED_READINESS_GATES,
 } from '../../scripts/migrate-nextx/readiness';
@@ -52,6 +54,27 @@ describe('NextX readiness report guard', () => {
     expect(() => assertReadinessReport(passingReport(), 'b'.repeat(64))).toThrow(
       /current working tree/,
     );
+  });
+
+  it('requires Cloud-specific gates for a managed destination', () => {
+    const report = {
+      ...passingReport(),
+      hostingMode: 'managed',
+      gates: Object.fromEntries(CLOUD_READINESS_GATES.map((gate) => [gate, 'PASS'])),
+    };
+    expect(assertReadinessReport(report, 'a'.repeat(64), 'managed').hostingMode).toBe(
+      'managed',
+    );
+    expect(() => assertReadinessReport(report, 'a'.repeat(64), 'self-hosted')).toThrow(
+      /hosting mode/,
+    );
+    expect(() =>
+      assertReadinessReport(
+        { ...report, gates: { ...report.gates, VERCEL_PREVIEW: 'PENDING' } },
+        'a'.repeat(64),
+        'managed',
+      ),
+    ).toThrow(/VERCEL_PREVIEW/);
   });
 });
 
@@ -125,6 +148,33 @@ describe('NextX staging media preparation report guard', () => {
         undefined,
       ),
     ).rejects.toThrow(/Supabase Cloud/);
+  });
+
+  it('requires a Cloud media report before touching Cloud Storage', async () => {
+    vi.stubEnv('NEXTLY_DATABASE_MODE', 'managed');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://project.supabase.co');
+    vi.stubEnv('SUPABASE_SECRET_KEY', 'server-only-test-secret');
+    vi.stubEnv('NEXTX_STAGING_HOST', 'project.supabase.co');
+    const report = {
+      ...mediaPreparationReport('a'.repeat(64), 'project.supabase.co'),
+      hostingMode: 'managed',
+      gates: Object.fromEntries(
+        CLOUD_MEDIA_PREPARATION_REQUIRED_GATES.map((gate) => [gate, 'PASS']),
+      ),
+    };
+    expect(
+      assertMediaPreparationReport(report, 'a'.repeat(64), 'project.supabase.co', 'managed')
+        .hostingMode,
+    ).toBe('managed');
+    await expect(
+      prepareLegacyMedia(
+        {},
+        'migration-reports/unused-media-map.json',
+        'staging',
+        'staging',
+        undefined,
+      ),
+    ).rejects.toThrow(/media-preparation-report/);
   });
 });
 

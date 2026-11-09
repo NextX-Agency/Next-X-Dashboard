@@ -34,7 +34,7 @@ export async function ExportCsvLink({
 
   return (
     <Button asChild variant="outline" size="md" className="max-sm:w-11 max-sm:px-0">
-      <Link href={`/api/export?${query.toString()}` as Route}>
+      <Link href={`/api/export?${query.toString()}` as Route} prefetch={false}>
         <Download aria-hidden="true" />
         <span className="max-sm:sr-only">Export CSV</span>
       </Link>

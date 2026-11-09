@@ -678,7 +678,11 @@ async function main(): Promise<void> {
       throw new Error('Migration writes require --readiness-report with every required gate set to PASS.');
     }
     const { fingerprint } = await workingTreeFingerprint();
-    assertReadinessReport(await readJson(resolve(readinessReportPath)), fingerprint);
+    assertReadinessReport(
+      await readJson(resolve(readinessReportPath)),
+      fingerprint,
+      process.env.NEXTLY_DATABASE_MODE === 'managed' ? 'managed' : 'self-hosted',
+    );
   }
   const client = await openDestination(flags);
   try {

@@ -16,6 +16,7 @@ export const metadata: Metadata = { title: 'Setup' };
 export default function SetupPage() {
   const databaseConfigured = isDatabaseConfigured();
   const environmentValid = isServerEnvironmentValid();
+  const managed = process.env.NEXTLY_DATABASE_MODE === 'managed';
   if (databaseConfigured && environmentValid) redirect('/dashboard');
 
   return (
@@ -32,14 +33,22 @@ export default function SetupPage() {
         <p className="mt-2 text-[13px] text-ink-3 leading-relaxed">
           {databaseConfigured
             ? 'The database settings are present but do not match the selected deployment mode.'
-            : 'Database connection settings are missing. Configure the private Supabase services before signing in.'}
+            : 'Database connection settings are missing. Configure Supabase before signing in.'}
         </p>
 
         <ol className="mt-6 space-y-4">
-          <Step index={1} title="Configure the self-hosted Supabase stack">
+          <Step
+            index={1}
+            title={
+              managed
+                ? 'Configure the Supabase project'
+                : 'Configure the self-hosted Supabase stack'
+            }
+          >
             <p>
-              In Coolify, confirm PostgreSQL, Auth, API and Storage are healthy. Keep database
-              and pooler ports private; only the API origin needs a public HTTPS route.
+              {managed
+                ? 'In Supabase, confirm PostgreSQL, Auth, API and Storage are healthy.'
+                : 'In Coolify, confirm PostgreSQL, Auth, API and Storage are healthy. Keep database and pooler ports private; only the API origin needs a public HTTPS route.'}
             </p>
           </Step>
 
@@ -54,27 +63,37 @@ export default function SetupPage() {
             <dl className="mt-1 space-y-1.5">
               <Pair
                 name="DATABASE_URL"
-                value="Private self-hosted transaction pooler"
-                why="Runtime connection over the Coolify network."
+                value={
+                  managed
+                    ? 'Supabase transaction pooler, port 6543'
+                    : 'Private self-hosted transaction pooler'
+                }
+                why={
+                  managed
+                    ? 'Runtime connection.'
+                    : 'Runtime connection over the Coolify network.'
+                }
               />
               <Pair
                 name="DIRECT_URL"
-                value="Private PostgreSQL service, port 5432"
+                value={
+                  managed
+                    ? 'Supabase session pooler, port 5432'
+                    : 'Private PostgreSQL service, port 5432'
+                }
                 why="Schema migrations and controlled import jobs."
               />
             </dl>
             <p className="mt-2 rounded-control border border-warning/40 bg-warning-muted px-2.5 py-2 text-[11px] text-ink-2 leading-relaxed">
-              Production requires{' '}
-              <span className="tabular">NEXTLY_DATABASE_MODE=self-hosted</span>, private VPS
-              database URLs and an HTTPS{' '}
-              <span className="tabular">NEXT_PUBLIC_SUPABASE_URL</span>. Managed Supabase URLs
-              are rejected by the production runtime.
+              Production requires matching <span className="tabular">NEXTLY_DATABASE_MODE</span>
+              , database URLs and an HTTPS{' '}
+              <span className="tabular">NEXT_PUBLIC_SUPABASE_URL</span>.
             </p>
           </Step>
 
           <Step index={3} title="Restart the app after setting its environment">
             <code className="tabular mt-1 inline-block rounded-control border border-line bg-inset px-2 py-1 text-[12px]">
-              Coolify redeploy
+              {managed ? 'Vercel redeploy' : 'Coolify redeploy'}
             </code>
             <p className="mt-1">
               For local development, use <span className="tabular">pnpm dev</span> after

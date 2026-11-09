@@ -703,6 +703,24 @@ export const createFxRate = ownerAction
         .where(and(eq(fxRates.base, 'USD'), eq(fxRates.quote, 'SRD')))
         .orderBy(desc(fxRates.effectiveFrom))
         .limit(1);
+      // One rate per day: the series is insert-only, so say so instead of surfacing the
+      // generic "already exists, check the code or number" unique-violation message.
+      const [sameDay] = await tx
+        .select({ id: fxRates.id })
+        .from(fxRates)
+        .where(
+          and(
+            eq(fxRates.base, 'USD'),
+            eq(fxRates.quote, 'SRD'),
+            eq(fxRates.effectiveFrom, input.effectiveFrom),
+          ),
+        )
+        .limit(1);
+      if (sameDay) {
+        throw new ActionError(
+          'A rate is already recorded for that date. Rates are a dated series and are never edited: pick a later effective date for the new rate.',
+        );
+      }
       const assessment = assessRateChange(current?.rateMicros, input.rate);
       if (assessment.status === 'implausible') throw new ActionError(assessment.message);
       if (assessment.status === 'large-change' && !input.confirmLargeChange) {

@@ -22,6 +22,7 @@ import { PosTodayCard } from '@/components/pos/today-card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
+import { formatDate } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
 import { isPeriodPreset, type PeriodPreset } from '@/lib/report-period';
 import {
@@ -294,12 +295,7 @@ async function RateNote() {
     <span>
       USD base ·{' '}
       <span className="tabular text-ink-3">1 USD = {formatRate(rate.rateMicros, 2)} SRD</span>{' '}
-      since{' '}
-      {rate.effectiveFrom.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })}
+      since {formatDate(rate.effectiveFrom)}
     </span>
   );
 }

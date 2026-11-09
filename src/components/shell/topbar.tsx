@@ -51,7 +51,7 @@ export function Topbar({
       </div>
 
       <Button asChild variant="ghost" size="sm" className="max-sm:hidden">
-        <Link href="/" target="_blank" rel="noopener noreferrer">
+        <Link href="/" prefetch={false} target="_blank" rel="noopener noreferrer">
           <Store className="size-4" /> <span className="hidden sm:inline">View shop</span>
         </Link>
       </Button>
@@ -88,7 +88,7 @@ export function Topbar({
         </Label>
         <Separator />
         <Item asChild className="sm:hidden">
-          <Link href="/" target="_blank" rel="noopener noreferrer">
+          <Link href="/" prefetch={false} target="_blank" rel="noopener noreferrer">
             <Store className="size-4 text-ink-4" /> View shop
           </Link>
         </Item>

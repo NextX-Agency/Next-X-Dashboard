@@ -430,7 +430,8 @@ async function main(): Promise<void> {
     check('storefront exposure', [
       { slug: 'audio', products: 1, locations: 1 },
       { slug: 'main', products: 0, locations: 2 },
-      { slug: 'watches', products: 1, locations: 2 },
+      // Watches are retired from the shop (the importer inserts them hidden; their URLs answer 410).
+      { slug: 'watches', products: 0, locations: 2 },
     ], storefrontRows.map((row) => ({ slug: text(row.slug), products: Number(row.products), locations: Number(row.locations) })));
 
     const duplicateSourceRows = await sql.unsafe(

@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Environment access.
  *
  * Validation is lazy and memoised rather than run at module load. Production
- * builds and runtime reject managed Supabase endpoints, while server-only
+ * endpoints must match the explicitly selected database mode, while server-only
  * secrets are checked when a request genuinely needs them.
  */
 
@@ -59,7 +59,14 @@ function isSelfHostedSupabaseUrl(value: string): boolean {
 }
 
 export function isSupabaseUrlAllowed(value: string): boolean {
-  return !requiresSelfHostedProduction() || isSelfHostedSupabaseUrl(value);
+  if (!requiresSelfHostedProduction()) return true;
+  if (process.env.NEXTLY_DATABASE_MODE === 'self-hosted') return isSelfHostedSupabaseUrl(value);
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname.toLowerCase().endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
 }
 
 export function isPublicAppUrlAllowed(value: string): boolean {
@@ -73,7 +80,9 @@ export function isPublicAppUrlAllowed(value: string): boolean {
 
 function allowsDatabaseUrl(value: string, port: string): boolean {
   if (requiresSelfHostedProduction()) {
-    return process.env.NEXTLY_DATABASE_MODE === 'self-hosted' && isSelfHostedPostgresUrl(value);
+    return process.env.NEXTLY_DATABASE_MODE === 'self-hosted'
+      ? isSelfHostedPostgresUrl(value)
+      : isManagedPooler(value, port);
   }
   if (isLocalRehearsalConnection(value) || isManagedPooler(value, port)) return true;
   return process.env.NEXTLY_DATABASE_MODE === 'self-hosted' && isPostgresUrl(value);
@@ -100,7 +109,7 @@ const databaseUrlSchema = z
   .url('DATABASE_URL must be a PostgreSQL connection URL')
   .refine(
     (value) => allowsDatabaseUrl(value, '6543'),
-    'DATABASE_URL must use the self-hosted private pooler in production; managed poolers are allowed only outside production',
+    'DATABASE_URL must match the selected deployment mode and use the transaction pooler (port 6543) for Supabase Cloud',
   );
 
 const directUrlSchema = z
@@ -108,7 +117,7 @@ const directUrlSchema = z
   .url('DIRECT_URL must be a PostgreSQL connection URL')
   .refine(
     (value) => allowsDatabaseUrl(value, '5432'),
-    'DIRECT_URL must use the self-hosted private PostgreSQL service in production; managed URLs are allowed only outside production',
+    'DIRECT_URL must match the selected deployment mode and use the session pooler (port 5432) for Supabase Cloud',
   );
 
 const serverSchema = z.object({
@@ -127,7 +136,7 @@ const publicSchema = z.object({
     .url()
     .refine(
       isSupabaseUrlAllowed,
-      'Production must use the API/Auth/Storage URL of the self-hosted Supabase stack, not Supabase Cloud.',
+      'Production Supabase URL must match NEXTLY_DATABASE_MODE and use HTTPS.',
     ),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z

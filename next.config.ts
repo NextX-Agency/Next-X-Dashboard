@@ -126,7 +126,7 @@ const nextConfig: NextConfig = {
   },
 
   images: {
-    // Only self-hosted Storage is allowed for public catalog media.
+    // Only the configured Supabase Storage origin is allowed for public catalog media.
     // `images.domains` is deprecated in Next 16.
     remotePatterns: supabaseStorageImagePattern(),
     // WebP only. AVIF encodes several times slower than WebP in sharp; on a shared VPS (the
@@ -173,13 +173,13 @@ function assertProductionBuildEnvironment(): void {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!supabaseUrl || !isSupabaseUrlAllowed(supabaseUrl)) {
     throw new Error(
-      'Production images must be built with the HTTPS API/Auth/Storage URL of the self-hosted Supabase stack.',
+      'Production images must be built with the HTTPS API/Auth/Storage URL matching NEXTLY_DATABASE_MODE.',
     );
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()) {
     throw new Error(
-      'Production image builds require the self-hosted Supabase publishable key.',
+      'Production image builds require the Supabase publishable key.',
     );
   }
 

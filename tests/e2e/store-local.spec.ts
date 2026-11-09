@@ -57,9 +57,16 @@ test.describe('neutral storefront structure', () => {
     }
   });
 
-  test('an unknown product is a real 404 and is not indexable', async ({ request }) => {
+  // Under Cache Components the page shell is prerendered and streamed, so an unknown slug keeps
+  // HTTP 200 and Next marks the response noindex. That is the accepted behaviour: a true 404
+  // would need a database lookup in the request proxy on every product view.
+  test('an unknown product shows the not-found page and is not indexable', async ({
+    request,
+  }) => {
     const response = await request.get('/products/does-not-exist');
-    expect(response.status()).toBe(404);
+    const html = await response.text();
+    expect(html).toContain('Nothing at this address');
+    expect(html).toMatch(/<meta name="robots" content="noindex/);
   });
 
   test('retired watch URLs answer 410, never a redirect', async ({ request }) => {

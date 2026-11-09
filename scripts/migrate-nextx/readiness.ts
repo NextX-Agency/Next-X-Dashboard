@@ -16,12 +16,20 @@ export const REQUIRED_READINESS_GATES = [
   'TESTS',
 ] as const;
 
+export const CLOUD_READINESS_GATES = [
+  'FEATURE_PARITY', 'SUPABASE_CLOUD', 'VERCEL_PREVIEW', 'SUPABASE_RUNTIME', 'RLS',
+  'MEDIA', 'BACKUP_RESTORE', 'MIGRATION_DRY_RUN', 'RECONCILIATION', 'TESTS',
+] as const;
+
+export type HostingMode = 'managed' | 'self-hosted';
+
 export type ReadinessGate = (typeof REQUIRED_READINESS_GATES)[number];
 
 export type ReadinessReport = {
   generatedAt: string;
   workingTreeFingerprint: string;
-  gates: Record<ReadinessGate, 'PASS'>;
+  hostingMode?: HostingMode;
+  gates: Record<string, 'PASS'>;
 };
 
 export const MEDIA_PREPARATION_REQUIRED_GATES = [
@@ -31,14 +39,19 @@ export const MEDIA_PREPARATION_REQUIRED_GATES = [
   'RLS',
 ] as const satisfies readonly ReadinessGate[];
 
+export const CLOUD_MEDIA_PREPARATION_REQUIRED_GATES = [
+  'SUPABASE_CLOUD', 'SUPABASE_RUNTIME', 'RLS',
+] as const;
+
 export type MediaPreparationReadinessReport = {
   phase: 'MEDIA_PREPARATION';
   generatedAt: string;
   workingTreeFingerprint: string;
   targetEnvironment: 'staging';
   stagingHost: string;
+  hostingMode?: HostingMode;
   storageSmokeTest: 'PASS';
-  gates: Partial<Record<(typeof MEDIA_PREPARATION_REQUIRED_GATES)[number], 'PASS'>>;
+  gates: Record<string, 'PASS'>;
 };
 
 function gitOutput(root: string, args: string[]): Buffer {
@@ -87,7 +100,7 @@ export async function workingTreeFingerprint(cwd = process.cwd()): Promise<{ hea
   return { head, fingerprint: hash.digest('hex') };
 }
 
-export function assertReadinessReport(raw: unknown, currentFingerprint: string): ReadinessReport {
+export function assertReadinessReport(raw: unknown, currentFingerprint: string, hostingMode: HostingMode = 'self-hosted'): ReadinessReport {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('The readiness report must be a JSON object.');
   }
@@ -98,11 +111,15 @@ export function assertReadinessReport(raw: unknown, currentFingerprint: string):
   if (report.workingTreeFingerprint !== currentFingerprint) {
     throw new Error('The readiness report does not match the current working tree; rerun the required gates.');
   }
+  if ((report.hostingMode ?? 'self-hosted') !== hostingMode) {
+    throw new Error('The readiness report does not match the selected hosting mode.');
+  }
   if (!report.gates || typeof report.gates !== 'object' || Array.isArray(report.gates)) {
     throw new Error('The readiness report must include a gates object.');
   }
   const gates = report.gates as Record<string, unknown>;
-  const failed = REQUIRED_READINESS_GATES.filter((gate) => gates[gate] !== 'PASS');
+  const required = hostingMode === 'managed' ? CLOUD_READINESS_GATES : REQUIRED_READINESS_GATES;
+  const failed = required.filter((gate) => gates[gate] !== 'PASS');
   if (failed.length > 0) {
     throw new Error(`Media writes are blocked until every readiness gate is PASS: ${failed.join(', ')}.`);
   }
@@ -113,6 +130,7 @@ export function assertMediaPreparationReport(
   raw: unknown,
   currentFingerprint: string,
   expectedStagingHost: string,
+  hostingMode: HostingMode = 'self-hosted',
 ): MediaPreparationReadinessReport {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error('The media preparation report must be a JSON object.');
@@ -130,6 +148,9 @@ export function assertMediaPreparationReport(
   if (report.targetEnvironment !== 'staging') {
     throw new Error('Media preparation reports must be explicitly limited to staging.');
   }
+  if ((report.hostingMode ?? 'self-hosted') !== hostingMode) {
+    throw new Error('The media preparation report does not match the selected hosting mode.');
+  }
   if (
     typeof report.stagingHost !== 'string' ||
     report.stagingHost.trim().toLowerCase() !== expectedStagingHost.trim().toLowerCase()
@@ -143,7 +164,10 @@ export function assertMediaPreparationReport(
     throw new Error('The media preparation report must include a gates object.');
   }
   const gates = report.gates as Record<string, unknown>;
-  const failed = MEDIA_PREPARATION_REQUIRED_GATES.filter((gate) => gates[gate] !== 'PASS');
+  const required = hostingMode === 'managed'
+    ? CLOUD_MEDIA_PREPARATION_REQUIRED_GATES
+    : MEDIA_PREPARATION_REQUIRED_GATES;
+  const failed = required.filter((gate) => gates[gate] !== 'PASS');
   if (failed.length > 0) {
     throw new Error(`Media preparation is blocked until its staging prerequisites pass: ${failed.join(', ')}.`);
   }

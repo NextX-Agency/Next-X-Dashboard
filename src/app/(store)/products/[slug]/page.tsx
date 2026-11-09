@@ -54,8 +54,9 @@ function metaDescription(product: CatalogProduct): string | undefined {
   return text ?? undefined;
 }
 
-// The product is read before anything is sent, not behind a Suspense boundary, so an
-// unknown slug answers a real HTTP 404 instead of a streamed 200 with a not-found body.
+// Opts this segment out of instant-navigation validation (dev-time only). It does not change
+// the HTTP status: under Cache Components an unknown slug streams the not-found page with
+// HTTP 200 and a noindex robots tag.
 export const instant = false;
 
 /** Stock per pickup location for each variant. Empty lists when pickup is off. */

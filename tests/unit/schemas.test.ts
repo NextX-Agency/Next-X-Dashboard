@@ -105,9 +105,10 @@ describe('runtime environment validation', () => {
     expect(isMigrationEnvironmentValid()).toBe(true);
   });
 
-  it('requires VPS-hosted database and API endpoints in production builds and runtime', () => {
+  it('requires database and API endpoints to match the selected production mode', () => {
     Reflect.set(process.env, 'NODE_ENV', 'production');
     process.env.NEXT_PHASE = 'phase-production-build';
+    process.env.NEXTLY_DATABASE_MODE = 'self-hosted';
     expect(isSupabaseUrlAllowed('https://project.supabase.co')).toBe(false);
     expect(isSupabaseUrlAllowed('https://supabase.internal.example')).toBe(true);
     expect(isPublicAppUrlAllowed('http://nextx.example')).toBe(false);
@@ -117,11 +118,12 @@ describe('runtime environment validation', () => {
     process.env.DATABASE_URL =
       'postgresql://postgres.example:password@aws-1-us-east-1.pooler.supabase.com:6543/postgres';
     process.env.DIRECT_URL =
-      'postgresql://postgres:password@db.example.supabase.co:5432/postgres';
+      'postgresql://postgres.example:password@aws-1-us-east-1.pooler.supabase.com:5432/postgres';
 
-    expect(isServerEnvironmentValid()).toBe(false);
-    expect(isMigrationEnvironmentValid()).toBe(false);
-    expect(isSupabaseUrlAllowed('https://project.supabase.co')).toBe(false);
+    expect(isServerEnvironmentValid()).toBe(true);
+    expect(isMigrationEnvironmentValid()).toBe(true);
+    expect(isSupabaseUrlAllowed('https://project.supabase.co')).toBe(true);
+    expect(isSupabaseUrlAllowed('https://supabase.internal.example')).toBe(false);
     expect(isSupabaseUrlAllowed('http://supabase.internal.example')).toBe(false);
     expect(isPublicAppUrlAllowed('http://nextx.example')).toBe(false);
 

@@ -5,6 +5,7 @@ type Rule = { source: string; headers: { key: string; value: string }[] };
 async function loadConfig(nodeEnv: 'production' | 'development') {
   vi.resetModules();
   vi.stubEnv('NODE_ENV', nodeEnv);
+  vi.stubEnv('NEXTLY_DATABASE_MODE', 'self-hosted');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://api.example.com');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'test-only-key');
   vi.stubEnv('NEXT_PUBLIC_APP_URL', 'https://shop.example.com');
