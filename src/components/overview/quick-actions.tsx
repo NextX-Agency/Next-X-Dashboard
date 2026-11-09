@@ -20,7 +20,7 @@ const ACTIONS = [
   {
     href: '/inventory/count' as Route,
     title: 'Count stock',
-    hint: 'Shelf count, fix differences',
+    hint: 'Count and reconcile',
     Icon: ClipboardCheck,
   },
   {
