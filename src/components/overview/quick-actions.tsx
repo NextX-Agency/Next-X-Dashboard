@@ -1,4 +1,4 @@
-import { Boxes, ClipboardList, Package, Plus, Receipt } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, Coins, Package, Plus, Receipt } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
@@ -17,18 +17,32 @@ const ACTIONS = [
     hint: 'Dates, deposits, drafts',
     Icon: Receipt,
   },
-  { href: '/inventory', title: 'Adjust stock', hint: 'Count, receive, write off', Icon: Boxes },
+  {
+    href: '/inventory/count' as Route,
+    title: 'Count stock',
+    hint: 'Shelf count, fix differences',
+    Icon: ClipboardCheck,
+  },
+  {
+    // Opens the "Log expense" sheet straight away (see lib/use-url-sheet.ts).
+    href: '/expenses?new=1' as Route,
+    title: 'Log expense',
+    hint: 'Money that went out',
+    Icon: Coins,
+  },
   { href: '/orders', title: 'Orders', hint: 'Confirm, collect, fulfil', Icon: ClipboardList },
   { href: '/items', title: 'Products', hint: 'Find, edit, publish', Icon: Package },
 ] as const;
 
 /**
- * The four jobs staff do every day, one click from Home. The first is the primary action and is the
- * only filled tile; the rest are quiet. Nothing here is decoration: each tile is a plain link.
+ * The jobs staff do every day, one click from Home, each landing on the form itself rather than a
+ * list where possible. The first is the primary action and is the only filled tile; the rest are
+ * quiet. Nothing here is decoration: each tile is a plain link. Seven tiles would orphan one, so
+ * there are six: 2 x 3 on a phone, 3 x 2 on a tablet, one row on a wide screen.
  */
 export function QuickActions() {
   return (
-    <ul className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
       {ACTIONS.map(({ href, title, hint, Icon, ...rest }) => {
         const primary = 'primary' in rest;
         return (
