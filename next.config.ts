@@ -32,7 +32,8 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
+  // Vercel traces functions itself; standalone output is for the Docker deployment.
+  output: process.env.VERCEL ? undefined : 'standalone',
   // The framework's own `X-Powered-By: Next.js` header tells scanners what to aim at.
   poweredByHeader: false,
   // gzip of HTML/RSC/JSON is on by default; stated so nobody turns it off, and so it is
@@ -178,9 +179,7 @@ function assertProductionBuildEnvironment(): void {
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim()) {
-    throw new Error(
-      'Production image builds require the Supabase publishable key.',
-    );
+    throw new Error('Production image builds require the Supabase publishable key.');
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
