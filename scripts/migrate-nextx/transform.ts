@@ -1272,7 +1272,8 @@ function storefrontRecords(
     const sellsInSrd = [...productIds].some(([legacyItemId]) => {
       const item = snapshot.items.find((candidate) => rowId(candidate) === legacyItemId);
       const itemType = catalogType(item ? firstDefined(item, 'catalogType', 'catalog_type', 'type') : 'main');
-      return itemType === type && srdPricedVariants.has(builder.id('product_variants', legacyItemId));
+      return (itemType === type || (type === 'main' && itemType === 'audio'))
+        && srdPricedVariants.has(builder.id('product_variants', legacyItemId));
     });
     const currency = sellsInSrd ? 'SRD' : 'USD';
     const priceListId = builder.id('price_lists', currency);
@@ -1306,12 +1307,14 @@ function storefrontRecords(
     for (const [legacyItemId, productId] of productIds) {
       const item = snapshot.items.find((candidate) => rowId(candidate) === legacyItemId);
       const itemType = catalogType(item ? firstDefined(item, 'catalogType', 'catalog_type', 'type') : 'main');
-      if (itemType !== type && !(type === 'main' && itemType === 'main')) continue;
+      // The main shop is the canonical public host. It carries the active audio
+      // catalog as well as any general products; retired watches remain hidden.
+      if (itemType !== type && !(type === 'main' && itemType === 'audio')) continue;
       builder.op('storefront_products', { id: builder.id('storefront_products', `${type}:${legacyItemId}`), storefront_id: id, product_id: productId, visible: type !== 'watches', sort_order: 0, featured: false }, 'reference', 'items', legacyItemId, 'DERIVE');
     }
     for (const [legacyLocationId, locationId] of locations) {
       const locationType = locationTypes.get(legacyLocationId) ?? 'main';
-      if (locationType !== 'main' && locationType !== type) continue;
+      if (locationType !== 'main' && locationType !== type && !(type === 'main' && locationType === 'audio')) continue;
       builder.op('storefront_locations', { storefront_id: id, location_id: locationId, active: true, priority: 0 }, 'reference', 'locations', legacyLocationId, 'DERIVE', ['storefront_id', 'location_id']);
     }
   }

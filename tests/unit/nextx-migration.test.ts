@@ -1651,6 +1651,9 @@ describe('NextX migration planner', () => {
     const audio = plan.operations.find(
       (operation) => operation.table === 'storefronts' && operation.values.slug === 'audio',
     );
+    const main = plan.operations.find(
+      (operation) => operation.table === 'storefronts' && operation.values.slug === 'main',
+    );
     const watches = plan.operations.find(
       (operation) => operation.table === 'storefronts' && operation.values.slug === 'watches',
     );
@@ -1684,6 +1687,19 @@ describe('NextX migration planner', () => {
     expect(srdList).toBeDefined();
     expect(audio?.values.default_currency).toBe('SRD');
     expect(audio?.values.default_price_list_id).toBe(srdList?.values.id);
+    expect(main?.values.default_currency).toBe('SRD');
+    const audioProduct = plan.operations.find(
+      (operation) => operation.table === 'products' && operation.sourceId === 'item-audio-1',
+    );
+    expect(
+      plan.operations.some(
+        (operation) =>
+          operation.table === 'storefront_products' &&
+          operation.values.storefront_id === main?.values.id &&
+          operation.values.product_id === audioProduct?.values.id &&
+          operation.values.visible === true,
+      ),
+    ).toBe(true);
     expect(
       plan.operations
         .filter(
