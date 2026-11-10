@@ -1,6 +1,7 @@
 import type { Route } from 'next';
 import Link from 'next/link';
 import { connection } from 'next/server';
+import { UncostedNote } from '@/components/reports/uncosted-note';
 import { cn } from '@/lib/cn';
 import { formatCompact, formatMoney } from '@/lib/money';
 import { type PeriodPreset, periodRange } from '@/lib/report-period';
@@ -29,9 +30,15 @@ type Step = {
 export async function MarginWaterfall({ preset = 'all' }: { preset?: PeriodPreset }) {
   // The period is measured from "now", which is request-time data: say so before reading the clock.
   await connection();
-  const { revenueCents, cogsCents, grossCents, expensesCents, netCents } = await getWaterfall(
-    periodRange(preset),
-  );
+  const {
+    revenueCents,
+    cogsCents,
+    grossCents,
+    expensesCents,
+    netCents,
+    uncostedSales,
+    uncostedRevenueCents,
+  } = await getWaterfall(periodRange(preset));
 
   const steps: Step[] = [
     { label: 'Revenue', delta: revenueCents, value: revenueCents, kind: 'positive' },
@@ -118,6 +125,11 @@ export async function MarginWaterfall({ preset = 'all' }: { preset?: PeriodPrese
           tone={netCents >= 0 ? 'positive' : 'negative'}
         />
       </dl>
+      <UncostedNote
+        sales={uncostedSales}
+        revenueCents={uncostedRevenueCents}
+        className="mt-3"
+      />
     </div>
   );
 }
