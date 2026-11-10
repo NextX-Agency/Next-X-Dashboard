@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { AlertsSection } from '@/components/overview/alerts-panel';
-import { CashFlowChart } from '@/components/overview/cash-flow-chart';
+import { LazyCashFlowChart } from '@/components/overview/cash-flow-chart-lazy';
 import { ImportPipeline } from '@/components/overview/import-pipeline';
 import { InventoryDecisions } from '@/components/overview/inventory-decisions';
 import { InventoryHealth } from '@/components/overview/inventory-health';
@@ -259,7 +259,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
 
 async function CashFlow() {
   const data = await getCashFlow(12);
-  return <CashFlowChart data={data} />;
+  return <LazyCashFlowChart data={data} />;
 }
 
 async function ImportPipelineBlock() {
