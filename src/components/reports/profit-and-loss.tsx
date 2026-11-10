@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import Link from 'next/link';
+import { UncostedNote } from '@/components/reports/uncosted-note';
 import { Money, Percent } from '@/components/ui/money';
 import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { cn } from '@/lib/cn';
@@ -84,6 +85,12 @@ export async function ProfitAndLossReport({ preset }: { preset: PeriodPreset }) 
             strong
           />
         </dl>
+
+        <UncostedNote
+          sales={report.uncostedSales}
+          revenueCents={report.uncostedRevenueCents}
+          className="mt-3"
+        />
 
         {report.expensesByCategory.length > 0 ? (
           <div className="mt-4 border-line-subtle border-t pt-3">

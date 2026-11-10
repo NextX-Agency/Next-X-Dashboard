@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { cn } from '@/lib/cn';
+import { isGroupOpen, type NavToggles, revealCurrentGroup } from '@/lib/nav-toggle';
 import { activeNavGroup, activeNavItem, NAVIGATION } from '@/lib/navigation';
 import { Wordmark } from './wordmark';
 
@@ -13,7 +14,8 @@ import { Wordmark } from './wordmark';
  *
  * The earlier flat list showed 27 links at once, all at the same volume. Here a screen shows the group
  * names and one open group, so the page you need is a glance away. A group you open by hand stays open
- * until you close it. The current page is a solid pill, the only filled element in the rail.
+ * until you close it; after navigating, the group holding the new page always opens, even if it was
+ * closed by hand earlier. The current page is a solid pill, the only filled element in the rail.
  */
 export function Sidebar({
   className,
@@ -32,7 +34,15 @@ export function Sidebar({
   const currentGroup = activeNavGroup(pathname)?.id;
   const currentItem = activeNavItem(pathname);
   // Groups the user has toggled by hand; anything absent follows the current page.
-  const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const [toggled, setToggled] = useState<NavToggles>({});
+  // On a route change, forget a manual "closed" on the destination's group (derived-state update
+  // during render, so the active link is visible on the very first paint).
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    const next = revealCurrentGroup(toggled, currentGroup);
+    if (next !== toggled) setToggled(next);
+  }
 
   return (
     <nav
@@ -56,7 +66,7 @@ export function Sidebar({
       <ul className="flex flex-col gap-0.5">
         {NAVIGATION.map((group) => {
           const single = group.items.length === 1;
-          const open = toggled[group.id] ?? group.id === currentGroup;
+          const open = isGroupOpen(toggled, group.id, currentGroup);
           const GroupIcon = group.Icon;
 
           if (single) {

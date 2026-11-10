@@ -192,6 +192,10 @@ export function CommandPalette() {
       }
     }, DEBOUNCE_MS);
     return () => {
+      // Retire this generation whenever the term changes, is cleared or the palette closes.
+      // The serial-number lookup is a server action and cannot be aborted, so without this a
+      // late answer for an old term could land after the field was emptied.
+      seq.current += 1;
       window.clearTimeout(timer);
       controller.abort();
     };

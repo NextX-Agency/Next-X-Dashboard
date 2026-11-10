@@ -129,6 +129,8 @@ export type Waterfall = {
   grossCents: Cents;
   expensesCents: Cents;
   netCents: Cents;
+  uncostedSales: number;
+  uncostedRevenueCents: Cents;
 };
 
 /**
@@ -140,7 +142,15 @@ export type Waterfall = {
  */
 export async function getWaterfall({ from, to }: { from: Date; to: Date }): Promise<Waterfall> {
   if (!isDatabaseConfigured())
-    return { revenueCents: 0, cogsCents: 0, grossCents: 0, expensesCents: 0, netCents: 0 };
+    return {
+      revenueCents: 0,
+      cogsCents: 0,
+      grossCents: 0,
+      expensesCents: 0,
+      netCents: 0,
+      uncostedSales: 0,
+      uncostedRevenueCents: 0,
+    };
 
   // Delegated, not copied: this used to carry its own SQL and counted every non-voided expense
   // (stock purchases and owner draws included), so the Overview and the P&L report disagreed

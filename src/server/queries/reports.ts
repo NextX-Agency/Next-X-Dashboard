@@ -9,6 +9,7 @@ import { productImageSql } from './image-sql';
 import { getLiveRate } from './overview';
 import { listRates } from './reference';
 import { num, text } from './row';
+import { saleCostSql, uncostedSalePredicate } from './sale-cost';
 
 /**
  * The `isDatabaseConfigured()` guard on each function below is a SETUP
@@ -25,6 +26,10 @@ export type ProfitAndLossTotals = {
   grossCents: Cents;
   expensesCents: Cents;
   netCents: Cents;
+  /** Confirmed sales in the window with revenue but no recorded cost: their profit is unknown, and
+   *  `grossCents` counts all of their revenue as profit. Zero means the figure is fully costed. */
+  uncostedSales: number;
+  uncostedRevenueCents: Cents;
 };
 
 export type ProfitAndLoss = ProfitAndLossTotals & {
@@ -106,6 +111,8 @@ export async function pnlTotals(from: Date, to: Date): Promise<ProfitAndLossTota
     expenses: string;
     refunds: string;
     restocked: string;
+    uncosted_sales: string;
+    uncosted_revenue: string;
   }>(sql`
     SELECT
       COALESCE((
@@ -113,9 +120,19 @@ export async function pnlTotals(from: Date, to: Date): Promise<ProfitAndLossTota
          WHERE status = 'confirmed' AND sold_at >= ${fromIso} AND sold_at < ${toIso}
       ), 0)::text AS revenue,
       COALESCE((
-        SELECT SUM(cogs_cents) FROM sales
-         WHERE status = 'confirmed' AND sold_at >= ${fromIso} AND sold_at < ${toIso}
+        SELECT SUM(${saleCostSql('s')}) FROM sales s
+         WHERE s.status = 'confirmed' AND s.sold_at >= ${fromIso} AND s.sold_at < ${toIso}
       ), 0)::text AS cogs,
+      (
+        SELECT COUNT(*) FROM sales s
+         WHERE s.status = 'confirmed' AND s.sold_at >= ${fromIso} AND s.sold_at < ${toIso}
+           AND ${uncostedSalePredicate('s')}
+      )::text AS uncosted_sales,
+      COALESCE((
+        SELECT SUM(s.total_usd_cents) FROM sales s
+         WHERE s.status = 'confirmed' AND s.sold_at >= ${fromIso} AND s.sold_at < ${toIso}
+           AND ${uncostedSalePredicate('s')}
+      ), 0)::text AS uncosted_revenue,
       COALESCE((
         SELECT SUM(e.amount_usd_cents) FROM expenses e
         LEFT JOIN expense_categories c ON c.id = e.category_id
@@ -149,6 +166,8 @@ export async function pnlTotals(from: Date, to: Date): Promise<ProfitAndLossTota
     grossCents,
     expensesCents,
     netCents: grossCents - expensesCents,
+    uncostedSales: num(row?.uncosted_sales),
+    uncostedRevenueCents: num(row?.uncosted_revenue),
   };
 }
 
@@ -165,6 +184,8 @@ export async function getProfitAndLoss({
     grossCents: 0,
     expensesCents: 0,
     netCents: 0,
+    uncostedSales: 0,
+    uncostedRevenueCents: 0,
   };
   if (!isDatabaseConfigured()) {
     return { ...zero, expensesByCategory: [], previous: zero };

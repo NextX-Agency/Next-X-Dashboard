@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Item, Label, Menu, Separator } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/cn';
-import { createClient } from '@/lib/supabase/client';
 import { CommandPalette } from './command-palette';
 import { MenuButton } from './mobile-nav';
 import { NotificationBell, type NotificationBellItem } from './notification-bell';
@@ -99,6 +98,8 @@ export function Topbar({
         </Item>
         <Item
           onSelect={async () => {
+            // Loaded on demand: the browser auth client is only needed here, not on every page.
+            const { createClient } = await import('@/lib/supabase/client');
             await createClient().auth.signOut();
             router.replace('/login');
             router.refresh();

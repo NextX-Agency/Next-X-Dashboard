@@ -24,6 +24,7 @@ import { productImageSql, variantImageSql } from './image-sql';
 import { clampPage, clampPerPage, type Page, toPage } from './paginate';
 import { PRODUCT_ECON_CTE } from './product-econ';
 import { bool, maybe, num, text } from './row';
+import { saleCostSql } from './sale-cost';
 
 /**
  * The `isDatabaseConfigured()` guard on each function below is a SETUP state,
@@ -903,7 +904,12 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
     SELECT
       s.id, s.number, s.sold_at::text, s.status::text, s.currency::text,
       s.total_cents::text,
-      s.total_usd_cents::text, s.cogs_cents::text, s.gross_profit_cents::text,
+      s.total_usd_cents::text,
+      -- Imported sales carry their cost on the lines only; see queries/sale-cost.ts.
+      (CASE WHEN s.status = 'confirmed' THEN ${saleCostSql('s')} ELSE s.cogs_cents END)::text
+        AS cogs_cents,
+      (CASE WHEN s.status = 'confirmed' THEN s.total_usd_cents - ${saleCostSql('s')}
+            ELSE s.gross_profit_cents END)::text AS gross_profit_cents,
       s.payment_method::text, c.name AS customer_name,
       s.needs_review::text AS needs_review, s.review_reason,
       (SELECT COUNT(*) FROM sale_items i WHERE i.sale_id = s.id)::text AS item_count,
