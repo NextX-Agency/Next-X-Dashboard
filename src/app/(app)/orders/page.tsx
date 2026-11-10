@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/table';
 import { formatDate, humanise } from '@/lib/format';
 import { orderQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
+import { statusFilterOptions } from '@/lib/status-filter';
 import { listOrders } from '@/server/queries/lists';
 import { listCustomerOptions } from '@/server/queries/pickers';
 
@@ -52,10 +53,7 @@ const STATUS_TONE = {
   completed: 'positive',
   cancelled: 'negative',
 } as const;
-const STATUS_OPTIONS = Object.entries(STATUS_TONE).map(([value, label]) => ({
-  value,
-  label: humanise(label),
-}));
+const STATUS_OPTIONS = statusFilterOptions(STATUS_TONE);
 
 export default function OrdersPage({
   searchParams,
