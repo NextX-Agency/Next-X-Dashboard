@@ -143,7 +143,8 @@ test('overselling is allowed by design and is flagged afterwards (ADR 0003)', as
   await expect(page).toHaveURL(/\/sales$/, { timeout: 20_000 });
   expect(await available(page)).toBe(-1);
   await page.goto('/dashboard', { waitUntil: 'networkidle' });
-  await expect(page.getByText(/below zero stock/)).toBeVisible();
+  // The same alert is also summarised in the notification bell, so name the one in the list.
+  await expect(page.getByRole('link', { name: /below zero stock/ }).first()).toBeVisible();
 });
 
 test('log an expense: it needs a classification, then appears in the list and the ledger', async ({
@@ -209,8 +210,12 @@ test('create a product with two options; a taken SKU is refused by name; both op
     await page.locator('#vsku-0').fill(skuA);
     await page.locator('#vprice-0').fill('25.00');
     await page.getByRole('button', { name: 'Add variant' }).click();
-    // Every row has an accessible name, not only the first.
-    await page.getByLabel('Option', { exact: true }).nth(1).fill('Silver');
+    // Every row has an accessible name, not only the first. The required marker is part of the
+    // name ("Option*"), so match the row's own label rather than an exact string.
+    await page
+      .getByLabel(/^Option\b/)
+      .nth(1)
+      .fill('Silver');
     await page.locator('#vsku-1').fill(skuB);
     await page.locator('#vprice-1').fill('27.00');
   };
@@ -287,4 +292,25 @@ test('a draft books nothing and says so; its date survives editing; phones see t
   await page.goto('/sales/new', { waitUntil: 'networkidle' });
   const add = await page.getByRole('button', { name: /add product/i }).boundingBox();
   expect(add?.y ?? 9999, 'Add product is on the first screen').toBeLessThan(844);
+});
+
+test('typing a SKU and pressing Enter at once opens that product, never the one that was on top', async ({
+  page,
+}) => {
+  // The picker lists results from a deferred copy of the text. A barcode scanner (or a fast typist)
+  // sends the whole code and Enter in one burst, so Enter used to act on the previous list.
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /add product/i }).click();
+  const dialog = page.getByRole('dialog');
+  const search = dialog.getByPlaceholder(/search name, model/i);
+  // A slow phone is where the deferred list lags the box the most.
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 });
+  // One input event with the whole code, then Enter: what a scanner or a paste produces.
+  await search.fill('KZ-ELLIPTICAL-POUCH');
+  await search.press('Enter');
+  const detail = dialog.getByRole('complementary', { name: 'Selected product' });
+  await expect(detail.getByText('KZ Elliptical Pouch').first()).toBeVisible();
+  await expect(detail.getByText(/ESSAGER/)).toHaveCount(0);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 });
