@@ -34,7 +34,8 @@ export function SurfaceHeader({ title, hint, action, className }: SurfaceHeaderP
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 border-line-subtle border-b px-4 py-3',
+        // On a phone the actions drop under the title instead of squeezing it to nothing.
+        'flex items-start justify-between gap-4 border-line-subtle border-b px-4 py-3 max-sm:flex-wrap max-sm:gap-y-2',
         className,
       )}
     >
@@ -43,7 +44,9 @@ export function SurfaceHeader({ title, hint, action, className }: SurfaceHeaderP
         {hint ? <p className="mt-0.5 truncate text-[12px] text-ink-3">{hint}</p> : null}
       </div>
       {action ? (
-        <div className="flex shrink-0 items-center gap-1.5 max-sm:-my-2">{action}</div>
+        <div className="flex shrink-0 items-center gap-1.5 max-sm:max-w-full max-sm:shrink max-sm:flex-wrap">
+          {action}
+        </div>
       ) : null}
     </div>
   );

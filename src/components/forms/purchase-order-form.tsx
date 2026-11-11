@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/components/forms/use-unsaved-guard';
 import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -241,8 +242,22 @@ export function PurchaseOrderForm({
   // TypeScript cannot always assign that union to useAction's single
   // expected function type. See the matching comment in
   // forms/reference-sheets.tsx for the full reasoning.
+  const { markSaved } = useUnsavedGuard({
+    supplierId,
+    orderedAt,
+    expectedAt,
+    reference,
+    notes,
+    tax,
+    cardFee,
+    delivery,
+    shipping,
+    shippingTax,
+    lines,
+  });
   const createHook = useAction(createPurchaseOrder, {
     onSuccess({ data }) {
+      markSaved();
       toast.success(`Purchase order ${data?.number} raised`, {
         description: 'Mark it received when the goods arrive to allocate freight and fees.',
       });
@@ -255,6 +270,7 @@ export function PurchaseOrderForm({
   });
   const updateHook = useAction(updatePurchaseOrder, {
     onSuccess({ data }) {
+      markSaved();
       toast.success(`Purchase order ${data?.number} updated`);
       router.push(`/purchase-orders/${data?.id}` as Parameters<typeof router.push>[0]);
       router.refresh();

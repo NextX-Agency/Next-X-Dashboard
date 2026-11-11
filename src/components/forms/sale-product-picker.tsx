@@ -16,6 +16,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
+  useCallback,
   useDeferredValue,
   useId,
   useMemo,
@@ -154,15 +155,22 @@ export function SaleProductPicker({
     () => filterProducts(products, { query: deferredQuery, category, stock }),
     [products, deferredQuery, category, stock],
   );
-  const matchingBundles = useMemo(() => {
-    if (category || stock === 'out') return [];
-    const words = deferredQuery.toLowerCase().split(/\s+/).filter(Boolean);
-    return bundles.filter((bundle) => {
-      if (stock === 'in-stock' && bundle.availability <= 0) return false;
-      const hay = `${bundle.name} ${bundle.sku} bundle`.toLowerCase();
-      return words.every((word) => hay.includes(word));
-    });
-  }, [bundles, deferredQuery, category, stock]);
+  const bundlesMatching = useCallback(
+    (text: string) => {
+      if (category || stock === 'out') return [];
+      const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+      return bundles.filter((bundle) => {
+        if (stock === 'in-stock' && bundle.availability <= 0) return false;
+        const hay = `${bundle.name} ${bundle.sku} bundle`.toLowerCase();
+        return words.every((word) => hay.includes(word));
+      });
+    },
+    [bundles, category, stock],
+  );
+  const matchingBundles = useMemo(
+    () => bundlesMatching(deferredQuery),
+    [bundlesMatching, deferredQuery],
+  );
 
   const shown = filtered.slice(0, limit);
   const product =
@@ -328,12 +336,22 @@ export function SaleProductPicker({
                     listRef.current?.querySelector<HTMLElement>('[data-picker-card]')?.focus();
                   } else if (event.key === 'Enter') {
                     event.preventDefault();
-                    const first = shown[0];
+                    // The list on screen follows a deferred copy of the text, so it can still
+                    // be showing the previous search when a fast typist or a barcode scanner
+                    // presses Enter. Resolve against the text actually in the box, or the
+                    // wrong product gets opened and added.
+                    const typed = event.currentTarget.value;
+                    const first = filterProducts(products, {
+                      query: typed,
+                      category,
+                      stock,
+                    })[0];
+                    const firstBundle = bundlesMatching(typed)[0];
                     // A second Enter on a single-option product adds one: search, Enter, Enter.
                     if (first && selected === first.productId && first.variants.length === 1)
                       commit();
                     else if (first) openProduct(first);
-                    else if (matchingBundles[0]) openBundle(matchingBundles[0]);
+                    else if (firstBundle) openBundle(firstBundle);
                   }
                 }}
                 aria-controls={resultsId}

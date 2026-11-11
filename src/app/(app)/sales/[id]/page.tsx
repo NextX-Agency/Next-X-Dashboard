@@ -227,7 +227,7 @@ async function Loader({
             )
           }
           action={
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex flex-wrap items-center gap-1">
               {sale.status !== 'void' ? (
                 <Button asChild variant="secondary" size="sm">
                   <Link href={`/invoice/${sale.id}` as Route}>Invoice</Link>

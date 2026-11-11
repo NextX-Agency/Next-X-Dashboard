@@ -257,7 +257,7 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                   <TD className="tabular whitespace-nowrap text-[12px] text-ink-3">
                     {formatDate(row.soldAt)}
                   </TD>
-                  <TD className="text-ink-2">{row.customerName ?? '—'}</TD>
+                  <TD className="text-ink-2">{row.customerName ?? 'Walk-in'}</TD>
                   <TD>
                     <div className="flex flex-col items-start gap-1">
                       {row.paymentStatus ? (
@@ -369,7 +369,7 @@ async function SalesTable({ searchParams }: { searchParams: Promise<RawSearchPar
                 <span className="min-w-0">
                   <span className="tabular block text-[13px] text-ink">{row.number}</span>
                   <span className="block truncate text-[12px] text-ink-3">
-                    {row.customerName ?? '—'} · {formatDate(row.soldAt)}
+                    {row.customerName ?? 'Walk-in'} · {formatDate(row.soldAt)}
                   </span>
                 </span>
                 <Badge

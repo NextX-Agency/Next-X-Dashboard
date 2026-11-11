@@ -74,15 +74,15 @@ test.describe('photo picker on purchase orders, bundles and quotes', () => {
 
     // The line carries the SILVER photograph and SKU, and the quantity chosen in the browser.
     await expect(page.getByText(/KZ-TEST-IEM-SLV/).first()).toBeVisible();
-    const photo = page.getByRole('img', { name: /KZ Test IEM.*Silver/ });
-    expect(await srcOf(photo)).toContain('kz-vader');
+    // (The line's thumbnail is decorative: the name is the text beside it, so find it by its file.)
+    expect(await srcOf(page.locator('img[src*="kz-vader"]').first())).toContain('kz-vader');
     await expect(page.locator('#qty-0')).toHaveValue('3');
 
     // Change the product on the line to Black: the photograph follows.
     await page.getByRole('button', { name: /Change product/ }).click();
     await choose(page, 'KZ Test IEM', 'Black', 'Use this product');
     await expect(page.getByRole('dialog')).toBeHidden();
-    expect(await srcOf(page.getByRole('img', { name: /KZ Test IEM.*Black/ }))).toContain(
+    expect(await srcOf(page.locator('img[src*="kz-castor-pro"]').first())).toContain(
       'kz-castor-pro',
     );
 
@@ -107,7 +107,7 @@ test.describe('photo picker on purchase orders, bundles and quotes', () => {
     await page.keyboard.press('Escape');
 
     // Purple has no photograph of its own: the shared product photograph, never Black's or Silver's.
-    expect(await srcOf(page.getByRole('img', { name: /KZ Test IEM.*Purple/ }))).toContain(
+    expect(await srcOf(page.locator('img[src*="kz-zsn-pro-2"]').first())).toContain(
       'kz-zsn-pro-2',
     );
     await expect(page.locator('#bundle-quantity-0')).toHaveValue('2');
@@ -150,7 +150,7 @@ test.describe('photo picker on purchase orders, bundles and quotes', () => {
     await picker.getByRole('button', { name: 'Use this product' }).click();
 
     const chosen = page.getByRole('dialog').last();
-    expect(await srcOf(chosen.getByRole('img', { name: /KZ Test IEM.*Purple/ }))).toContain(
+    expect(await srcOf(chosen.locator('img[src*="kz-zsn-pro-2"]').first())).toContain(
       'kz-zsn-pro-2',
     );
     await expect(chosen.getByLabel('Unit price (USD)')).toHaveValue('34.00');

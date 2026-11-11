@@ -4,8 +4,9 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import type { Route } from 'next';
 import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/components/forms/use-unsaved-guard';
 import { ActionBar } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -57,7 +58,8 @@ export type ProductFormValues = {
   sourceUrl: string;
   summary: string;
   description: string;
-  specs: { key: string; value: string }[];
+  /** `rowId` keeps a row's identity while its name is being typed (the name itself cannot be the React key). */
+  specs: { rowId: string; key: string; value: string }[];
   modelNumber: string;
   keyFeatures: string;
   bestFor: string;
@@ -201,7 +203,8 @@ export function ProductForm({
   brands,
 }: {
   /** Omit to render a blank form. */
-  initial?: Omit<ProductFormValues, 'faqItems' | 'variants'> & {
+  initial?: Omit<ProductFormValues, 'faqItems' | 'variants' | 'specs'> & {
+    specs: { key: string; value: string }[];
     faqItems: FaqInput[];
     variants: VariantInput[];
   };
@@ -216,6 +219,7 @@ export function ProductForm({
     initial
       ? {
           ...initial,
+          specs: initial.specs.map((spec) => ({ ...spec, rowId: crypto.randomUUID() })),
           faqItems: initial.faqItems.map((item) => ({ ...item, key: crypto.randomUUID() })),
           variants: initial.variants.map((variant) => ({
             ...variant,
@@ -233,34 +237,7 @@ export function ProductForm({
   const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
 
   // Unsaved-changes guard: what the form held when it opened, compared with what it holds now.
-  const baseline = useRef<string | null>(null);
-  if (baseline.current === null) baseline.current = JSON.stringify(values);
-  const [saved, setSaved] = useState(false);
-  const dirty = !saved && JSON.stringify(values) !== baseline.current;
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    // A link inside the app does not reload the page, so the browser's own warning never fires.
-    const onClick = (event: MouseEvent) => {
-      const link = (event.target as HTMLElement | null)?.closest('a[href]');
-      if (!link || link.getAttribute('target') === '_blank') return;
-      const href = link.getAttribute('href') ?? '';
-      if (!href || href.startsWith('#') || href.startsWith('mailto:')) return;
-      if (!window.confirm('You have unsaved changes. Leave this page without saving?')) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener('beforeunload', warn);
-    document.addEventListener('click', onClick, true);
-    return () => {
-      window.removeEventListener('beforeunload', warn);
-      document.removeEventListener('click', onClick, true);
-    };
-  }, [dirty]);
+  const { dirty, markSaved } = useUnsavedGuard(values);
 
   const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) =>
     setValues((current) => ({ ...current, [key]: value }));
@@ -300,7 +277,7 @@ export function ProductForm({
   const copy = useAction(duplicateProduct, {
     onSuccess({ data }) {
       if (!data) return;
-      setSaved(true);
+      markSaved();
       toast.success(`${data.name} created as a draft`, {
         description: 'Photos are not copied. Check the name, code and prices.',
       });
@@ -311,7 +288,7 @@ export function ProductForm({
 
   const { execute, isPending } = useAction(action, {
     onSuccess({ data }) {
-      setSaved(true);
+      markSaved();
       toast.success(
         isEdit ? `${data?.name} updated` : `${data?.name} created`,
         isEdit
@@ -840,15 +817,21 @@ export function ProductForm({
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => set('specs', [...values.specs, { key: '', value: '' }])}
+                  onClick={() =>
+                    set('specs', [
+                      ...values.specs,
+                      { rowId: crypto.randomUUID(), key: '', value: '' },
+                    ])
+                  }
                 >
                   Add specification
                 </Button>
               </div>
               {values.specs.map((spec, index) => (
-                <div key={spec.key || `spec-${index}`} className="mb-2 flex gap-2">
+                <div key={spec.rowId} className="mb-2 flex gap-2">
                   <Input
                     value={spec.key}
+                    aria-label={`Specification ${index + 1} name`}
                     placeholder="e.g. Resolution"
                     onChange={(event) =>
                       set(
@@ -861,6 +844,7 @@ export function ProductForm({
                   />
                   <Input
                     value={spec.value}
+                    aria-label={`Specification ${index + 1} value`}
                     placeholder="e.g. 1080p"
                     onChange={(event) =>
                       set(

@@ -64,6 +64,7 @@ export default async function PriceListDetailPage({
                   name="q"
                   defaultValue={query.q ?? ''}
                   placeholder="Search variants"
+                  aria-label="Search variants"
                   className="h-8 w-48"
                 />
               </form>
