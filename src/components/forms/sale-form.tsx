@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/components/forms/use-unsaved-guard';
 import { useMember } from '@/components/providers/member-provider';
 import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
@@ -497,8 +498,23 @@ export function SaleForm({
   // input schemas (update adds `id`), and TypeScript cannot always assign
   // that union to useAction's single expected function type. See the
   // matching comment in forms/reference-sheets.tsx for the full reasoning.
+  const { markSaved } = useUnsavedGuard({
+    customerId,
+    sellerId,
+    walletId,
+    soldAt,
+    currency,
+    paymentMethod,
+    notes,
+    discount,
+    discountReason,
+    paidInFull,
+    deposit,
+    lines,
+  });
   const createHook = useAction(createSale, {
     onSuccess({ data, input }) {
+      markSaved();
       // The route can be restored by Back with this component's state intact, so
       // the key must not outlive the submit it identified.
       idempotencyKey.current = crypto.randomUUID();
@@ -540,6 +556,7 @@ export function SaleForm({
   });
   const updateHook = useAction(updateSale, {
     onSuccess({ data }) {
+      markSaved();
       toast.success(`Sale ${data?.number} updated`);
       router.push(`/sales/${data?.id}` as Parameters<typeof router.push>[0]);
       router.refresh();

@@ -169,16 +169,22 @@ async function ProductViews() {
 async function ProductsToolbar() {
   const [brands, categories] = await Promise.all([listBrandOptions(), listCategoryOptions()]);
   return (
-    <ListToolbar search={<ListSearch placeholder="Search name, code, model, brand or SKU" />}>
+    <ListToolbar
+      search={<ListSearch placeholder="Search name, code, model, brand or SKU" />}
+      secondary={
+        <>
+          <ListFilter param="catalog" label="Catalog" options={CATALOG_OPTIONS} />
+          <ListFilter param="cost" label="Cost" options={COST_OPTIONS} />
+          <ListFilter param="images" label="Photos" options={IMAGE_OPTIONS} />
+          <ListFilter param="options" label="Variants" options={OPTION_OPTIONS} />
+          <ListFilter param="featured" label="Merchandising" options={FEATURED_OPTIONS} />
+          <ListNumberRange minParam="minPrice" maxParam="maxPrice" label="Price US$" />
+        </>
+      }
+    >
       <ListSort sorting options={SORT_OPTIONS} defaultSort="name" />
       <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
-      <ListFilter param="catalog" label="Catalog" options={CATALOG_OPTIONS} />
       <ListFilter param="stock" label="Stock" options={STOCK_OPTIONS} />
-      <ListFilter param="cost" label="Cost" options={COST_OPTIONS} />
-      <ListFilter param="images" label="Photos" options={IMAGE_OPTIONS} />
-      <ListFilter param="options" label="Variants" options={OPTION_OPTIONS} />
-      <ListFilter param="featured" label="Merchandising" options={FEATURED_OPTIONS} />
-      <ListNumberRange minParam="minPrice" maxParam="maxPrice" label="Price US$" />
       <ListFilter
         param="brand"
         label="Brand"

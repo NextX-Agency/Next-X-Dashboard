@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAction } from 'next-safe-action/hooks';
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/components/forms/use-unsaved-guard';
 import { ActionBar, scrollToId } from '@/components/ui/action-bar';
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
@@ -148,9 +149,24 @@ export function OrderForm({
     }
   }, 0);
 
+  const { markSaved } = useUnsavedGuard({
+    customerId,
+    orderDate,
+    source,
+    currency,
+    paymentMethod,
+    locationId,
+    fulfillmentType,
+    scheduledFor,
+    deliveryAddress,
+    fulfillmentNotes,
+    notes,
+    lines,
+  });
   const action = useAction(createOrder, {
     onSuccess({ data }) {
       if (!data) return;
+      markSaved();
       // The route can be restored by Back with this state intact; the key must
       // not outlive the submit it identified.
       idempotencyKey.current = crypto.randomUUID();

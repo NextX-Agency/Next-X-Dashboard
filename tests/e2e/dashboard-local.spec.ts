@@ -314,3 +314,77 @@ test('typing a SKU and pressing Enter at once opens that product, never the one 
   await expect(detail.getByText(/ESSAGER/)).toHaveCount(0);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 });
+
+test('a specification name can be typed in one go, and each field has its own label', async ({
+  page,
+}) => {
+  // The row's React key used to be the name being typed, so the row remounted after the first
+  // letter and focus was lost. Nothing is saved here.
+  await page.goto('/items/new', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'Add specification' }).click();
+  const name = page.getByLabel('Specification 1 name');
+  await name.click();
+  await page.keyboard.type('Driver size', { delay: 20 });
+  await expect(name).toHaveValue('Driver size');
+  await expect(name).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('10 mm', { delay: 20 });
+  await expect(page.getByLabel('Specification 1 value')).toHaveValue('10 mm');
+});
+
+test('Products: the daily filters are visible, the rest sit behind "More filters" and are never hidden while in use', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/items', { waitUntil: 'networkidle' });
+  for (const label of ['Status', 'Stock', 'Brand', 'Category'])
+    await expect(page.getByLabel(label, { exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel('Photos', { exact: true }).first()).toBeHidden();
+
+  await page.getByRole('button', { name: 'More filters' }).click();
+  await expect(page.getByLabel('Photos', { exact: true }).first()).toBeVisible();
+
+  // A link that already carries one of them opens the row and drops the toggle.
+  await page.goto('/items?images=missing', { waitUntil: 'networkidle' });
+  await expect(page.getByLabel('Photos', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /more filters|fewer filters/i })).toHaveCount(
+    0,
+  );
+
+  // A phone keeps one "Filters" button whose sheet lists every filter, secondary ones included.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/items', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: 'Filters' }).click();
+  await expect(page.getByRole('dialog').getByText('Photos', { exact: true })).toBeVisible();
+});
+
+test('a sale that has been started asks before it is thrown away; an untouched one does not', async ({
+  page,
+}) => {
+  const asked: string[] = [];
+  page.on('dialog', async (dialog) => {
+    asked.push(dialog.message());
+    await dialog.dismiss();
+  });
+
+  // Untouched: leaving is silent.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  await page.getByRole('link', { name: 'Orders', exact: true }).click();
+  await expect(page).toHaveURL(/\/orders/);
+  expect(asked).toEqual([]);
+
+  // Started: a product on the sale. Leaving asks, and "Cancel" keeps the sale on screen.
+  await page.goto('/sales/new', { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /add product/i }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByPlaceholder(/search name, model/i).fill('KZ-ELLIPTICAL-POUCH');
+  await page.keyboard.press('Enter');
+  await dialog.getByRole('button', { name: /^Add to sale/ }).click();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await page.getByRole('link', { name: 'Orders', exact: true }).click();
+  await expect.poll(() => asked.length).toBe(1);
+  expect(asked[0]).toMatch(/unsaved changes/i);
+  await expect(page).toHaveURL(/\/sales\/new/);
+});

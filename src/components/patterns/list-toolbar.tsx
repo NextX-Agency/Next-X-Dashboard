@@ -6,10 +6,12 @@ import { parseAsString, useQueryStates } from 'nuqs';
 import {
   Children,
   createContext,
+  Fragment,
   isValidElement,
   type ReactElement,
   type ReactNode,
   useContext,
+  useId,
   useState,
 } from 'react';
 import { Button } from '@/components/ui/button';
@@ -37,15 +39,29 @@ import { countActiveFilters, type FilterProps, filterParamsOf } from '@/lib/list
 export function ListToolbar({
   search,
   children,
+  secondary,
 }: {
   search?: ReactNode;
   children?: ReactNode;
+  /**
+   * Filters that are useful but not daily. On a desktop they sit behind a "More filters" toggle (open
+   * automatically while one of them is in use); the phone sheet lists them with the rest.
+   */
+  secondary?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const filters = Children.toArray(children);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreId = useId();
+  const primary = flattenFilters(children);
+  const more = flattenFilters(secondary);
+  const filters = [...primary, ...more];
   const params = filters.flatMap((item) => filterParams(item));
   const searchParams = useSearchParams();
   const active = countActiveFilters(filters.map(filterParams), searchParams);
+  const moreActive = countActiveFilters(more.map(filterParams), searchParams);
+  // A filter in use is never hidden (and the toggle goes away with it): you should always be able
+  // to see why the list is short.
+  const moreShown = moreOpen || moreActive > 0;
   const [, setAll] = useQueryStates(
     Object.fromEntries([...params, 'page'].map((param) => [param, parseAsString])),
     { shallow: false, history: 'replace' },
@@ -80,10 +96,32 @@ export function ListToolbar({
                 </span>
               ) : null}
             </Button>
-            <div className="hidden flex-wrap items-center gap-2 md:contents">{filters}</div>
+            <div className="hidden flex-wrap items-center gap-2 md:contents">{primary}</div>
+            {more.length > 0 && moreActive === 0 ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-expanded={moreShown}
+                aria-controls={moreId}
+                onClick={() => setMoreOpen((value) => !value)}
+                className="hidden shrink-0 md:inline-flex"
+              >
+                <SlidersHorizontal aria-hidden="true" className="size-3.5" />
+                {moreShown ? 'Fewer filters' : 'More filters'}
+              </Button>
+            ) : null}
           </>
         ) : null}
       </div>
+      {more.length > 0 ? (
+        <div
+          id={moreId}
+          className={cn('mt-2 hidden flex-wrap items-center gap-2', moreShown && 'md:flex')}
+        >
+          {more}
+        </div>
+      ) : null}
 
       {filters.length > 0 ? (
         <Sheet
@@ -119,6 +157,18 @@ export function ListToolbar({
         </Sheet>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The filter elements of a slot, with fragments opened up: a server page may hand over
+ * `<>{a}{b}</>` and each filter still has to be found to know which parameters it owns.
+ */
+function flattenFilters(node: ReactNode): ReactNode[] {
+  return Children.toArray(node).flatMap((child) =>
+    isValidElement<{ children?: ReactNode }>(child) && child.type === Fragment
+      ? flattenFilters(child.props.children)
+      : [child],
   );
 }
 
@@ -185,6 +235,8 @@ export function ListSearch({
         autoComplete="off"
         value={q}
         placeholder={placeholder}
+        // A placeholder disappears as soon as you type and is not a reliable name for a screen reader.
+        aria-label={placeholder}
         onChange={(event) => {
           const value = event.target.value;
           // A filter change always returns to page 1 — staying on page 7 of
