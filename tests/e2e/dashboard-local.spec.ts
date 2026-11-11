@@ -188,7 +188,8 @@ test('new order: lines come from the visual picker, with the option photograph',
   await page.goto('/orders/new', { waitUntil: 'networkidle' });
   await addToSale(page, 'ESSAGER 2m', 2);
   const line = page.locator('form .divide-y > div').first();
-  await expect(line.locator('img[alt*="ESSAGER 2m"]')).toBeVisible();
+  // The photograph, not its alt text: the placeholder images a fresh checkout generates carry none.
+  await expect(line.locator('img').first()).toBeVisible();
   await expect(line.locator('input[id^="order-qty"]')).toHaveValue('2');
   await expect(line.locator('input[id^="order-price"]')).not.toHaveValue('');
   await page.getByRole('button', { name: 'Create draft order' }).click();
