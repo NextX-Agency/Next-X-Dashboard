@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Plus } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import type { StoreCartLineInput } from '@/lib/store-cart';
@@ -50,11 +50,7 @@ export function QuickAdd({
             : 'border-ink text-ink hover:border-cta hover:bg-cta hover:text-cta-fg disabled:border-line-strong disabled:text-ink-3 disabled:hover:bg-transparent disabled:hover:text-ink-3',
         )}
       >
-        {justAdded ? (
-          <Check aria-hidden="true" className="nx-pop size-4" />
-        ) : atLimit ? null : (
-          <Plus aria-hidden="true" className="size-4" />
-        )}
+        {justAdded ? <Check aria-hidden="true" className="nx-pop size-4" /> : null}
         <span key={justAdded ? 'added' : 'idle'} className={justAdded ? 'nx-swap' : undefined}>
           {justAdded ? 'Added' : atLimit ? 'All stock in cart' : 'Add to cart'}
         </span>

@@ -1,13 +1,4 @@
-import {
-  ArrowRight,
-  ArrowUpRight,
-  Banknote,
-  MapPin,
-  MessageCircle,
-  PackageCheck,
-  ShoppingBag,
-  Truck,
-} from 'lucide-react';
+import { ArrowRight, ArrowUpRight, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { type CSSProperties, Suspense } from 'react';
@@ -154,7 +145,6 @@ async function HomeContent() {
         settings={settings}
         pickupLocations={pickupLocations}
         businessName={businessName}
-        whatsappHref={help}
       />
     </div>
   );
@@ -185,29 +175,20 @@ function Hero({
   const eyebrow = [businessName, settings?.city].filter(Boolean).join(' · ');
   // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
   const facts = [
-    inStockCount > 0
-      ? { icon: PackageCheck, text: `${plural(inStockCount, 'product')} in stock` }
-      : null,
-    { icon: Banknote, text: `Prices in ${currency}` },
+    inStockCount > 0 ? `${plural(inStockCount, 'product')} in stock` : null,
+    `Prices in ${currency}`,
     settings?.pickupEnabled
-      ? {
-          icon: MapPin,
-          text:
-            publicText(settings.pickupLabel?.trim()) ||
-            (settings.city ? `Pickup in ${settings.city}` : 'Pickup'),
-        }
+      ? publicText(settings.pickupLabel?.trim()) ||
+        (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
       : null,
-    settings?.deliveryEnabled ? { icon: Truck, text: 'Delivery available' } : null,
-  ].filter((fact): fact is { icon: typeof Truck; text: string } => Boolean(fact));
+    settings?.deliveryEnabled ? 'Delivery available' : null,
+  ].filter((fact): fact is string => Boolean(fact));
 
   return (
     <section aria-labelledby="home-title" className={cn(SECTION, 'pt-3 sm:pt-6 lg:pt-10')}>
       <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
         <div className="flex min-w-0 flex-col justify-center lg:py-8">
-          <p className="nx-label nx-enter inline-flex items-center gap-2 self-start rounded-full bg-accent-muted px-3 py-1.5 text-accent">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-store-bright" />
-            {eyebrow}
-          </p>
+          <p className="nx-label nx-enter text-accent">{eyebrow}</p>
           <h1
             id="home-title"
             className="nx-display mt-2 text-balance text-[clamp(34px,5.6vw,76px)] leading-[0.96] text-ink sm:mt-5"
@@ -240,13 +221,17 @@ function Hero({
             ) : null}
           </div>
           <ul
-            className="nx-enter mt-5 flex flex-wrap gap-x-5 gap-y-2 border-line border-t pt-4 text-[13px] text-ink-2 sm:mt-8 sm:pt-5 sm:text-[14px]"
+            className="nx-enter mt-5 flex flex-wrap border-ink border-t-2 pt-3 font-semibold text-[13px] text-ink sm:mt-8 sm:pt-4 sm:text-[14px]"
             style={stagger(3)}
           >
-            {facts.map(({ icon: Icon, text }) => (
-              <li key={text} className="inline-flex items-center gap-2 font-medium">
-                <Icon aria-hidden="true" className="size-[18px] shrink-0 text-accent" />
-                {text}
+            {facts.map((fact, index) => (
+              <li key={fact} className="flex items-center">
+                {index > 0 ? (
+                  <span aria-hidden="true" className="px-2.5 text-accent sm:px-3">
+                    /
+                  </span>
+                ) : null}
+                {fact}
               </li>
             ))}
           </ul>
@@ -337,9 +322,9 @@ function Showcase({
               </span>
               <span
                 aria-hidden="true"
-                className="nx-arrow grid size-8 shrink-0 place-items-center rounded-full bg-sunken text-ink group-hover:bg-cta group-hover:text-cta-fg"
+                className="tabular shrink-0 font-bold text-[13px] text-accent"
               >
-                <ArrowUpRight className="size-4" />
+                {num(index)}
               </span>
             </span>
           </Link>
@@ -454,12 +439,10 @@ function CategoryTileCard({
           />
         ) : null}
       </div>
-      <span
+      <ArrowUpRight
         aria-hidden="true"
-        className="nx-arrow absolute top-4 right-4 z-10 grid size-9 place-items-center rounded-full bg-white text-ink shadow-raised group-hover:bg-cta group-hover:text-cta-fg sm:top-6 sm:right-6 sm:size-11"
-      >
-        <ArrowUpRight className="size-[18px]" />
-      </span>
+        className="nx-arrow absolute top-4 right-4 z-10 size-6 text-ink group-hover:text-accent sm:top-7 sm:right-7 sm:size-7"
+      />
       {first ? (
         <SafeImage
           fallback={null}
@@ -673,17 +656,14 @@ function Ordering({
         : 'Collect your order';
   const steps = [
     {
-      icon: ShoppingBag,
       title: 'Fill your cart',
       body: 'Add what you want. Every price is shown in full before you send anything.',
     },
     {
-      icon: MessageCircle,
       title: 'Send it on WhatsApp',
       body: `The cart writes the message for you. ${businessName} confirms price and stock before anything is final.`,
     },
     {
-      icon: pickup || !delivery ? MapPin : Truck,
       title: handover,
       body: pickup
         ? 'You agree the pickup place and time in the same chat.'
@@ -695,29 +675,15 @@ function Ordering({
       <h2 id="home-ordering" className={cn(SECTION_TITLE, 'nx-reveal')}>
         How ordering works
       </h2>
-      <ol className="nx-stagger mt-4 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-3">
-        {steps.map(({ icon: Icon, title, body }, index) => (
-          <li
-            key={title}
-            className="nx-reveal relative flex gap-4 rounded-[20px] border border-line bg-raised p-5 sm:rounded-[24px] sm:p-7 md:flex-col md:gap-0"
-          >
-            <span className="grid size-12 shrink-0 place-items-center rounded-[14px] bg-accent-muted text-accent">
-              <Icon aria-hidden="true" className="size-6" />
-            </span>
-            <span
-              aria-hidden="true"
-              className="tabular absolute top-5 right-5 font-extrabold text-[15px] text-ink-4 sm:top-7 sm:right-7"
-            >
+      {/* The same numbered, ruled columns as the footer: a list, not a row of cards. */}
+      <ol className="nx-stagger mt-5 grid gap-x-8 gap-y-6 sm:mt-8 md:grid-cols-3 lg:gap-x-12">
+        {steps.map(({ title, body }, index) => (
+          <li key={title} className="nx-reveal border-ink border-t-2 pt-4">
+            <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
               {num(index)}
             </span>
-            <div className="min-w-0 pr-8 md:mt-6 md:pr-0">
-              <h3 className="font-extrabold text-[18px] text-ink tracking-[-0.02em] sm:text-[20px]">
-                {title}
-              </h3>
-              <p className="mt-1.5 text-[14px] text-ink-2 leading-relaxed sm:text-[15px]">
-                {body}
-              </p>
-            </div>
+            <h3 className="nx-display mt-3 text-[clamp(20px,2vw,26px)] text-ink">{title}</h3>
+            <p className="mt-2 max-w-[38ch] text-[15px] text-ink-2 leading-relaxed">{body}</p>
           </li>
         ))}
       </ol>
@@ -735,12 +701,10 @@ function Pickup({
   settings,
   pickupLocations,
   businessName,
-  whatsappHref,
 }: {
   settings: Settings | null;
   pickupLocations: { id: string; name: string }[];
   businessName: string;
-  whatsappHref: string | null;
 }) {
   const delivery = Boolean(settings?.deliveryEnabled);
   const payments = settings?.paymentMethods ?? [];
@@ -766,21 +730,9 @@ function Pickup({
       className={cn(SECTION, 'nx-cv mt-8 scroll-mt-0 sm:mt-10 sm:scroll-mt-24 lg:mt-12')}
     >
       <div className="nx-reveal relative overflow-hidden rounded-[20px] bg-night p-5 text-night-ink sm:rounded-[24px] sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
-        <div className="flex flex-col items-start">
-          <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
-            Pickup and contact
-          </h2>
-          {whatsappHref ? (
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="nx-btn nx-btn-primary mt-5 px-6 focus-visible:outline-white lg:mt-auto"
-            >
-              <MessageCircle /> Message {businessName}
-            </a>
-          ) : null}
-        </div>
+        <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
+          Pickup and contact
+        </h2>
         <dl className="mt-5 grid gap-x-10 gap-y-4 text-[15px] sm:mt-8 sm:grid-cols-2 sm:gap-y-6 lg:mt-1">
           {hasPickupPlace ? (
             <Fact label="Pickup">
