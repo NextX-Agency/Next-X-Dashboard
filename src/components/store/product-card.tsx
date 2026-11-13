@@ -58,8 +58,9 @@ export function ProductCard({
 
   return (
     <div className="nx-card-slot nx-zoom-host h-full">
-      <article className="nx-card relative flex h-full flex-col overflow-hidden rounded-tile border border-line bg-raised focus-within:border-ink hover:border-line-strong">
-        <div className="relative aspect-square bg-sunken">
+      <article className="nx-card relative flex h-full flex-col overflow-hidden rounded-[18px] border border-line bg-raised focus-within:border-ink hover:border-line-strong">
+        {/* The photograph sits in its own inset field, so the card reads as a frame around it. */}
+        <div className="relative m-1.5 aspect-square overflow-hidden rounded-[13px] bg-sunken sm:m-2">
           {product.image ? (
             <SafeImage
               src={product.image.url}
@@ -83,7 +84,7 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
+        <div className="flex flex-1 flex-col gap-1 px-3 pt-2 pb-3 sm:px-4 sm:pt-2.5 sm:pb-4">
           {eyebrow ? (
             <p className="font-semibold text-[11px] text-ink-3 uppercase tracking-[0.08em]">
               {eyebrow}

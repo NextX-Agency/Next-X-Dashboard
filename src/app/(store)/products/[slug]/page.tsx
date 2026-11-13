@@ -1,9 +1,10 @@
-import { ChevronDown } from 'lucide-react';
+import { ArrowRight, ChevronDown } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { QuoteRequestForm } from '@/components/forms/quote-request-form';
 import { PickupStock } from '@/components/store/pickup-stock';
+import { ProductCard } from '@/components/store/product-card';
 import { ProductGallery } from '@/components/store/product-gallery';
 import { ProductOrderPanel } from '@/components/store/product-order-panel';
 import {
@@ -20,7 +21,12 @@ import {
   storefrontProductPath,
   storefrontPublicOrigin,
 } from '@/lib/storefront-domain';
-import { type CatalogProduct, getCatalogProduct } from '@/server/queries/catalog';
+import {
+  type CatalogListItem,
+  type CatalogProduct,
+  getCatalogProduct,
+  listCatalogProducts,
+} from '@/server/queries/catalog';
 import { getCurrentRate } from '@/server/queries/overview';
 import { getSettings } from '@/server/queries/reference';
 import { getRequestStorefront, getStorefrontAvailability } from '@/server/services/storefront';
@@ -112,6 +118,14 @@ export default async function ProductPage({
   // Legacy ids and old slugs answer with one permanent hop to the canonical URL.
   if (slug !== product.slug)
     permanentRedirect(storefrontProductPath(null, product.slug) as never);
+
+  // The rest of the same shelf: what else the shop has in this category, in stock first.
+  const siblings = product.categorySlug
+    ? (await listCatalogProducts({ category: product.categorySlug, sort: 'newest' }))
+        .filter((item) => item.id !== product.id)
+        .sort((x, y) => Number(y.onHand > 0) - Number(x.onHand > 0))
+        .slice(0, 4)
+    : [];
 
   const locationsByVariant = storefront?.allowPickup
     ? await pickupStock(storefront.id, product)
@@ -351,7 +365,55 @@ export default async function ProductPage({
       ) : null}
 
       <RelatedProducts items={product.related} />
+
+      {siblings.length && product.categoryName && product.categorySlug ? (
+        <MoreInCategory
+          name={product.categoryName}
+          slug={product.categorySlug}
+          items={siblings}
+          srdRate={srdRate}
+        />
+      ) : null}
     </article>
+  );
+}
+
+/** Other products of the same category: a fact about the catalogue, not a recommendation. */
+function MoreInCategory({
+  name,
+  slug,
+  items,
+  srdRate,
+}: {
+  name: string;
+  slug: string;
+  items: CatalogListItem[];
+  srdRate: Parameters<typeof ProductCard>[0]['srdRate'];
+}) {
+  return (
+    <section
+      aria-labelledby="more-in-category"
+      className="mt-10 border-line border-t pt-6 sm:mt-16 sm:pt-10"
+    >
+      <div className="flex items-end justify-between gap-4">
+        <h2 id="more-in-category" className="nx-display text-[clamp(22px,2.6vw,30px)]">
+          More in {name}
+        </h2>
+        <Link
+          href={`${SHOP_PATH}?category=${slug}` as never}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          See all <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+      </div>
+      <ul className="nx-stagger mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-4">
+        {items.map((item) => (
+          <li key={item.id} className="nx-reveal">
+            <ProductCard product={item} srdRate={srdRate} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -375,7 +375,19 @@
   }
 }
 
+@keyframes nx-marquee {
+  to {
+    translate: -50% 0;
+  }
+}
+
 /* Colour-only micro-states. Safe for everyone, including reduced motion. */
+.nx-arrow {
+  transition:
+    background-color var(--nx-dur-base) var(--nx-ease),
+    color var(--nx-dur-base) var(--nx-ease),
+    rotate var(--nx-dur-base) var(--nx-ease);
+}
 .nx-card {
   transition:
     border-color var(--nx-dur-base) var(--nx-ease),
@@ -452,6 +464,14 @@
     animation: nx-img-failsafe 1ms linear 6s forwards;
   }
 
+  /* The catalogue's own words drift past; a pointer resting on the band stops it. */
+  .nx-marquee {
+    animation: nx-marquee 42s linear infinite;
+  }
+  .nx-marquee:hover {
+    animation-play-state: paused;
+  }
+
   /* Small confirmations. */
   .nx-pop {
     animation: nx-pop var(--nx-dur-base) var(--nx-ease) backwards;
@@ -476,7 +496,11 @@
       translate: 0 -2px;
     }
     .nx-zoom-host:hover .nx-img {
-      scale: 1.03;
+      scale: 1.04;
+    }
+    /* The corner arrow of a tile or frame turns to point ahead. */
+    .group:hover .nx-arrow {
+      rotate: 45deg;
     }
     .nx-store .nx-btn-primary:hover {
       translate: 0 -1px;

@@ -1,4 +1,13 @@
-import { ArrowRight, MessageCircle } from 'lucide-react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Banknote,
+  MapPin,
+  MessageCircle,
+  PackageCheck,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { type CSSProperties, Suspense } from 'react';
@@ -102,6 +111,8 @@ async function HomeContent() {
         whatsappHref={help}
       />
 
+      <Ticker words={tickerWords(categories, products)} />
+
       {tiles.length ? (
         <CategoryTiles tiles={tiles} currency={currency} srdRate={srdRate} />
       ) : null}
@@ -137,10 +148,13 @@ async function HomeContent() {
         />
       </Suspense>
 
+      {help ? <Ordering settings={settings} businessName={businessName} /> : null}
+
       <Pickup
         settings={settings}
         pickupLocations={pickupLocations}
         businessName={businessName}
+        whatsappHref={help}
       />
     </div>
   );
@@ -171,23 +185,32 @@ function Hero({
   const eyebrow = [businessName, settings?.city].filter(Boolean).join(' · ');
   // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
   const facts = [
-    inStockCount > 0 ? plural(inStockCount, 'product') : null,
-    `Prices in ${currency}`,
-    settings?.pickupEnabled
-      ? publicText(settings.pickupLabel?.trim()) ||
-        (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
+    inStockCount > 0
+      ? { icon: PackageCheck, text: `${plural(inStockCount, 'product')} in stock` }
       : null,
-    settings?.deliveryEnabled ? 'Delivery available' : null,
-  ].filter((fact): fact is string => Boolean(fact));
+    { icon: Banknote, text: `Prices in ${currency}` },
+    settings?.pickupEnabled
+      ? {
+          icon: MapPin,
+          text:
+            publicText(settings.pickupLabel?.trim()) ||
+            (settings.city ? `Pickup in ${settings.city}` : 'Pickup'),
+        }
+      : null,
+    settings?.deliveryEnabled ? { icon: Truck, text: 'Delivery available' } : null,
+  ].filter((fact): fact is { icon: typeof Truck; text: string } => Boolean(fact));
 
   return (
     <section aria-labelledby="home-title" className={cn(SECTION, 'pt-3 sm:pt-6 lg:pt-10')}>
       <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
         <div className="flex min-w-0 flex-col justify-center lg:py-8">
-          <p className="nx-label nx-enter text-accent">{eyebrow}</p>
+          <p className="nx-label nx-enter inline-flex items-center gap-2 self-start rounded-full bg-accent-muted px-3 py-1.5 text-accent">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-store-bright" />
+            {eyebrow}
+          </p>
           <h1
             id="home-title"
-            className="nx-display mt-2 text-balance text-[clamp(32px,5.2vw,68px)] leading-[0.98] text-ink sm:mt-4"
+            className="nx-display mt-2 text-balance text-[clamp(34px,5.6vw,76px)] leading-[0.96] text-ink sm:mt-5"
           >
             {title}
           </h1>
@@ -216,12 +239,17 @@ function Hero({
               </a>
             ) : null}
           </div>
-          <p
-            className="nx-enter mt-4 border-line border-t pt-3 text-[13px] text-ink-3 sm:mt-8 sm:pt-4 sm:text-[14px]"
+          <ul
+            className="nx-enter mt-5 flex flex-wrap gap-x-5 gap-y-2 border-line border-t pt-4 text-[13px] text-ink-2 sm:mt-8 sm:pt-5 sm:text-[14px]"
             style={stagger(3)}
           >
-            {facts.join(' / ')}
-          </p>
+            {facts.map(({ icon: Icon, text }) => (
+              <li key={text} className="inline-flex items-center gap-2 font-medium">
+                <Icon aria-hidden="true" className="size-[18px] shrink-0 text-accent" />
+                {text}
+              </li>
+            ))}
+          </ul>
         </div>
         {showcase.length ? <Showcase products={showcase} srdRate={srdRate} /> : null}
       </div>
@@ -258,7 +286,7 @@ function Showcase({
   return (
     <ul
       aria-label="Products"
-      className="grid grid-cols-2 gap-3 rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
+      className="grid grid-cols-2 gap-3 nx-showcase rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
     >
       {frames.map(({ product, className, large }, index) => (
         <li
@@ -309,9 +337,9 @@ function Showcase({
               </span>
               <span
                 aria-hidden="true"
-                className="tabular shrink-0 font-bold text-[13px] text-ink-4"
+                className="nx-arrow grid size-8 shrink-0 place-items-center rounded-full bg-sunken text-ink group-hover:bg-cta group-hover:text-cta-fg"
               >
-                {num(index)}
+                <ArrowUpRight className="size-4" />
               </span>
             </span>
           </Link>
@@ -396,7 +424,8 @@ function CategoryTileCard({
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
       className={cn(
-        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[20px] bg-sunken p-4 transition-colors hover:bg-hover sm:rounded-[24px] sm:p-7',
+        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[20px] p-4 transition-colors sm:rounded-[24px] sm:p-7',
+        large ? 'bg-store-bright-soft hover:bg-[#ffe6d2]' : 'bg-sunken hover:bg-hover',
         large ? 'min-h-[200px] sm:min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
         FOCUS,
       )}
@@ -425,6 +454,12 @@ function CategoryTileCard({
           />
         ) : null}
       </div>
+      <span
+        aria-hidden="true"
+        className="nx-arrow absolute top-4 right-4 z-10 grid size-9 place-items-center rounded-full bg-white text-ink shadow-raised group-hover:bg-cta group-hover:text-cta-fg sm:top-6 sm:right-6 sm:size-11"
+      >
+        <ArrowUpRight className="size-[18px]" />
+      </span>
       {first ? (
         <SafeImage
           fallback={null}
@@ -544,6 +579,155 @@ async function Sets({
 /* ------------------------------------------------------------------------------------------------ */
 
 /**
+ * The words of the catalogue itself, large and moving: every category and every brand the shop really
+ * carries, nothing else. Fewer than three words is not a band.
+ */
+function tickerWords(categories: { name: string }[], products: CatalogListItem[]): string[] {
+  const brands = [
+    ...new Set(
+      products
+        .map((product) => product.brandName?.trim())
+        .filter((b): b is string => Boolean(b)),
+    ),
+  ];
+  const names = categories.map((category) => category.name);
+  const words: string[] = [];
+  for (let i = 0; i < Math.max(names.length, brands.length); i++) {
+    const name = names[i];
+    const brand = brands[i];
+    if (name) words.push(name);
+    if (brand) words.push(brand);
+  }
+  return words.slice(0, 12);
+}
+
+/**
+ * A slow band of type between the hero and the categories. The first copy is the real list; the second
+ * is hidden from assistive technology and only exists so the loop has no seam. Without motion (reduced
+ * motion, no CSS animation) it is a still row that clips at the edge.
+ */
+function Ticker({ words }: { words: string[] }) {
+  if (words.length < 3) return null;
+  const row = (hidden: boolean) => (
+    <ul
+      aria-hidden={hidden || undefined}
+      aria-label={hidden ? undefined : 'What the shop carries'}
+      className="flex shrink-0 items-center"
+    >
+      {words.map((word, index) => (
+        <li key={word} className="flex items-center whitespace-nowrap">
+          <span
+            className={cn(
+              'nx-display px-5 text-[clamp(20px,2.6vw,34px)] sm:px-8',
+              index % 2 ? 'text-night-ink-2' : 'text-night-ink',
+            )}
+          >
+            {word}
+          </span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="size-4 shrink-0 text-store-bright sm:size-5"
+          >
+            <path
+              d="M3 3l18 18M21 3L3 21"
+              stroke="currentColor"
+              strokeWidth="3.5"
+              fill="none"
+            />
+          </svg>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <div className="mt-8 overflow-hidden bg-night py-4 sm:mt-14 sm:py-6 lg:mt-20">
+      <div className="nx-marquee flex w-max">
+        {row(false)}
+        {row(true)}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------ */
+
+/**
+ * How an order works here, in three steps. Only what the cart really does: it writes the WhatsApp
+ * message, and nothing is final until the shop has confirmed price and stock.
+ */
+function Ordering({
+  settings,
+  businessName,
+}: {
+  settings: Settings | null;
+  businessName: string;
+}) {
+  const pickup = Boolean(settings?.pickupEnabled);
+  const delivery = Boolean(settings?.deliveryEnabled);
+  const handover =
+    pickup && delivery
+      ? 'Collect it or have it delivered'
+      : delivery
+        ? 'Have it delivered'
+        : 'Collect your order';
+  const steps = [
+    {
+      icon: ShoppingBag,
+      title: 'Fill your cart',
+      body: 'Add what you want. Every price is shown in full before you send anything.',
+    },
+    {
+      icon: MessageCircle,
+      title: 'Send it on WhatsApp',
+      body: `The cart writes the message for you. ${businessName} confirms price and stock before anything is final.`,
+    },
+    {
+      icon: pickup || !delivery ? MapPin : Truck,
+      title: handover,
+      body: pickup
+        ? 'You agree the pickup place and time in the same chat.'
+        : 'You agree the details in the same chat.',
+    },
+  ];
+  return (
+    <section aria-labelledby="home-ordering" className={cn(SECTION, SECTION_GAP, 'nx-cv')}>
+      <h2 id="home-ordering" className={cn(SECTION_TITLE, 'nx-reveal')}>
+        How ordering works
+      </h2>
+      <ol className="nx-stagger mt-4 grid gap-3 sm:mt-6 sm:gap-4 md:grid-cols-3">
+        {steps.map(({ icon: Icon, title, body }, index) => (
+          <li
+            key={title}
+            className="nx-reveal relative flex gap-4 rounded-[20px] border border-line bg-raised p-5 sm:rounded-[24px] sm:p-7 md:flex-col md:gap-0"
+          >
+            <span className="grid size-12 shrink-0 place-items-center rounded-[14px] bg-accent-muted text-accent">
+              <Icon aria-hidden="true" className="size-6" />
+            </span>
+            <span
+              aria-hidden="true"
+              className="tabular absolute top-5 right-5 font-extrabold text-[15px] text-ink-4 sm:top-7 sm:right-7"
+            >
+              {num(index)}
+            </span>
+            <div className="min-w-0 pr-8 md:mt-6 md:pr-0">
+              <h3 className="font-extrabold text-[18px] text-ink tracking-[-0.02em] sm:text-[20px]">
+                {title}
+              </h3>
+              <p className="mt-1.5 text-[14px] text-ink-2 leading-relaxed sm:text-[15px]">
+                {body}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------ */
+
+/**
  * Pickup places, hours, payment, delivery and phone: one dark band, each fact only when the owner has
  * entered it, and no band at all when none are. Full width, so it never has to match another card's height.
  */
@@ -551,10 +735,12 @@ function Pickup({
   settings,
   pickupLocations,
   businessName,
+  whatsappHref,
 }: {
   settings: Settings | null;
   pickupLocations: { id: string; name: string }[];
   businessName: string;
+  whatsappHref: string | null;
 }) {
   const delivery = Boolean(settings?.deliveryEnabled);
   const payments = settings?.paymentMethods ?? [];
@@ -579,10 +765,22 @@ function Pickup({
       aria-labelledby="home-pickup"
       className={cn(SECTION, 'nx-cv mt-8 scroll-mt-0 sm:mt-10 sm:scroll-mt-24 lg:mt-12')}
     >
-      <div className="nx-reveal rounded-[20px] bg-night p-5 text-night-ink sm:rounded-[24px] sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
-        <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
-          Pickup and contact
-        </h2>
+      <div className="nx-reveal relative overflow-hidden rounded-[20px] bg-night p-5 text-night-ink sm:rounded-[24px] sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
+        <div className="flex flex-col items-start">
+          <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
+            Pickup and contact
+          </h2>
+          {whatsappHref ? (
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nx-btn nx-btn-primary mt-5 px-6 focus-visible:outline-white lg:mt-auto"
+            >
+              <MessageCircle /> Message {businessName}
+            </a>
+          ) : null}
+        </div>
         <dl className="mt-5 grid gap-x-10 gap-y-4 text-[15px] sm:mt-8 sm:grid-cols-2 sm:gap-y-6 lg:mt-1">
           {hasPickupPlace ? (
             <Fact label="Pickup">
