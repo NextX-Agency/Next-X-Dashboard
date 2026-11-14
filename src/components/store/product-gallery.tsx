@@ -285,7 +285,13 @@ export function ProductGallery({ name }: { name: string }) {
                   imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',
                 )}
               >
-                <Image src={image.url} alt="" fill sizes="80px" className="object-cover" />
+                <Image
+                  src={image.url}
+                  alt=""
+                  fill
+                  sizes="80px"
+                  className="object-contain p-1 mix-blend-multiply"
+                />
               </button>
             </li>
           ))}

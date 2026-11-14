@@ -318,7 +318,7 @@ function Showcase({
             <span
               className={cn(
                 'relative block min-h-0 flex-1',
-                large ? 'aspect-[3/2] md:aspect-auto' : 'aspect-square md:aspect-auto',
+                large ? 'aspect-[4/3] md:aspect-auto' : 'aspect-square md:aspect-auto',
               )}
             >
               {product.image ? (
@@ -335,11 +335,11 @@ function Showcase({
                       ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
                       : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
                   }
-                  className="nx-img object-cover"
+                  className="nx-img object-contain p-[4%]"
                 />
               ) : null}
             </span>
-            <span className="flex items-end justify-between gap-3 px-4 pt-3 pb-3.5">
+            <span className="flex items-end justify-between gap-3 px-4 pt-1 pb-3.5">
               <span className="min-w-0">
                 <span className="block truncate font-semibold text-[14px] tracking-[-0.01em] sm:text-[15px]">
                   {product.name}
@@ -453,7 +453,7 @@ function CategoryTileCard({
               alt=""
               fill
               sizes="(max-width: 639px) 50vw, (max-width: 1023px) 30vw, 20vw"
-              className="object-cover"
+              className="object-contain p-[5%]"
             />
           </span>
         ) : null}
