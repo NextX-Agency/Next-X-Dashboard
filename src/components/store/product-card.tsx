@@ -7,7 +7,7 @@ import { storefrontProductPath } from '@/lib/storefront-domain';
 import type { CatalogListItem } from '@/server/queries/catalog';
 import { QuickAdd } from './quick-add';
 import { SafeImage } from './safe-image';
-import { StockNote } from './stock-pill';
+import { stockLabel } from './stock-pill';
 import { StorePrice } from './store-price';
 
 /** What a card's photograph is sized for when the caller does not know its grid. */
@@ -55,6 +55,7 @@ export function ProductCard({
   const href = option && several ? `${base}?variant=${encodeURIComponent(option.sku)}` : base;
   const only = product.onlyOption;
   const canQuickAdd = !several && inStock && only !== null && only.onHand > 0;
+  const stock = stockLabel(onHand, option ? 0 : product.incoming);
 
   return (
     <div className="nx-card-slot nx-zoom-host h-full">
@@ -105,11 +106,6 @@ export function ProductCard({
             prefix={hasRange ? 'from' : undefined}
             className="mt-auto pt-2"
           />
-          <StockNote
-            onHand={onHand}
-            incoming={option ? 0 : product.incoming}
-            className="mt-1"
-          />
           {canQuickAdd && only ? (
             <QuickAdd
               className="mt-2 sm:mt-3"
@@ -126,7 +122,18 @@ export function ProductCard({
                 imageUrl: product.image?.url ?? null,
               }}
             />
-          ) : null}
+          ) : (
+            // The same slot the button fills, so prices and names line up across a row whether or
+            // not a card can be added directly. Not a control: the whole card is already one link.
+            <p
+              className={cn(
+                'mt-2 flex h-11 items-center justify-center rounded-[11px] px-3 text-center font-semibold text-[14px] sm:mt-3',
+                stock ? 'bg-sunken text-ink-3' : 'border border-line text-ink-2',
+              )}
+            >
+              {stock ?? (several ? 'Choose option' : 'View product')}
+            </p>
+          )}
         </div>
       </article>
     </div>
