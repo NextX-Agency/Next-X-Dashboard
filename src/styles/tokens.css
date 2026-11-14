@@ -123,70 +123,72 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Storefront: Rustig. White, quiet, orange primary actions, charcoal type
+   Storefront: the NextX Agency language. Paper, ink, logo orange, Archivo
    ──────────────────────────────────────────────────────────────────────────
    Scoped under `.nx-store` on the store layout root, so every token utility
    inside the shop re-skins with no change to dashboard components.
 
-   - White page, soft warm-grey fields (#f5f5f2) behind product photography.
-     Photographs are multiplied onto the field, so white-background cut-outs
-     sit on it instead of showing as white boxes.
-   - Primary actions are NextX orange (--nx-accent, white text 5.2:1). Charcoal
-     carries type and structure; the bright logo orange (--nx-store-bright) is
-     for the hero, the logo and signals. Photographs are never tinted.
-   - Text steps clear WCAG AA on white.
+   - Warm paper page (#f2f0eb), a darker paper (#e9e6df) behind product
+     photography. Photographs are multiplied onto the field, so white-background
+     cut-outs sit on it instead of showing as white boxes.
+   - Structure comes from colour blocks (paper, ink, orange), scale and
+     photographs: square corners, no hairline rules between items, no numbered
+     indexes. Orange is an accent: the primary action, the full stop of a
+     headline, one tile. Small orange text uses --nx-accent to meet AA.
 
    Light only: the store layout forces the light theme.
    ────────────────────────────────────────────────────────────────────────── */
 
 .nx-store {
-  --nx-bg-sunken: #f5f5f2;
-  --nx-bg-base: #ffffff;
-  --nx-bg-raised: #ffffff;
-  --nx-bg-overlay: #ffffff;
-  --nx-bg-inset: #f5f5f2;
-  --nx-bg-hover: #efefeb;
-  --nx-bg-active: #e8e8e3;
+  /* Paper and ink, the two surfaces of the NextX Agency site, and the logo orange. */
+  --nx-bg-sunken: #e9e6df;
+  --nx-bg-base: #f2f0eb;
+  --nx-bg-raised: #f2f0eb;
+  --nx-bg-overlay: #f2f0eb;
+  --nx-bg-inset: #e9e6df;
+  --nx-bg-hover: #e2dfd7;
+  --nx-bg-active: #d9d5cc;
 
-  --nx-border-subtle: #ecece8;
-  --nx-border: #e1e1dc;
-  --nx-border-strong: #bdbdb6;
+  --nx-border-subtle: #e2dfd8;
+  --nx-border: #d3cfc8;
+  --nx-border-strong: #8a857d;
 
-  --nx-text: #141414;
-  --nx-text-secondary: #3f3f3b;
-  --nx-text-tertiary: #5c5c57;
-  --nx-text-faint: #6b6b65;
+  --nx-text: #0e0d0c;
+  --nx-text-secondary: #3d3934;
+  --nx-text-tertiary: #56514b;
+  --nx-text-faint: #5f5a53;
 
-  --nx-accent: #c2410c;
-  --nx-accent-hover: #9a3412;
+  /* Orange as small text on paper: the logo orange fails AA there. */
+  --nx-accent: #ad4306;
+  --nx-accent-hover: #8a3505;
   --nx-accent-fg: #ffffff;
-  --nx-accent-muted: #fff1e6;
-  --nx-accent-border: #f0c4a2;
-  --nx-ring: #c2410c;
+  --nx-accent-muted: #f6e3d3;
+  --nx-accent-border: #e3b592;
+  --nx-ring: #ad4306;
 
-  /* Fills for the main shop actions: the logo orange with charcoal type (5.15:1). White on it fails AA. */
-  --nx-cta: #e8590c;
-  --nx-cta-hover: #f2691a;
-  --nx-cta-fg: #141414;
+  /* Fills for the main shop actions: the logo orange with ink type. White on it fails AA. */
+  --nx-cta: #ed5f0f;
+  --nx-cta-hover: #0e0d0c;
+  --nx-cta-fg: #0e0d0c;
 
-  --nx-store-bright: #e8590c;
-  --nx-store-bright-soft: #fff1e6;
+  --nx-store-bright: #ed5f0f;
+  --nx-store-bright-soft: #dcd7cc;
 
-  /* Ink: the announcement bar, the contact card and overlays. Not for buttons. */
-  --nx-night: #141414;
-  --nx-night-2: #232321;
-  --nx-night-line: #3a3a37;
-  --nx-night-ink: #ffffff;
-  --nx-night-ink-2: #c9c9c3;
+  /* Ink: the hero, the pickup block, the footer and overlays. */
+  --nx-night: #0e0d0c;
+  --nx-night-2: #181614;
+  --nx-night-line: #25221f;
+  --nx-night-ink: #eeebe5;
+  --nx-night-ink-2: #b3ada5;
 
-  --nx-shadow-raised: 0 1px 2px hsl(40 10% 10% / 0.05);
+  --nx-shadow-raised: none;
   --nx-shadow-overlay:
-    0 6px 16px -4px hsl(40 10% 8% / 0.14), 0 20px 48px -12px hsl(40 10% 8% / 0.18);
+    0 6px 16px -4px hsl(30 10% 8% / 0.16), 0 20px 48px -12px hsl(30 10% 8% / 0.22);
   --nx-highlight: transparent;
 
   /* Error states stay light whatever the OS theme, so alerts never inherit the dashboard's dark values. */
-  --nx-negative: #b42d22;
-  --nx-negative-muted: #fbe9e6;
+  --nx-negative: #b3261e;
+  --nx-negative-muted: #f6ddd8;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────

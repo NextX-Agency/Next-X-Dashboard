@@ -291,7 +291,7 @@ function ShopSkeleton() {
       </div>
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         {SKELETON_CARDS.map((id) => (
-          <Skeleton key={id} className="aspect-[3/4] rounded-tile" />
+          <Skeleton key={id} className="aspect-[3/4] rounded-[2px]" />
         ))}
       </div>
     </div>

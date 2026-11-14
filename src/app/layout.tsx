@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Instrument_Sans, JetBrains_Mono, Manrope } from 'next/font/google';
+import { Archivo, Instrument_Sans, JetBrains_Mono, Manrope } from 'next/font/google';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/providers/theme-provider';
@@ -31,12 +31,22 @@ const mono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-// Manrope carries the shop's text and every heading; Instrument Sans stays for the dense staff
-// interface, JetBrains Mono for dashboard figures.
+// Manrope carries the dashboard's headings; Instrument Sans stays for the dense staff interface,
+// JetBrains Mono for dashboard figures. It is not preloaded: the shop no longer paints with it.
 const display = Manrope({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-manrope',
+  preload: false,
+});
+
+// Archivo is the shop's one family, the same as the NextX Agency site. Its width axis lets display
+// type go wide and heavy like the wordmark while running text stays at normal width.
+const store = Archivo({
+  subsets: ['latin'],
+  axes: ['wdth'],
+  display: 'swap',
+  variable: '--font-archivo',
 });
 
 export const metadata: Metadata = {
@@ -58,7 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en-SR"
       suppressHydrationWarning
-      className={`${sans.variable} ${mono.variable} ${display.variable}`}
+      className={`${sans.variable} ${mono.variable} ${display.variable} ${store.variable}`}
     >
       <body className="min-h-dvh bg-base text-ink antialiased">
         <NuqsAdapter>

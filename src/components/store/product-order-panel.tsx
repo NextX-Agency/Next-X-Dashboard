@@ -149,13 +149,13 @@ export function ProductOrderPanel({
       <div className="mt-4 space-y-3 sm:mt-6">
         {inStock ? (
           <div className="flex gap-3">
-            <div className="flex h-12 shrink-0 items-stretch rounded-[12px] border border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
+            <div className="flex h-12 shrink-0 items-stretch rounded-[2px] border border-line-strong focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring">
               <button
                 type="button"
                 aria-label="Decrease quantity"
                 disabled={quantity <= 1}
                 onClick={() => setQty(quantity - 1)}
-                className="grid w-11 place-items-center rounded-l-[12px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-l-[2px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
               >
                 <Minus aria-hidden="true" className="size-4" />
               </button>
@@ -180,7 +180,7 @@ export function ProductOrderPanel({
                 aria-label="Increase quantity"
                 disabled={quantity >= remaining}
                 onClick={() => setQty(quantity + 1)}
-                className="grid w-11 place-items-center rounded-r-[12px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
+                className="grid w-11 place-items-center rounded-r-[2px] hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-35"
               >
                 <Plus aria-hidden="true" className="size-4" />
               </button>
@@ -255,7 +255,7 @@ export function ProductOrderPanel({
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Message on WhatsApp (opens WhatsApp)"
-              className="nx-press grid size-[48px] shrink-0 place-items-center rounded-[12px] border border-line-strong text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="nx-press grid size-[48px] shrink-0 place-items-center rounded-[2px] border border-line-strong text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <MessageCircle aria-hidden="true" className="size-5" />
             </a>
@@ -314,7 +314,7 @@ function VariantSelector({
               aria-label={`${label}${soldOut ? ', sold out' : ''}`}
               onClick={() => onSelect(item.id)}
               className={cn(
-                'inline-flex min-h-12 items-center gap-2 rounded-[10px] border px-4 font-semibold text-[15px] transition-colors sm:min-h-11 sm:px-3.5 sm:text-[14px]',
+                'inline-flex min-h-12 items-center gap-2 rounded-[2px] border px-4 font-semibold text-[15px] transition-colors sm:min-h-11 sm:px-3.5 sm:text-[14px]',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                 isSelected
                   ? 'border-ink bg-sunken text-ink'

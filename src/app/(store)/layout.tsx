@@ -64,11 +64,11 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * `viewport-fit=cover` lets the shop's fixed bars reach the screen edges on a notched phone and read the
  * safe-area insets (`env(safe-area-inset-*)`); `.nx-store` pads the page itself by the side insets. The
- * theme colour is the shop's white, so the browser bar does not turn dashboard-grey above it.
+ * theme colour is the shop's paper, so the browser bar does not turn dashboard-grey above it.
  */
 export const viewport: Viewport = {
   viewportFit: 'cover',
-  themeColor: '#ffffff',
+  themeColor: '#f2f0eb',
 };
 
 // Settings are live database data used by the storefront footer. With a
@@ -97,7 +97,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
 
   return (
     <StoreCartProvider storageScope={storefront?.id ?? 'main'}>
-      <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-manrope)] text-ink">
+      <div className="nx-store flex min-h-dvh flex-col bg-base font-[family-name:var(--font-archivo)] text-ink">
         <StoreChrome />
         <AnnouncementBar announcement={settings?.announcement} />
         <StoreHeader

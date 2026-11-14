@@ -50,7 +50,7 @@ export function QuoteRequestForm({
 
   if (sent) {
     return (
-      <div className="rounded-card border border-line-subtle bg-raised p-6 text-center sm:p-8">
+      <div className="rounded-[2px] border border-line-subtle bg-raised p-6 text-center sm:p-8">
         <p className="flex items-center justify-center gap-2 font-medium text-[14px] text-ink">
           <Check className="size-4 text-positive" aria-hidden="true" />
           Request received
@@ -72,7 +72,7 @@ export function QuoteRequestForm({
 
   return (
     <form
-      className="space-y-4 rounded-card border border-line-subtle bg-raised p-5 sm:p-6"
+      className="space-y-4 rounded-[2px] border border-line-subtle bg-raised p-5 sm:p-6"
       onSubmit={(event) => {
         event.preventDefault();
         const parsed = Number.parseInt(quantity, 10);

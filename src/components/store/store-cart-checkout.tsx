@@ -63,7 +63,7 @@ function paramariboDate(offsetDays = 0) {
 function fieldClassName() {
   // 16 px on a phone (set in globals.css) so focusing a field never zooms the page; the margins keep a
   // focused field clear of the sticky header and the order bar.
-  return 'mt-1.5 h-11 w-full scroll-mt-20 scroll-mb-32 rounded-tile border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  return 'mt-1.5 h-11 w-full scroll-mt-20 scroll-mb-32 rounded-[2px] border border-line bg-raised px-3 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 }
 
 /** How long a removed line fades out before it leaves the list (matches `.nx-leave`). */
@@ -451,7 +451,7 @@ export function StoreCartCheckout({
                     style={{ '--i': Math.min(lineIndex, 4) } as CSSProperties}
                   >
                     <div className="col-span-3 flex min-w-0 items-start gap-3 sm:gap-4">
-                      <div className="relative size-16 shrink-0 sm:size-[72px] overflow-hidden rounded-[12px] bg-sunken">
+                      <div className="relative size-16 shrink-0 sm:size-[72px] overflow-hidden rounded-[2px] bg-sunken">
                         {line.imageUrl ? (
                           <Image
                             src={line.imageUrl}
@@ -722,7 +722,7 @@ export function StoreCartCheckout({
                         : undefined
                     }
                     onClick={() => setPickupDate(value)}
-                    className={`min-h-11 shrink-0 rounded-[10px] border px-4 font-semibold transition-colors ${focusRing} disabled:cursor-not-allowed disabled:opacity-40 ${effectivePickup === value ? 'border-cta bg-cta text-cta-fg' : 'border-line-strong text-ink-2 hover:border-ink hover:text-ink'}`}
+                    className={`min-h-11 shrink-0 rounded-[2px] border px-4 font-semibold transition-colors ${focusRing} disabled:cursor-not-allowed disabled:opacity-40 ${effectivePickup === value ? 'border-cta bg-cta text-cta-fg' : 'border-line-strong text-ink-2 hover:border-ink hover:text-ink'}`}
                   >
                     {value === 'custom'
                       ? 'Pick a date'
@@ -756,7 +756,7 @@ export function StoreCartCheckout({
                 enterKeyHint="done"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
-                className="mt-1.5 w-full scroll-mb-32 resize-y rounded-tile border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="mt-1.5 w-full scroll-mb-32 resize-y rounded-[2px] border border-line bg-raised px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 placeholder="Optional"
               />
             </div>

@@ -1,4 +1,3 @@
-import { ArrowUpRight, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -6,6 +5,7 @@ import { publicText } from '@/lib/english-content';
 import { enquiryMessage } from '@/lib/store-messages';
 import { SHOP_PATH } from '@/lib/storefront-domain';
 import { whatsappDigits, whatsappLink } from '@/lib/whatsapp';
+import { ArrowOut } from './arrow';
 import { WhatsAppCta } from './whatsapp-cta';
 
 type FooterSettings = {
@@ -38,10 +38,10 @@ function instagramUrl(raw: string): string {
 }
 
 /**
- * The footer, top to bottom: an orange panel to ask before ordering (only with a WhatsApp number), the mark
- * and one line beside numbered columns (Shop, Pickup and payment, Contact), and a large wordmark that
- * echoes the logo with its outlined X. A column the owner has not filled in is not rendered, so the rest
- * close up. It reserves room under it for the phone tab bar and the product page's buy bar.
+ * The footer, an ink block like the agency site's: a large closing question with its mark in orange and
+ * the one action (only with a WhatsApp number), then the logo and one line beside plain columns (Shop,
+ * Pickup and payment, Contact). A column the owner has not filled in is not rendered, so the rest close
+ * up. It reserves room under it for the phone tab bar and the product page's buy bar.
  *
  * `description` is the owner's own store description, or null: the footer then uses its own short line
  * rather than the generic default from `store-copy.ts`.
@@ -65,7 +65,7 @@ export function StoreFooter({
   const phoneDigits = settings?.phone?.replace(/\D/g, '') ?? '';
   const payments = settings?.paymentMethods ?? [];
   const link =
-    'inline-flex min-h-11 min-w-11 items-center text-ink-2 sm:min-h-10 transition-colors hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-ring';
+    'inline-flex min-h-11 min-w-11 items-center text-ink-2 sm:min-h-10 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-ring';
 
   const pickupLines = [
     ...pickupLocations.map((location) => publicText(location.name)),
@@ -173,45 +173,49 @@ export function StoreFooter({
     publicText(settings?.supportBody?.trim()) ||
     'Tell NextX what you listen to and what you want to spend. We answer on WhatsApp.';
 
+  const closing = /^(.*?)([.?!])$/s.exec(supportTitle);
+
   return (
-    <footer className="nx-cv mt-10 overflow-hidden border-line border-t bg-sunken pb-[calc(var(--nx-bar-h)+env(safe-area-inset-bottom))] sm:mt-16 sm:pb-0">
+    <footer className="nx-ink nx-cv mt-14 overflow-hidden pb-[calc(var(--nx-bar-h)+env(safe-area-inset-bottom))] sm:mt-20 sm:pb-0 lg:mt-28">
       {ask ? (
-        <div className="mx-auto w-full max-w-[1320px] px-4 pt-8 lg:px-8 lg:pt-14">
-          <div className="nx-reveal flex flex-col gap-5 rounded-[24px] bg-store-bright p-5 sm:rounded-[28px] sm:gap-6 text-[#141414] sm:p-10 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:p-12">
-            <div className="max-w-[26ch]">
-              <p className="font-semibold text-[13px] opacity-80">Before you order</p>
-              <h2 className="nx-display mt-3 text-[clamp(30px,4.6vw,58px)] leading-[1]">
-                {supportTitle}
-              </h2>
-            </div>
-            <div className="flex flex-col gap-4 lg:items-end">
-              <p className="max-w-[40ch] text-[16px] leading-relaxed lg:text-right">
-                {supportBody}
-              </p>
-              <a
-                href={ask}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Message NextX on WhatsApp (opens WhatsApp)"
-                className="nx-btn self-start bg-[#141414] text-white transition-transform hover:bg-black motion-safe:hover:-translate-y-0.5 lg:self-auto"
-              >
-                <MessageCircle /> Message NextX
-              </a>
-            </div>
+        <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 pt-14 sm:pt-20 lg:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] lg:gap-16 lg:px-8 lg:pt-28">
+          <h2 className="nx-bigword nx-reveal max-w-[11ch] text-balance">
+            {closing ? (
+              <>
+                {closing[1]}
+                <span className="text-store-bright">{closing[2]}</span>
+              </>
+            ) : (
+              supportTitle
+            )}
+          </h2>
+          <div className="nx-reveal flex flex-col items-start justify-end gap-5">
+            <p className="max-w-[30ch] text-[17px] text-ink-2 leading-[1.45] sm:text-[20px]">
+              {supportBody}
+            </p>
+            <a
+              href={ask}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Message NextX on WhatsApp (opens WhatsApp)"
+              className="nx-btn nx-btn-primary group px-6"
+            >
+              Message NextX <ArrowOut />
+            </a>
           </div>
         </div>
       ) : null}
 
-      <div className="mx-auto grid w-full max-w-[1320px] gap-8 px-4 py-8 sm:gap-10 sm:py-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16 lg:px-8 lg:py-14">
+      <div className="mx-auto grid w-full max-w-[1320px] gap-10 px-4 py-12 sm:py-16 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-16 lg:px-8 lg:py-24">
         <div>
           <Image
-            src="/nextx-logo-light.png"
+            src="/nextx-logo-dark.png"
             alt={storeName}
             width={950}
             height={380}
             className="h-11 w-auto"
           />
-          <p className="mt-4 max-w-[34ch] text-[15px] text-ink-2 leading-relaxed">
+          <p className="mt-5 max-w-[30ch] text-[15px] text-ink-3 leading-relaxed">
             {description ?? FALLBACK_LINE}
           </p>
           {!ask ? (
@@ -228,56 +232,36 @@ export function StoreFooter({
               href={instagramUrl(settings.instagram)}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex min-h-11 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+              className="group mt-3 inline-flex min-h-11 items-center gap-2 font-semibold text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-ring"
             >
-              Follow on Instagram <ArrowUpRight aria-hidden="true" className="size-4" />
+              <span className="nx-link-line py-1">Follow on Instagram</span> <ArrowOut />
             </a>
           ) : null}
         </div>
 
-        <div className="nx-stagger grid gap-x-8 gap-y-6 text-[14px] sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
-          {sections.map((section, index) => (
-            <section key={section.title} className="nx-reveal border-ink border-t-2 pt-4">
-              <h2 className="flex items-baseline gap-2 font-bold text-[13px] text-ink">
-                <span aria-hidden="true" className="tabular text-[12px] text-accent">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                {section.title}
-              </h2>
-              <div className="mt-2">{section.body}</div>
+        <div className="nx-stagger grid gap-x-8 gap-y-8 text-[15px] sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+          {sections.map((section) => (
+            <section key={section.title} className="nx-reveal">
+              <h2 className="mb-3 font-semibold text-[13px] text-ink-4">{section.title}</h2>
+              {section.body}
             </section>
           ))}
         </div>
       </div>
 
-      <p
-        aria-hidden="true"
-        className="nx-display pointer-events-none -mb-[0.16em] select-none whitespace-nowrap text-center text-[clamp(96px,24vw,340px)] text-[#e6e6e1] leading-[0.82]"
-      >
-        Next
-        <span
-          className="text-transparent"
-          style={{ WebkitTextStroke: 'clamp(2px, 0.4vw, 5px) var(--nx-store-bright)' }}
+      <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-6 text-[13px] text-ink-4 lg:px-8">
+        <p>
+          © {year} {storeName}
+          {settings?.city ? ` · ${settings.city}` : ''}
+        </p>
+        <a
+          href="https://www.nextxagency.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group inline-flex min-h-11 items-center gap-2 transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-ring sm:min-h-8"
         >
-          X
-        </span>
-      </p>
-
-      <div className="border-line border-t bg-sunken">
-        <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 text-[12px] text-ink-3 lg:px-8">
-          <p>
-            © {year} {storeName}
-            {settings?.city ? ` · ${settings.city}` : ''}
-          </p>
-          <a
-            href="https://www.nextxagency.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-11 items-center gap-1 transition-colors sm:min-h-8 hover:text-ink focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            Built by NextX Agency <ArrowUpRight aria-hidden="true" className="size-3.5" />
-          </a>
-        </div>
+          Built by NextX Agency <ArrowOut />
+        </a>
       </div>
     </footer>
   );

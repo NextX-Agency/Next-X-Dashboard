@@ -29,16 +29,16 @@ export function StoreHeader({
 }) {
   const ask = whatsappLink(whatsapp, enquiryMessage(storeName));
   const navLink =
-    'inline-flex h-11 shrink-0 items-center whitespace-nowrap border-b-2 border-transparent font-semibold text-[14px] text-ink-2 transition-colors hover:border-accent hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
+    'inline-flex h-11 shrink-0 items-center whitespace-nowrap font-semibold text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring';
   return (
     // Solid on a phone: a blurred backdrop on a sticky bar is expensive on a low-end GPU.
-    <header className="nx-header sticky top-0 z-30 border-line border-b bg-base sm:bg-base/95 sm:backdrop-blur">
+    <header className="nx-header sticky top-0 z-30 bg-base sm:bg-base/95 sm:backdrop-blur">
       <div className="nx-header-wrap mx-auto w-full max-w-[1320px] px-4 lg:px-8">
         <div className="nx-header-row relative flex h-16 items-center gap-3 sm:gap-6">
           <Link
             href="/"
             aria-label={`${storeName}, go to the homepage`}
-            className="inline-flex h-[44px] shrink-0 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="inline-flex h-[44px] shrink-0 items-center rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             <Image
               src="/nextx-logo-light.png"
@@ -51,7 +51,7 @@ export function StoreHeader({
               priority
             />
           </Link>
-          <Suspense fallback={<div className="h-11 min-w-0 flex-1 rounded-[12px] bg-sunken" />}>
+          <Suspense fallback={<div className="h-11 min-w-0 flex-1 rounded-[2px] bg-sunken" />}>
             <StoreHeaderSearch />
           </Suspense>
           <div className="flex shrink-0 items-center gap-1">
@@ -61,7 +61,7 @@ export function StoreHeader({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Message us on WhatsApp (opens WhatsApp)"
-                className="hidden h-11 min-w-11 items-center justify-center gap-2 nx-press rounded-[10px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
+                className="hidden h-11 min-w-11 items-center justify-center gap-2 nx-press rounded-[2px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
               >
                 <MessageCircle aria-hidden="true" className="size-5" />
                 <span className="hidden md:inline">WhatsApp</span>
@@ -72,7 +72,7 @@ export function StoreHeader({
         </div>
         <nav aria-label="Shop sections" className="hidden items-center gap-6 lg:flex">
           <Link href={SHOP_PATH as never} className={navLink}>
-            All products
+            <span className="nx-link-line py-1">All products</span>
           </Link>
           {categories.map((category) => (
             <Link
@@ -80,7 +80,7 @@ export function StoreHeader({
               href={`${SHOP_PATH}?category=${category.slug}` as never}
               className={navLink}
             >
-              {category.name}
+              <span className="nx-link-line py-1">{category.name}</span>
             </Link>
           ))}
         </nav>

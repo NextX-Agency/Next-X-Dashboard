@@ -67,7 +67,7 @@ export function ProductGallery({ name }: { name: string }) {
   if (!current) {
     return (
       <div>
-        <div className="grid aspect-[6/5] place-items-center rounded-tile bg-sunken">
+        <div className="grid aspect-[6/5] place-items-center rounded-[2px] bg-sunken">
           <div className="grid justify-items-center gap-2 px-6 text-center">
             <Package aria-hidden="true" className="size-12 text-ink-4" />
             {optionLabel ? (
@@ -137,7 +137,7 @@ export function ProductGallery({ name }: { name: string }) {
                 setIndex(next);
               });
             }}
-            className="nx-gallery flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-tile bg-sunken [scrollbar-width:none] lg:block lg:overflow-hidden [&::-webkit-scrollbar]:hidden"
+            className="nx-gallery flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[2px] bg-sunken [scrollbar-width:none] lg:block lg:overflow-hidden [&::-webkit-scrollbar]:hidden"
           >
             {images.map((image, imageIndex) => (
               <li
@@ -216,7 +216,7 @@ export function ProductGallery({ name }: { name: string }) {
                 ?.querySelector<HTMLElement>('[data-current="true"] button')
                 ?.focus({ preventScroll: true });
             }}
-            className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-tile bg-base text-ink shadow-overlay duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-2 data-[state=open]:slide-in-from-bottom-2 sm:inset-8 lg:inset-x-[12%] lg:inset-y-8"
+            className="nx-store fixed inset-3 z-50 flex flex-col overflow-hidden rounded-[2px] bg-base text-ink shadow-overlay duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-2 data-[state=open]:slide-in-from-bottom-2 sm:inset-8 lg:inset-x-[12%] lg:inset-y-8"
           >
             <div className="flex h-14 shrink-0 items-center justify-between border-line border-b px-4">
               <Dialog.Title className="truncate pr-4 font-semibold text-[15px]">
@@ -279,7 +279,7 @@ export function ProductGallery({ name }: { name: string }) {
                 aria-current={imageIndex === index}
                 onClick={() => setIndex(imageIndex)}
                 className={cn(
-                  'relative block size-20 overflow-hidden rounded-[12px] bg-sunken',
+                  'relative block size-20 overflow-hidden rounded-[2px] bg-sunken',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
                   'nx-press',
                   imageIndex === index ? 'ring-2 ring-ink' : 'opacity-70 hover:opacity-100',

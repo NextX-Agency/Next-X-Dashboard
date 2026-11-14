@@ -386,7 +386,7 @@
   transition:
     background-color var(--nx-dur-base) var(--nx-ease),
     color var(--nx-dur-base) var(--nx-ease),
-    rotate var(--nx-dur-base) var(--nx-ease);
+    translate var(--nx-dur-base) var(--nx-ease);
 }
 .nx-card {
   transition:
@@ -397,13 +397,6 @@
   transition-property: background-color, color, border-color, box-shadow, opacity;
   transition-duration: var(--nx-dur-fast);
   transition-timing-function: var(--nx-ease);
-}
-@media (hover: hover) {
-  .nx-card-slot:hover > .nx-card {
-    box-shadow:
-      0 12px 24px -14px hsl(40 10% 8% / 0.28),
-      0 2px 6px -2px hsl(40 10% 8% / 0.08);
-  }
 }
 
 @media screen and (prefers-reduced-motion: reduce) {
@@ -492,19 +485,15 @@
   }
 
   @media (hover: hover) {
-    .nx-card-slot:hover > .nx-card {
-      translate: 0 -2px;
-    }
     .nx-zoom-host:hover .nx-img {
       scale: 1.04;
     }
     /* The corner arrow of a tile or frame turns to point ahead. */
     .group:hover .nx-arrow {
-      rotate: 45deg;
+      translate: 4px 0;
     }
     .nx-store .nx-btn-primary:hover {
-      translate: 0 -1px;
-      box-shadow: 0 8px 16px -10px hsl(21 90% 40% / 0.6);
+      translate: 0 0;
     }
     /* :active after :hover so a press wins over the hover lift. */
     .nx-store .nx-btn-primary:active {
@@ -549,6 +538,207 @@
       animation-range: 0px 56px;
     }
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STORE: the NextX Agency language
+   ══════════════════════════════════════════════════════════════════════════
+   The shop is the agency's sister, so it speaks the same way: Archivo with its
+   width axis for wide, heavy display type; paper, ink and the logo orange;
+   square corners; colour blocks instead of hairline rules and numbered lists;
+   one orange action per view, quiet outlined actions everywhere else.
+   Unlayered, so it wins over the shared button and heading rules above. */
+
+.nx-store {
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  font-variation-settings: "wdth" 100;
+  font-feature-settings: normal;
+}
+.nx-store ::selection {
+  background-color: var(--nx-store-bright);
+  color: #0e0d0c;
+}
+
+/* An ink surface (hero, pickup block, footer): the same tokens, swapped. */
+.nx-store .nx-ink {
+  --nx-bg-base: #0e0d0c;
+  --nx-bg-raised: #181614;
+  --nx-bg-sunken: #181614;
+  --nx-bg-inset: #181614;
+  --nx-bg-hover: #25221f;
+  --nx-border-subtle: #25221f;
+  --nx-border: #34302c;
+  --nx-border-strong: #8f8980;
+  --nx-text: #eeebe5;
+  --nx-text-secondary: #cdc7be;
+  --nx-text-tertiary: #b3ada5;
+  --nx-text-faint: #a39d94;
+  --nx-accent: #ed5f0f;
+  --nx-accent-hover: #f47a2f;
+  --nx-ring: #ed5f0f;
+  background-color: var(--nx-bg-base);
+  color: var(--nx-text);
+}
+
+/* Type. */
+.nx-store .nx-display,
+.nx-store .nx-title {
+  font-weight: 740;
+  font-variation-settings: "wdth" 110;
+  letter-spacing: -0.04em;
+  line-height: 0.96;
+}
+.nx-store .nx-hero-title {
+  font-size: min(13.5vw, 4.25rem);
+  font-weight: 760;
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+}
+@media (min-width: 48rem) {
+  .nx-store .nx-hero-title {
+    font-size: clamp(4rem, 6.6vw, 7.25rem);
+  }
+}
+.nx-store .nx-label {
+  font-family: inherit;
+}
+.nx-store .tabular {
+  font-family: inherit;
+  letter-spacing: -0.02em;
+}
+
+/* Controls: square, 600 weight. The one orange action inverts on hover; the rest are outlined. */
+.nx-store .nx-btn {
+  border-radius: 2px;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  gap: 0.75rem;
+}
+.nx-store .nx-btn-sm {
+  border-radius: 2px;
+}
+.nx-store .nx-btn-primary:hover {
+  background-color: var(--nx-text);
+  color: var(--nx-bg-base);
+}
+.nx-store .nx-btn-line {
+  border-color: var(--nx-text);
+  color: var(--nx-text);
+}
+.nx-store .nx-btn-line:hover {
+  background-color: var(--nx-text);
+  border-color: var(--nx-text);
+  color: var(--nx-bg-base);
+}
+.nx-store .store-card {
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--nx-bg-sunken);
+}
+.nx-store :focus-visible {
+  border-radius: 2px;
+}
+
+/* Text link with an underline that draws in from the left. */
+.nx-link-line {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  transition: background-size var(--nx-dur-base) var(--nx-ease);
+}
+.nx-link-line:hover,
+.nx-link-line[aria-current="page"] {
+  background-size: 100% 1px;
+}
+
+/* Category tiles: a colour block, a photograph on a tilted white card, one heavy word. */
+.nx-tile {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  height: 100%;
+  min-height: 22rem;
+  background-color: var(--tile-bg);
+  color: var(--tile-fg);
+}
+.nx-tile-visual {
+  position: relative;
+  min-height: 0;
+}
+.nx-tile-shot {
+  position: absolute;
+  top: 12%;
+  left: 14%;
+  width: 62%;
+  aspect-ratio: 1;
+  background-color: #ffffff;
+  box-shadow: 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 0.5);
+  rotate: -4deg;
+  transition:
+    rotate 700ms var(--nx-ease),
+    translate 700ms var(--nx-ease);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  /* The photograph card tilts a little further, like the agency site's work tiles. */
+  .nx-tile:hover .nx-tile-shot {
+    rotate: -6deg;
+    translate: 0 -6px;
+  }
+}
+.nx-tile-word {
+  display: block;
+  font-size: clamp(2rem, 3.4vw, 3.5rem);
+  font-weight: 800;
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.05em;
+  line-height: 0.92;
+}
+.nx-tile-go {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background-color: var(--tile-fg);
+  color: var(--tile-bg);
+}
+@media (min-width: 64rem) {
+  .nx-tile {
+    min-height: 0;
+    aspect-ratio: 4 / 5;
+  }
+}
+
+/* How ordering works: four heavy words joined by orange arrows. */
+.nx-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15em 0.4em;
+  font-size: clamp(2rem, 5.6vw, 5.5rem);
+  font-weight: 780;
+  font-variation-settings: "wdth" 110;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+.nx-flow svg {
+  width: 0.55em;
+  height: auto;
+  color: var(--nx-store-bright);
+}
+
+/* Words that close a block: the footer's question, the cart's empty state. */
+.nx-bigword {
+  font-size: clamp(2.75rem, 7.4vw, 7.5rem);
+  font-weight: 780;
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.05em;
+  line-height: 0.9;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

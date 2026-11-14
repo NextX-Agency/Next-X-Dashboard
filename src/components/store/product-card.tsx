@@ -58,9 +58,9 @@ export function ProductCard({
 
   return (
     <div className="nx-card-slot nx-zoom-host h-full">
-      <article className="nx-card relative flex h-full flex-col overflow-hidden rounded-[18px] border border-line bg-raised focus-within:border-ink hover:border-line-strong">
-        {/* The photograph sits in its own inset field, so the card reads as a frame around it. */}
-        <div className="relative m-1.5 aspect-square overflow-hidden rounded-[13px] bg-sunken sm:m-2">
+      <article className="nx-card relative flex h-full flex-col">
+        {/* The photograph sits on its own block of darker paper; the words sit straight on the page. */}
+        <div className="relative aspect-square overflow-hidden bg-sunken">
           {product.image ? (
             <SafeImage
               src={product.image.url}
@@ -84,16 +84,12 @@ export function ProductCard({
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-1 px-3 pt-2 pb-3 sm:px-4 sm:pt-2.5 sm:pb-4">
-          {eyebrow ? (
-            <p className="font-semibold text-[11px] text-ink-3 uppercase tracking-[0.08em]">
-              {eyebrow}
-            </p>
-          ) : null}
+        <div className="flex flex-1 flex-col gap-1 pt-3">
+          {eyebrow ? <p className="text-[13px] text-ink-3">{eyebrow}</p> : null}
           {/* Stretched link: the name is the accessible name; ::after extends the hit area to the card. */}
           <Link
             href={href as never}
-            className="line-clamp-2 font-semibold text-[14px] leading-[1.3] text-ink after:absolute sm:text-[15px] after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+            className="line-clamp-2 font-semibold text-[15px] leading-[1.25] tracking-[-0.01em] text-ink after:absolute sm:text-[17px] after:inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
           >
             {product.name}
           </Link>

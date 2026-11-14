@@ -1,7 +1,7 @@
-import { ArrowRight, ArrowUpRight, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { type CSSProperties, Suspense } from 'react';
+import { type CSSProperties, Fragment, Suspense } from 'react';
+import { Arrow, ArrowOut } from '@/components/store/arrow';
 import { ProductCard } from '@/components/store/product-card';
 import { SafeImage } from '@/components/store/safe-image';
 import { StorePrice } from '@/components/store/store-price';
@@ -38,14 +38,11 @@ type Settings = NonNullable<Awaited<ReturnType<typeof getSettings>>>;
 type Currency = 'USD' | 'SRD';
 
 const SECTION = 'mx-auto w-full max-w-[1320px] px-4 lg:px-8';
-/** Tighter on a phone: 40 px between sections, 64 from `sm`, 96 from `lg`. */
-const SECTION_GAP = 'mt-10 sm:mt-16 lg:mt-24';
-const SECTION_TITLE = 'nx-display text-[clamp(24px,3.4vw,38px)]';
+/** Generous, like the agency site: 56 px between sections on a phone, 80 from `sm`, 128 from `lg`. */
+const SECTION_GAP = 'mt-14 sm:mt-20 lg:mt-32';
+const SECTION_TITLE = 'nx-display text-[clamp(30px,4.2vw,60px)]';
 const FOCUS =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
-
-/** 1 -> "01": the numbering the agency site uses for every list of things. */
-const num = (index: number) => String(index + 1).padStart(2, '0');
 
 /** Delay step for the quiet entrance (`.nx-enter`); the headline and the first photograph never wait. */
 const stagger = (index: number): CSSProperties => ({ '--i': index }) as CSSProperties;
@@ -91,7 +88,7 @@ async function HomeContent() {
   const help = whatsappLink(settings?.whatsapp, assortmentMessage(businessName));
 
   return (
-    <div className="pb-6 sm:pb-16 lg:pb-24">
+    <div className="pb-10 sm:pb-20 lg:pb-28">
       <Hero
         settings={settings}
         showcase={showcase}
@@ -152,6 +149,18 @@ async function HomeContent() {
 
 /* ------------------------------------------------------------------------------------------------ */
 
+/** A headline's closing full stop (or question mark) in the logo orange, as on the agency site. */
+function Headline({ text }: { text: string }) {
+  const match = /^(.*?)([.?!])$/s.exec(text.trim());
+  if (!match) return <>{text}</>;
+  return (
+    <>
+      {match[1]}
+      <span className="text-store-bright">{match[2]}</span>
+    </>
+  );
+}
+
 function Hero({
   settings,
   showcase,
@@ -172,9 +181,9 @@ function Hero({
   // The owner's words win; a placeholder ("Welcome To NextX") counts as no words at all.
   const title = ownerHeroCopy(publicText(settings?.heroTitle)) ?? DEFAULT_HERO_TITLE;
   const body = ownerHeroCopy(publicText(settings?.heroBody)) ?? DEFAULT_HERO_BODY;
-  const eyebrow = [businessName, settings?.city].filter(Boolean).join(' · ');
   // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
   const facts = [
+    [businessName, settings?.city].filter(Boolean).join(', '),
     inStockCount > 0 ? `${plural(inStockCount, 'product')} in stock` : null,
     `Prices in ${currency}`,
     settings?.pickupEnabled
@@ -185,56 +194,50 @@ function Hero({
   ].filter((fact): fact is string => Boolean(fact));
 
   return (
-    <section aria-labelledby="home-title" className={cn(SECTION, 'pt-3 sm:pt-6 lg:pt-10')}>
-      <div className="grid gap-4 sm:gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-stretch lg:gap-12">
-        <div className="flex min-w-0 flex-col justify-center lg:py-8">
-          <p className="nx-label nx-enter text-accent">{eyebrow}</p>
-          <h1
-            id="home-title"
-            className="nx-display mt-2 text-balance text-[clamp(34px,5.6vw,76px)] leading-[0.96] text-ink sm:mt-5"
-          >
-            {title}
+    <section aria-labelledby="home-title" className="nx-ink">
+      <div
+        className={cn(
+          SECTION,
+          'grid gap-8 py-8 sm:gap-10 sm:py-12 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-center lg:gap-14 lg:py-20',
+        )}
+      >
+        <div className="flex min-w-0 flex-col">
+          <h1 id="home-title" className="nx-hero-title text-balance text-ink">
+            <Headline text={title} />
           </h1>
           <p
-            className="nx-enter mt-3 max-w-[44ch] text-[15px] text-ink-2 leading-[1.5] sm:mt-5 sm:text-[17px] sm:leading-relaxed"
+            className="nx-enter mt-5 max-w-[30rem] text-[17px] text-ink leading-[1.45] sm:mt-8 sm:text-[20px]"
             style={stagger(1)}
           >
             {body}
           </p>
-          <div className="nx-enter mt-4 flex flex-wrap gap-3 sm:mt-7" style={stagger(2)}>
-            <Link
-              href={SHOP_PATH as never}
-              className="nx-btn nx-btn-primary flex-1 px-5 sm:flex-none sm:px-7"
-            >
-              Shop all products <ArrowRight />
+          <div
+            className="nx-enter mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 sm:mt-9"
+            style={stagger(2)}
+          >
+            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary group px-6">
+              Shop all products <Arrow />
             </Link>
             {whatsappHref ? (
               <a
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="nx-btn nx-btn-line px-4 sm:px-6"
+                className={cn(
+                  'group inline-flex min-h-11 items-center gap-2.5 font-semibold text-[15px] text-ink',
+                  FOCUS,
+                )}
               >
-                <MessageCircle /> <span className="sm:hidden">WhatsApp</span>
-                <span className="max-sm:hidden">Ask on WhatsApp</span>
+                <span className="nx-link-line py-1">Ask on WhatsApp</span> <ArrowOut />
               </a>
             ) : null}
           </div>
-          <ul
-            className="nx-enter mt-5 flex flex-wrap border-ink border-t-2 pt-3 font-semibold text-[13px] text-ink sm:mt-8 sm:pt-4 sm:text-[14px]"
+          <p
+            className="nx-enter mt-8 text-[13px] text-ink-3 leading-relaxed sm:mt-12 sm:text-[14px]"
             style={stagger(3)}
           >
-            {facts.map((fact, index) => (
-              <li key={fact} className="flex items-center">
-                {index > 0 ? (
-                  <span aria-hidden="true" className="px-2.5 text-accent sm:px-3">
-                    /
-                  </span>
-                ) : null}
-                {fact}
-              </li>
-            ))}
-          </ul>
+            {facts.join(' · ')}
+          </p>
         </div>
         {showcase.length ? <Showcase products={showcase} srdRate={srdRate} /> : null}
       </div>
@@ -245,7 +248,7 @@ function Hero({
 /**
  * Up to three real products, large, on the brand colour. Each sits in its own white frame so its true
  * colours show (the photographs are shot on white, so they are never tinted), links to its page and
- * carries its number, name and price. Two products make a two-frame composition. The frames have fixed
+ * carries its name and price. Two products make a two-frame composition. The frames have fixed
  * proportions, so nothing moves when the photographs arrive.
  */
 function Showcase({
@@ -271,7 +274,7 @@ function Showcase({
   return (
     <ul
       aria-label="Products"
-      className="grid grid-cols-2 gap-3 nx-showcase rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
+      className="grid grid-cols-2 gap-2 bg-store-bright p-2 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:gap-3 md:p-3 lg:min-h-[560px]"
     >
       {frames.map(({ product, className, large }, index) => (
         <li
@@ -281,7 +284,7 @@ function Showcase({
         >
           <Link
             href={storefrontProductPath(null, product.slug) as never}
-            className="group nx-zoom-host flex h-full flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="group nx-zoom-host flex h-full flex-col overflow-hidden bg-white text-[#0e0d0c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <span
               className={cn(
@@ -299,19 +302,17 @@ function Showcase({
                   loading={index === 0 ? 'eager' : 'lazy'}
                   sizes={
                     large
-                      ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
-                      : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
+                      ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 28vw'
+                      : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 20vw'
                   }
                   className="nx-img object-contain p-[6%]"
                 />
               ) : null}
             </span>
-            <span className="flex items-end justify-between gap-3 border-line border-t px-3.5 py-3">
+            <span className="flex items-end justify-between gap-3 px-3.5 pt-1 pb-3.5">
               <span className="min-w-0">
-                <span className="block truncate font-semibold text-[14px] text-ink">
-                  {product.name}
-                </span>
-                <span className="mt-1.5 block">
+                <span className="block truncate font-semibold text-[14px]">{product.name}</span>
+                <span className="mt-1.5 block [&_span]:text-[#0e0d0c]">
                   <StorePrice
                     amountCents={product.minPriceCents}
                     currency={product.priceCurrency}
@@ -320,12 +321,7 @@ function Showcase({
                   />
                 </span>
               </span>
-              <span
-                aria-hidden="true"
-                className="tabular shrink-0 font-bold text-[13px] text-accent"
-              >
-                {num(index)}
-              </span>
+              <Arrow className="mb-1" />
             </span>
           </Link>
         </li>
@@ -336,9 +332,17 @@ function Showcase({
 
 /* ------------------------------------------------------------------------------------------------ */
 
+/** Tile colours in turn: the logo orange, ink, and the warm tan of the agency's third tile. */
+const TILE_TONES = [
+  { bg: '#ed5f0f', fg: '#0e0d0c' },
+  { bg: '#0e0d0c', fg: '#f2f0eb' },
+  { bg: '#dcd7cc', fg: '#0e0d0c' },
+] as const;
+
 /**
- * The categories as places to go, numbered. Their number decides the layout: with three, one large tile
- * and two smaller ones. Each shows a real photograph of something in it and the real lowest price.
+ * The categories as places to go: one colour block each, a real photograph of something in it on a
+ * tilted white card (so the photograph is never tinted), the name as one heavy word and the real
+ * lowest price.
  */
 function CategoryTiles({
   tiles,
@@ -349,7 +353,6 @@ function CategoryTiles({
   currency: Currency;
   srdRate: RateMicros | undefined;
 }) {
-  const three = tiles.length === 3;
   return (
     <section aria-labelledby="home-categories" className={cn(SECTION, SECTION_GAP)}>
       <h2 id="home-categories" className={cn(SECTION_TITLE, 'nx-reveal')}>
@@ -359,29 +362,24 @@ function CategoryTiles({
         className={cn(
           // A phone swipes through the categories in one short row instead of stacking them
           // (the next tile peeks in, so it reads as a row); from `sm` they are a grid again.
-          'nx-stagger nx-snap-row mt-4 flex gap-3 sm:mt-6 sm:grid sm:gap-4',
-          three
-            ? 'md:grid-cols-6 md:grid-rows-2'
-            : tiles.length === 2
-              ? 'md:grid-cols-2'
+          'nx-stagger nx-snap-row mt-5 flex gap-3 sm:mt-8 sm:grid',
+          tiles.length === 2
+            ? 'sm:grid-cols-2'
+            : tiles.length === 3
+              ? 'sm:grid-cols-2 lg:grid-cols-3'
               : 'sm:grid-cols-2 lg:grid-cols-4',
         )}
       >
         {tiles.map((tile, index) => (
           <li
             key={tile.slug}
-            className={cn(
-              'nx-reveal w-[72%] max-w-[300px] shrink-0 snap-start sm:w-auto sm:max-w-none sm:shrink',
-              three && index === 0 && 'md:col-span-4 md:row-span-2',
-              three && index > 0 && 'md:col-span-2',
-            )}
+            className="nx-reveal w-[78%] max-w-[340px] shrink-0 snap-start sm:w-auto sm:max-w-none sm:shrink"
           >
             <CategoryTileCard
               tile={tile}
-              number={num(index)}
+              tone={TILE_TONES[index % TILE_TONES.length] ?? TILE_TONES[0]}
               currency={currency}
               srdRate={srdRate}
-              large={three && index === 0}
             />
           </li>
         ))}
@@ -392,73 +390,60 @@ function CategoryTiles({
 
 function CategoryTileCard({
   tile,
-  number,
+  tone,
   currency,
   srdRate,
-  large,
 }: {
   tile: CategoryTile;
-  number: string;
+  tone: { bg: string; fg: string };
   currency: Currency;
   srdRate: RateMicros | undefined;
-  large: boolean;
 }) {
-  // One photograph per tile: a second one stacked on the first, multiplied onto it, reads as a ghost.
+  // One photograph per tile: a second one stacked on the first reads as a ghost.
   const [first] = tile.images;
   return (
     <Link
       href={`${SHOP_PATH}?category=${tile.slug}` as never}
-      className={cn(
-        'group nx-zoom-host relative flex h-full overflow-hidden rounded-[20px] p-4 transition-colors sm:rounded-[24px] sm:p-7',
-        large ? 'bg-store-bright-soft hover:bg-[#ffe6d2]' : 'bg-sunken hover:bg-hover',
-        large ? 'min-h-[200px] sm:min-h-[260px] md:min-h-[420px]' : 'min-h-[200px]',
-        FOCUS,
-      )}
+      className={cn('nx-tile group', FOCUS)}
+      style={{ '--tile-bg': tone.bg, '--tile-fg': tone.fg } as CSSProperties}
     >
-      <div className="relative z-10 flex max-w-[55%] flex-col">
-        <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
-          {number}
-        </span>
-        <h3
-          className={cn(
-            'nx-display mt-3 text-ink underline-offset-4 group-hover:underline',
-            large ? 'text-[clamp(26px,3vw,40px)]' : 'text-[clamp(20px,2vw,26px)]',
-          )}
-        >
-          {tile.name}
-        </h3>
-        <p className="mt-2 text-[14px] text-ink-2">{plural(tile.count, 'product')}</p>
-        {tile.fromCents !== null ? (
-          <StorePrice
-            amountCents={tile.fromCents}
-            currency={currency}
-            srdRate={srdRate}
-            size="sm"
-            prefix="from"
-            className="mt-auto pt-6"
-          />
+      <span className="nx-tile-visual" aria-hidden="true">
+        {first ? (
+          <span className="nx-tile-shot">
+            <SafeImage
+              fallback={null}
+              src={first.image.url}
+              alt=""
+              fill
+              sizes="(max-width: 639px) 50vw, (max-width: 1023px) 30vw, 20vw"
+              className="object-contain p-[8%]"
+            />
+          </span>
         ) : null}
+      </span>
+      <div className="relative z-10 flex items-end justify-between gap-4 p-5 sm:p-6">
+        <div className="min-w-0">
+          <h3 className="nx-tile-word text-balance">{tile.name}</h3>
+          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-[14px]">
+            {plural(tile.count, 'product')}
+            {tile.fromCents !== null ? (
+              <span className="inline-flex items-baseline gap-1.5 [&_span]:text-[inherit]">
+                <span aria-hidden="true">·</span>
+                <StorePrice
+                  amountCents={tile.fromCents}
+                  currency={currency}
+                  srdRate={srdRate}
+                  size="sm"
+                  prefix="from"
+                />
+              </span>
+            ) : null}
+          </p>
+        </div>
+        <span className="nx-tile-go" aria-hidden="true">
+          <Arrow />
+        </span>
       </div>
-      <ArrowUpRight
-        aria-hidden="true"
-        className="nx-arrow absolute top-4 right-4 z-10 size-6 text-ink group-hover:text-accent sm:top-7 sm:right-7 sm:size-7"
-      />
-      {first ? (
-        <SafeImage
-          fallback={null}
-          src={first.image.url}
-          alt=""
-          width={first.image.width}
-          height={first.image.height}
-          sizes={large ? '(max-width: 767px) 60vw, 34vw' : '(max-width: 767px) 50vw, 22vw'}
-          className={cn(
-            'absolute mix-blend-multiply',
-            large
-              ? 'right-[-2%] bottom-[-4%] w-[52%] max-w-[460px] sm:w-[62%]'
-              : 'right-[-6%] bottom-[-8%] w-[52%] max-w-[240px]',
-          )}
-        />
-      ) : null}
     </Link>
   );
 }
@@ -487,14 +472,14 @@ function Shelf({
         <Link
           href={action.href as never}
           className={cn(
-            'inline-flex min-h-11 shrink-0 items-center gap-1.5 font-semibold text-[14px] text-ink underline-offset-4 hover:underline',
+            'group inline-flex min-h-11 shrink-0 items-center gap-2.5 font-semibold text-[15px] text-ink',
             FOCUS,
           )}
         >
-          {action.label} <ArrowRight aria-hidden="true" className="size-4" />
+          <span className="nx-link-line py-1">{action.label}</span> <Arrow />
         </Link>
       </div>
-      <ul className="nx-stagger mt-4 grid grid-cols-2 gap-3 sm:mt-6 sm:gap-4 lg:grid-cols-4">
+      <ul className="nx-stagger mt-5 grid grid-cols-2 gap-x-3 gap-y-8 sm:mt-8 sm:gap-x-4 lg:grid-cols-4">
         {products.map((product) => (
           <li key={product.id} className="nx-reveal">
             <ProductCard product={product} srdRate={srdRate} />
@@ -505,7 +490,7 @@ function Shelf({
   );
 }
 
-/** Bundles as a numbered list of rows: name, what is in it, price. Only when the owner switched it on. */
+/** Bundles as blocks: name, what is in it, price. Only when the owner switched it on. */
 async function Sets({
   enabled,
   limit,
@@ -527,25 +512,22 @@ async function Sets({
       <h2 id="home-bundles" className={cn(SECTION_TITLE, 'nx-reveal')}>
         Bundles
       </h2>
-      <ul className="nx-reveal mt-4 border-line border-b sm:mt-6">
-        {bundles.map((bundle, index) => (
-          <li key={bundle.id} className="border-line border-t">
+      <ul className="nx-reveal mt-5 grid gap-3 sm:mt-8 md:grid-cols-2">
+        {bundles.map((bundle) => (
+          <li key={bundle.id}>
             <Link
               href={`/setups/${bundle.slug}` as never}
-              className={cn('group flex items-start gap-4 py-4 sm:gap-8 sm:py-5', FOCUS)}
+              className={cn(
+                'group flex h-full items-end justify-between gap-6 bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
+                FOCUS,
+              )}
             >
-              <span
-                aria-hidden="true"
-                className="tabular w-7 shrink-0 pt-0.5 font-bold text-[14px] text-accent"
-              >
-                {num(index)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-bold text-[17px] underline-offset-4 group-hover:underline">
+              <span className="min-w-0">
+                <span className="nx-display block text-[clamp(22px,2.4vw,32px)]">
                   {bundle.name}
                 </span>
                 {bundle.summary ? (
-                  <span className="mt-1 block max-w-[60ch] text-[14px] text-ink-3">
+                  <span className="mt-2 block max-w-[48ch] text-[14px] text-ink-2">
                     {bundle.summary}
                   </span>
                 ) : null}
@@ -585,9 +567,9 @@ function tickerWords(categories: { name: string }[], products: CatalogListItem[]
 }
 
 /**
- * A slow band of type between the hero and the categories. The first copy is the real list; the second
- * is hidden from assistive technology and only exists so the loop has no seam. Without motion (reduced
- * motion, no CSS animation) it is a still row that clips at the edge.
+ * An orange band of type under the hero. The first copy is the real list; the second is hidden from
+ * assistive technology and only exists so the loop has no seam. Without motion (reduced motion, no CSS
+ * animation) it is a still row that clips at the edge.
  */
 function Ticker({ words }: { words: string[] }) {
   if (words.length < 3) return null;
@@ -597,34 +579,16 @@ function Ticker({ words }: { words: string[] }) {
       aria-label={hidden ? undefined : 'What the shop carries'}
       className="flex shrink-0 items-center"
     >
-      {words.map((word, index) => (
+      {words.map((word) => (
         <li key={word} className="flex items-center whitespace-nowrap">
-          <span
-            className={cn(
-              'nx-display px-5 text-[clamp(20px,2.6vw,34px)] sm:px-8',
-              index % 2 ? 'text-night-ink-2' : 'text-night-ink',
-            )}
-          >
-            {word}
-          </span>
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="size-4 shrink-0 text-store-bright sm:size-5"
-          >
-            <path
-              d="M3 3l18 18M21 3L3 21"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              fill="none"
-            />
-          </svg>
+          <span className="nx-display px-5 text-[clamp(22px,3vw,40px)] sm:px-8">{word}</span>
+          <span aria-hidden="true" className="size-2 shrink-0 bg-[#0e0d0c] sm:size-2.5" />
         </li>
       ))}
     </ul>
   );
   return (
-    <div className="mt-8 overflow-hidden bg-night py-4 sm:mt-14 sm:py-6 lg:mt-20">
+    <div className="overflow-hidden bg-store-bright py-4 text-[#0e0d0c] sm:py-6">
       <div className="nx-marquee flex w-max">
         {row(false)}
         {row(true)}
@@ -636,8 +600,9 @@ function Ticker({ words }: { words: string[] }) {
 /* ------------------------------------------------------------------------------------------------ */
 
 /**
- * How an order works here, in three steps. Only what the cart really does: it writes the WhatsApp
- * message, and nothing is final until the shop has confirmed price and stock.
+ * How an order works here, as the agency site shows its own process: heavy words joined by orange
+ * arrows and one line under them. Only what the cart really does: it writes the WhatsApp message, and
+ * nothing is final until the shop has confirmed price and stock.
  */
 function Ordering({
   settings,
@@ -648,45 +613,27 @@ function Ordering({
 }) {
   const pickup = Boolean(settings?.pickupEnabled);
   const delivery = Boolean(settings?.deliveryEnabled);
-  const handover =
-    pickup && delivery
-      ? 'Collect it or have it delivered'
-      : delivery
-        ? 'Have it delivered'
-        : 'Collect your order';
-  const steps = [
-    {
-      title: 'Fill your cart',
-      body: 'Add what you want. Every price is shown in full before you send anything.',
-    },
-    {
-      title: 'Send it on WhatsApp',
-      body: `The cart writes the message for you. ${businessName} confirms price and stock before anything is final.`,
-    },
-    {
-      title: handover,
-      body: pickup
-        ? 'You agree the pickup place and time in the same chat.'
-        : 'You agree the details in the same chat.',
-    },
-  ];
+  const last = pickup && delivery ? 'Pickup or delivery' : delivery ? 'Delivery' : 'Pickup';
+  const steps = ['Cart', 'WhatsApp', 'Confirmed', last];
   return (
     <section aria-labelledby="home-ordering" className={cn(SECTION, SECTION_GAP, 'nx-cv')}>
-      <h2 id="home-ordering" className={cn(SECTION_TITLE, 'nx-reveal')}>
-        How ordering works
-      </h2>
-      {/* The same numbered, ruled columns as the footer: a list, not a row of cards. */}
-      <ol className="nx-stagger mt-5 grid gap-x-8 gap-y-6 sm:mt-8 md:grid-cols-3 lg:gap-x-12">
-        {steps.map(({ title, body }, index) => (
-          <li key={title} className="nx-reveal border-ink border-t-2 pt-4">
-            <span aria-hidden="true" className="tabular font-bold text-[14px] text-accent">
-              {num(index)}
-            </span>
-            <h3 className="nx-display mt-3 text-[clamp(20px,2vw,26px)] text-ink">{title}</h3>
-            <p className="mt-2 max-w-[38ch] text-[15px] text-ink-2 leading-relaxed">{body}</p>
-          </li>
-        ))}
-      </ol>
+      <div className="nx-reveal">
+        <h2 id="home-ordering" className="font-semibold text-[15px] text-ink-2">
+          How ordering works
+        </h2>
+        <p className="nx-flow mt-6 sm:mt-8">
+          {steps.map((step, index) => (
+            <Fragment key={step}>
+              {index > 0 ? <Arrow /> : null}
+              <span>{step}</span>
+            </Fragment>
+          ))}
+        </p>
+        <p className="mt-6 max-w-[36rem] text-[17px] text-ink-2 leading-[1.45] sm:mt-8 sm:text-[20px]">
+          The cart writes the WhatsApp message for you. {businessName} confirms price and stock
+          before anything is final.
+        </p>
+      </div>
     </section>
   );
 }
@@ -694,8 +641,8 @@ function Ordering({
 /* ------------------------------------------------------------------------------------------------ */
 
 /**
- * Pickup places, hours, payment, delivery and phone: one dark band, each fact only when the owner has
- * entered it, and no band at all when none are. Full width, so it never has to match another card's height.
+ * Pickup places, hours, payment, delivery and phone: one ink block, each fact only when the owner has
+ * entered it, and no block at all when none are. Full width, so it never has to match another card's height.
  */
 function Pickup({
   settings,
@@ -727,13 +674,13 @@ function Pickup({
     <section
       id="pickup"
       aria-labelledby="home-pickup"
-      className={cn(SECTION, 'nx-cv mt-8 scroll-mt-0 sm:mt-10 sm:scroll-mt-24 lg:mt-12')}
+      className={cn(SECTION, SECTION_GAP, 'nx-cv scroll-mt-0 sm:scroll-mt-24')}
     >
-      <div className="nx-reveal relative overflow-hidden rounded-[20px] bg-night p-5 text-night-ink sm:rounded-[24px] sm:p-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-12">
-        <h2 id="home-pickup" className="nx-display text-[clamp(24px,3.4vw,38px)]">
+      <div className="nx-ink nx-reveal p-6 sm:p-10 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14 lg:p-14">
+        <h2 id="home-pickup" className={SECTION_TITLE}>
           Pickup and contact
         </h2>
-        <dl className="mt-5 grid gap-x-10 gap-y-4 text-[15px] sm:mt-8 sm:grid-cols-2 sm:gap-y-6 lg:mt-1">
+        <dl className="mt-7 grid gap-x-10 gap-y-7 text-[16px] sm:grid-cols-2 lg:mt-2">
           {hasPickupPlace ? (
             <Fact label="Pickup">
               {pickupLocations.length ? (
@@ -746,7 +693,7 @@ function Pickup({
                 address
               )}
               {settings?.pickupDetails ? (
-                <p className="mt-1 text-night-ink-2">{publicText(settings.pickupDetails)}</p>
+                <p className="mt-1 text-ink-3">{publicText(settings.pickupDetails)}</p>
               ) : null}
             </Fact>
           ) : null}
@@ -760,7 +707,7 @@ function Pickup({
                   <li key={method.name}>
                     {publicText(method.name)}
                     {method.details ? (
-                      <span className="text-night-ink-2"> · {publicText(method.details)}</span>
+                      <span className="text-ink-3"> · {publicText(method.details)}</span>
                     ) : null}
                   </li>
                 ))}
@@ -776,7 +723,7 @@ function Pickup({
             <Fact label="Call">
               <a
                 href={`tel:${settings.phone.replace(/[^\d+]/g, '')}`}
-                className="underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-white"
+                className="nx-link-line py-1 focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {settings.phone}
               </a>
@@ -790,11 +737,9 @@ function Pickup({
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 border-night-line border-t pt-3">
-      <dt className="font-semibold text-[12px] text-night-ink-2 uppercase tracking-[0.08em]">
-        {label}
-      </dt>
-      <dd className="mt-1.5">{children}</dd>
+    <div className="min-w-0">
+      <dt className="font-semibold text-[13px] text-ink-4">{label}</dt>
+      <dd className="mt-2 text-ink">{children}</dd>
     </div>
   );
 }
@@ -811,7 +756,7 @@ function HomeSkeleton() {
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-6 w-2/3" />
         </div>
-        <Skeleton className="aspect-[6/5] rounded-[28px]" />
+        <Skeleton className="aspect-[6/5]" />
       </div>
     </div>
   );
