@@ -616,104 +616,106 @@
 .nx-line > span {
   display: block;
 }
-.nx-stage {
-  --px: 0;
-  --py: 0;
+/* The player: a white sleeve with the product on it and an orange record turning half out of it. */
+.nx-player {
   position: relative;
   width: 100%;
   max-width: 34rem;
   margin-inline: auto;
-  aspect-ratio: 1 / 1.02;
 }
-/* The disc, and a soft orange light around it like the agency hero's globe. */
-.nx-stage::before,
-.nx-stage::after {
-  content: "";
+.nx-player-stage {
+  position: relative;
+  aspect-ratio: 1.34 / 1;
+}
+.nx-sleeve {
   position: absolute;
-  top: 52%;
-  left: 50%;
-  border-radius: 50%;
-  translate: -50% -50%;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  height: 100%;
+  aspect-ratio: 1;
+  background-color: #ffffff;
+  box-shadow: 0 2rem 3.5rem -1.5rem rgb(0 0 0 / 0.7);
+}
+.nx-sleeve-face {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 500ms var(--nx-ease),
+    visibility 0s linear 500ms;
+}
+.nx-sleeve-face-on {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 500ms var(--nx-ease),
+    visibility 0s;
+}
+.nx-record-slot {
+  position: absolute;
+  top: 4%;
+  right: 0;
+  height: 92%;
+  aspect-ratio: 1;
+}
+.nx-record {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1.25rem 2rem rgb(0 0 0 / 0.55));
+}
+/* One progress bar per product; the current one fills while it plays. */
+.nx-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  background-color: var(--nx-border);
+}
+.nx-track-fill {
+  position: absolute;
+  inset: 0;
+  background-color: var(--nx-store-bright);
+  scale: 0 1;
+  transform-origin: left;
+}
+.nx-track-done {
+  scale: 1 1;
+}
+/* The equalizer along the foot of the hero. */
+.nx-wave {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 6.5rem;
   pointer-events: none;
 }
-.nx-stage::before {
-  width: 150%;
-  aspect-ratio: 1;
-  background: radial-gradient(
-    closest-side,
-    rgb(237 95 15 / 0.22),
-    rgb(237 95 15 / 0.06) 60%,
-    transparent
-  );
+@media (min-width: 40rem) {
+  .nx-wave {
+    height: 9rem;
+  }
 }
-.nx-stage::after {
-  width: 84%;
-  aspect-ratio: 1;
-  background-color: var(--nx-store-bright);
-  translate: calc(-50% + var(--px) * -6px) calc(-50% + var(--py) * -6px);
-  transition: translate 500ms var(--nx-ease);
+@media (min-width: 64rem) {
+  .nx-wave {
+    height: 10.5rem;
+  }
 }
-.nx-stage-card {
-  position: absolute;
-  z-index: 1;
-  box-shadow: 0 2rem 3.5rem -1.5rem rgb(0 0 0 / 0.65);
-  translate: calc(var(--px) * var(--d, 10) * 1px) calc(var(--py) * var(--d, 10) * 1px);
-  transition:
-    translate 500ms var(--nx-ease),
-    rotate 500ms var(--nx-ease),
-    scale 500ms var(--nx-ease);
+@keyframes nx-track {
+  to {
+    scale: 1 1;
+  }
 }
-.nx-stage-a {
-  --d: 9;
-  top: 9%;
-  left: 0;
-  width: 43%;
-  rotate: -9deg;
-}
-.nx-stage-b {
-  --d: 15;
-  top: 2%;
-  right: 0;
-  width: 40%;
-  rotate: 8deg;
-}
-.nx-stage-main {
-  --d: 24;
-  z-index: 2;
-  top: 31%;
-  left: 22%;
-  width: 54%;
-  rotate: -3deg;
-}
-.nx-seal {
-  position: absolute;
-  z-index: 3;
-  left: -3%;
-  bottom: 3%;
-  width: 26%;
-  max-width: 8.5rem;
-  translate: calc(var(--px) * 30px) calc(var(--py) * 30px);
-  transition: translate 500ms var(--nx-ease);
-}
-.nx-seal-ring {
-  transform-origin: 60px 60px;
-}
-@media (hover: hover) {
-  .nx-stage-card:hover,
-  .nx-stage-card:focus-within {
-    z-index: 4;
-    rotate: 0deg;
-    scale: 1.05;
+@keyframes nx-record-out {
+  from {
+    translate: -32% 0;
   }
 }
 @keyframes nx-line-up {
   from {
     translate: 0 108%;
-  }
-}
-@keyframes nx-drift {
-  to {
-    translate: 0 -10px;
   }
 }
 @keyframes nx-turn {
@@ -726,20 +728,23 @@
     animation: nx-line-up 900ms var(--nx-ease) backwards;
     animation-delay: calc(var(--i, 0) * 110ms);
   }
-  /* Each card drifts on its own slow beat (the link moves, so the pointer lean is untouched). */
-  .nx-stage-card > a {
-    animation: nx-drift 5.5s ease-in-out infinite alternate;
+  .nx-record-slot {
+    animation: nx-record-out 900ms var(--nx-ease) backwards;
   }
-  .nx-stage-b > a {
-    animation-duration: 6.5s;
-    animation-delay: -2s;
+  .nx-record {
+    animation: nx-turn 5s linear infinite paused;
   }
-  .nx-stage-main > a {
-    animation-duration: 7.5s;
-    animation-delay: -4s;
+  .nx-record-playing {
+    animation-play-state: running;
   }
-  .nx-seal-ring {
-    animation: nx-turn 26s linear infinite;
+  /* The progress bar is the timer: when it is full, the player moves on. */
+  .nx-track-on {
+    animation-name: nx-track;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+  .nx-track-held {
+    animation-play-state: paused;
   }
 }
 

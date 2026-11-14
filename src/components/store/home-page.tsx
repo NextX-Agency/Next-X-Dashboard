@@ -1,8 +1,8 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { type CSSProperties, Fragment, Suspense } from 'react';
 import { Arrow, ArrowOut } from '@/components/store/arrow';
-import { HeroParallax } from '@/components/store/hero-parallax';
+import { HeroPlayer, type HeroTrack } from '@/components/store/hero-player';
+import { HeroWave } from '@/components/store/hero-wave';
 import { ProductCard } from '@/components/store/product-card';
 import { SafeImage } from '@/components/store/safe-image';
 import { StorePrice } from '@/components/store/store-price';
@@ -209,7 +209,7 @@ function Hero({
     pickupFact,
     settings?.deliveryEnabled ? 'Delivery available' : null,
   ].filter((fact): fact is string => Boolean(fact));
-  // The same facts, set around the turning seal on the stage.
+  // The same facts, set around the label of the record.
   const seal = [settings?.city, `Prices in ${currency}`, pickupFact, 'Order on WhatsApp']
     .filter((word): word is string => Boolean(word))
     .slice(0, 4);
@@ -219,7 +219,7 @@ function Hero({
       <div
         className={cn(
           SECTION,
-          'grid gap-10 pt-8 pb-12 sm:pt-12 sm:pb-16 lg:min-h-[calc(100svh-var(--nx-header-h)-5.5rem)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-10 lg:py-16',
+          'relative z-10 grid gap-10 pt-8 pb-32 sm:pt-12 sm:pb-44 lg:min-h-[calc(100svh-var(--nx-header-h)-5.5rem)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-12 lg:pt-14 lg:pb-48',
         )}
       >
         <div className="relative z-10 flex min-w-0 flex-col">
@@ -274,16 +274,14 @@ function Hero({
           <Showcase products={showcase} srdRate={srdRate} seal={seal} />
         ) : null}
       </div>
+      <HeroWave />
     </section>
   );
 }
 
 /**
- * The stage: up to three real products as a fanned stack of white cards on a disc of the logo orange.
- * Each card keeps the photograph's true colours (they are shot on white, so they are never tinted),
- * links to its page and carries its name and price. The cards drift a little, lean with the pointer
- * (`HeroParallax`) and straighten when one is pointed at; none of that happens for a visitor who asked
- * for less motion. Every card has fixed proportions, so nothing moves when the photographs arrive.
+ * The products the hero plays, as tracks for `HeroPlayer`: each with its page, its photograph and its
+ * price already rendered. Two or three real products; fewer than two is no player at all.
  */
 function Showcase({
   products,
@@ -294,94 +292,22 @@ function Showcase({
   srdRate: RateMicros | undefined;
   seal: string[];
 }) {
-  const [main, second, third] = products;
-  if (!main || !second) return null;
-  // Painted back to front; the first product is the large card in front.
-  const cards = [
-    { product: second, slot: 'nx-stage-a', lead: false },
-    ...(third ? [{ product: third, slot: 'nx-stage-b', lead: false }] : []),
-    { product: main, slot: 'nx-stage-main', lead: true },
-  ];
-  const ring = `${seal.join('  ·  ')}  ·  `;
-  return (
-    <div className="nx-stage">
-      <HeroParallax />
-      <ul aria-label="Products" className="contents">
-        {cards.map(({ product, slot, lead }, index) => (
-          <li
-            key={product.id}
-            className={cn('nx-stage-card', slot, !lead && 'nx-enter')}
-            style={lead ? undefined : stagger(index + 2)}
-          >
-            <Link
-              href={storefrontProductPath(null, product.slug) as never}
-              className={cn(
-                'group flex bg-white text-[#0e0d0c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white',
-                // A card at the back is half covered, so its name and price sit at its top edge.
-                lead ? 'flex-col' : 'flex-col-reverse',
-              )}
-            >
-              <span className="relative block aspect-square">
-                {product.image ? (
-                  <Image
-                    src={product.image.url}
-                    alt=""
-                    fill
-                    // The front card is the page's largest image: fetch it first, skip the lazy wait.
-                    fetchPriority={lead ? 'high' : 'auto'}
-                    loading={lead ? 'eager' : 'lazy'}
-                    sizes={
-                      lead ? '(max-width: 1023px) 52vw, 22vw' : '(max-width: 1023px) 42vw, 17vw'
-                    }
-                    className="nx-img object-contain p-[8%]"
-                  />
-                ) : null}
-              </span>
-              <span
-                className={cn(
-                  'flex items-end justify-between gap-2 px-3 sm:px-4',
-                  lead ? 'pb-3 sm:pb-4' : 'pt-3 sm:pt-4',
-                )}
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold text-[13px] sm:text-[15px]">
-                    {product.name}
-                  </span>
-                  <span className="mt-1 block [&_span]:text-[#0e0d0c]">
-                    <StorePrice
-                      amountCents={product.minPriceCents}
-                      currency={product.priceCurrency}
-                      srdRate={srdRate}
-                      size={lead ? 'md' : 'sm'}
-                    />
-                  </span>
-                </span>
-                <Arrow className="mb-1" />
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      {seal.length >= 2 ? (
-        <svg aria-hidden="true" viewBox="0 0 120 120" className="nx-seal">
-          <circle cx="60" cy="60" r="60" fill="#0e0d0c" />
-          <path
-            id="nx-seal-path"
-            d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1-88 0"
-            fill="none"
-          />
-          <g className="nx-seal-ring">
-            <text fill="#eeebe5" fontSize="8.6" fontWeight="600">
-              <textPath href="#nx-seal-path" textLength="272" lengthAdjust="spacing">
-                {ring.toUpperCase()}
-              </textPath>
-            </text>
-          </g>
-          <path d="M48 60h22M62 52l8 8-8 8" stroke="#ed5f0f" strokeWidth="3" fill="none" />
-        </svg>
-      ) : null}
-    </div>
-  );
+  if (products.length < 2) return null;
+  const tracks: HeroTrack[] = products.map((product) => ({
+    id: product.id,
+    href: storefrontProductPath(null, product.slug),
+    name: product.name,
+    imageUrl: product.image?.url ?? null,
+    price: (
+      <StorePrice
+        amountCents={product.minPriceCents}
+        currency={product.priceCurrency}
+        srdRate={srdRate}
+        size="md"
+      />
+    ),
+  }));
+  return <HeroPlayer tracks={tracks} seal={seal} />;
 }
 
 /* ------------------------------------------------------------------------------------------------ */
