@@ -545,7 +545,7 @@
    ══════════════════════════════════════════════════════════════════════════
    The shop is the agency's sister, so it speaks the same way: Archivo with its
    width axis for wide, heavy display type; paper, ink and the logo orange;
-   square corners; colour blocks instead of hairline rules and numbered lists;
+   rounded corners; colour blocks instead of hairline rules and numbered lists;
    one orange action per view, quiet outlined actions everywhere else.
    Unlayered, so it wins over the shared button and heading rules above. */
 
@@ -598,13 +598,13 @@
   font-family: inherit;
 }
 
-/* Hero: the headline rises line by line; the products are a fanned stack of cards on an orange disc. */
+/* Hero: the headline rises line by line beside the orange showcase of products. */
 .nx-store .nx-hero-title {
-  font-size: min(14vw, 4.5rem);
+  font-size: min(12.5vw, 4rem);
 }
 @media (min-width: 48rem) {
   .nx-store .nx-hero-title {
-    font-size: clamp(4.25rem, 7.2vw, 6.9rem);
+    font-size: clamp(3.5rem, 5.2vw, 4.9rem);
   }
 }
 .nx-line {
@@ -616,135 +616,15 @@
 .nx-line > span {
   display: block;
 }
-/* The player: a white sleeve with the product on it and an orange record turning half out of it. */
-.nx-player {
-  position: relative;
-  width: 100%;
-  max-width: 34rem;
-  margin-inline: auto;
-}
-.nx-player-stage {
-  position: relative;
-  aspect-ratio: 1.34 / 1;
-}
-.nx-sleeve {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  height: 100%;
-  aspect-ratio: 1;
-  background-color: #ffffff;
-  box-shadow: 0 2rem 3.5rem -1.5rem rgb(0 0 0 / 0.7);
-}
-.nx-sleeve-face {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 500ms var(--nx-ease),
-    visibility 0s linear 500ms;
-}
-.nx-sleeve-face-on {
-  opacity: 1;
-  visibility: visible;
-  transition:
-    opacity 500ms var(--nx-ease),
-    visibility 0s;
-}
-.nx-record-slot {
-  position: absolute;
-  top: 4%;
-  right: 0;
-  height: 92%;
-  aspect-ratio: 1;
-}
-.nx-record {
-  display: block;
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 1.25rem 2rem rgb(0 0 0 / 0.55));
-}
-/* One progress bar per product; the current one fills while it plays. */
-.nx-track {
-  position: relative;
-  flex: 1;
-  height: 3px;
-  overflow: hidden;
-  background-color: var(--nx-border);
-}
-.nx-track-fill {
-  position: absolute;
-  inset: 0;
-  background-color: var(--nx-store-bright);
-  scale: 0 1;
-  transform-origin: left;
-}
-.nx-track-done {
-  scale: 1 1;
-}
-/* The equalizer along the foot of the hero. */
-.nx-wave {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 6.5rem;
-  pointer-events: none;
-}
-@media (min-width: 40rem) {
-  .nx-wave {
-    height: 9rem;
-  }
-}
-@media (min-width: 64rem) {
-  .nx-wave {
-    height: 10.5rem;
-  }
-}
-@keyframes nx-track {
-  to {
-    scale: 1 1;
-  }
-}
-@keyframes nx-record-out {
-  from {
-    translate: -32% 0;
-  }
-}
 @keyframes nx-line-up {
   from {
     translate: 0 108%;
-  }
-}
-@keyframes nx-turn {
-  to {
-    rotate: 360deg;
   }
 }
 @media screen and (prefers-reduced-motion: no-preference) {
   .nx-line > span {
     animation: nx-line-up 900ms var(--nx-ease) backwards;
     animation-delay: calc(var(--i, 0) * 110ms);
-  }
-  .nx-record-slot {
-    animation: nx-record-out 900ms var(--nx-ease) backwards;
-  }
-  .nx-record {
-    animation: nx-turn 5s linear infinite paused;
-  }
-  .nx-record-playing {
-    animation-play-state: running;
-  }
-  /* The progress bar is the timer: when it is full, the player moves on. */
-  .nx-track-on {
-    animation-name: nx-track;
-    animation-timing-function: linear;
-    animation-fill-mode: forwards;
-  }
-  .nx-track-held {
-    animation-play-state: paused;
   }
 }
 
@@ -753,16 +633,16 @@
   letter-spacing: -0.02em;
 }
 
-/* Controls: square, 600 weight. The one orange action inverts on hover; the rest are outlined. */
+/* Controls: rounded, 600 weight. The one orange action inverts on hover; the rest are outlined. */
 .nx-store .nx-btn {
-  border-radius: 2px;
+  border-radius: 14px;
   font-family: inherit;
   font-weight: 600;
   letter-spacing: -0.005em;
   gap: 0.75rem;
 }
 .nx-store .nx-btn-sm {
-  border-radius: 2px;
+  border-radius: 11px;
 }
 .nx-store .nx-btn-primary:hover {
   background-color: var(--nx-text);
@@ -779,11 +659,8 @@
 }
 .nx-store .store-card {
   border: 0;
-  border-radius: 2px;
+  border-radius: 20px;
   background-color: var(--nx-bg-sunken);
-}
-.nx-store :focus-visible {
-  border-radius: 2px;
 }
 
 /* Text link with an underline that draws in from the left. */
@@ -807,6 +684,7 @@
   overflow: hidden;
   height: 100%;
   min-height: 22rem;
+  border-radius: 28px;
   background-color: var(--tile-bg);
   color: var(--tile-fg);
 }
@@ -820,6 +698,8 @@
   left: 14%;
   width: 62%;
   aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 18px;
   background-color: #ffffff;
   box-shadow: 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 0.5);
   rotate: -4deg;

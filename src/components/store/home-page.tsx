@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { type CSSProperties, Fragment, Suspense } from 'react';
 import { Arrow, ArrowOut } from '@/components/store/arrow';
-import { HeroPlayer, type HeroTrack } from '@/components/store/hero-player';
-import { HeroWave } from '@/components/store/hero-wave';
 import { ProductCard } from '@/components/store/product-card';
 import { SafeImage } from '@/components/store/safe-image';
 import { StorePrice } from '@/components/store/store-price';
@@ -197,33 +195,29 @@ function Hero({
   const title = ownerHeroCopy(publicText(settings?.heroTitle)) ?? DEFAULT_HERO_TITLE;
   const body = ownerHeroCopy(publicText(settings?.heroBody)) ?? DEFAULT_HERO_BODY;
   const lines = headlineLines(title);
+  const eyebrow = [businessName, settings?.city].filter(Boolean).join(' · ');
   // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
-  const pickupFact = settings?.pickupEnabled
-    ? publicText(settings.pickupLabel?.trim()) ||
-      (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
-    : null;
   const facts = [
-    [businessName, settings?.city].filter(Boolean).join(', '),
     inStockCount > 0 ? `${plural(inStockCount, 'product')} in stock` : null,
     `Prices in ${currency}`,
-    pickupFact,
+    settings?.pickupEnabled
+      ? publicText(settings.pickupLabel?.trim()) ||
+        (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
+      : null,
     settings?.deliveryEnabled ? 'Delivery available' : null,
   ].filter((fact): fact is string => Boolean(fact));
-  // The same facts, set around the label of the record.
-  const seal = [settings?.city, `Prices in ${currency}`, pickupFact, 'Order on WhatsApp']
-    .filter((word): word is string => Boolean(word))
-    .slice(0, 4);
 
   return (
-    <section aria-labelledby="home-title" className="nx-ink nx-hero relative overflow-hidden">
-      <div
-        className={cn(
-          SECTION,
-          'relative z-10 grid gap-10 pt-8 pb-32 sm:pt-12 sm:pb-44 lg:min-h-[calc(100svh-var(--nx-header-h)-5.5rem)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-12 lg:pt-14 lg:pb-48',
-        )}
-      >
-        <div className="relative z-10 flex min-w-0 flex-col">
-          <h1 id="home-title" className="nx-hero-title text-ink">
+    <section
+      aria-labelledby="home-title"
+      className={cn(SECTION, 'pt-4 pb-10 sm:pt-8 sm:pb-14 lg:pt-10 lg:pb-20')}
+    >
+      <div className="grid gap-7 sm:gap-10 lg:grid-cols-2 lg:items-stretch lg:gap-12">
+        <div className="flex min-w-0 flex-col justify-center lg:py-8">
+          <p className="nx-enter font-semibold text-[14px] text-accent sm:text-[15px]">
+            {eyebrow}
+          </p>
+          <h1 id="home-title" className="nx-hero-title mt-3 text-ink sm:mt-5">
             {lines.map((line, index) => (
               <span key={line} className="nx-line">
                 <span style={stagger(index)}>
@@ -234,13 +228,13 @@ function Hero({
             ))}
           </h1>
           <p
-            className="nx-enter mt-6 max-w-[30rem] text-[17px] text-ink leading-[1.45] sm:mt-9 sm:text-[21px]"
+            className="nx-enter mt-5 max-w-[30rem] text-[16px] text-ink-2 leading-[1.5] sm:mt-7 sm:text-[19px]"
             style={stagger(4)}
           >
             {body}
           </p>
           <div
-            className="nx-enter mt-7 flex flex-wrap items-center gap-x-8 gap-y-3 sm:mt-10"
+            className="nx-enter mt-6 flex flex-wrap items-center gap-x-7 gap-y-3 sm:mt-8"
             style={stagger(5)}
           >
             <Link
@@ -263,51 +257,114 @@ function Hero({
               </a>
             ) : null}
           </div>
-          <p
-            className="nx-enter mt-9 text-[13px] text-ink-3 leading-relaxed sm:mt-14 sm:text-[14px]"
+          <ul
+            className="nx-enter mt-7 flex flex-wrap gap-2 text-[13px] text-ink sm:mt-10 sm:text-[14px]"
             style={stagger(6)}
           >
-            {facts.join(' · ')}
-          </p>
+            {facts.map((fact) => (
+              <li key={fact} className="rounded-full bg-sunken px-3.5 py-1.5 font-medium">
+                {fact}
+              </li>
+            ))}
+          </ul>
         </div>
-        {showcase.length ? (
-          <Showcase products={showcase} srdRate={srdRate} seal={seal} />
-        ) : null}
+        {showcase.length ? <Showcase products={showcase} srdRate={srdRate} /> : null}
       </div>
-      <HeroWave />
     </section>
   );
 }
 
 /**
- * The products the hero plays, as tracks for `HeroPlayer`: each with its page, its photograph and its
- * price already rendered. Two or three real products; fewer than two is no player at all.
+ * Up to three real products, large, on the logo orange. Each sits in its own white frame so its true
+ * colours show (the photographs are shot on white, so they are never tinted), links to its page and
+ * carries its name and price. Two products make a two-frame composition. The frames have fixed
+ * proportions, so nothing moves when the photographs arrive.
  */
 function Showcase({
   products,
   srdRate,
-  seal,
 }: {
   products: CatalogListItem[];
   srdRate: RateMicros | undefined;
-  seal: string[];
 }) {
-  if (products.length < 2) return null;
-  const tracks: HeroTrack[] = products.map((product) => ({
-    id: product.id,
-    href: storefrontProductPath(null, product.slug),
-    name: product.name,
-    imageUrl: product.image?.url ?? null,
-    price: (
-      <StorePrice
-        amountCents={product.minPriceCents}
-        currency={product.priceCurrency}
-        srdRate={srdRate}
-        size="md"
-      />
-    ),
-  }));
-  return <HeroPlayer tracks={tracks} seal={seal} />;
+  const [main, second, third] = products;
+  if (!main || !second) return null;
+  const frames = [
+    { product: main, className: 'col-span-2 md:col-span-7 md:row-span-6', large: true },
+    {
+      product: second,
+      className: third ? 'md:col-span-5 md:row-span-3' : 'md:col-span-5 md:row-span-6',
+      large: false,
+    },
+    ...(third
+      ? [{ product: third, className: 'md:col-span-5 md:row-span-3', large: false }]
+      : []),
+  ];
+  return (
+    <ul
+      aria-label="Products"
+      className="grid grid-cols-2 gap-3 rounded-[28px] bg-store-bright p-3 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:p-5 lg:min-h-[540px]"
+    >
+      {frames.map(({ product, className, large }, index) => (
+        <li
+          key={product.id}
+          className={cn('min-w-0', index > 0 && 'nx-enter', className)}
+          style={index > 0 ? stagger(index) : undefined}
+        >
+          <Link
+            href={storefrontProductPath(null, product.slug) as never}
+            className="group nx-zoom-host flex h-full flex-col overflow-hidden rounded-[18px] bg-white text-[#0e0d0c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0e0d0c]"
+          >
+            <span
+              className={cn(
+                'relative block min-h-0 flex-1',
+                large ? 'aspect-[3/2] md:aspect-auto' : 'aspect-square md:aspect-auto',
+              )}
+            >
+              {product.image ? (
+                <SafeImage
+                  fallback={null}
+                  src={product.image.url}
+                  alt=""
+                  fill
+                  // The first frame is the page's largest image: fetch it first, skip the lazy wait.
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  sizes={
+                    large
+                      ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
+                      : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
+                  }
+                  className="nx-img object-contain p-[6%]"
+                />
+              ) : null}
+            </span>
+            <span className="flex items-end justify-between gap-3 px-4 pt-1 pb-3.5">
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-[14px] tracking-[-0.01em] sm:text-[15px]">
+                  {product.name}
+                </span>
+                <span className="mt-1.5 block">
+                  <StorePrice
+                    amountCents={product.minPriceCents}
+                    currency={product.priceCurrency}
+                    srdRate={srdRate}
+                    size="sm"
+                  />
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-[#0e0d0c] text-white max-sm:hidden"
+              >
+                <Arrow />
+              </span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -498,7 +555,7 @@ async function Sets({
             <Link
               href={`/setups/${bundle.slug}` as never}
               className={cn(
-                'group flex h-full items-end justify-between gap-6 bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
+                'group flex h-full items-end justify-between gap-6 rounded-[20px] bg-sunken p-5 transition-colors hover:bg-hover sm:p-7',
                 FOCUS,
               )}
             >
@@ -562,7 +619,10 @@ function Ticker({ words }: { words: string[] }) {
       {words.map((word) => (
         <li key={word} className="flex items-center whitespace-nowrap">
           <span className="nx-display px-5 text-[clamp(22px,3vw,40px)] sm:px-8">{word}</span>
-          <span aria-hidden="true" className="size-2 shrink-0 bg-[#0e0d0c] sm:size-2.5" />
+          <span
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full bg-[#0e0d0c] sm:size-2.5"
+          />
         </li>
       ))}
     </ul>
@@ -656,7 +716,7 @@ function Pickup({
       aria-labelledby="home-pickup"
       className={cn(SECTION, SECTION_GAP, 'nx-cv scroll-mt-0 sm:scroll-mt-24')}
     >
-      <div className="nx-ink nx-reveal p-6 sm:p-10 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14 lg:p-14">
+      <div className="nx-ink nx-reveal rounded-[28px] p-6 sm:p-10 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14 lg:p-14">
         <h2 id="home-pickup" className={SECTION_TITLE}>
           Pickup and contact
         </h2>
@@ -730,13 +790,13 @@ function HomeSkeleton() {
       className="mx-auto w-full max-w-[1320px] px-4 min-h-[100svh] pt-6 lg:px-8"
       aria-hidden="true"
     >
-      <div className="grid gap-8 lg:grid-cols-[5fr_6fr]">
+      <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4 py-8">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-6 w-2/3" />
         </div>
-        <Skeleton className="aspect-[6/5]" />
+        <Skeleton className="aspect-[6/5] rounded-[28px]" />
       </div>
     </div>
   );

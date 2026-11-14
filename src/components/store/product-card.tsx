@@ -60,7 +60,7 @@ export function ProductCard({
     <div className="nx-card-slot nx-zoom-host h-full">
       <article className="nx-card relative flex h-full flex-col">
         {/* The photograph sits on its own block of darker paper; the words sit straight on the page. */}
-        <div className="relative aspect-square overflow-hidden bg-sunken">
+        <div className="relative aspect-square overflow-hidden rounded-[18px] bg-sunken">
           {product.image ? (
             <SafeImage
               src={product.image.url}

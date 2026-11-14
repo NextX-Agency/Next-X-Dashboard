@@ -55,7 +55,7 @@ const queryState = {
 const options = { shallow: false, history: 'push' as const, throttleMs: 250 };
 
 const selectClass =
-  'h-11 appearance-none rounded-[2px] border border-line-strong bg-raised pr-9 pl-3.5 font-semibold text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+  'h-11 appearance-none rounded-[10px] border border-line-strong bg-raised pr-9 pl-3.5 font-semibold text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 /** How many separate filters are applied, for the badge on the Filters button. */
 function activeCount(state: {
@@ -205,7 +205,7 @@ function FiltersDrawer({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-night/60 duration-200 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         {/* A bottom sheet on a phone (sized to its content, at most 85% of the screen, clear of the
             home indicator); the side sheet it always was from `md`. */}
-        <Dialog.Content className="nx-store fixed z-50 flex flex-col bg-base text-ink shadow-overlay duration-250 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[85svh] max-md:rounded-t-[2px] max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom md:inset-y-0 md:right-0 md:w-[min(92vw,400px)] md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right">
+        <Dialog.Content className="nx-store fixed z-50 flex flex-col bg-base text-ink shadow-overlay duration-250 ease-out-instrument data-[state=closed]:animate-out data-[state=open]:animate-in max-md:inset-x-0 max-md:bottom-0 max-md:max-h-[85svh] max-md:rounded-t-[20px] max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom md:inset-y-0 md:right-0 md:w-[min(92vw,400px)] md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right">
           <span
             aria-hidden="true"
             className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-line-strong md:hidden"
@@ -453,7 +453,7 @@ function PriceGroup({
     });
   const hint = (cents: number) => Math.round(cents / 100).toLocaleString('en-GB');
   const field =
-    'tabular mt-1 h-11 w-full min-w-0 rounded-[2px] border border-line-strong bg-raised px-3 text-[14px] text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none';
+    'tabular mt-1 h-11 w-full min-w-0 rounded-[10px] border border-line-strong bg-raised px-3 text-[14px] text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none';
   const isPreset = (presetMin: string | null, presetMax: string | null) =>
     (state.min ?? null) === presetMin && (state.max ?? null) === presetMax;
 
@@ -635,7 +635,7 @@ export function ActiveFilters({
           type="button"
           aria-label={`Remove filter: ${chip.label}`}
           onClick={chip.remove}
-          className="inline-flex h-11 items-center gap-1.5 rounded-[2px] border border-line-strong px-3 font-semibold text-[13px] text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:h-9"
+          className="inline-flex h-11 items-center gap-1.5 rounded-[10px] border border-line-strong px-3 font-semibold text-[13px] text-ink hover:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:h-9"
         >
           {chip.label}
           <X aria-hidden="true" className="size-3.5" />

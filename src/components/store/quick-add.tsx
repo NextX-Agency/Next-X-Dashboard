@@ -43,7 +43,7 @@ export function QuickAdd({
         disabled={!ready || atLimit}
         aria-label={`Add ${line.productName} to cart`}
         className={cn(
-          'nx-press flex h-11 items-center justify-center gap-2 rounded-[2px] border font-semibold text-[14px]',
+          'nx-press flex h-11 items-center justify-center gap-2 rounded-[11px] border font-semibold text-[14px]',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
           justAdded
             ? 'border-ink bg-ink text-on-ink'

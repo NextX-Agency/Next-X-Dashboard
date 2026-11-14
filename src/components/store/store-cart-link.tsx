@@ -17,7 +17,7 @@ export function StoreCartLink() {
     <Link
       href={CART_PATH as never}
       aria-label={ready ? `Cart, ${count} ${count === 1 ? 'item' : 'items'}` : 'Cart'}
-      className="relative inline-flex size-[44px] items-center justify-center nx-press rounded-[2px] font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:h-11 sm:w-auto sm:min-w-11 sm:gap-2 sm:px-2.5"
+      className="relative inline-flex size-[44px] items-center justify-center nx-press rounded-[10px] font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:h-11 sm:w-auto sm:min-w-11 sm:gap-2 sm:px-2.5"
     >
       <ShoppingBag aria-hidden="true" className="size-[20px]" />
       <span className="hidden sm:inline">Cart</span>

@@ -38,7 +38,7 @@ export function StoreHeader({
           <Link
             href="/"
             aria-label={`${storeName}, go to the homepage`}
-            className="inline-flex h-[44px] shrink-0 items-center rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            className="inline-flex h-[44px] shrink-0 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             <Image
               src="/nextx-logo-light.png"
@@ -51,7 +51,7 @@ export function StoreHeader({
               priority
             />
           </Link>
-          <Suspense fallback={<div className="h-11 min-w-0 flex-1 rounded-[2px] bg-sunken" />}>
+          <Suspense fallback={<div className="h-11 min-w-0 flex-1 rounded-[12px] bg-sunken" />}>
             <StoreHeaderSearch />
           </Suspense>
           <div className="flex shrink-0 items-center gap-1">
@@ -61,7 +61,7 @@ export function StoreHeader({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Message us on WhatsApp (opens WhatsApp)"
-                className="hidden h-11 min-w-11 items-center justify-center gap-2 nx-press rounded-[2px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
+                className="hidden h-11 min-w-11 items-center justify-center gap-2 nx-press rounded-[10px] px-2.5 font-semibold text-[14px] text-ink hover:bg-hover focus-visible:outline-2 focus-visible:outline-ring sm:inline-flex"
               >
                 <MessageCircle aria-hidden="true" className="size-5" />
                 <span className="hidden md:inline">WhatsApp</span>

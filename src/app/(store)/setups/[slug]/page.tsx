@@ -54,7 +54,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
 
       <div className="grid gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
         {bundle.storefrontImageUrl ? (
-          <div className="relative aspect-[4/3] overflow-hidden rounded-[2px] bg-sunken lg:sticky lg:top-24 lg:self-start">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-tile bg-sunken lg:sticky lg:top-24 lg:self-start">
             <Image
               src={bundle.storefrontImageUrl}
               alt={bundle.name}
@@ -140,7 +140,7 @@ export default async function SetupPage({ params }: { params: Promise<{ slug: st
                 {bundle.bestFor.map((item) => (
                   <li
                     key={item}
-                    className="border border-line px-2.5 py-1 text-[13px] text-ink"
+                    className="rounded-full border border-line px-2.5 py-1 text-[13px] text-ink"
                   >
                     {item}
                   </li>

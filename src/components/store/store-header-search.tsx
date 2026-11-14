@@ -77,7 +77,7 @@ export function StoreHeaderSearch() {
           autoCapitalize="none"
           spellCheck={false}
           className={cn(
-            'peer h-[44px] w-full rounded-[2px] border border-transparent bg-sunken pr-4 pl-11 text-[16px] text-ink',
+            'peer h-[44px] w-full rounded-[12px] border border-transparent bg-sunken pr-4 pl-11 text-[16px] text-ink',
             'focus:border-accent focus:bg-raised focus:outline-none',
           )}
         />
