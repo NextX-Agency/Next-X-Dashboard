@@ -43,7 +43,6 @@ const PRIVATE_PATHS = [
   '/auth',
   '/no-access',
   '/design-system',
-  '/preview',
   // Customer documents reached only through a private link, and the shopper's cart.
   '/d/',
   '/invoice',

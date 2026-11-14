@@ -21,7 +21,7 @@ export default async function NewStorefrontPage() {
         description="Create a channel that can expose selected products through its own domain, price list, and fulfillment policy."
         action={
           <Button asChild variant="ghost">
-            <Link href={'/storefronts' as Route}>Back to storefronts</Link>
+            <Link href={'/storefront' as Route}>Back to storefront</Link>
           </Button>
         }
       />

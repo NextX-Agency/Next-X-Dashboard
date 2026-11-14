@@ -44,7 +44,7 @@ export type NavGroup = {
  * Navigation, grouped by the job being done: sell it, list it, stock it, buy it, account for it.
  *
  * Eight groups hold every page of the app. The sidebar shows the group names and opens the group you
- * are in, so a screen never carries all 28 links at once; the command palette still reaches every
+ * are in, so a screen never carries every link at once; the command palette still reaches every
  * page by name or intent. Nothing was removed when the 27 flat entries were regrouped, and **Sales**
  * (the register and its history) is now listed: before, it was reachable only through buttons.
  */
@@ -167,19 +167,22 @@ export const NAVIGATION: NavGroup[] = [
         href: '/finance' as Route,
         label: 'Finance',
         Icon: FileText,
-        keywords: ['wallets', 'transactions', 'reconciliation', 'money'],
+        keywords: [
+          'wallets',
+          'balances',
+          'cash',
+          'bank',
+          'card',
+          'transfer',
+          'money',
+          'overview',
+        ],
       },
       {
         href: '/ledger',
         label: 'Cash ledger',
         Icon: Wallet,
         keywords: ['balance', 'cash', 'money in', 'money out', 'bank'],
-      },
-      {
-        href: '/wallets' as Route,
-        label: 'Wallets',
-        Icon: Wallet,
-        keywords: ['cash', 'bank', 'card', 'transfer'],
       },
       {
         href: '/invoices' as Route,
@@ -259,13 +262,17 @@ export const NAVIGATION: NavGroup[] = [
         href: '/storefront' as Route,
         label: 'Storefront',
         Icon: Store,
-        keywords: ['catalog', 'restock', 'public site'],
-      },
-      {
-        href: '/storefronts' as Route,
-        label: 'Storefronts',
-        Icon: Store,
-        keywords: ['channels', 'domains', 'sales channels', 'multi-store'],
+        keywords: [
+          'catalog',
+          'restock',
+          'public site',
+          'storefronts',
+          'channels',
+          'domains',
+          'sales channels',
+          'homepage',
+          'collections',
+        ],
       },
       {
         href: '/settings',

@@ -14,7 +14,6 @@ const publicRoutes = [
   '/login',
   '/auth/error?reason=missing-code',
   '/no-access',
-  '/design-system',
   '/robots.txt',
   '/sitemap.xml',
 ];

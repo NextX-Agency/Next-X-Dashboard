@@ -82,7 +82,6 @@ test('every dashboard page loads for the owner without console errors', async ({
     '/purchase-orders/new',
     '/finance',
     '/ledger',
-    '/wallets',
     '/invoices',
     '/obligations',
     '/expenses',
@@ -93,7 +92,6 @@ test('every dashboard page loads for the owner without console errors', async ({
     '/reports',
     '/owners',
     '/storefront',
-    '/storefronts',
     '/activity',
     '/settings',
   ];

@@ -47,7 +47,7 @@ export default async function StorefrontDetailPage({
         description={`/${storefront.slug}${storefront.domain ? ` · ${storefront.domain}` : ''}`}
         action={
           <Button asChild variant="ghost">
-            <Link href={'/storefronts' as Route}>All storefronts</Link>
+            <Link href={'/storefront' as Route}>Back to storefront</Link>
           </Button>
         }
       />

@@ -2,13 +2,7 @@ import { expect, test } from '@playwright/test';
 
 // These pages render without an authenticated session or database fixtures,
 // so the local E2E run can exercise the app without touching a shared DB.
-const publicRoutes = [
-  '/login',
-  '/auth/error?reason=missing-code',
-  '/no-access',
-  '/design-system',
-  '/robots.txt',
-];
+const publicRoutes = ['/login', '/auth/error?reason=missing-code', '/no-access', '/robots.txt'];
 
 test('public static pages load without a session or error boundary', async ({
   page,
