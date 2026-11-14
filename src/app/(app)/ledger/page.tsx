@@ -13,6 +13,7 @@ import {
   ListToolbar,
 } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
+import { FigureBand } from '@/components/patterns/page-lead';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,10 +38,12 @@ import {
   THSort,
   TR,
 } from '@/components/ui/table';
+import { businessDateInput } from '@/lib/business-date';
 import { formatDate, humanise } from '@/lib/format';
 import { ledgerQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listLedger } from '@/server/queries/lists';
 import { listPrincipalOptions, listWalletOptions } from '@/server/queries/pickers';
+import { getLedgerPulse } from '@/server/queries/summaries';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -88,6 +91,13 @@ export default function LedgerPage({
           </>
         }
       />
+      <Suspense
+        fallback={
+          <div className="mb-3 h-[86px] rounded-card border border-line-subtle bg-raised sm:mb-4" />
+        }
+      >
+        <LedgerLead />
+      </Suspense>
       <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <LedgerToolbar />
@@ -97,6 +107,47 @@ export default function LedgerPage({
         </Suspense>
       </Surface>
     </>
+  );
+}
+
+/** The month so far in three numbers, and the balance every row below adds up to. */
+async function LedgerLead() {
+  const pulse = await getLedgerPulse();
+  const month = businessDateInput().slice(0, 8);
+  const range = `from=${month}01`;
+  return (
+    <FigureBand
+      figures={[
+        {
+          label: 'In this month',
+          value: <Money cents={pulse.inCents} size="xl" tone="flow" signed />,
+          href: `/ledger?type=in&${range}` as Route,
+        },
+        {
+          label: 'Out this month',
+          value: (
+            <Money
+              cents={pulse.outCents > 0 ? -pulse.outCents : 0}
+              size="xl"
+              tone="flow"
+              signed
+            />
+          ),
+          href: `/ledger?type=out&${range}` as Route,
+        },
+        {
+          label: 'Net this month',
+          value: <Money cents={pulse.inCents - pulse.outCents} size="xl" tone="flow" signed />,
+          note: `${pulse.entries} ${pulse.entries === 1 ? 'entry' : 'entries'}`,
+        },
+        {
+          label: 'Balance',
+          value: <Money cents={pulse.balanceCents} size="xl" />,
+          note: 'All wallets, in USD',
+          href: '/finance' as Route,
+        },
+      ]}
+    />
   );
 }
 

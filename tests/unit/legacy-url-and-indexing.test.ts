@@ -49,8 +49,11 @@ describe('legacy public URLs and staging indexing', () => {
         literalSources.has(rule.destination),
         `${rule.source} -> ${rule.destination}`,
       ).toBe(false);
-      // A parameterised destination must land on a canonical page, never back on a legacy root.
-      expect(rule.destination).toMatch(/^\/(shop|cart|setups|products)/);
+      // A destination must be a canonical page, never a legacy root: a shop page for the public rules,
+      // or the dashboard page a folded-away staff page now lives on.
+      expect(rule.destination).toMatch(
+        /^\/(shop|cart|setups|products|finance|storefront|ledger|reconciliation|sales|settings)/,
+      );
     }
   });
 

@@ -5,13 +5,11 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { AlertsSection } from '@/components/overview/alerts-panel';
 import { LazyCashFlowChart } from '@/components/overview/cash-flow-chart-lazy';
-import { ImportPipeline } from '@/components/overview/import-pipeline';
 import { InventoryDecisions } from '@/components/overview/inventory-decisions';
 import { InventoryHealth } from '@/components/overview/inventory-health';
 import { MarginLeaders } from '@/components/overview/margin-leaders';
 import { MarginWaterfall } from '@/components/overview/margin-waterfall';
 import { MoneyOwed } from '@/components/overview/money-owed';
-import { OwnerEquity } from '@/components/overview/owner-equity';
 import { PositionStrip, PositionStripSkeleton } from '@/components/overview/position-strip';
 import { QuickActions } from '@/components/overview/quick-actions';
 import { RecentActivity } from '@/components/overview/recent-activity';
@@ -25,12 +23,7 @@ import { Surface, SurfaceHeader } from '@/components/ui/surface';
 import { formatDate } from '@/lib/format';
 import { formatRate } from '@/lib/fx';
 import { isPeriodPreset, type PeriodPreset } from '@/lib/report-period';
-import {
-  getCashFlow,
-  getImportPipeline,
-  getLiveRate,
-  getSetupState,
-} from '@/server/queries/overview';
+import { getCashFlow, getLiveRate, getSetupState } from '@/server/queries/overview';
 import { getDefaultPeriod } from '@/server/queries/reports';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
@@ -69,11 +62,6 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
           <Suspense fallback={<Skeleton className="h-[12px] w-40" />}>
             <RateNote />
           </Suspense>
-        }
-        action={
-          <Button asChild variant="secondary">
-            <Link href="/purchase-orders/new">New purchase order</Link>
-          </Button>
         }
       />
 
@@ -181,22 +169,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
           </Surface>
         </div>
 
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-2">
-          <Surface>
-            <SurfaceHeader
-              title="Import pipeline"
-              hint="Amazon, AliExpress and other supplier commitments"
-              action={
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/purchase-orders">Purchase orders</Link>
-                </Button>
-              }
-            />
-            <Suspense fallback={<Skeleton className="m-4 h-16" />}>
-              <ImportPipelineBlock />
-            </Suspense>
-          </Surface>
-
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-3">
           <Surface>
             <SurfaceHeader
               title="Inventory decisions"
@@ -209,23 +182,6 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
             />
             <Suspense fallback={<PanelSkeleton rows={4} />}>
               <InventoryDecisions />
-            </Suspense>
-          </Surface>
-        </div>
-
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-3">
-          <Surface>
-            <SurfaceHeader
-              title="Owner equity"
-              hint="Contributions less draws"
-              action={
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/owners">Detail</Link>
-                </Button>
-              }
-            />
-            <Suspense fallback={<PanelSkeleton rows={2} />}>
-              <OwnerEquity />
             </Suspense>
           </Surface>
           <Surface>
@@ -260,10 +216,6 @@ export default async function OverviewPage({ searchParams }: { searchParams: Sea
 async function CashFlow() {
   const data = await getCashFlow(12);
   return <LazyCashFlowChart data={data} />;
-}
-
-async function ImportPipelineBlock() {
-  return <ImportPipeline data={await getImportPipeline()} />;
 }
 
 /**

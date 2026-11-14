@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Surface } from '@/components/ui/surface';
+import { BUSINESS_TIME_ZONE, businessDateInput } from '@/lib/business-date';
 import { humanise } from '@/lib/format';
 import type { RawSearchParams } from '@/lib/list-params';
 import { getCurrentMember } from '@/server/auth';
@@ -36,10 +37,16 @@ const ENTITY_ROUTES: Record<string, string> = {
   supplier: '/suppliers',
 };
 
-const WHEN = new Intl.DateTimeFormat('en-GB', {
-  dateStyle: 'medium',
+const DAY = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: BUSINESS_TIME_ZONE,
+});
+const TIME = new Intl.DateTimeFormat('en-GB', {
   timeStyle: 'short',
-  timeZone: 'America/Paramaribo',
+  timeZone: BUSINESS_TIME_ZONE,
 });
 
 function one(value: string | string[] | undefined): string | undefined {
@@ -148,11 +155,22 @@ async function ActivityList({ searchParams }: { searchParams: Promise<RawSearchP
 
   return (
     <>
-      <ul className="divide-y divide-line-subtle">
-        {rows.map((entry) => (
-          <ActivityRow key={entry.id} entry={entry} />
-        ))}
-      </ul>
+      {groupByDay(rows).map((group) => (
+        <section key={group.day} aria-label={group.label}>
+          <h2 className="sticky top-0 z-[1] border-line-subtle border-b bg-inset px-4 py-1.5 font-medium text-[12px] text-ink-2">
+            {group.label}
+            <span className="ml-2 font-normal text-ink-4">
+              {group.entries.length} {group.entries.length === 1 ? 'change' : 'changes'}
+            </span>
+          </h2>
+          {/* A rail down the left: one dot per change, so a day reads as a sequence, not a table. */}
+          <ul className="relative before:absolute before:top-0 before:bottom-0 before:left-[22px] before:w-px before:bg-line-subtle">
+            {group.entries.map((entry) => (
+              <ActivityRow key={entry.id} entry={entry} />
+            ))}
+          </ul>
+        </section>
+      ))}
       <Pagination
         page={Math.min(page, pageCount)}
         pageCount={pageCount}
@@ -162,6 +180,23 @@ async function ActivityList({ searchParams }: { searchParams: Promise<RawSearchP
       />
     </>
   );
+}
+
+/** Consecutive entries of the same business day, newest day first (the query's own order). */
+function groupByDay(rows: ActivityPageEntry[]) {
+  const today = businessDateInput();
+  const groups: { day: string; label: string; entries: ActivityPageEntry[] }[] = [];
+  for (const entry of rows) {
+    const date = new Date(entry.createdAt);
+    const day = businessDateInput(date);
+    const last = groups.at(-1);
+    if (last?.day === day) {
+      last.entries.push(entry);
+    } else {
+      groups.push({ day, label: day === today ? 'Today' : DAY.format(date), entries: [entry] });
+    }
+  }
+  return groups;
 }
 
 function ActivityRow({ entry }: { entry: ActivityPageEntry }) {
@@ -178,7 +213,11 @@ function ActivityRow({ entry }: { entry: ActivityPageEntry }) {
   );
 
   return (
-    <li className="px-4 py-3">
+    <li className="relative py-2.5 pr-4 pl-11">
+      <span
+        aria-hidden="true"
+        className="absolute top-[17px] left-[19px] size-[7px] rounded-full bg-ink-4 ring-4 ring-raised"
+      />
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="min-w-0 text-[13px] text-ink-2">
           <span className="font-medium text-ink">{entry.actorName ?? 'Someone'}</span>{' '}
@@ -188,7 +227,7 @@ function ActivityRow({ entry }: { entry: ActivityPageEntry }) {
           dateTime={entry.createdAt}
           className="tabular whitespace-nowrap text-[12px] text-ink-4"
         >
-          {WHEN.format(new Date(entry.createdAt))}
+          {TIME.format(new Date(entry.createdAt))}
         </time>
       </div>
       <p className="mt-0.5 text-[12.5px]">

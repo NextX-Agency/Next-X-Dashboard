@@ -855,7 +855,7 @@ export async function listSales(query: SaleQuery = {} as SaleQuery): Promise<Pag
   if (query.q) {
     const term = `%${query.q}%`;
     conditions.push(sql`(
-      s.number ILIKE ${term} OR c.name ILIKE ${term}
+      s.number ILIKE ${term} OR s.invoice_number ILIKE ${term} OR c.name ILIKE ${term}
       OR EXISTS (
         SELECT 1 FROM sale_items qi
           JOIN product_variants qv ON qv.id = qi.variant_id

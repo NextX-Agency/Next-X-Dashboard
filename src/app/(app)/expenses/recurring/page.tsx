@@ -1,9 +1,10 @@
 import { CalendarClock } from 'lucide-react';
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import { connection } from 'next/server';
 import { RecurringExpenseSheet } from '@/components/forms/recurring-expense-sheet';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { PageHeader } from '@/components/patterns/page-header';
+import { EXPENSE_TABS, PageTabs } from '@/components/patterns/page-tabs';
 import { Badge } from '@/components/ui/badge';
 import {
   MobileList,
@@ -83,6 +84,11 @@ export default async function RecurringExpensesPage() {
             />
           ) : undefined
         }
+      />
+      <PageTabs
+        label="Expense views"
+        tabs={EXPENSE_TABS}
+        current={'/expenses/recurring' as Route}
       />
       <Surface className="overflow-clip">
         {schedules.length === 0 ? (

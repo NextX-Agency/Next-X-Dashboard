@@ -12,6 +12,7 @@ import {
   ListToolbar,
 } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
+import { type Figure, FigureBand } from '@/components/patterns/page-lead';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,11 +37,14 @@ import {
   THSort,
   TR,
 } from '@/components/ui/table';
+import { businessDateInput } from '@/lib/business-date';
 import { formatDate } from '@/lib/format';
 import { parseListParams, type RawSearchParams, saleQuerySchema } from '@/lib/list-params';
 import { PAYMENT_LABELS, type PaymentBadgeCode } from '@/lib/payment-status';
+import { getFinanceSummary } from '@/server/queries/finance';
 import { listSales } from '@/server/queries/lists';
 import { listSellerOptions } from '@/server/queries/pickers';
+import { getSalesPulse } from '@/server/queries/summaries';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -83,6 +87,13 @@ export default function SalesPage({
           </>
         }
       />
+      <Suspense
+        fallback={
+          <div className="mb-3 h-[86px] rounded-card border border-line-subtle bg-raised sm:mb-4" />
+        }
+      >
+        <SalesLead />
+      </Suspense>
       <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <SalesToolbar />
@@ -93,6 +104,49 @@ export default function SalesPage({
       </Surface>
     </>
   );
+}
+
+/** The register at a glance: what came in today, this week and this month, and what is still owed. */
+async function SalesLead() {
+  const [pulse, finance] = await Promise.all([getSalesPulse(), getFinanceSummary()]);
+  const today = businessDateInput();
+  const sales = (count: number) => `${count} ${count === 1 ? 'sale' : 'sales'}`;
+  const figures: Figure[] = [
+    {
+      label: 'Today',
+      value: <Money cents={pulse.today.cents} size="xl" />,
+      note: sales(pulse.today.count),
+      href: `/sales?status=confirmed&from=${today}&to=${today}` as Route,
+    },
+    {
+      label: 'Last 7 days',
+      value: <Money cents={pulse.week.cents} size="xl" />,
+      note: sales(pulse.week.count),
+    },
+    {
+      label: 'This month',
+      value: <Money cents={pulse.month.cents} size="xl" />,
+      note: sales(pulse.month.count),
+      href: `/sales?status=confirmed&from=${today.slice(0, 8)}01&to=${today}` as Route,
+    },
+    {
+      label: 'Owed by customers',
+      value: <Money cents={finance.outstandingUsdCents} size="xl" />,
+      note: `${finance.outstandingInvoices} unpaid`,
+      href: '/sales?payment=unpaid' as Route,
+      attention: finance.outstandingUsdCents > 0,
+    },
+  ];
+  if (pulse.drafts > 0) {
+    figures.push({
+      label: 'Drafts to finish',
+      value: pulse.drafts,
+      note: 'Not counted until confirmed',
+      href: '/sales?status=draft' as Route,
+      attention: true,
+    });
+  }
+  return <FigureBand figures={figures} />;
 }
 
 const PAYMENT_OPTIONS = [

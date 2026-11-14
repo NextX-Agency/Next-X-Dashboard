@@ -115,6 +115,7 @@ async function RatesTable() {
             <TH>Effective from</TH>
             <TH numeric>SRD per USD</TH>
             <TH>Source</TH>
+            <TH>Note</TH>
             <TH>Age</TH>
           </TR>
         </THead>
@@ -131,6 +132,9 @@ async function RatesTable() {
               </TD>
               <TD numeric>{formatRate(row.rateMicros, 4)}</TD>
               <TD className="text-[12px] text-ink-3">{humanise(row.source)}</TD>
+              <TD className="max-w-[16rem] truncate text-[12px] text-ink-3">
+                {row.note ?? '—'}
+              </TD>
               <TD className="whitespace-nowrap text-[12px] text-ink-4">
                 {formatRelative(row.effectiveFrom)}
               </TD>

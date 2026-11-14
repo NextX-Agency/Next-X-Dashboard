@@ -11,6 +11,7 @@ import {
   ListToolbar,
 } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
+import { Pipeline } from '@/components/patterns/page-lead';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,7 @@ import { orderQuerySchema, parseListParams, type RawSearchParams } from '@/lib/l
 import { statusFilterOptions } from '@/lib/status-filter';
 import { listOrders } from '@/server/queries/lists';
 import { listCustomerOptions } from '@/server/queries/pickers';
+import { getOrderPipeline } from '@/server/queries/summaries';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -70,6 +72,13 @@ export default function OrdersPage({
           </Button>
         }
       />
+      <Suspense
+        fallback={
+          <div className="mb-3 h-[86px] rounded-card border border-line-subtle bg-raised sm:mb-4" />
+        }
+      >
+        <OrdersLead searchParams={searchParams} />
+      </Suspense>
       <Surface className="overflow-clip">
         <Suspense fallback={<div className="h-14 border-line-subtle border-b" />}>
           <OrdersToolbar />
@@ -79,6 +88,36 @@ export default function OrdersPage({
         </Suspense>
       </Surface>
     </>
+  );
+}
+
+const STAGE_LABEL = {
+  draft: 'Draft',
+  confirmed: 'Confirmed',
+  ready: 'Ready for pickup',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+} as const;
+
+/** Orders as work in progress: how many wait at each step. A step filters the list; again clears it. */
+async function OrdersLead({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const [pipeline, raw] = await Promise.all([getOrderPipeline(), searchParams]);
+  const current = parseListParams(orderQuerySchema, raw).status;
+  const stages = pipeline.map(({ stage, count, cents }) => ({
+    key: stage,
+    label: STAGE_LABEL[stage],
+    count,
+    note: <Money cents={cents} size="sm" tone="muted" />,
+    href: (current === stage ? '/orders' : `/orders?status=${stage}`) as Route,
+    current: current === stage,
+    open: stage === 'confirmed' || stage === 'ready',
+  }));
+  return (
+    <Pipeline
+      label="Orders by step"
+      stages={stages.filter((stage) => stage.key !== 'cancelled')}
+      aside={stages.find((stage) => stage.key === 'cancelled')}
+    />
   );
 }
 

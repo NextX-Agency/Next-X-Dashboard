@@ -87,6 +87,13 @@ const nextConfig: NextConfig = {
       { source: '/p/:slug', destination: '/products/:slug', permanent: true },
       // `/products` itself is not a public page; the catalogue lives at /shop.
       { source: '/products', destination: '/shop', permanent: true },
+      // Dashboard pages that were folded into another page; old bookmarks still land somewhere useful.
+      { source: '/wallets', destination: '/finance', permanent: false },
+      { source: '/storefronts', destination: '/storefront', permanent: false },
+      { source: '/finance/transactions', destination: '/ledger', permanent: false },
+      { source: '/finance/reconciliation', destination: '/reconciliation', permanent: false },
+      { source: '/invoices', destination: '/sales?status=confirmed', permanent: false },
+      { source: '/exchange-rates', destination: '/settings', permanent: false },
     ];
   },
 

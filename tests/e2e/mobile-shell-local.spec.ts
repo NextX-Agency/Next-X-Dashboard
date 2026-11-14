@@ -140,7 +140,6 @@ test.describe('phone shell', () => {
       '/customers',
       '/purchase-orders',
       '/purchase-orders/new',
-      '/invoices',
       '/ledger',
       '/reports',
       '/reorder',

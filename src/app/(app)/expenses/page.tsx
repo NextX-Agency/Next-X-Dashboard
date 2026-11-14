@@ -8,6 +8,8 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
 import { ListDateRange, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
+import { BreakdownBars } from '@/components/patterns/page-lead';
+import { EXPENSE_TABS, PageTabs } from '@/components/patterns/page-tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +42,7 @@ import { formatDate, humanise } from '@/lib/format';
 import { expenseQuerySchema, parseListParams, type RawSearchParams } from '@/lib/list-params';
 import { listExpenses } from '@/server/queries/lists';
 import { listExpenseCategoryOptions, listWalletBalanceChoices } from '@/server/queries/pickers';
+import { getExpensePulse } from '@/server/queries/summaries';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -60,9 +63,6 @@ export default function ExpensesPage({
         action={
           <>
             <ExportCsvLink entity="expenses" searchParams={searchParams} />
-            <Button asChild variant="secondary">
-              <Link href={'/expenses/recurring' as Route}>Recurring schedules</Link>
-            </Button>
             <Suspense
               fallback={
                 <Button variant="primary" disabled>
@@ -75,6 +75,14 @@ export default function ExpensesPage({
           </>
         }
       />
+      <PageTabs label="Expense views" tabs={EXPENSE_TABS} current={'/expenses' as Route} />
+      <Suspense
+        fallback={
+          <div className="mb-3 h-[150px] rounded-card border border-line-subtle bg-raised sm:mb-4" />
+        }
+      >
+        <ExpensesLead />
+      </Suspense>
       <Surface className="overflow-clip">
         <ListToolbar search={<ListSearch placeholder="Search by description or category" />}>
           <ListDateRange label="Spent" />
@@ -84,6 +92,40 @@ export default function ExpensesPage({
         </Suspense>
       </Surface>
     </>
+  );
+}
+
+/** This month against last, and where this month's money went. */
+async function ExpensesLead() {
+  const pulse = await getExpensePulse();
+  const delta = pulse.month.cents - pulse.lastMonth.cents;
+  return (
+    <Surface className="mb-3 grid gap-x-8 gap-y-4 p-4 sm:mb-4 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+      <div>
+        <p className="text-[12px] text-ink-3">Spent this month</p>
+        <Money cents={pulse.month.cents} size="display" className="mt-1.5 block" />
+        <p className="mt-2 text-[12px] text-ink-3">
+          {pulse.lastMonth.cents === 0 ? (
+            'Nothing recorded last month'
+          ) : (
+            <>
+              <Money cents={Math.abs(delta)} size="sm" />{' '}
+              {delta > 0 ? 'more' : delta < 0 ? 'less' : 'the same'} than last month
+            </>
+          )}
+        </p>
+        {pulse.needsReview > 0 ? (
+          <p className="mt-2 text-[12px] text-accent">
+            {pulse.needsReview} {pulse.needsReview === 1 ? 'entry needs' : 'entries need'}{' '}
+            review
+          </p>
+        ) : null}
+      </div>
+      <div className="min-w-0">
+        <p className="mb-2 text-[12px] text-ink-3">By category, this month</p>
+        <BreakdownBars rows={pulse.categories} empty="No expenses recorded this month yet." />
+      </div>
+    </Surface>
   );
 }
 

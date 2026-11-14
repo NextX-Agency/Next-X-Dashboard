@@ -72,9 +72,9 @@ export default async function FinancePage() {
           </div>
         </Surface>
         <SummaryLink
-          href="/invoices"
-          label="Outstanding invoices"
-          hint={`${summary.outstandingInvoices} open`}
+          href={'/sales?payment=unpaid' as Route}
+          label="Owed by customers"
+          hint={`${summary.outstandingInvoices} unpaid ${summary.outstandingInvoices === 1 ? 'sale' : 'sales'}`}
         >
           <Money cents={summary.outstandingUsdCents} currency="USD" size="xl" />
         </SummaryLink>
@@ -155,7 +155,7 @@ export default async function FinancePage() {
           <ul className="divide-y divide-line-subtle">
             {recent.map((row) => (
               <li key={row.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
-                <span className="tabular w-20 shrink-0 text-[12px] text-ink-3">
+                <span className="tabular w-24 shrink-0 whitespace-nowrap text-[12px] text-ink-3">
                   {formatDate(row.occurredAt)}
                 </span>
                 <span className="min-w-0 flex-1">

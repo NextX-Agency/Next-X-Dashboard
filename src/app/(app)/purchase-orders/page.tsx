@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/patterns/empty-state';
 import { ExportCsvLink } from '@/components/patterns/export-csv-link';
 import { ListFilter, ListSearch, ListToolbar } from '@/components/patterns/list-toolbar';
 import { PageHeader } from '@/components/patterns/page-header';
+import { Pipeline } from '@/components/patterns/page-lead';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,7 @@ import {
   type RawSearchParams,
 } from '@/lib/list-params';
 import { listPurchaseOrders } from '@/server/queries/lists';
+import { getPurchasePipeline } from '@/server/queries/summaries';
 
 // Staff pages read live, per-member data behind sign-in: blocking routes by design. This opts the
 // page out of the development-only instant-navigation validation, as the layout does.
@@ -80,6 +82,13 @@ export default function PurchaseOrdersPage({
           </>
         }
       />
+      <Suspense
+        fallback={
+          <div className="mb-3 h-[86px] rounded-card border border-line-subtle bg-raised sm:mb-4" />
+        }
+      >
+        <PurchaseLead searchParams={searchParams} />
+      </Suspense>
       <Surface className="overflow-clip">
         <ListToolbar search={<ListSearch placeholder="Search by number or supplier" />}>
           <ListFilter param="status" label="Status" options={STATUS_OPTIONS} />
@@ -89,6 +98,43 @@ export default function PurchaseOrdersPage({
         </Suspense>
       </Surface>
     </>
+  );
+}
+
+const STAGE_LABEL = {
+  draft: 'Draft',
+  ordered: 'Ordered',
+  shipped: 'On the way',
+  received: 'Received',
+  cancelled: 'Cancelled',
+} as const;
+
+/** Buying as a pipeline: what is still to be placed, what is on its way, and what has landed. */
+async function PurchaseLead({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
+  const [pipeline, raw] = await Promise.all([getPurchasePipeline(), searchParams]);
+  const current = parseListParams(purchaseOrderQuerySchema, raw).status;
+  const stages = pipeline.stages.map(({ stage, count, units }) => ({
+    key: stage,
+    label: STAGE_LABEL[stage],
+    count,
+    note:
+      stage === 'received'
+        ? undefined
+        : stage === 'shipped' && pipeline.overdue > 0
+          ? `${units} units · ${pipeline.overdue} late`
+          : `${units} ${units === 1 ? 'unit' : 'units'} to come`,
+    href: (current === stage
+      ? '/purchase-orders'
+      : `/purchase-orders?status=${stage}`) as Route,
+    current: current === stage,
+    open: stage === 'ordered' || stage === 'shipped',
+  }));
+  return (
+    <Pipeline
+      label="Purchase orders by step"
+      stages={stages.filter((stage) => stage.key !== 'cancelled')}
+      aside={stages.find((stage) => stage.key === 'cancelled')}
+    />
   );
 }
 

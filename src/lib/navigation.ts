@@ -30,6 +30,8 @@ export type NavItem = {
   /** Shown in the command palette so an action can be found by intent rather
    *  than by the label someone happens to remember. */
   keywords?: string[];
+  /** A page reached from another page instead of the sidebar. That page's entry stays lit. */
+  under?: Route;
 };
 
 export type NavGroup = {
@@ -77,7 +79,18 @@ export const NAVIGATION: NavGroup[] = [
         href: '/sales' as Route,
         label: 'Sales',
         Icon: Receipt,
-        keywords: ['register', 'record a sale', 'pos', 'walk-in', 'receipts', 'revenue'],
+        keywords: [
+          'register',
+          'record a sale',
+          'pos',
+          'walk-in',
+          'receipts',
+          'revenue',
+          'invoices',
+          'receivables',
+          'outstanding',
+          'unpaid',
+        ],
       },
       {
         href: '/orders' as Route,
@@ -185,12 +198,6 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ['balance', 'cash', 'money in', 'money out', 'bank'],
       },
       {
-        href: '/invoices' as Route,
-        label: 'Invoices',
-        Icon: Receipt,
-        keywords: ['receivables', 'paid', 'outstanding'],
-      },
-      {
         href: '/obligations' as Route,
         label: 'Obligations',
         Icon: FileText,
@@ -203,28 +210,16 @@ export const NAVIGATION: NavGroup[] = [
         keywords: ['costs', 'marketing', 'tools', 'overheads'],
       },
       {
-        href: '/expenses/recurring' as Route,
-        label: 'Recurring expenses',
-        Icon: CalendarClock,
-        keywords: ['subscriptions', 'scheduled costs', 'monthly expenses'],
-      },
-      {
         href: '/commissions' as Route,
         label: 'Commissions',
         Icon: Coins,
         keywords: ['sellers', 'commission rates', 'payouts', 'sales staff'],
       },
       {
-        href: '/exchange-rates' as Route,
-        label: 'Exchange rates',
-        Icon: Coins,
-        keywords: ['fx', 'usd', 'srd'],
-      },
-      {
-        href: '/reconciliation' as Route,
-        label: 'Reconciliation',
-        Icon: FileText,
-        keywords: ['statement', 'matching', 'bank'],
+        href: '/owners',
+        label: 'Owners',
+        Icon: Users,
+        keywords: ['equity', 'capital', 'contribution', 'split', 'leonardo', 'youri'],
       },
     ],
   },
@@ -244,12 +239,6 @@ export const NAVIGATION: NavGroup[] = [
         label: 'Activity log',
         Icon: History,
         keywords: ['audit', 'history', 'who did what', 'changes', 'trail', 'log'],
-      },
-      {
-        href: '/owners',
-        label: 'Owners',
-        Icon: Users,
-        keywords: ['equity', 'capital', 'contribution', 'split', 'leonardo', 'youri'],
       },
     ],
   },
@@ -278,13 +267,62 @@ export const NAVIGATION: NavGroup[] = [
         href: '/settings',
         label: 'Settings',
         Icon: Settings,
-        keywords: ['exchange rate', 'team', 'members', 'currency', 'storage'],
+        keywords: [
+          'exchange rate',
+          'exchange rates',
+          'fx',
+          'usd',
+          'srd',
+          'team',
+          'members',
+          'currency',
+          'storage',
+        ],
       },
     ],
   },
 ];
 
-export const ALL_NAV_ITEMS: NavItem[] = NAVIGATION.flatMap((group) => group.items);
+/**
+ * Pages that belong to another page rather than to the sidebar: you get to them from that page (a
+ * tab, a card, a button) or by name from the command palette. Listing all of them in the sidebar made
+ * the Money group nine links long, most of them visited once a month.
+ */
+export const SECONDARY_NAV_ITEMS: NavItem[] = [
+  {
+    href: '/expenses/recurring' as Route,
+    label: 'Recurring expenses',
+    Icon: CalendarClock,
+    keywords: ['subscriptions', 'scheduled costs', 'monthly expenses'],
+    under: '/expenses',
+  },
+  {
+    href: '/reconciliation' as Route,
+    label: 'Reconciliation',
+    Icon: FileText,
+    keywords: ['statement', 'matching', 'bank', 'checkpoint'],
+    under: '/finance' as Route,
+  },
+  {
+    href: '/items/attention' as Route,
+    label: 'Products needing attention',
+    Icon: Package,
+    keywords: ['no photo', 'no cost', 'no category', 'problems'],
+    under: '/items',
+  },
+  {
+    href: '/inventory/count' as Route,
+    label: 'Count stock',
+    Icon: Boxes,
+    keywords: ['stocktake', 'receive stock', 'scan'],
+    under: '/inventory',
+  },
+];
+
+const SIDEBAR_ITEMS: NavItem[] = NAVIGATION.flatMap((group) => group.items);
+
+/** Every destination the command palette can reach by name. */
+export const ALL_NAV_ITEMS: NavItem[] = [...SIDEBAR_ITEMS, ...SECONDARY_NAV_ITEMS];
 
 /** Longest-prefix match, so /items/abc keeps Products lit without / matching everything. */
 export function isActivePath(pathname: string, href: string): boolean {
@@ -293,13 +331,15 @@ export function isActivePath(pathname: string, href: string): boolean {
 }
 
 /**
- * The single most specific item for a path. `/expenses/recurring` also starts with `/expenses`, and
- * both are nav items; only the longer one should be marked current.
+ * The sidebar entry to mark current for a path: the most specific match, or for a page that hangs
+ * under another (`/reconciliation` under Finance) the entry it hangs under.
  */
 export function activeNavItem(pathname: string): NavItem | undefined {
-  return ALL_NAV_ITEMS.filter((item) => isActivePath(pathname, item.href)).sort(
+  const match = ALL_NAV_ITEMS.filter((item) => isActivePath(pathname, item.href)).sort(
     (a, b) => b.href.length - a.href.length,
   )[0];
+  // A secondary page lights the sidebar entry it hangs under.
+  return match?.under ? SIDEBAR_ITEMS.find((item) => item.href === match.under) : match;
 }
 
 /** The group a path belongs to, so the sidebar can open it. */
