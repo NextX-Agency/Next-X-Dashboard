@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { type CSSProperties, Fragment, Suspense } from 'react';
 import { Arrow, ArrowOut } from '@/components/store/arrow';
+import { HeroParallax } from '@/components/store/hero-parallax';
 import { ProductCard } from '@/components/store/product-card';
 import { SafeImage } from '@/components/store/safe-image';
 import { StorePrice } from '@/components/store/store-price';
@@ -161,6 +162,20 @@ function Headline({ text }: { text: string }) {
   );
 }
 
+/**
+ * The headline broken where its commas are ("In-ears, / accessories, / earbuds."), so each line can rise
+ * into place on its own, as on the agency site. A headline without two or three short parts stays whole.
+ */
+function headlineLines(text: string): string[] {
+  const parts = text
+    .trim()
+    .split(/(?<=,)\s+/)
+    .filter(Boolean);
+  return parts.length >= 2 && parts.length <= 4 && parts.every((part) => part.length <= 18)
+    ? parts
+    : [text.trim()];
+}
+
 function Hero({
   settings,
   showcase,
@@ -181,41 +196,57 @@ function Hero({
   // The owner's words win; a placeholder ("Welcome To NextX") counts as no words at all.
   const title = ownerHeroCopy(publicText(settings?.heroTitle)) ?? DEFAULT_HERO_TITLE;
   const body = ownerHeroCopy(publicText(settings?.heroBody)) ?? DEFAULT_HERO_BODY;
+  const lines = headlineLines(title);
   // One plain line of facts that exist: the stock count, the currency, how it reaches the customer.
+  const pickupFact = settings?.pickupEnabled
+    ? publicText(settings.pickupLabel?.trim()) ||
+      (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
+    : null;
   const facts = [
     [businessName, settings?.city].filter(Boolean).join(', '),
     inStockCount > 0 ? `${plural(inStockCount, 'product')} in stock` : null,
     `Prices in ${currency}`,
-    settings?.pickupEnabled
-      ? publicText(settings.pickupLabel?.trim()) ||
-        (settings.city ? `Pickup in ${settings.city}` : 'Pickup')
-      : null,
+    pickupFact,
     settings?.deliveryEnabled ? 'Delivery available' : null,
   ].filter((fact): fact is string => Boolean(fact));
+  // The same facts, set around the turning seal on the stage.
+  const seal = [settings?.city, `Prices in ${currency}`, pickupFact, 'Order on WhatsApp']
+    .filter((word): word is string => Boolean(word))
+    .slice(0, 4);
 
   return (
-    <section aria-labelledby="home-title" className="nx-ink">
+    <section aria-labelledby="home-title" className="nx-ink nx-hero relative overflow-hidden">
       <div
         className={cn(
           SECTION,
-          'grid gap-8 py-8 sm:gap-10 sm:py-12 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-center lg:gap-14 lg:py-20',
+          'grid gap-10 pt-8 pb-12 sm:pt-12 sm:pb-16 lg:min-h-[calc(100svh-var(--nx-header-h)-5.5rem)] lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:gap-10 lg:py-16',
         )}
       >
-        <div className="flex min-w-0 flex-col">
-          <h1 id="home-title" className="nx-hero-title text-balance text-ink">
-            <Headline text={title} />
+        <div className="relative z-10 flex min-w-0 flex-col">
+          <h1 id="home-title" className="nx-hero-title text-ink">
+            {lines.map((line, index) => (
+              <span key={line} className="nx-line">
+                <span style={stagger(index)}>
+                  {index === lines.length - 1 ? <Headline text={line} /> : line}
+                  {index < lines.length - 1 ? ' ' : null}
+                </span>
+              </span>
+            ))}
           </h1>
           <p
-            className="nx-enter mt-5 max-w-[30rem] text-[17px] text-ink leading-[1.45] sm:mt-8 sm:text-[20px]"
-            style={stagger(1)}
+            className="nx-enter mt-6 max-w-[30rem] text-[17px] text-ink leading-[1.45] sm:mt-9 sm:text-[21px]"
+            style={stagger(4)}
           >
             {body}
           </p>
           <div
-            className="nx-enter mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 sm:mt-9"
-            style={stagger(2)}
+            className="nx-enter mt-7 flex flex-wrap items-center gap-x-8 gap-y-3 sm:mt-10"
+            style={stagger(5)}
           >
-            <Link href={SHOP_PATH as never} className="nx-btn nx-btn-primary group px-6">
+            <Link
+              href={SHOP_PATH as never}
+              className="nx-btn nx-btn-primary group h-14 px-7 text-[16px]"
+            >
               Shop all products <Arrow />
             </Link>
             {whatsappHref ? (
@@ -224,7 +255,7 @@ function Hero({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
-                  'group inline-flex min-h-11 items-center gap-2.5 font-semibold text-[15px] text-ink',
+                  'group inline-flex min-h-11 items-center gap-2.5 font-semibold text-[16px] text-ink',
                   FOCUS,
                 )}
               >
@@ -233,100 +264,123 @@ function Hero({
             ) : null}
           </div>
           <p
-            className="nx-enter mt-8 text-[13px] text-ink-3 leading-relaxed sm:mt-12 sm:text-[14px]"
-            style={stagger(3)}
+            className="nx-enter mt-9 text-[13px] text-ink-3 leading-relaxed sm:mt-14 sm:text-[14px]"
+            style={stagger(6)}
           >
             {facts.join(' · ')}
           </p>
         </div>
-        {showcase.length ? <Showcase products={showcase} srdRate={srdRate} /> : null}
+        {showcase.length ? (
+          <Showcase products={showcase} srdRate={srdRate} seal={seal} />
+        ) : null}
       </div>
     </section>
   );
 }
 
 /**
- * Up to three real products, large, on the brand colour. Each sits in its own white frame so its true
- * colours show (the photographs are shot on white, so they are never tinted), links to its page and
- * carries its name and price. Two products make a two-frame composition. The frames have fixed
- * proportions, so nothing moves when the photographs arrive.
+ * The stage: up to three real products as a fanned stack of white cards on a disc of the logo orange.
+ * Each card keeps the photograph's true colours (they are shot on white, so they are never tinted),
+ * links to its page and carries its name and price. The cards drift a little, lean with the pointer
+ * (`HeroParallax`) and straighten when one is pointed at; none of that happens for a visitor who asked
+ * for less motion. Every card has fixed proportions, so nothing moves when the photographs arrive.
  */
 function Showcase({
   products,
   srdRate,
+  seal,
 }: {
   products: CatalogListItem[];
   srdRate: RateMicros | undefined;
+  seal: string[];
 }) {
   const [main, second, third] = products;
   if (!main || !second) return null;
-  const frames = [
-    { product: main, className: 'col-span-2 md:col-span-7 md:row-span-6', large: true },
-    {
-      product: second,
-      className: third ? 'md:col-span-5 md:row-span-3' : 'md:col-span-5 md:row-span-6',
-      large: false,
-    },
-    ...(third
-      ? [{ product: third, className: 'md:col-span-5 md:row-span-3', large: false }]
-      : []),
+  // Painted back to front; the first product is the large card in front.
+  const cards = [
+    { product: second, slot: 'nx-stage-a', lead: false },
+    ...(third ? [{ product: third, slot: 'nx-stage-b', lead: false }] : []),
+    { product: main, slot: 'nx-stage-main', lead: true },
   ];
+  const ring = `${seal.join('  ·  ')}  ·  `;
   return (
-    <ul
-      aria-label="Products"
-      className="grid grid-cols-2 gap-2 bg-store-bright p-2 md:min-h-[480px] md:grid-cols-12 md:grid-rows-6 md:gap-3 md:p-3 lg:min-h-[560px]"
-    >
-      {frames.map(({ product, className, large }, index) => (
-        <li
-          key={product.id}
-          className={cn('min-w-0', index > 0 && 'nx-enter', className)}
-          style={index > 0 ? stagger(index) : undefined}
-        >
-          <Link
-            href={storefrontProductPath(null, product.slug) as never}
-            className="group nx-zoom-host flex h-full flex-col overflow-hidden bg-white text-[#0e0d0c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+    <div className="nx-stage">
+      <HeroParallax />
+      <ul aria-label="Products" className="contents">
+        {cards.map(({ product, slot, lead }, index) => (
+          <li
+            key={product.id}
+            className={cn('nx-stage-card', slot, !lead && 'nx-enter')}
+            style={lead ? undefined : stagger(index + 2)}
           >
-            <span
+            <Link
+              href={storefrontProductPath(null, product.slug) as never}
               className={cn(
-                'relative block min-h-0 flex-1',
-                large ? 'aspect-[3/2] md:aspect-auto' : 'aspect-square md:aspect-auto',
+                'group flex bg-white text-[#0e0d0c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white',
+                // A card at the back is half covered, so its name and price sit at its top edge.
+                lead ? 'flex-col' : 'flex-col-reverse',
               )}
             >
-              {product.image ? (
-                <Image
-                  src={product.image.url}
-                  alt=""
-                  fill
-                  // The first frame is the page's largest image: fetch it first, skip the lazy wait.
-                  fetchPriority={index === 0 ? 'high' : 'auto'}
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                  sizes={
-                    large
-                      ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 28vw'
-                      : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 20vw'
-                  }
-                  className="nx-img object-contain p-[6%]"
-                />
-              ) : null}
-            </span>
-            <span className="flex items-end justify-between gap-3 px-3.5 pt-1 pb-3.5">
-              <span className="min-w-0">
-                <span className="block truncate font-semibold text-[14px]">{product.name}</span>
-                <span className="mt-1.5 block [&_span]:text-[#0e0d0c]">
-                  <StorePrice
-                    amountCents={product.minPriceCents}
-                    currency={product.priceCurrency}
-                    srdRate={srdRate}
-                    size="sm"
+              <span className="relative block aspect-square">
+                {product.image ? (
+                  <Image
+                    src={product.image.url}
+                    alt=""
+                    fill
+                    // The front card is the page's largest image: fetch it first, skip the lazy wait.
+                    fetchPriority={lead ? 'high' : 'auto'}
+                    loading={lead ? 'eager' : 'lazy'}
+                    sizes={
+                      lead ? '(max-width: 1023px) 52vw, 22vw' : '(max-width: 1023px) 42vw, 17vw'
+                    }
+                    className="nx-img object-contain p-[8%]"
                   />
-                </span>
+                ) : null}
               </span>
-              <Arrow className="mb-1" />
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+              <span
+                className={cn(
+                  'flex items-end justify-between gap-2 px-3 sm:px-4',
+                  lead ? 'pb-3 sm:pb-4' : 'pt-3 sm:pt-4',
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-[13px] sm:text-[15px]">
+                    {product.name}
+                  </span>
+                  <span className="mt-1 block [&_span]:text-[#0e0d0c]">
+                    <StorePrice
+                      amountCents={product.minPriceCents}
+                      currency={product.priceCurrency}
+                      srdRate={srdRate}
+                      size={lead ? 'md' : 'sm'}
+                    />
+                  </span>
+                </span>
+                <Arrow className="mb-1" />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {seal.length >= 2 ? (
+        <svg aria-hidden="true" viewBox="0 0 120 120" className="nx-seal">
+          <circle cx="60" cy="60" r="60" fill="#0e0d0c" />
+          <path
+            id="nx-seal-path"
+            d="M60 60m-44 0a44 44 0 1 1 88 0a44 44 0 1 1-88 0"
+            fill="none"
+          />
+          <g className="nx-seal-ring">
+            <text fill="#eeebe5" fontSize="8.6" fontWeight="600">
+              <textPath href="#nx-seal-path" textLength="272" lengthAdjust="spacing">
+                {ring.toUpperCase()}
+              </textPath>
+            </text>
+          </g>
+          <path d="M48 60h22M62 52l8 8-8 8" stroke="#ed5f0f" strokeWidth="3" fill="none" />
+        </svg>
+      ) : null}
+    </div>
   );
 }
 

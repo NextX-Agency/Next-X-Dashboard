@@ -589,20 +589,160 @@
   line-height: 0.96;
 }
 .nx-store .nx-hero-title {
-  font-size: min(13.5vw, 4.25rem);
   font-weight: 760;
   font-variation-settings: "wdth" 112;
   letter-spacing: -0.045em;
   line-height: 0.9;
 }
-@media (min-width: 48rem) {
-  .nx-store .nx-hero-title {
-    font-size: clamp(4rem, 6.6vw, 7.25rem);
-  }
-}
 .nx-store .nx-label {
   font-family: inherit;
 }
+
+/* Hero: the headline rises line by line; the products are a fanned stack of cards on an orange disc. */
+.nx-store .nx-hero-title {
+  font-size: min(14vw, 4.5rem);
+}
+@media (min-width: 48rem) {
+  .nx-store .nx-hero-title {
+    font-size: clamp(4.25rem, 7.2vw, 6.9rem);
+  }
+}
+.nx-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+.nx-line > span {
+  display: block;
+}
+.nx-stage {
+  --px: 0;
+  --py: 0;
+  position: relative;
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+  aspect-ratio: 1 / 1.02;
+}
+/* The disc, and a soft orange light around it like the agency hero's globe. */
+.nx-stage::before,
+.nx-stage::after {
+  content: "";
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  border-radius: 50%;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+.nx-stage::before {
+  width: 150%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    closest-side,
+    rgb(237 95 15 / 0.22),
+    rgb(237 95 15 / 0.06) 60%,
+    transparent
+  );
+}
+.nx-stage::after {
+  width: 84%;
+  aspect-ratio: 1;
+  background-color: var(--nx-store-bright);
+  translate: calc(-50% + var(--px) * -6px) calc(-50% + var(--py) * -6px);
+  transition: translate 500ms var(--nx-ease);
+}
+.nx-stage-card {
+  position: absolute;
+  z-index: 1;
+  box-shadow: 0 2rem 3.5rem -1.5rem rgb(0 0 0 / 0.65);
+  translate: calc(var(--px) * var(--d, 10) * 1px) calc(var(--py) * var(--d, 10) * 1px);
+  transition:
+    translate 500ms var(--nx-ease),
+    rotate 500ms var(--nx-ease),
+    scale 500ms var(--nx-ease);
+}
+.nx-stage-a {
+  --d: 9;
+  top: 9%;
+  left: 0;
+  width: 43%;
+  rotate: -9deg;
+}
+.nx-stage-b {
+  --d: 15;
+  top: 2%;
+  right: 0;
+  width: 40%;
+  rotate: 8deg;
+}
+.nx-stage-main {
+  --d: 24;
+  z-index: 2;
+  top: 31%;
+  left: 22%;
+  width: 54%;
+  rotate: -3deg;
+}
+.nx-seal {
+  position: absolute;
+  z-index: 3;
+  left: -3%;
+  bottom: 3%;
+  width: 26%;
+  max-width: 8.5rem;
+  translate: calc(var(--px) * 30px) calc(var(--py) * 30px);
+  transition: translate 500ms var(--nx-ease);
+}
+.nx-seal-ring {
+  transform-origin: 60px 60px;
+}
+@media (hover: hover) {
+  .nx-stage-card:hover,
+  .nx-stage-card:focus-within {
+    z-index: 4;
+    rotate: 0deg;
+    scale: 1.05;
+  }
+}
+@keyframes nx-line-up {
+  from {
+    translate: 0 108%;
+  }
+}
+@keyframes nx-drift {
+  to {
+    translate: 0 -10px;
+  }
+}
+@keyframes nx-turn {
+  to {
+    rotate: 360deg;
+  }
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  .nx-line > span {
+    animation: nx-line-up 900ms var(--nx-ease) backwards;
+    animation-delay: calc(var(--i, 0) * 110ms);
+  }
+  /* Each card drifts on its own slow beat (the link moves, so the pointer lean is untouched). */
+  .nx-stage-card > a {
+    animation: nx-drift 5.5s ease-in-out infinite alternate;
+  }
+  .nx-stage-b > a {
+    animation-duration: 6.5s;
+    animation-delay: -2s;
+  }
+  .nx-stage-main > a {
+    animation-duration: 7.5s;
+    animation-delay: -4s;
+  }
+  .nx-seal-ring {
+    animation: nx-turn 26s linear infinite;
+  }
+}
+
 .nx-store .tabular {
   font-family: inherit;
   letter-spacing: -0.02em;
