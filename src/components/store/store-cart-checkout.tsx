@@ -458,7 +458,7 @@ export function StoreCartCheckout({
                             alt=""
                             fill
                             sizes="72px"
-                            className="object-contain p-1.5 mix-blend-multiply"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="grid size-full place-items-center">

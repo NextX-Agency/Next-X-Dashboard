@@ -335,11 +335,11 @@ function Showcase({
                       ? '(max-width: 767px) 90vw, (max-width: 1023px) 56vw, 30vw'
                       : '(max-width: 767px) 45vw, (max-width: 1023px) 40vw, 22vw'
                   }
-                  className="nx-img object-contain p-[6%]"
+                  className="nx-img object-cover"
                 />
               ) : null}
             </span>
-            <span className="flex items-end justify-between gap-3 px-4 pt-1 pb-3.5">
+            <span className="flex items-end justify-between gap-3 px-4 pt-3 pb-3.5">
               <span className="min-w-0">
                 <span className="block truncate font-semibold text-[14px] tracking-[-0.01em] sm:text-[15px]">
                   {product.name}
@@ -453,7 +453,7 @@ function CategoryTileCard({
               alt=""
               fill
               sizes="(max-width: 639px) 50vw, (max-width: 1023px) 30vw, 20vw"
-              className="object-contain p-[8%]"
+              className="object-cover"
             />
           </span>
         ) : null}

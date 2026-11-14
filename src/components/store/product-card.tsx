@@ -70,10 +70,7 @@ export function ProductCard({
                 ? { loading: 'eager' as const, fetchPriority: 'high' as const }
                 : {})}
               sizes={sizes}
-              className={cn(
-                'object-contain p-[8%] mix-blend-multiply',
-                !inStock && 'opacity-45',
-              )}
+              className={cn('object-cover', !inStock && 'opacity-45')}
               fallback={<NoPhoto name={product.name} />}
               {...(product.image.blurDataUrl
                 ? { placeholder: 'blur' as const, blurDataURL: product.image.blurDataUrl }
