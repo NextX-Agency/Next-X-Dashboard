@@ -458,10 +458,10 @@ function CategoryTileCard({
           </span>
         ) : null}
       </span>
-      <div className="relative z-10 flex items-end justify-between gap-4 p-5 sm:p-6">
-        <div className="min-w-0">
-          <h3 className="nx-tile-word text-balance">{tile.name}</h3>
-          <p className="mt-3 flex flex-wrap items-baseline gap-x-2 text-[14px]">
+      <div className="relative z-10 min-w-0 p-5 sm:p-6">
+        <h3 className="nx-tile-word text-balance">{tile.name}</h3>
+        <div className="mt-3 flex items-end justify-between gap-4">
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[14px]">
             {plural(tile.count, 'product')}
             {tile.fromCents !== null ? (
               <span className="inline-flex items-baseline gap-1.5 [&_span]:text-[inherit]">
@@ -476,10 +476,10 @@ function CategoryTileCard({
               </span>
             ) : null}
           </p>
+          <span className="nx-tile-go" aria-hidden="true">
+            <Arrow />
+          </span>
         </div>
-        <span className="nx-tile-go" aria-hidden="true">
-          <Arrow />
-        </span>
       </div>
     </Link>
   );
