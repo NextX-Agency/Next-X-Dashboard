@@ -7,7 +7,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 /**
- * Root-scoped, sharing `app/icon.tsx`'s reasoning: placing this file inside
+ * Root-scoped so dashboard and storefront share it: placing this file inside
  * `(store)/` empirically failed to register as a route under this project's
  * dev server. Every real share of this domain is a WhatsApp link to `/` or a
  * product, so a broken or default link preview there is a real loss.
