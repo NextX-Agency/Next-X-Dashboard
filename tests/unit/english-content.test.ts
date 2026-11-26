@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publicName, publicParagraphs, publicText } from '@/lib/english-content';
+import { publicCopy, publicName, publicParagraphs, publicText } from '@/lib/english-content';
 import { dutchWords } from '@/lib/language-audit';
 import { priceTierLabels } from '@/lib/price-tiers';
 import { STORE_DESCRIPTION, storefrontDescription } from '@/lib/store-copy';
@@ -67,6 +67,27 @@ describe('publicParagraphs', () => {
   it('handles empty input', () => {
     expect(publicParagraphs(null)).toEqual([]);
     expect(publicParagraphs('')).toEqual([]);
+  });
+});
+
+describe('publicCopy', () => {
+  const vader = [
+    'De KZ Vader heeft een afneembare 0,75 mm 2-pin kabel met 3,5 mm plug en is verkrijgbaar met of zonder microfoon.  ￼ De combinatie van meerdere drivers en verstelbare tuning maakt hem een veelzijdige keuze voor wie gedetailleerd geluid wil zonder een hoge prijs.',
+    'This paragraph is already English.',
+  ].join('\n\n');
+
+  it('translates each known paragraph, ignoring pasted-image characters, and keeps the breaks', () => {
+    const result = publicCopy(vader);
+    expect(result.split('\n\n')).toHaveLength(2);
+    expect(dutchWords(result)).toEqual([]);
+    expect(result).toContain('0.75 mm 2-pin');
+    expect(result.endsWith('This paragraph is already English.')).toBe(true);
+  });
+
+  it('leaves null and owner text alone', () => {
+    expect(publicCopy(null)).toBeNull();
+    expect(publicCopy(undefined)).toBeUndefined();
+    expect(publicCopy('Written by the owner.')).toBe('Written by the owner.');
   });
 });
 

@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { cacheLife, cacheTag } from 'next/cache';
 import { connection } from 'next/server';
-import { publicName } from '@/lib/english-content';
+import { publicCopy, publicName } from '@/lib/english-content';
 import { isDatabaseConfigured } from '@/lib/env';
 import { likeContains } from '@/lib/like';
 import { type Cents, toDecimalString } from '@/lib/money';
@@ -289,7 +289,7 @@ export async function searchCatalogVariantsForStorefront(
     name: publicName(text(row.name)),
     variantName: text(row.variant_name),
     sku: text(row.sku),
-    description: maybe(row.description),
+    description: publicCopy(maybe(row.description)),
     price: {
       amount: toDecimalString(num(row.amount_cents), storefront.defaultCurrency),
       currency: storefront.defaultCurrency,
@@ -343,7 +343,7 @@ export async function getCatalogVariantForStorefront(
     name: publicName(text(row.name)),
     variantName: text(row.variant_name),
     sku: text(row.sku),
-    description: maybe(row.description),
+    description: publicCopy(maybe(row.description)),
     attributes: parseStringRecord(row.attributes ?? null),
     price: {
       amount: toDecimalString(num(row.amount_cents), storefront.defaultCurrency),
@@ -835,7 +835,7 @@ async function queryCatalogProducts(
       id: text(row.id),
       name: publicName(text(row.name)),
       slug: text(row.public_slug),
-      summary: cleanPublicCopy(row.summary),
+      summary: publicCopy(cleanPublicCopy(row.summary)),
       categoryName: maybe(row.category_name),
       categorySlug: maybe(row.category_slug),
       brandName: maybe(row.brand_name),
@@ -1279,7 +1279,7 @@ async function readCatalogBundles(
     id: text(row.id),
     slug: text(row.slug),
     name: text(row.name),
-    summary: cleanPublicCopy(row.summary),
+    summary: publicCopy(cleanPublicCopy(row.summary)),
     priceCents: num(row.price_cents),
     availability: num(row.availability),
   }));
@@ -1337,8 +1337,8 @@ async function readCatalogBundle(storefront: PricedStorefront, slug: string) {
     id: text(bundle.id),
     name: text(bundle.name),
     slug: text(bundle.slug),
-    summary: maybe(bundle.summary),
-    description: maybe(bundle.description),
+    summary: publicCopy(cleanPublicCopy(maybe(bundle.summary))),
+    description: publicCopy(cleanPublicCopy(maybe(bundle.description))),
     storefrontImageUrl: maybe(bundle.storefront_image_url),
     bestFor: Array.isArray(bundle.best_for)
       ? bundle.best_for.filter((item): item is string => typeof item === 'string')
@@ -1381,7 +1381,7 @@ async function readHomepageCollections(
   return rows.map((row) => ({
     name: text(row.name),
     slug: text(row.slug),
-    description: maybe(row.description),
+    description: publicCopy(maybe(row.description)),
     imageUrl: maybe(row.image_url),
     productCount: num(row.product_count),
   }));
@@ -1524,8 +1524,8 @@ async function readCatalogProduct(
     code: text(row.code),
     name: publicName(text(row.name)),
     slug: text(row.public_slug),
-    summary: cleanPublicCopy(row.summary),
-    description: cleanPublicCopy(row.description),
+    summary: publicCopy(cleanPublicCopy(row.summary)),
+    description: publicCopy(cleanPublicCopy(row.description)),
     specs,
     seoTitle: maybe(row.seo_title),
     seoDescription: maybe(row.seo_description),
@@ -1566,7 +1566,7 @@ async function readCatalogProduct(
     related: related.map((item) => ({
       name: publicName(text(item.name)),
       slug: text(item.slug),
-      summary: cleanPublicCopy(item.summary),
+      summary: publicCopy(cleanPublicCopy(item.summary)),
       relationshipType: text(item.relationship_type),
     })),
   };

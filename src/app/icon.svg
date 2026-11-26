@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">NextX</title>
   <rect width="512" height="512" rx="120" fill="#ed5f0f"/>
   <g fill="none" stroke-linecap="round">
     <path d="M146 146 366 366" stroke="#0e0d0c" stroke-width="88"/>

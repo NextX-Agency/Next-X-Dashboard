@@ -26,6 +26,8 @@ stops applying. The entries can be deleted once the records are edited.
 | Product names | "…Aux Verlengkabel" (2), "KZ IEM 3.5mm Kabel" | "…Aux Extension Cable", "KZ IEM 3.5mm Cable" |
 | KZ AS16 Pro X description (2 paragraphs) | Dutch | English translation, same facts |
 | KZ AS16 Pro X specifications | Type, Kabel, Drivers values in Dutch | Same specifications in English |
+| Every other product summary and description (13 products, 30 paragraphs incl. bundles) | Dutch, imported | English translation per paragraph, same facts |
+| Bundle summaries and descriptions (5 deals) | Dutch, imported | English translation, same facts |
 
 **Owner action (recommended):** edit these in the dashboard so the English becomes the record. Product names:
 Products → the product → storefront title override (the original name is kept). The rest: Settings and the
@@ -44,6 +46,9 @@ product description. Nothing was invented: each English line translates what the
 
 ## Limits
 
-- The public JSON API (`/api/v1/storefront/*`) returns stored text as it is, so those fields are not translated.
+- The public JSON API (`/api/v1/storefront/*`) translates product names and descriptions the same way; other
+  fields are returned as stored.
+- The "KZ AS16 PRO X Deal" bundle text names KZ Vader earphones in the original. The translation keeps that,
+  so the owner should correct the record.
 - Customer-entered text (names, notes) is never changed.
 - Category names ("In-Ear Monitor", "Wireless Earbuds") were already English.
